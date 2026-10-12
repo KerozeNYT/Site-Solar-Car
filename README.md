@@ -28,6 +28,12 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `assets-src/models/*.prep.json` | Préparation de chaque modèle 3D (découpe des vitres, renommage, allègement) |
 | `design/logo/official/` | Logo officiel fourni ; `scripts/logo-assets.mjs` en dérive les versions web |
 
+## Aperçu en ligne (GitHub Pages)
+
+`.github/workflows/apercu-pages.yml` construit le site à chaque push et le publie sur la branche `gh-pages`, servie à l’adresse `https://kerozenyt.github.io/Site-Solar-Car/`. Réglage unique : *Settings → Pages → Source : Deploy from a branch → gh-pages / (root)*.
+
+Le build d’aperçu utilise `SITE_BASE=/Site-Solar-Car/` (préfixe de toutes les adresses) et `PREVIEW=1` (pages en `noindex`, `robots.txt` fermé). Pour la mise en ligne sur le vrai domaine, construire sans ces variables (`npm run build`) et renseigner `siteUrl` dans `content/site.js`.
+
 ## Ajouter ou remplacer une voiture du simulateur
 
 1. Déposer le fichier dans `assets-src/models/` (un `.usdz` se convertit d’abord : `node scripts/convert-usdz.mjs fichier.usdz sortie.glb`).

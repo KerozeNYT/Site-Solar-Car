@@ -1,0 +1,44 @@
+# Aperçu en ligne : à chaque push, le site est construit pour être servi depuis
+# https://<compte>.github.io/<dépôt>/ et publié sur la branche gh-pages.
+# Réglage à faire une seule fois : Settings > Pages > Source « Deploy from a branch »,
+# branche « gh-pages », dossier « / (root) ».
+# L'aperçu est marqué « noindex » : il ne sera pas référencé par les moteurs de recherche.
+name: Aperçu GitHub Pages
+
+on:
+  push:
+    branches: [claude/solar-car-37-website-ib2326, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apercu-pages
+  cancel-in-progress: true
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Construire le site (sous-dossier du dépôt, aperçu non indexé)
+        run: npm run build
+        env:
+          SITE_BASE: /${{ github.event.repository.name }}/
+          PREVIEW: '1'
+      - name: Publier sur la branche gh-pages
+        run: |
+          cd dist
+          touch .nojekyll
+          git init -q -b gh-pages
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Aperçu ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as esbuild from 'esbuild';
 import { renderSite } from './render.mjs';
+import { rebase, markPreview } from './rebase.mjs';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const out = path.join(root, 'dist');
@@ -63,6 +64,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   copyDir(path.join(root, 'public'), out);
   const assets = assetsFrom(res.metafile);
   const pages = await renderSite(out, assets);
+  // sub-folder hosting (GitHub Pages preview): SITE_BASE=/Site-Solar-Car/ ; PREVIEW=1 = noindex
+  const base = process.env.SITE_BASE || '/';
+  if (base !== '/') console.log('base', base, rebase(out, base).files, 'files');
+  if (process.env.PREVIEW) markPreview(out);
   const size = (f) => (fs.statSync(path.join(out, f)).size / 1024).toFixed(1) + ' KB';
   console.log('assets', Object.fromEntries(Object.entries(assets).map(([k, v]) => [k, `${v} (${size(v)})`])));
   console.log('pages', pages.length, pages.join(', '));
