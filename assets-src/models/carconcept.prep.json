@@ -1,0 +1,13 @@
+{
+  "input": "CarConcept.glb",
+  "output": "public/models/car.glb",
+  "source": "https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CarConcept",
+  "license": "CC-BY 4.0 — Eric Chadwick / Darmstadt Graphics Group GmbH (based on a CC0 model by Unity Fan). Khronos logos removed.",
+  "removeEmissiveMaps": ["Hardware", "Mirror", "Brake", "Rim1", "Rim2", ""],
+  "removeBaseMaps": ["License", "Tireside"],
+  "baseColorOverride": { "License": [0.92, 0.93, 0.95, 1], "Tireside": [0.02, 0.02, 0.02, 1] },
+  "removeNormalMaps": ["Tireside"],
+  "removeNodes": [],
+  "dropVariants": true,
+  "maxTexture": 1024
+}

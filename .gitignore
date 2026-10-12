@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.cache/
+*.log
+.DS_Store
+# raw model sources (large, licences tracked in the .prep.json files)
+assets-src/models/*.glb
+assets-src/models/*.usdz

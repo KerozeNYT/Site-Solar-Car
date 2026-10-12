@@ -1,0 +1,27 @@
+{
+  "name": "solar-car-37",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Site vitrine SOLAR CAR 37 — vitres teintées, feux teintés, detailing, ciel étoilé, rénovation de phares. Visite 3D pilotée au scroll.",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs dist 4173",
+    "stills": "node scripts/render-stills.mjs",
+    "check": "node scripts/check.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@gltf-transform/cli": "^4.5.1",
+    "esbuild": "^0.28.2",
+    "fontkit": "^2.0.4"
+  }
+}

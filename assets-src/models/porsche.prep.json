@@ -1,0 +1,12 @@
+{
+  "input": "porsche_raw.glb",
+  "output": "public/models/porsche.glb",
+  "source": "Fichier fourni par le client (Porsche_992_GT3_RS.usdz), converti en glTF avec three.js USDLoader + GLTFExporter (scripts/convert-usdz.mjs).",
+  "license": "À confirmer par le client (origine probable : Sketchfab).",
+  "removeEmissiveMaps": [],
+  "removeBaseMaps": [],
+  "removeNormalMaps": [],
+  "removeNodes": [],
+  "dropVariants": false,
+  "maxTexture": 1024
+}
