@@ -90,6 +90,11 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     uPolishX: { value: -10 },
     uPolishDir: { value: 1 },
     uPolishSide: { value: 0.55 },
+    uDirt: { value: 0 },
+    uFoam: { value: 0 },
+    uIron: { value: 0 },
+    uCeramic: { value: 0 },
+    uBeads: { value: 0 },
     uCarInv: { value: carInv },
   };
   const paintMats = new Set();
@@ -327,8 +332,13 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     o.material = m;
     dimMats.push({ m, base: m.color.clone() });
   }
-  const stars = buildStarsByRaycast(model, group, roofMeshes, glass, quality === 'high' ? 1100 : 600, starBox, ignore);
-  if (stars) group.add(stars.points);
+  const stars = buildStarsByRaycast(model, group, roofMeshes, glass, quality === 'high' ? 1400 : 900, starBox, ignore);
+  if (stars) {
+    stars.points.geometry.setDrawRange(0, Math.min(1100, stars.count));
+    group.add(stars.points);
+  }
+  const extras = stars ? buildStarExtras(stars) : null;
+  if (extras) group.add(extras.group);
 
   // ------------------------------------------------------------ doors
   const doors = {};
@@ -350,14 +360,16 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
   const anchors = computeAnchors({ box, find, P, headCenters, roofMeshes, group, starBox });
 
   const tmpQ = new THREE.Quaternion();
-  const state = { smoke: 0, brake: 0 };
+  let headOn = 0;
+  let headSmoke = 0;
+  const state = { smoke: 0, brake: 0, on: 1 };
   function applyTail() {
-    const { smoke, brake } = state;
+    const { smoke, brake, on } = state;
     tailMat.color.copy(redRed).lerp(smokeCol, smoke);
-    tailMat.emissiveIntensity = (1.6 + brake * 4.5) * (1 - 0.72 * smoke);
+    tailMat.emissiveIntensity = (0.08 + on * 1.52 + brake * 4.5) * (1 - 0.72 * smoke);
     housingMat.color.copy(housingRed).lerp(smokeCol, smoke);
-    housingMat.emissiveIntensity = (0.35 + brake * 0.8) * (1 - 0.8 * smoke);
-    for (const g of tailGlows) g.material.opacity = (0.12 + brake * 0.75) * (1 - 0.55 * smoke);
+    housingMat.emissiveIntensity = (0.02 + on * 0.33 + brake * 0.8) * (1 - 0.8 * smoke);
+    for (const g of tailGlows) g.material.opacity = (on * 0.12 + brake * 0.75) * (1 - 0.55 * smoke);
   }
   applyTail();
 
@@ -366,6 +378,7 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     box,
     anchors,
     animatedNodes: Object.values(doors).map((d) => d.node.name),
+    starCapacity: stars ? stars.count : 0,
     materials: { glass, lens, tail: tailMat, beam: beamMat, stars: stars?.points.material },
     setRearVLT(v) {
       glass.rear.opacity = vltToOpacity(v);
@@ -391,23 +404,76 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
       state.brake = v;
       applyTail();
     },
+    /** tail lights (position lamps) on/off, 0..1 */
+    setTailOn(v) {
+      state.on = v;
+      applyTail();
+    },
     setPolish(x, dir = 1) {
       polishU.uPolishX.value = x;
       polishU.uPolishDir.value = dir;
     },
     setStars(v) {
       if (stars) stars.points.material.uniforms.uOn.value = v;
+      if (extras) extras.cMat.uniforms.uOn.value = v;
       for (const d of dimMats) d.m.color.copy(d.base).multiplyScalar(1 - 0.72 * v);
+    },
+    /** starlight configurator: count, palette, options */
+    setStarlight({ count, twinkle = true, bicolor = false, c1, c2, shooting = false, constellation = null } = {}) {
+      if (!stars) return;
+      const u = stars.points.material.uniforms;
+      if (count) stars.points.geometry.setDrawRange(0, Math.min(count, stars.count));
+      u.uTwinkle.value = twinkle ? 1 : 0;
+      u.uBi.value = bicolor ? 1 : 0;
+      u.uTint.value = c1 ? 1 : 0;
+      if (c1) u.uC1.value.set(c1);
+      if (c2) u.uC2.value.set(c2);
+      if (extras) {
+        extras.shooting.visible = shooting;
+        extras.setConstellation(constellation);
+        extras.cMat.uniforms.uTint.value = c1 ? 1 : 0;
+        if (c1) extras.cMat.uniforms.uC1.value.set(c1);
+      }
+    },
+    /** repaint the body panels (null restores the model's own colour) */
+    setPaint(color) {
+      for (const m of paintMats) {
+        if (!m.userData.baseColor) m.userData.baseColor = m.color.clone();
+        if (color) m.color.set(color);
+        else m.color.copy(m.userData.baseColor);
+      }
+    },
+    setHeadSmoke(v) {
+      lens.userData.uniforms.uSmoke.value = v;
+      headMat.emissiveIntensity = (0.6 + headOn * 7) * (1 - 0.6 * v);
+      headSmoke = v;
+    },
+    /** detailing stages: 0..1 each */
+    setDetailing({ dirt = 0, foam = 0, iron = 0, ceramic = 0, beads = 0, side = 0.55 } = {}) {
+      polishU.uBeads.value = beads;
+      polishU.uDirt.value = dirt;
+      polishU.uFoam.value = foam;
+      polishU.uIron.value = iron;
+      polishU.uCeramic.value = ceramic;
+      polishU.uPolishSide.value = side;
     },
     setHeadlightClear(v) {
       lens.userData.uniforms.uClear.value = v;
     },
     setHeadlights(on) {
-      headMat.emissiveIntensity = 0.6 + on * 7;
+      headOn = on;
+      headMat.emissiveIntensity = (0.6 + on * 7) * (1 - 0.6 * headSmoke);
       beamMat.uniforms.uOn.value = on;
       for (const g of glows) g.material.opacity = on * 0.85;
     },
     update(time, viewportHeight, fovDeg) {
+      if (extras) {
+        extras.updateShooting(time);
+        const sc = viewportHeight / (2 * Math.tan(THREE.MathUtils.degToRad(fovDeg) / 2));
+        extras.cMat.uniforms.uScale.value = sc;
+        extras.sMat.uniforms.uScale.value = sc;
+        extras.cMat.uniforms.uTime.value = time;
+      }
       if (stars) {
         const u = stars.points.material.uniforms;
         u.uTime.value = time;
@@ -471,6 +537,7 @@ function buildStarsByRaycast(model, group, roofMeshes, glass, count, area = null
     }
   });
   const hitY = (x, z) => {
+    // highest point first found from below (the visible ceiling), or Infinity
     let best = Infinity;
     let glassHit = false;
     for (const t of tris) {
@@ -525,7 +592,108 @@ function buildStarsByRaycast(model, group, roofMeshes, glass, count, area = null
   points.frustumCulled = false;
   points.renderOrder = 5;
   points.userData.candidates = tris.length;
-  return { points };
+  return { points, count: pos.length / 3, foot, place: (x, z) => hitY(x, z) - 0.004 };
+}
+
+// ---------------------------------------------------------------- shooting stars & constellations
+const CONSTELLATIONS = {
+  // normalised (u along the car, v across) — enough for a recognisable pattern
+  'grande-ourse': [[0.12, 0.62], [0.26, 0.55], [0.38, 0.52], [0.5, 0.48], [0.56, 0.3], [0.78, 0.33], [0.8, 0.52]],
+  orion: [[0.3, 0.2], [0.7, 0.24], [0.44, 0.48], [0.5, 0.5], [0.56, 0.52], [0.34, 0.8], [0.68, 0.76], [0.5, 0.08]],
+  cassiopee: [[0.15, 0.4], [0.32, 0.65], [0.5, 0.42], [0.68, 0.66], [0.85, 0.38]],
+  'croix-du-sud': [[0.5, 0.12], [0.5, 0.88], [0.28, 0.46], [0.72, 0.56], [0.6, 0.66]],
+};
+
+function buildStarExtras(stars) {
+  const { foot, place } = stars;
+  const group = new THREE.Group();
+  group.name = 'starExtras';
+  const at = (u, v) => {
+    const x = THREE.MathUtils.lerp(foot.max.x - 0.08, foot.min.x + 0.08, u);
+    const z = THREE.MathUtils.lerp(foot.min.z + 0.1, foot.max.z - 0.1, v);
+    const y = place(x, z);
+    return Number.isFinite(y) ? new THREE.Vector3(x, y, z) : null;
+  };
+  // constellation: bright fibres placed on the pattern
+  const cMat = makeStarMaterial();
+  cMat.uniforms.uOn.value = 1;
+  cMat.uniforms.uTwinkle.value = 0.3;
+  const cGeo = new THREE.BufferGeometry();
+  const cPoints = new THREE.Points(cGeo, cMat);
+  cPoints.frustumCulled = false;
+  cPoints.renderOrder = 6;
+  cPoints.visible = false;
+  group.add(cPoints);
+  function setConstellation(name) {
+    const pat = CONSTELLATIONS[name];
+    cPoints.visible = !!pat;
+    if (!pat) return;
+    const pos = [];
+    for (const [u, v] of pat) {
+      const p = at(u, v);
+      if (p) pos.push(p.x, p.y, p.z);
+    }
+    const n = pos.length / 3;
+    cGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    cGeo.setAttribute('aSize', new THREE.Float32BufferAttribute(new Array(n).fill(0.016), 1));
+    cGeo.setAttribute('aPhase', new THREE.Float32BufferAttribute(Array.from({ length: n }, (_, i) => i / n), 1));
+    cGeo.setAttribute('aSeq', new THREE.Float32BufferAttribute(new Array(n).fill(0), 1));
+    cGeo.setAttribute('aColor', new THREE.Float32BufferAttribute(new Array(n * 3).fill(1), 3));
+  }
+  // shooting stars: short trails of points sliding across the headliner
+  const TRAIL = 14;
+  const N = 2;
+  const sGeo = new THREE.BufferGeometry();
+  const sPos = new Float32Array(N * TRAIL * 3);
+  const sSize = new Float32Array(N * TRAIL);
+  const sSeq = new Float32Array(N * TRAIL);
+  const sCol = new Float32Array(N * TRAIL * 3).fill(1);
+  const sPhase = new Float32Array(N * TRAIL);
+  for (let k = 0; k < N * TRAIL; k++) sSize[k] = 0.009 * (1 - (k % TRAIL) / TRAIL) + 0.002;
+  sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
+  sGeo.setAttribute('aSize', new THREE.BufferAttribute(sSize, 1));
+  sGeo.setAttribute('aPhase', new THREE.BufferAttribute(sPhase, 1));
+  sGeo.setAttribute('aSeq', new THREE.BufferAttribute(sSeq, 1));
+  sGeo.setAttribute('aColor', new THREE.BufferAttribute(sCol, 3));
+  const sMat = makeStarMaterial();
+  sMat.uniforms.uTwinkle.value = 0;
+  const shooting = new THREE.Points(sGeo, sMat);
+  shooting.frustumCulled = false;
+  shooting.renderOrder = 7;
+  shooting.visible = false;
+  group.add(shooting);
+  const paths = Array.from({ length: N }, (_, i) => ({ seed: i * 7.13 + 1.7 }));
+  function updateShooting(time) {
+    if (!shooting.visible) return;
+    const period = 3.2;
+    for (let i = 0; i < N; i++) {
+      const tt = time / period + paths[i].seed;
+      const cycle = Math.floor(tt);
+      const ph = tt - cycle;
+      const r = rng(cycle * 31 + i * 101);
+      const u0 = 0.15 + r() * 0.5;
+      const v0 = 0.15 + r() * 0.7;
+      const ang = r() * Math.PI * 2;
+      const len = 0.35 + r() * 0.25;
+      const active = ph < 0.35;
+      const prog = ph / 0.35;
+      for (let k = 0; k < TRAIL; k++) {
+        const idx = i * TRAIL + k;
+        const back = (k / TRAIL) * 0.22;
+        const u = u0 + Math.cos(ang) * len * Math.max(0, prog - back);
+        const v = v0 + Math.sin(ang) * len * Math.max(0, prog - back);
+        const p = active ? at(THREE.MathUtils.clamp(u, 0, 1), THREE.MathUtils.clamp(v, 0, 1)) : null;
+        if (p) sPos.set([p.x, p.y, p.z], idx * 3);
+        else sPos.set([0, -10, 0], idx * 3);
+        sSeq[idx] = 0;
+      }
+      const fade = active ? Math.sin(prog * Math.PI) : 0;
+      sMat.uniforms.uOn.value = 1;
+      sMat.uniforms.uBoost.value = 0.4 + 1.6 * fade;
+    }
+    sGeo.attributes.position.needsUpdate = true;
+  }
+  return { group, setConstellation, shooting, updateShooting, cMat, sMat };
 }
 
 function addContactShadow(group, box) {

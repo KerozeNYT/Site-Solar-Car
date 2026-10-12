@@ -18,8 +18,11 @@ export async function renderSite(out, assets) {
   const styleTile = await load('src/templates/styletile.js');
   const flight = await load('content/flight.js');
   const pricing = await load('content/pricing.js');
+  const vehicles = (await load('content/vehicles.js')).default;
+  // every distinct 3D model credit (tour car + simulator cars)
+  const credits = [...new Set([car, ...Object.values(vehicles).map((v) => v.config)].filter((c) => c?.credit).map((c) => c.credit.text))];
   const flightTotal = flight.beats.reduce((a, b) => a + b.vh, 0);
-  const ctx = { ...site, car, assets, flightTotal, pricing };
+  const ctx = { ...site, car, assets, flightTotal, pricing, credits };
 
   const pages = [
     ['index.html', T.homePage(ctx)],

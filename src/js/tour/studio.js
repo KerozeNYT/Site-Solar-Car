@@ -200,7 +200,7 @@ function box(w, h, d, mat, x, y, z) {
   return m;
 }
 
-export function buildPremises({ quality = 'high', logoSvg = null, signTexture = null } = {}) {
+export function buildPremises({ quality = 'high', logoSvg = null, signTexture = null, exterior: withExterior = true } = {}) {
   const hi = quality === 'high';
   const root = new THREE.Group();
   root.name = 'premises';
@@ -593,7 +593,12 @@ export function buildPremises({ quality = 'high', logoSvg = null, signTexture = 
   skyMesh.renderOrder = -1;
   root.add(skyMesh);
 
-  return {
+  if (!withExterior) {
+    reflect.remove(ext);
+    root.remove(ground);
+    traffic.length = 0;
+  }
+  const api = {
     root,
     reflect,
     hex,
@@ -607,6 +612,8 @@ export function buildPremises({ quality = 'high', logoSvg = null, signTexture = 
       }
     },
   };
+  api.update(0); // traffic starts on the road, never at the origin
+  return api;
 }
 
 // ---------------------------------------------------------------- environment for reflections

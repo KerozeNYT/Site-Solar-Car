@@ -78,19 +78,31 @@ export function injectPolish(m, uniforms) {
     if (prev) prev(sh, r);
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform mat4 uCarInv;\nvarying vec3 vCarPos;')
+      .replace('#include <common>', '#include <common>\nuniform mat4 uCarInv;\nvarying vec3 vCarPos;\nvarying vec3 vCarNormal;')
       .replace(
         '#include <project_vertex>',
-        '#include <project_vertex>\nvCarPos = (uCarInv * modelMatrix * vec4(transformed, 1.0)).xyz;'
+        '#include <project_vertex>\nvCarPos = (uCarInv * modelMatrix * vec4(transformed, 1.0)).xyz;\nvCarNormal = normalize(mat3(uCarInv) * mat3(modelMatrix) * objectNormal);'
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
         '#include <common>',
         `#include <common>
         varying vec3 vCarPos;
+        varying vec3 vCarNormal;
         uniform float uPolishX;
         uniform float uPolishDir;
         uniform float uPolishSide;
+        uniform float uDirt;
+        uniform float uFoam;
+        uniform float uIron;
+        uniform float uCeramic;
+        uniform float uBeads;
+        float h31(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
+        float vnoise(vec3 p){
+          vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(mix(h31(i), h31(i + vec3(1,0,0)), f.x), mix(h31(i + vec3(0,1,0)), h31(i + vec3(1,1,0)), f.x), f.y),
+                     mix(mix(h31(i + vec3(0,0,1)), h31(i + vec3(1,0,1)), f.x), mix(h31(i + vec3(0,1,1)), h31(i + vec3(1,1,1)), f.x), f.y), f.z);
+        }
         float swirlRings(vec3 p){
           float r = length(p.xy - vec2(floor(p.x * 2.0) / 2.0 + 0.25, 0.7));
           return 0.5 + 0.5 * sin(r * 180.0);
@@ -107,7 +119,29 @@ export function injectPolish(m, uniforms) {
         diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb, haze, 0.45) * 1.55 + vec3(0.05, 0.052, 0.055), dull);
         // the polishing pass: a warm glint travelling with the boundary
         float sideMask = smoothstep(uPolishSide - 0.06, uPolishSide + 0.06, vCarPos.z);
-        float glint = (1.0 - smoothstep(0.0, 0.035, abs(vCarPos.x - uPolishX))) * sideMask * step(abs(uPolishX), 3.0);`
+        float glint = (1.0 - smoothstep(0.0, 0.035, abs(vCarPos.x - uPolishX))) * sideMask * step(abs(uPolishX), 3.0);
+        // detailing stages: road grime, snow foam, iron fallout. The noise domain is rotated
+        // so its blobs never line up with the car's axes.
+        vec3 q = mat3(0.80, 0.36, -0.48, -0.60, 0.48, -0.64, 0.0, 0.80, 0.60) * vCarPos;
+        float n1 = vnoise(q * 7.0);
+        float n2 = vnoise(q * 38.0);
+        float fb = n1 * 0.5 + vnoise(q * 15.0) * 0.3 + n2 * 0.2;
+        float low = 1.0 - smoothstep(0.2, 1.0, vCarPos.y);
+        float grime = uDirt * clamp(0.3 + 0.8 * low + (n1 - 0.5) * 0.9, 0.0, 1.0);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.30, 0.27, 0.21), grime * 0.8);
+        roughnessFactor = mix(roughnessFactor, 0.92, grime);
+        metalnessFactor = mix(metalnessFactor, 0.0, grime);
+        // snow foam: a thick, almost continuous blanket with a bubbly texture
+        float foam = uFoam * smoothstep(0.26, 0.46, fb + 0.1 * low);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 0.97) * (0.8 + 0.2 * vnoise(q * 170.0)), foam);
+        roughnessFactor = mix(roughnessFactor, 1.0, foam);
+        metalnessFactor = mix(metalnessFactor, 0.0, foam);
+        // iron remover turning purple and running down the panels, heavier low on the body
+        float runs = vnoise(vec3(vCarPos.x * 34.0, vCarPos.y * 4.0, vCarPos.z * 34.0));
+        float iron = uIron * smoothstep(0.5, 0.7, runs * 0.65 + n2 * 0.35) * (0.45 + 0.55 * low);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.40, 0.05, 0.50), iron * 0.88);
+        roughnessFactor = mix(roughnessFactor, 0.5, iron);
+        float mud = grime + foam;`
       )
       .replace(
         '#include <lights_physical_fragment>',
@@ -115,8 +149,14 @@ export function injectPolish(m, uniforms) {
         #ifdef USE_CLEARCOAT
           material.clearcoat = mix(material.clearcoat, 0.2, dull);
           material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.4 + 0.15 * swirlRings(vCarPos), dull);
+          material.clearcoat *= 1.0 - clamp(mud, 0.0, 1.0);
+          material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.0525, uCeramic);
         #endif
-        totalEmissiveRadiance += vec3(1.0, 0.72, 0.38) * glint * 0.9;`
+        totalEmissiveRadiance += vec3(1.0, 0.72, 0.38) * glint * 0.9;
+        // ceramic coating: tight water beads catching the light on upward faces
+        vec3 cell = fract(vCarPos * vec3(26.0, 26.0, 26.0)) - 0.5;
+        float bead = (1.0 - smoothstep(0.05, 0.12, length(cell.xz))) * step(0.55, h31(floor(vCarPos * 26.0)));
+        totalEmissiveRadiance += vec3(0.42) * bead * uBeads * smoothstep(0.4, 0.9, vCarNormal.y);`
       );
   };
   m.customProgramCacheKey = () => 'polish-' + m.name;
@@ -161,7 +201,7 @@ export const vltToOpacity = (vlt) => THREE.MathUtils.clamp(1.04 - vlt * 1.2, 0.1
 // the lens along uv.x like a polishing pass.
 export function makeLens() {
   // clear by default: the lenses only look aged during the renovation demo
-  const uniforms = { uClear: { value: 1 } };
+  const uniforms = { uClear: { value: 1 }, uSmoke: { value: 0 } };
   const m = new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
     metalness: 0,
@@ -187,6 +227,7 @@ export function makeLens() {
         `#include <common>
         varying vec2 vLensUv;
         uniform float uClear;
+        uniform float uSmoke;
         float lhash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }`
       )
       .replace(
@@ -200,7 +241,10 @@ export function makeLens() {
         vec3 haze = mix(vec3(0.42, 0.29, 0.07), vec3(0.7, 0.55, 0.22), cloud * 0.7 + grain * 0.3);
         diffuseColor.rgb = mix(haze, vec3(0.02, 0.025, 0.03), c);
         diffuseColor.a = mix(0.62 + 0.2 * cloud, 0.05, c);
-        roughnessFactor = mix(0.45 + 0.25 * grain, 0.02, c);`
+        roughnessFactor = mix(0.45 + 0.25 * grain, 0.02, c);
+        // smoked film over a clear lens
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.012, 0.012, 0.014), uSmoke * c);
+        diffuseColor.a = mix(diffuseColor.a, 0.55 + 0.4 * uSmoke, uSmoke * c);`
       )
       .replace(
         '#include <opaque_fragment>',
@@ -260,6 +304,13 @@ export function makeStarMaterial() {
       uTime: { value: 0 },
       uOn: { value: 0 },
       uScale: { value: 600 },
+      uTwinkle: { value: 1 },
+      uBi: { value: 0 },
+      uC1: { value: new THREE.Color(1, 1, 1) },
+      uC2: { value: new THREE.Color(0.55, 0.7, 1) },
+      uTint: { value: 0 },
+      uBoost: { value: 1 },
+      uSize: { value: 1 },
     },
     vertexShader: /* glsl */ `
       attribute float aSize;
@@ -269,17 +320,25 @@ export function makeStarMaterial() {
       uniform float uTime;
       uniform float uOn;
       uniform float uScale;
+      uniform float uTwinkle;
+      uniform float uBi;
+      uniform vec3 uC1;
+      uniform vec3 uC2;
+      uniform float uTint;
+      uniform float uBoost;
+      uniform float uSize;
       varying vec3 vColor;
       varying float vAlpha;
       void main(){
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * mv;
-        float tw = 0.55 + 0.45 * sin(uTime * (0.8 + aPhase * 1.7) + aPhase * 40.0);
+        float tw = mix(1.0, 0.55 + 0.45 * sin(uTime * (0.8 + aPhase * 1.7) + aPhase * 40.0), uTwinkle);
         // stars light up in sequence across the headliner as uOn rises
         float on = smoothstep(aSeq, aSeq + 0.12, uOn * 1.12);
         vAlpha = on * tw;
-        vColor = aColor;
-        gl_PointSize = max(1.5, aSize * uScale / max(0.05, -mv.z));
+        vec3 pal = mix(uC1, uC2, step(0.5, fract(aPhase * 7.31)) * uBi);
+        vColor = mix(aColor, pal, uTint) * uBoost;
+        gl_PointSize = max(1.5, aSize * uSize * uScale / max(0.05, -mv.z));
       }`,
     fragmentShader: /* glsl */ `
       varying vec3 vColor;

@@ -7,7 +7,7 @@ import { buildPremises, buildEnvironment } from './studio.js';
  * Owns the WebGL renderer, the scene graph and the camera. Knows nothing about scroll:
  * the tour drives it through setView() and the effect setters on `car`.
  */
-export async function createStage(canvas, { quality = 'high', logoSvg = null, signTexture = null, maxDpr = 2, carConfig = null, onProgress, mirror: useMirror = true } = {}) {
+export async function createStage(canvas, { quality = 'high', logoSvg = null, signTexture = null, maxDpr = 2, carConfig = null, onProgress, exterior = true } = {}) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: quality === 'high',
@@ -22,7 +22,7 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
   const scene = new THREE.Scene();
   scene.environment = buildEnvironment(renderer);
 
-  const premises = buildPremises({ quality, logoSvg, signTexture });
+  const premises = buildPremises({ quality, logoSvg, signTexture, exterior });
   scene.add(premises.root);
 
   // Real model when configured, procedural car as a fallback (offline, failed download).

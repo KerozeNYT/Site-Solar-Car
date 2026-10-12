@@ -1,0 +1,157 @@
+{
+  "input": "a5_raw.glb",
+  "output": "public/models/a5.glb",
+  "source": "Fichier fourni par le client (Audi_A5_Sportback_S_Line_-_2021.usdz), converti en glTF avec scripts/convert-usdz.mjs.",
+  "license": "À confirmer par le client (licence et crédit de l'auteur à vérifier).",
+  "materialNames": [
+    {
+      "name": "paint",
+      "match": {
+        "baseColor": [
+          0.0060225,
+          0.0060225,
+          0.0060225,
+          1
+        ],
+        "metallic": 0,
+        "roughness": 0,
+        "alphaMode": "OPAQUE"
+      },
+      "tol": 0.003
+    }
+  ],
+  "groups": [
+    {
+      "name": "head_leds",
+      "match": {
+        "emissive": [
+          0.5658,
+          0.5658,
+          0.5658
+        ]
+      },
+      "tol": 0.01,
+      "box": {
+        "min": [
+          -1.3,
+          0,
+          1.8
+        ],
+        "max": [
+          1.3,
+          1.5,
+          3
+        ]
+      }
+    },
+    {
+      "name": "tail_leds",
+      "match": {
+        "emissive": [
+          1,
+          0,
+          0
+        ]
+      },
+      "tol": 0.01,
+      "box": {
+        "min": [
+          -1.3,
+          0,
+          -3
+        ],
+        "max": [
+          1.3,
+          1.5,
+          -2
+        ]
+      }
+    }
+  ],
+  "rename": {
+    "Object_219": "win_windshield",
+    "Object_756": "win_rearscreen",
+    "Object_277": "side_L",
+    "Object_276": "side_R",
+    "Object_279": "win_quarter_L",
+    "Object_278": "win_quarter_R",
+    "Object_633": "head_lens_L",
+    "Object_632": "head_lens_R"
+  },
+  "split": [
+    {
+      "node": "side_L",
+      "mode": "triangles",
+      "parts": {
+        "win_front_L": {
+          "min": [
+            0.5,
+            0.9,
+            -0.2
+          ],
+          "max": [
+            1.1,
+            1.6,
+            1.0
+          ]
+        },
+        "win_rear_L": {
+          "min": [
+            0.5,
+            0.9,
+            -1.4
+          ],
+          "max": [
+            1.1,
+            1.6,
+            -0.2
+          ]
+        }
+      }
+    },
+    {
+      "node": "side_R",
+      "mode": "triangles",
+      "parts": {
+        "win_front_R": {
+          "min": [
+            -1.1,
+            0.9,
+            -0.2
+          ],
+          "max": [
+            -0.5,
+            1.6,
+            1.0
+          ]
+        },
+        "win_rear_R": {
+          "min": [
+            -1.1,
+            0.9,
+            -1.4
+          ],
+          "max": [
+            -0.5,
+            1.6,
+            -0.2
+          ]
+        }
+      }
+    }
+  ],
+  "join": {
+    "keep": [
+      "win_",
+      "head_",
+      "tail_"
+    ]
+  },
+  "simplifyAll": {
+    "ratio": 0.5,
+    "error": 0.001
+  },
+  "maxTexture": 1024,
+  "rebuildNormals": true,
+  "dropTwinFaces": true
+}

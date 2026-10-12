@@ -75,11 +75,11 @@ export const detailing = {
   // EXAMPLE packages; `from` prices for a citadine, multiplied by the size factor
   sizeFactor: { coupe: 1, citadine: 1, berline: 1.15, break: 1.2, suv: 1.3, utilitaire: 1.4 },
   steps: [
-    { id: 'wash', label: 'Lavage manuel & mousse active' },
-    { id: 'decon', label: 'Décontamination ferreuse & argile' },
-    { id: 'polish', label: 'Polissage / correction de peinture' },
-    { id: 'ceramic', label: 'Protection céramique' },
-    { id: 'finish', label: 'Finitions jantes, pneus & vitrages' },
+    { id: 'wash', label: 'Lavage manuel & mousse active', text: 'Pré-lavage à la mousse active qui décolle la saleté sans frotter, puis lavage manuel aux deux seaux et rinçage.' },
+    { id: 'decon', label: 'Décontamination ferreuse & argile', text: 'Le décontaminant ferreux vire au violet au contact des particules métalliques incrustées ; la barre d’argile retire le reste.' },
+    { id: 'polish', label: 'Polissage / correction de peinture', text: 'La polisseuse efface micro-rayures et hologrammes, panneau par panneau : la peinture retrouve profondeur et reflets.' },
+    { id: 'ceramic', label: 'Protection céramique', text: 'Le revêtement céramique protège le vernis et rend la surface hydrophobe : l’eau perle et glisse.' },
+    { id: 'finish', label: 'Finitions jantes, pneus & vitrages', text: 'Jantes, pneus, joints, vitrages et optiques : les détails qui font la différence à la livraison.' },
   ],
   packages: [
     { id: 'essentiel', label: 'Essentiel', from: 149, steps: ['wash', 'decon', 'finish'], text: 'Remise en beauté complète, sans polissage.' },

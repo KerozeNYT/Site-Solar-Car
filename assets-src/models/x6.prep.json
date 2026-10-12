@@ -1,0 +1,29 @@
+{
+  "input": "x6.glb",
+  "output": "public/models/x6.glb",
+  "source": "Fichier fourni par le client (2016_bmw_x6_m.glb, export Sketchfab).",
+  "license": "À confirmer par le client (origine Sketchfab : licence et crédit de l'auteur à vérifier).",
+  "dropExtensions": ["KHR_materials_transmission"],
+  "scale": 100,
+  "rename": {
+    "Boot_Glass4_Mesh_001_M_Opaque_PlasticRoughBlack_Max1_": "win_rearscreen",
+    "DoorL_Glass4_Mesh_002_M_Opaque_PlasticRoughBlack_Max1_": "win_front_L",
+    "DoorR_Glass4_Mesh_003_M_Opaque_PlasticRoughBlack_Max1_": "win_front_R",
+    "FenderRL_Part_Door_Glass4_Mesh_004_M_Opaque_PlasticRoughBlack_Max1_": "win_rear_L",
+    "FenderRR_Part_Door_Glass4_Mesh_005_M_Opaque_PlasticRoughBlack_Max1_": "win_rear_R",
+    "Glass6_Mesh_006_M_Badge_Max2_": "win_windshield",
+    "Glass6_Mesh_006_M_Badge_Max3_": "win_quarter_L",
+    "Glass6_Mesh_006_M_Badge_Max4_": "win_quarter_R",
+    "TailLightL6_Mesh_037_M_LightGlass_Clear_Low_007_": "tail_lens_L",
+    "TailLightR6_Mesh_038_M_LightGlass_Clear_Low_007_": "tail_lens_R",
+    "BootLights6_Mesh_010_M_LightGlass_Clear_Low_002_": "tail_lens_boot",
+    "TailLightL6_Mesh_037_M_LightGlass_Clear_Low_008_": "tail_inner_L",
+    "TailLightR6_Mesh_038_M_LightGlass_Clear_Low_008_": "tail_inner_R",
+    "BootLights6_Mesh_010_M_LightGlass_Clear_Low_003_": "tail_inner_boot",
+    "HeadLightL6_Mesh_025_M_LightGlass_OuterClear_Low1_": "head_inner_L",
+    "HeadLightR6_Mesh_026_M_LightGlass_OuterClear_Low1_": "head_inner_R",
+    "HeadLightL6_Mesh_025_M_LightGlass_OuterClear_Low_B": "head_lens_L",
+    "HeadLightR6_Mesh_026_M_LightGlass_OuterClear_Low_B": "head_lens_R"
+  },
+  "maxTexture": 1024
+}

@@ -50,6 +50,9 @@
 *::after {
   box-sizing: border-box;
 }
+[hidden] {
+  display: none !important;
+}
 html {
   -webkit-text-size-adjust: 100%;
   scroll-padding-top: calc(var(--header-h) + 12px);
@@ -126,8 +129,11 @@ p {
 }
 .visually-hidden {
   position: absolute !important;
-  width: 1px;
-  height: 1px;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px;
+  padding: 0 !important;
+  border: 0 !important;
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
@@ -984,6 +990,19 @@ p {
   white-space: nowrap;
   font-weight: 700;
 }
+.price-table thead th.num {
+  white-space: normal;
+}
+@media (max-width: 520px) {
+  .price-table th,
+  .price-table td {
+    padding: 10px 6px;
+  }
+  .price-table thead th {
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+  }
+}
 .price-table small {
   display: block;
   color: var(--muted);
@@ -1106,6 +1125,10 @@ p {
   color: var(--on-dark);
   cursor: pointer;
 }
+.sim__views button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .sim__views button[aria-pressed='true'] {
   border-color: var(--gold-300);
   color: var(--gold-200);
@@ -1121,6 +1144,20 @@ p {
   font-size: 0.78rem;
   color: var(--on-dark-muted);
   z-index: 2;
+}
+@media (max-width: 760px) {
+  .sim__hint {
+    display: none;
+  }
+  .sim__views {
+    right: 10px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .sim__views button {
+    flex: none;
+  }
 }
 .sim:not(.is-ready) .sim__hint {
   display: none;
@@ -1231,8 +1268,7 @@ p {
   margin-top: 6px;
 }
 .zone.is-off .chips {
-  opacity: 0.4;
-  pointer-events: none;
+  opacity: 0.5;
 }
 .sim__total {
   margin: 18px 0 6px;
@@ -1302,7 +1338,7 @@ p {
   position: absolute;
   opacity: 0;
 }
-.package span {
+.package > span {
   display: block;
   padding: 14px 16px;
   border-radius: var(--radius-sm);
@@ -1354,6 +1390,84 @@ p {
 }
 .steps-rail button:not(.is-included) {
   opacity: 0.55;
+}
+
+.steps-rail button[aria-current='step'].is-included,
+.steps-rail button[aria-current='step'] {
+  opacity: 1;
+}
+.sim__state {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  width: max-content;
+  margin: 0;
+  max-width: calc(100% - 24px);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(4, 10, 20, 0.72);
+  border: 1px solid rgba(233, 205, 130, 0.35);
+  color: var(--gold-200);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  z-index: 2;
+  pointer-events: none;
+}
+.sim__view:has(.sim__tag) .sim__state {
+  top: 50px;
+}
+@media (max-width: 760px) {
+  .sim__state {
+    font-size: 0.74rem;
+  }
+}
+.sim:not(.is-ready) .sim__state {
+  display: none;
+}
+.sim__state:not([hidden]) ~ .sim__hint,
+.sim__view:has(.sim__state:not([hidden])) .sim__hint {
+  display: none;
+}
+.sim__view[data-busy]::after {
+  content: 'Chargement du véhicule…';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 10, 20, 0.35);
+  color: #fff;
+  font-weight: 600;
+  z-index: 3;
+}
+.sim__fallback {
+  position: absolute;
+  inset: auto 12px 12px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(4, 10, 20, 0.75);
+  color: var(--on-dark);
+  font-size: 0.88rem;
+}
+.sim [data-quote][aria-disabled='true'] {
+  opacity: 0.6;
+}
+[data-c2].is-off {
+  opacity: 0.45;
+}
+.is-flash {
+  animation: flash 0.9s ease;
+}
+@keyframes flash {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(192, 57, 43, 0);
+  }
+  30% {
+    box-shadow: 0 0 0 4px rgba(192, 57, 43, 0.45);
+  }
 }
 
 /* ------------------------------------------------------------------ forms */

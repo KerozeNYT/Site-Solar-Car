@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { monotone, sgnpow, clamp, lerp, smoothstep, rng } from './math.js';
+import { PRESETS } from './car-presets.js';
 import {
   makePaint,
   makeGlass,
@@ -22,85 +23,11 @@ import {
  * the two surfaces meet exactly on the belt line.
  */
 
-export const CAR = {
-  L2: 2.31,
-  axleF: 1.4,
-  axleR: -1.38,
-  axleY: 0.35,
-  tireR: 0.345,
-  archR: 0.395,
-  track: 0.8,
-};
-
-const W = monotone([
-  [-2.31, 0.8],
-  [-2.15, 0.87],
-  [-1.85, 0.925],
-  [-1.4, 0.958],
-  [-1.0, 0.95],
-  [-0.4, 0.935],
-  [0.3, 0.932],
-  [0.9, 0.94],
-  [1.4, 0.948],
-  [1.85, 0.93],
-  [2.15, 0.895],
-  [2.31, 0.85],
-]);
-const YT = monotone([
-  [-2.31, 0.835],
-  [-2.295, 0.89],
-  [-2.27, 0.918],
-  [-2.22, 0.935],
-  [-2.0, 0.942],
-  [-1.75, 0.935],
-  [-1.4, 0.925],
-  [0, 0.92],
-  [0.92, 0.915],
-  [1.3, 0.87],
-  [1.7, 0.8],
-  [1.95, 0.76],
-  [2.12, 0.725],
-  [2.22, 0.69],
-  [2.28, 0.64],
-  [2.31, 0.575],
-]);
-const YM = monotone([
-  [-2.31, 0.66],
-  [-1.8, 0.63],
-  [0, 0.6],
-  [1.8, 0.58],
-  [2.31, 0.53],
-]);
-const YB = monotone([
-  [-2.31, 0.36],
-  [-2.22, 0.3],
-  [-2.0, 0.22],
-  [-1.7, 0.19],
-  [1.75, 0.19],
-  [2.05, 0.22],
-  [2.25, 0.27],
-  [2.31, 0.31],
-]);
-// Greenhouse lift above the body top (0 at cowl and rear deck).
-const H = monotone([
-  [-1.7, 0],
-  [-1.5, 0.075],
-  [-1.2, 0.19],
-  [-0.9, 0.295],
-  [-0.6, 0.37],
-  [-0.3, 0.398],
-  [0.0, 0.4],
-  [0.2, 0.386],
-  [0.4, 0.33],
-  [0.6, 0.235],
-  [0.78, 0.12],
-  [0.92, 0],
-]);
-
+// Current shape (set by setShape before each build; the build is synchronous).
+export const CAR = {};
+let W, YT, YM, YB, H, XR, XF, END_F, END_R, D, GH;
 const N_TOP = 3.0;
 const N_BOT = 5.5;
-const XR = -1.7; // greenhouse rear base
-const XF = 0.92; // greenhouse front base (cowl)
 // Belt line: angle from the top centre of the body section to the cabin edge.
 const DELTA = Math.PI / 2 - 0.79;
 const PHI_B1 = Math.PI / 2 - DELTA;
@@ -108,9 +35,22 @@ const PHI_B2 = Math.PI / 2 + DELTA;
 const GH_M = 3.2; // greenhouse section super-ellipse exponent
 const TUMBLE = 0.13;
 
-// Plan-view rounding of the nose and tail (super-ellipse quadrants).
-const END_F = { r: 0.42, p: 3.2 };
-const END_R = { r: 0.28, p: 4.4 };
+function setShape(p) {
+  Object.assign(CAR, { L2: p.L2, axleF: p.axleF, axleR: p.axleR, axleY: p.axleY, tireR: p.tireR, archR: p.archR, track: p.track });
+  W = monotone(p.W);
+  YT = monotone(p.YT);
+  YM = monotone(p.YM);
+  YB = monotone(p.YB);
+  H = monotone(p.H);
+  XR = p.XR;
+  XF = p.XF;
+  END_F = p.endF;
+  END_R = p.endR;
+  D = p.d;
+  GH = p.gh;
+}
+setShape(PRESETS.berline);
+
 function endFactor(x) {
   const L2 = CAR.L2;
   if (x > L2 - END_F.r) {
@@ -237,7 +177,7 @@ export function greenhousePoint(x, s, out = new THREE.Vector3()) {
   bodyPoint(x, Math.PI / 2 - DELTA * t, _gb);
   const h = H(x);
   const lift = lam * h;
-  const rearPinch = 0.06 * smoothstep(-0.7, -1.7, x);
+  const rearPinch = 0.06 * smoothstep(XR + 1.0, XR, x);
   const shrink = 1 - (TUMBLE + rearPinch) * (lift / 0.4);
   return out.set(x, _gb.y + lift, _gb.z * shrink);
 }
@@ -400,7 +340,8 @@ function mirrorZ(g) {
 }
 
 // ------------------------------------------------------------------ build
-export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
+export function buildCar({ quality = 'high', paintColor = 0x163d70, preset = 'berline' } = {}) {
+  setShape(PRESETS[preset] || PRESETS.berline);
   const hi = quality === 'high';
   const k = hi ? 1 : 0.55;
   const C = makeCommon();
@@ -412,10 +353,19 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
   // ---------------- body shell
   const L2 = CAR.L2;
   const ra = CAR.archR;
+  // breakpoints: rounded ends, wheel arches and cabin opening (sorted for every preset)
+  const inner = [CAR.axleR - ra, XR, CAR.axleR + ra, XF, CAR.axleF - ra, CAR.axleF + ra]
+    .filter((x) => x > -L2 + END_R.r + 0.01 && x < L2 - END_F.r - 0.01)
+    .sort((a, b) => a - b);
+  const xBreaksBody = [-L2, -L2 + END_R.r, ...inner, L2 - END_F.r, L2];
   const xs = segments(
-    [-L2, -L2 + END_R.r, CAR.axleR - ra, XR, CAR.axleR + ra, XF, CAR.axleF - ra, CAR.axleF + ra, L2 - END_F.r, L2],
-    [30, 14, 6, 50, 120, 6, 50, 14, 34].map((n) => Math.max(4, Math.round(n * k))),
-    [tipWarpR, null, null, null, null, null, null, null, tipWarpF]
+    xBreaksBody,
+    xBreaksBody.slice(1).map((x, i) => {
+      if (i === 0) return Math.max(6, Math.round(30 * k));
+      if (i === xBreaksBody.length - 2) return Math.max(6, Math.round(34 * k));
+      return Math.max(4, Math.round((x - xBreaksBody[i]) * 60 * k));
+    }),
+    xBreaksBody.slice(1).map((_, i) => (i === 0 ? tipWarpR : i === xBreaksBody.length - 2 ? tipWarpF : null))
   );
   const phis = segments(
     [0, PHI_B1, PHI_B2, Math.PI, Math.PI * 2],
@@ -466,26 +416,24 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
     if (d < sRail) return 2;
     return 3;
   };
-  // x breakpoints per row (rear -> front). Side rows get a raked C-pillar edge.
-  const xBreaks = (s) => {
+  // Column breakpoints per row (rear -> front): side segment ends (may be raked) and the
+  // roof/glass thresholds, kept in a consistent order for every row.
+  const sideEnds = GH.side.slice(0, -1).map((sg) => sg.to);
+  const bpSpecs = [...sideEnds, GH.rearGlassTo, GH.windshieldFrom]
+    .map((to) => (Array.isArray(to) ? to : [to, to]))
+    .sort((a, b) => a[0] + a[1] - (b[0] + b[1]));
+  const sideAt = (s) => clamp(1 - Math.min(s, 1 - s) / sSide); // 1 at belt, 0 at window top
+  const valAt = (to, s) => {
     const d = Math.min(s, 1 - s);
-    const side = clamp(1 - d / sSide); // 1 at belt, 0 at window top
-    const xC = d < sSide ? lerp(-0.86, -1.17, side) : -0.86;
-    return [XR, xC, -0.64, -0.28, -0.2, 0.2, 0.72, XF];
+    return d < sSide ? lerp(to[1], to[0], sideAt(s)) : to[1];
   };
-  const xCounts = [30, 22, 34, 6, 38, 50, 16].map((n) => Math.max(3, Math.round(n * k)));
+  const xBreaks = (s) => [XR, ...bpSpecs.map((to) => valAt(to, s)), XF];
+  const beltBreaks = [XR, ...bpSpecs.map((to) => to[0]), XF];
+  const xCounts = beltBreaks.slice(1).map((x, i) => Math.max(3, Math.round((x - beltBreaks[i]) * 52 * k)));
   const gCols = xCounts.reduce((a, b) => a + b, 0) + 1;
   const colX = (s) => segments(xBreaks(s), xCounts);
   const rowXs = sRows.map(colX);
-  const segOfCol = [];
-  {
-    let c = 0;
-    xCounts.forEach((n, seg) => {
-      for (let q = 0; q < n; q++) segOfCol[c++] = seg;
-    });
-  }
   const ghGeo = gridGeometry(gCols, sRows.length, (i, j, out) => greenhousePoint(rowXs[j][i], sRows[j], out));
-  ghGeo.computeVertexNormals = THREE.BufferGeometry.prototype.computeVertexNormals;
   // belt height per vertex for the roll-down windows
   {
     const n = gCols * sRows.length;
@@ -500,21 +448,22 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
     ghGeo.setAttribute('aBelt', new THREE.BufferAttribute(belt, 1));
   }
   const classOf = (i, j) => {
-    const seg = segOfCol[i];
     const sc = (sRows[j] + sRows[j + 1]) / 2;
+    const xc = (rowXs[j][i] + rowXs[j][i + 1] + rowXs[j + 1][i] + rowXs[j + 1][i + 1]) / 4;
     const band = bandOf(sc);
     const right = sc < 0.5;
-    if (band === 3) return seg <= 1 ? 'glassRear' : seg >= 5 ? 'glassWind' : 'trim';
+    if (band === 3) return xc < GH.rearGlassTo ? 'glassRear' : xc > GH.windshieldFrom ? 'glassWind' : 'trim';
     if (band === 2) return 'trim';
-    if (band === 1) {
-      if (seg === 0) return 'paint';
-      if (seg === 1 || seg === 2) return 'glassRearSide';
-      if (seg === 3 || seg === 6) return 'trim';
-      return right ? 'glassFrontR' : 'glassFrontL';
+    let cls = GH.side[GH.side.length - 1].cls;
+    for (const sg of GH.side.slice(0, -1)) {
+      const to = Array.isArray(sg.to) ? sg.to : [sg.to, sg.to];
+      if (xc < valAt(to, sc)) {
+        cls = sg.cls;
+        break;
+      }
     }
-    if (seg === 0) return 'paint';
-    if (seg === 3 || seg === 6) return 'trim';
-    return 'chrome';
+    if (band === 1) return cls === 'glassFront' ? (right ? 'glassFrontR' : 'glassFrontL') : cls;
+    return cls === 'paint' || cls === 'trim' ? cls : 'chrome';
   };
   const ghIdx = {};
   for (let j = 0; j < sRows.length - 1; j++) {
@@ -595,15 +544,15 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
 
   // ---------------- underbody + wheel wells
   {
-    const under = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.02, 1.3), new THREE.MeshBasicMaterial({ color: 0x000000 }));
-    under.position.set(0, 0.2, 0);
+    const under = new THREE.Mesh(new THREE.BoxGeometry(CAR.L2 * 1.78, 0.02, CAR.track * 1.62), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+    under.position.set(0, YB(0) + 0.01, 0);
     group.add(under);
     const segs = hi ? 28 : 16;
     for (const xa of [CAR.axleF, CAR.axleR]) {
       for (const side of [1, -1]) {
         const R = CAR.archR - 0.004;
-        const z0 = 0.55 * side;
-        const z1 = 0.97 * side;
+        const z0 = (CAR.track - 0.25) * side;
+        const z1 = (W(xa) + 0.03) * side;
         const pos = [];
         const idx = [];
         for (let q = 0; q <= segs; q++) {
@@ -639,7 +588,8 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
   ]) {
     const w = wheel.clone();
     w.position.set(xa, CAR.axleY, CAR.track * side);
-    if (side < 0) w.scale.z = -1;
+    w.scale.setScalar(CAR.tireR / 0.345);
+    if (side < 0) w.scale.z *= -1;
     // slight steer on the front wheels for a staged look
     if (xa > 0) w.rotation.y = -0.12;
     group.add(w);
@@ -667,7 +617,7 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
       na: 34,
       nb: 6,
       wa: (t) => Math.pow(Math.sin(t * Math.PI * 0.5), 0.6),
-      at: (a, b) => ({ x: noseX(2.08, a), y: lerp(0.3, 0.44, b) }),
+      at: (a, b) => ({ x: noseX(D.grille.x0, a), y: lerp(D.grille.y0, D.grille.y1, b) }),
       offset: () => 0.0015,
     }),
     C.grille
@@ -678,7 +628,7 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
       na: 30,
       nb: 3,
       wa: (t) => Math.pow(Math.sin(t * Math.PI * 0.5), 0.6),
-      at: (a, b) => ({ x: noseX(2.24, a), y: lerp(0.585, 0.594, b) }),
+      at: (a, b) => ({ x: noseX(D.bar.x0, a), y: lerp(D.bar.y0, D.bar.y1, b) }),
       offset: () => 0.0018,
     }),
     C.led,
@@ -691,7 +641,7 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
       na: 30,
       nb: 5,
       wa: (t) => Math.pow(Math.sin(t * Math.PI * 0.5), 0.6),
-      at: (a, b) => ({ x: tailX(-2.04, a), y: lerp(0.34, 0.5, b) }),
+      at: (a, b) => ({ x: tailX(D.diffuser.x0, a), y: lerp(D.diffuser.y0, D.diffuser.y1, b) }),
       offset: () => 0.0015,
     }),
     C.grille
@@ -702,7 +652,7 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
       na: 30,
       nb: 2,
       wa: (t) => Math.pow(Math.sin(t * Math.PI * 0.5), 0.6),
-      at: (a, b) => ({ x: tailX(-2.1, a), y: lerp(0.605, 0.62, b) }),
+      at: (a, b) => ({ x: tailX(D.band.x0, a), y: lerp(D.band.y0, D.band.y1, b) }),
       offset: () => 0.0015,
     }),
     C.trim
@@ -712,7 +662,7 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
     bodyPatch({
       na: 40,
       nb: 3,
-      at: (a, b) => ({ x: lerp(CAR.axleR + ra + 0.02, CAR.axleF - ra - 0.02, a), y: lerp(0.215, 0.27, b) }),
+      at: (a, b) => ({ x: lerp(CAR.axleR + ra + 0.02, CAR.axleF - ra - 0.02, a), y: lerp(D.rocker[0], D.rocker[1], b) }),
       offset: () => 0.0015,
     }),
     C.trim
@@ -720,11 +670,7 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
   // door shut lines
   const shut = new THREE.MeshStandardMaterial({ color: 0x010102, roughness: 0.9 });
   const beltAt = (x) => bodyPoint(x, PHI_B1).y - 0.004;
-  for (const [x0, yLow] of [
-    [0.88, 0.3],
-    [-0.24, 0.24],
-    [-0.99, 0.48],
-  ]) {
+  for (const [x0, yLow] of D.doors) {
     addPatch(
       bodyPatch({
         na: 1,
@@ -736,12 +682,12 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
     );
   }
   // flush door handles
-  for (const x0 of [-0.06, -0.82]) {
+  for (const x0 of D.handles.xs) {
     addPatch(
       bodyPatch({
         na: 8,
         nb: 2,
-        at: (a, b) => ({ x: x0 + (a - 0.5) * 0.15, y: 0.785 + b * 0.022 }),
+        at: (a, b) => ({ x: x0 + (a - 0.5) * 0.15, y: D.handles.y + b * 0.022 }),
         offset: (a) => 0.0012 + 0.002 * Math.sin(a * Math.PI),
       }),
       C.satin
@@ -761,7 +707,7 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
     const stalk = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.025, 0.1), C.trim);
     stalk.position.set(0.01, -0.03, 0.03 * side);
     m.add(housing, face, stalk);
-    m.position.set(0.66, 0.9, 0.8 * side);
+    m.position.set(D.mirror[0], D.mirror[1], D.mirror[2] * side);
     group.add(m);
   }
 
@@ -769,8 +715,8 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
   const lens = makeLens();
   const lights = { glows: [], beams: [] };
   const hlAt = (a, b) => {
-    const x = lerp(1.96, 2.285, Math.pow(a, 0.85));
-    const yc = lerp(0.676, 0.598, Math.pow(a, 1.2));
+    const x = lerp(D.hl.x0, D.hl.x1, Math.pow(a, 0.85));
+    const yc = lerp(D.hl.yA, D.hl.yB, Math.pow(a, 1.2));
     const ht = 0.007 + 0.024 * Math.sin(clamp(a * 1.6) * Math.PI * 0.5) * (1 - 0.45 * smoothstep(0.7, 1, a));
     return { x, y: yc + ht * (2 * b - 1) };
   };
@@ -826,8 +772,8 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
   // ---------------- tail lights (smoked film shader)
   const tail = makeTailLens();
   const tlAt = (a, b) => {
-    const x = lerp(-1.98, -L2, a);
-    const yc = lerp(0.852, 0.84, a);
+    const x = lerp(D.tail.x0, -L2, a);
+    const yc = lerp(D.tail.yA, D.tail.yB, a);
     const ht = lerp(0.011, 0.02, smoothstep(0, 0.3, a));
     return { x, y: yc + ht * (2 * b - 1) };
   };
@@ -846,6 +792,8 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
 
   // ---------------- interior
   const interior = buildInterior(C, hi);
+  // the interior is laid out for the berline; slide it to this body's cowl and floor
+  interior.position.set(XF - 0.92, YT(0) - 0.92, 0);
   group.add(interior);
   // door caps along the belt (visible when the windows are down)
   for (const side of [1, -1]) {
@@ -853,7 +801,7 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
     const idx = [];
     const n = 40;
     for (let q = 0; q <= n; q++) {
-      const x = lerp(-0.98, 0.86, q / n);
+      const x = lerp(D.doorCap[0], D.doorCap[1], q / n);
       const p = bodyPoint(x, side > 0 ? PHI_B1 : PHI_B2);
       pos.push(x, p.y - 0.002, p.z, x, p.y - 0.006, p.z - 0.06 * side);
       if (q < n) {
@@ -870,7 +818,7 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
   }
 
   // ---------------- starlight headliner
-  const stars = buildStars(hi ? 900 : 480, sRail);
+  const stars = buildStars(hi ? 900 : 480, sRail, GH.rearGlassTo + 0.04, GH.windshieldFrom - 0.04);
   stars.name = 'stars';
   group.add(stars);
 
@@ -904,7 +852,7 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
     const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 1.5, len, hi ? 32 : 16, 1, true), beamMat);
     cone.geometry.translate(0, -len / 2, 0);
     cone.rotation.z = Math.PI / 2 + 0.06; // point along +x, slightly down
-    cone.position.set(2.2, 0.66, 0.66 * side);
+    cone.position.set(D.hl.x1 - 0.08, (D.hl.yA + D.hl.yB) / 2, (CAR.track - 0.14) * side);
     cone.rotation.y = 0.05 * side;
     cone.name = 'beam';
     cone.renderOrder = 4;
@@ -926,7 +874,7 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
     g.fillRect(0, 0, 256, 128);
     const tex = new THREE.CanvasTexture(c);
     const sh = new THREE.Mesh(
-      new THREE.PlaneGeometry(5.6, 2.6),
+      new THREE.PlaneGeometry(CAR.L2 * 2.42, CAR.track * 3.25),
       new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.85 })
     );
     sh.rotation.x = -Math.PI / 2;
@@ -979,6 +927,9 @@ export function buildCar({ quality = 'high', paintColor = 0x163d70 } = {}) {
     },
     setStars(v) {
       stars.material.uniforms.uOn.value = v;
+    },
+    setPaint(color) {
+      paint.color.set(color);
     },
     setHeadlightClear(v) {
       lens.userData.uniforms.uClear.value = v;
@@ -1182,7 +1133,7 @@ function buildInterior(C, hi) {
 }
 
 // ------------------------------------------------------------------ starlight
-function buildStars(count, sRail) {
+function buildStars(count, sRail, xMin = -0.66, xMax = 0.2) {
   const r = rng(37);
   const pos = new Float32Array(count * 3);
   const size = new Float32Array(count);
@@ -1198,7 +1149,7 @@ function buildStars(count, sRail) {
     [0.78, 0.86, 1],
   ];
   for (let i = 0; i < count; i++) {
-    const x = lerp(-0.66, 0.2, r());
+    const x = lerp(xMin, xMax, r());
     const s = lerp(sRail + 0.012, 1 - sRail - 0.012, r());
     greenhousePoint(x, s, p);
     surfNormal(greenhousePoint, x, s, n, 1e-3, 1e-4);
@@ -1208,7 +1159,7 @@ function buildStars(count, sRail) {
     size[i] = big ? lerp(0.006, 0.009, r()) : lerp(0.0022, 0.0045, r());
     phase[i] = r();
     // light-up wave: from the front of the roof towards the rear, with jitter
-    seq[i] = clamp((0.2 - x) / 0.86) * 0.8 + r() * 0.2;
+    seq[i] = clamp((xMax - x) / (xMax - xMin)) * 0.8 + r() * 0.2;
     const c = colors[Math.floor(r() * colors.length)];
     col.set(c, i * 3);
   }

@@ -9,7 +9,8 @@
     "build": "node scripts/build.mjs",
     "preview": "node scripts/serve.mjs dist 4173",
     "stills": "node scripts/render-stills.mjs",
-    "check": "node scripts/check.mjs"
+    "posters": "node scripts/render-sim-posters.mjs",
+    "model": "node scripts/prepare-model.mjs"
   },
   "engines": {
     "node": ">=20"

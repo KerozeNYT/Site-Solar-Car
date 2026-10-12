@@ -1,3 +1,5 @@
+import { simFor } from './sims.js';
+
 /**
  * Static HTML templates. Every page is rendered at build time from content/*.js so search
  * engines get complete, semantic HTML; JavaScript only adds the 3D tour and small comforts.
@@ -334,6 +336,23 @@ export function homePage(ctx) {
 }
 
 // ------------------------------------------------------------------------- service
+/** Structured prices, only for grids validated by the business (never the example prices). */
+function offersFor(ctx, slug) {
+  const { tint, vehicleTypes } = ctx.pricing;
+  if (slug !== 'vitres-teintees' || !tint.validated) return {};
+  const offer = (name, price) => ({ '@type': 'Offer', name, price: String(price), priceCurrency: tint.currency, availability: 'https://schema.org/InStock' });
+  const items = [
+    ...vehicleTypes.map((v) => offer(`Vitres teintées 3/4 arrière — ${v.label}`, tint.rearPackage[v.id])),
+    ...vehicleTypes.map((v) => offer(`Vitres teintées véhicule complet — ${v.label}`, tint.rearPackage[v.id] + tint.frontWithRear)),
+    offer('Vitres avant seules', tint.frontOnly),
+  ];
+  const prices = items.map((o) => Number(o.price));
+  return {
+    offers: { '@type': 'AggregateOffer', priceCurrency: tint.currency, lowPrice: String(Math.min(...prices)), highPrice: String(Math.max(...prices)), offerCount: String(items.length) },
+    hasOfferCatalog: { '@type': 'OfferCatalog', name: 'Tarifs de pose de films teintés', itemListElement: items },
+  };
+}
+
 export function servicePage(ctx, s) {
   const b = ctx.business;
   const others = ctx.services.filter((o) => o.slug !== s.slug);
@@ -352,6 +371,7 @@ export function servicePage(ctx, s) {
     provider: { '@id': abs(b, '/#entreprise') },
     areaServed: { '@type': 'AdministrativeArea', name: `${b.department} (${b.departmentCode})` },
     url: abs(b, `/${s.slug}/`),
+    ...offersFor(ctx, s.slug),
   };
   const body = `
   <article class="service">
@@ -362,9 +382,10 @@ export function servicePage(ctx, s) {
         <p class="kicker">${esc(b.name)} · ${esc(placeLabel(b))}</p>
         <h1>${esc(s.h1)}</h1>
         <p class="lead">${esc(s.intro)}</p>
-        <div class="ctas"><a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a><a class="btn btn--ghost" href="/#chapitre-${s.chapter}">Voir dans la visite 3D</a></div>
+        <div class="ctas"><a class="btn btn--primary" href="#simulateur" data-scroll>Simuler en 3D et voir le prix</a><a class="btn btn--ghost" href="/contact/?prestation=${s.slug}">Demander un devis</a></div>
       </div>
     </header>
+    ${simFor(ctx, s.slug)}
 
     <section class="section" aria-labelledby="benefits-${s.slug}">
       <div class="container">
@@ -474,7 +495,7 @@ export function legalPage(ctx) {
       <p>${todo(l.host?.name, 'Hébergeur')}<br>${todo(l.host?.address, 'Adresse de l’hébergeur')}</p>
       <h2>Propriété intellectuelle</h2>
       <p>Les textes, visuels et le logo de ${esc(b.name)} sont protégés. Les marques et modèles de véhicules apparaissant sur le site appartiennent à leurs propriétaires respectifs ; leur présence n’implique aucun partenariat.</p>
-      ${ctx.car.credit ? `<p>${esc(ctx.car.credit.text)}.</p>` : ''}
+      ${(ctx.credits || []).length ? `<p>Modèles 3D utilisés sur le site :</p><ul>${ctx.credits.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
       <h2 id="confidentialite">Confidentialité</h2>
       <p>Les informations transmises via le formulaire de contact servent uniquement à répondre à votre demande et ne sont ni vendues ni cédées. Vous pouvez demander leur consultation, rectification ou suppression en nous écrivant.</p>
       <p>Ce site n’utilise pas de cookie publicitaire ni d’outil de mesure d’audience tiers. Les polices de caractères sont hébergées sur le site lui-même.</p>
