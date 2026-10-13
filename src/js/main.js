@@ -132,6 +132,22 @@ if (!reduceMotion && 'IntersectionObserver' in window) {
   });
 }
 
+// ---------------------------------------------------------------- live Google reviews (lazy)
+const reviewsEl = document.querySelector('[data-reviews]');
+if (reviewsEl && 'IntersectionObserver' in window) {
+  const io = new IntersectionObserver(
+    ([en]) => {
+      if (!en.isIntersecting) return;
+      io.disconnect();
+      import('./reviews.js')
+        .then((m) => m.showReviews(reviewsEl))
+        .catch((err) => console.warn('[reviews] links kept', err));
+    },
+    { rootMargin: '300px 0px' }
+  );
+  io.observe(reviewsEl);
+}
+
 // ---------------------------------------------------------------- living gold buttons
 // each gold button gets its own rhythm so the light sweeps never fire all at once
 document.querySelectorAll('.btn--primary').forEach((btn, i) => {

@@ -324,7 +324,8 @@ function reviewsBlock(ctx) {
   const b = ctx.business;
   const r = ctx.reviews;
   const links = placeLinks(b);
-  return `<section class="section reviews" aria-labelledby="avis-title">
+  const live = b.google?.placeId && b.google?.mapsApiKey;
+  return `<section class="section reviews" aria-labelledby="avis-title"${live ? ` data-reviews data-place="${esc(b.google.placeId)}" data-key="${esc(b.google.mapsApiKey)}"` : ''}>
   <div class="container reviews__inner reveal-up">
     <div class="reviews__badge" aria-hidden="true">${ICONS.google}</div>
     <div>
@@ -340,6 +341,7 @@ function reviewsBlock(ctx) {
       ${socialLinks(b, 'social social--big')}
     </div>
   </div>
+  ${live ? '<div class="container reviews__live" data-reviews-list hidden></div>' : ''}
 </section>`;
 }
 
@@ -711,6 +713,7 @@ export function legalPage(ctx) {
       ${(ctx.credits || []).length ? `<p>Modèles 3D utilisés sur le site :</p><ul>${ctx.credits.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
       <h2 id="confidentialite">Confidentialité</h2>
       <p>Les informations transmises via le formulaire de contact servent uniquement à répondre à votre demande (devis, prise de rendez-vous) et ne sont ni vendues ni cédées. Responsable du traitement : ${esc(b.owner || b.name)}.</p>
+      ${b.google?.placeId && b.google?.mapsApiKey ? '<p>Les avis Google affichés sur le site sont chargés depuis Google Maps Platform (Google Ireland Ltd) au moment de la visite ; Google reçoit alors l’adresse IP du visiteur.</p>' : ''}
       ${b.formEndpoint && /formsubmit\.co/.test(b.formEndpoint) ? '<p>Le formulaire est acheminé par le service FormSubmit (formsubmit.co), qui transmet votre demande par e-mail à l’atelier sans la publier. Elle est ensuite conservée dans notre messagerie le temps nécessaire au suivi de votre demande.</p>' : ''}
       <p>Vous pouvez demander la consultation, la rectification ou la suppression de vos données en nous écrivant${b.email ? ` à ${esc(b.email)}` : ''}.</p>
       <p>Ce site n’utilise pas de cookie publicitaire ni d’outil de mesure d’audience tiers. Les polices de caractères sont hébergées sur le site lui-même.</p>

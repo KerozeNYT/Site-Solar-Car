@@ -48,6 +48,11 @@ export const business = {
   google: {
     profileUrl: null,
     reviewUrl: null,
+    // Live reviews (the latest Google gives, up to 5, refreshed on every visit). Needs the
+    // Place ID of the profile (Google "Place ID Finder") and a Maps JavaScript API key with
+    // the Places API (New) enabled, restricted to the site's domain (HTTP referrers).
+    placeId: null,
+    mapsApiKey: null,
   },
   // Towns close to the workshop, quoted in the "Accès" section (real places, no doorway pages).
   nearby: ['Tours', 'Rochecorbon', 'Vernou-sur-Brenne', 'Montlouis-sur-Loire', 'Saint-Pierre-des-Corps', 'Parçay-Meslay', 'Monnaie', 'Saint-Cyr-sur-Loire', 'Amboise'],
