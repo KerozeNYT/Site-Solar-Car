@@ -9,6 +9,7 @@ export async function loadParkedCar({ config, x = 0, z = 0, ry = 0, color = null
   const api = await loadCarModel(cfg, { quality });
   // polished everywhere: the boundary sits beyond the room (paint shaders work in world x here)
   api.setPolish(10, -1);
+  api.setTailOn?.(0); // parked: lights off
   api.group.traverse((o) => {
     if (o.isSprite || o.isPoints) o.visible = false;
   });

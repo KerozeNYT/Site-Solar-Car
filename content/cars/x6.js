@@ -26,6 +26,8 @@ export default {
     headLens: ['head_lens_L', 'head_lens_R'],
     hide: [],
   },
+  // lights glow from the model's own light texture (LED guides, angel-eye rings) behind glass
+  lights: { textured: true },
   windowBelt: 0.92,
   windowDrop: 0.4,
   doors: {},

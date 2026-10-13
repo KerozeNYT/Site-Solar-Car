@@ -185,21 +185,57 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
   setMat(find(P.rearWindows), glass.rear);
 
   // ------------------------------------------------------------ tail lights (smoked film)
+  // `lights.textured`: the model's own light texture drives the glow (LED light guides,
+  // rings, reflectors light up, the housing stays dark) behind a tinted glass lens.
+  const textured = !!cfg.lights?.textured;
   const tailMeshes = find(P.tailLights);
-  const tailMat = new THREE.MeshPhysicalMaterial({
-    color: 0x3a0204,
-    emissive: 0xff1810,
-    emissiveIntensity: 2.2,
-    roughness: 0.12,
-    clearcoat: 1,
-    clearcoatRoughness: 0.03,
-  });
-  setMat(tailMeshes, tailMat, 0);
+  const tailMat = textured
+    ? new THREE.MeshPhysicalMaterial({
+        color: 0x6a0608,
+        emissive: 0xff1810,
+        emissiveIntensity: 0,
+        roughness: 0.04,
+        metalness: 0,
+        clearcoat: 1,
+        clearcoatRoughness: 0.02,
+        transparent: true,
+        opacity: 0.42,
+        depthWrite: false,
+      })
+    : new THREE.MeshPhysicalMaterial({
+        color: 0x3a0204,
+        emissive: 0xff1810,
+        emissiveIntensity: 2.2,
+        roughness: 0.12,
+        clearcoat: 1,
+        clearcoatRoughness: 0.03,
+      });
+  setMat(tailMeshes, tailMat, textured ? 3 : 0);
   const signalMat = new THREE.MeshPhysicalMaterial({ color: 0x2a1404, emissive: 0xff7a10, emissiveIntensity: 0.0, roughness: 0.15 });
   setMat(find(P.tailSignals), signalMat, 0);
   const housingMeshes = find(P.tailHousing);
-  const housingMat = new THREE.MeshPhysicalMaterial({ color: 0x1a0507, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.04, emissive: 0x6a0306, emissiveIntensity: 0.35 });
+  const housingMat = textured && housingMeshes.length
+    ? litFromTexture(housingMeshes[0].material, 0xff2614)
+    : new THREE.MeshPhysicalMaterial({ color: 0x1a0507, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.04, emissive: 0x6a0306, emissiveIntensity: 0.35 });
   setMat(housingMeshes, housingMat, 0);
+  // red light on the bumper and the floor while the lights are on / braking
+  const tailBox = new THREE.Box3();
+  group.updateMatrixWorld(true);
+  tailMeshes.forEach((m) => tailBox.expandByObject(m, true));
+  tailBox.applyMatrix4(new THREE.Matrix4().copy(group.matrixWorld).invert());
+  // one red light per side, just behind each cluster
+  const tailLights = [new THREE.PointLight(0xff2010, 0, 1.8, 2), new THREE.PointLight(0xff2010, 0, 1.8, 2)];
+  const tailLight = { set intensity(v) { tailLights.forEach((l) => (l.intensity = v)); } };
+  const spill = makeSpill(0xff1a0c);
+  if (!tailBox.isEmpty()) {
+    const c = tailBox.getCenter(new THREE.Vector3());
+    tailLights[0].position.set(tailBox.min.x - 0.2, c.y, tailBox.min.z + 0.18);
+    tailLights[1].position.set(tailBox.min.x - 0.2, c.y, tailBox.max.z - 0.18);
+    group.add(...tailLights);
+    spill.position.set(tailBox.min.x - 0.45, 0.008, c.z);
+    spill.scale.set(1.5, 1, Math.max(1.6, (tailBox.max.z - tailBox.min.z) * 1.5));
+    group.add(spill);
+  }
   // brake glow: a row of soft sprites along the light bar
   const tailGlows = [];
   {
@@ -222,7 +258,9 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
 
   // ------------------------------------------------------------ headlights + renovation lens
   const headMeshes = find(P.headLights);
-  const headMat = new THREE.MeshStandardMaterial({ color: 0x0d1013, emissive: 0xd6ecff, emissiveIntensity: 0.6, roughness: 0.25, metalness: 0.6 });
+  const headMat = textured && headMeshes.length
+    ? litFromTexture(headMeshes[0].material, 0xd9ecff)
+    : new THREE.MeshStandardMaterial({ color: 0x0d1013, emissive: 0xd6ecff, emissiveIntensity: 0.6, roughness: 0.25, metalness: 0.6 });
   setMat(headMeshes, headMat, 0);
   const lens = makeLens();
   const glows = [];
@@ -407,6 +445,22 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
   const tailEmitSmoked = new THREE.Color(0xb00606);
   function applyTail() {
     const { smoke, brake, on } = state;
+    if (textured) {
+      // tinted glass over lit light guides: the film darkens the glass, the LEDs show through
+      const through = Math.pow(1 - Math.min(smoke, 0.98), 1.4);
+      tailMat.color.copy(redRed).multiplyScalar(2.2).lerp(smokeCol, Math.min(1, smoke * 1.1));
+      tailMat.opacity = 0.42 + 0.5 * smoke;
+      tailMat.emissive.copy(tailEmit);
+      tailMat.emissiveIntensity = (on * 0.12 + brake * 0.5) * through;
+      housingMat.emissiveIntensity = (0.05 + on * 2.2) * through + brake * 9 * (1 - 0.75 * smoke);
+      const glow = (on * 0.2 + brake * 1.0) * (1 - 0.7 * smoke);
+      tailLight.intensity = glow * 1.6;
+      // only braking lights the floor visibly
+      spill.material.opacity = brake * (1 - 0.7 * smoke) * 0.3;
+      // the halo comes from the lit light guides (and the bloom), not from sprites
+      for (const g of tailGlows) g.material.opacity = 0;
+      return;
+    }
     // share of the lamp light that gets through the film (80 % film: a few percent of the
     // position lights, the brake light still clearly visible)
     const pass = Math.pow(1 - Math.min(smoke, 0.98), 1.6);
@@ -416,6 +470,9 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     housingMat.color.copy(housingRed).lerp(smokeCol, smoke);
     housingMat.emissiveIntensity = (0.02 + on * 0.33) * pass + brake * 0.8 * (1 - 0.8 * smoke);
     for (const g of tailGlows) g.material.opacity = (on * 0.12 + brake * 0.75) * (1 - 0.6 * smoke);
+    const glow = (on * 0.2 + brake * 0.9) * (1 - 0.7 * smoke);
+    tailLight.intensity = glow * 1.2;
+    spill.material.opacity = brake * (1 - 0.7 * smoke) * 0.25;
   }
   applyTail();
 
@@ -1049,5 +1106,79 @@ async function addPlate(group, model, box, { y = 0.47, z = 0, text = 'SOLAR CAR 
   plate.position.copy(p).addScaledVector(n, 0.004);
   plate.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
   group.add(plate);
+}
+
+/**
+ * Light material built from the model's own light texture: the bright parts of its base
+ * colour (LED light guides, rings, reflectors) become the emissive map, so the lamp lights up
+ * with its real inner shapes while the housing stays dark.
+ */
+const brightMaps = new WeakMap();
+function litFromTexture(original, color) {
+  const src = Array.isArray(original) ? original[0] : original;
+  const m = src.clone();
+  m.emissive = new THREE.Color(color);
+  m.emissiveIntensity = 0;
+  const map = src.map;
+  const img = map?.image;
+  if (img && (img.width || img.naturalWidth)) {
+    let em = brightMaps.get(map);
+    if (!em) {
+      const w = img.width || img.naturalWidth;
+      const h = img.height || img.naturalHeight;
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const g = c.getContext('2d', { willReadFrequently: true });
+      g.drawImage(img, 0, 0);
+      const d = g.getImageData(0, 0, w, h);
+      for (let i = 0; i < d.data.length; i += 4) {
+        const l = (0.2126 * d.data[i] + 0.7152 * d.data[i + 1] + 0.0722 * d.data[i + 2]) / 255;
+        // only the near-white parts glow
+        const t = Math.min(1, Math.max(0, (l - 0.84) / 0.13));
+        const v = Math.round(t * t * (3 - 2 * t) * 255);
+        d.data[i] = d.data[i + 1] = d.data[i + 2] = v;
+        d.data[i + 3] = 255;
+      }
+      g.putImageData(d, 0, 0);
+      em = new THREE.CanvasTexture(c);
+      em.flipY = map.flipY;
+      em.wrapS = map.wrapS;
+      em.wrapT = map.wrapT;
+      em.channel = map.channel;
+      if (map.matrixAutoUpdate === false || map.matrix) {
+        em.offset.copy(map.offset);
+        em.repeat.copy(map.repeat);
+        em.rotation = map.rotation;
+      }
+      brightMaps.set(map, em);
+    }
+    m.emissiveMap = em;
+  }
+  // a darker housing so the lit parts stand out
+  m.color = (m.color || new THREE.Color(1, 1, 1)).clone().multiplyScalar(0.55);
+  m.needsUpdate = true;
+  return m;
+}
+
+/** soft radial light on the floor (additive), e.g. red brake light behind the car */
+function makeSpill(color) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.45, 'rgba(255,255,255,0.35)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), color, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.name = 'spill';
+  m.renderOrder = 2;
+  return m;
 }
 

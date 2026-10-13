@@ -8,7 +8,7 @@ import { loadParkedCar } from './parked.js';
  * Owns the WebGL renderer, the scene graph and the camera. Knows nothing about scroll:
  * the tour drives it through setView() and the effect setters on `car`.
  */
-export async function createStage(canvas, { quality = 'high', logoSvg = null, signTexture = null, maxDpr = 2, carConfig = null, onProgress, exterior = true } = {}) {
+export async function createStage(canvas, { quality = 'high', logoSvg = null, signTexture = null, maxDpr = 2, carConfig = null, onProgress, exterior = true, bloom = false } = {}) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: quality === 'high',
@@ -43,7 +43,7 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
   const mirror = premises.reflect.clone(true);
   mirror.scale.y = -1;
   mirror.name = 'mirror';
-  const hiddenInMirror = new Set(['sky', 'beam', 'shadow', 'stars', 'starLiner', 'floorFx', 'spray']);
+  const hiddenInMirror = new Set(['sky', 'beam', 'shadow', 'stars', 'starLiner', 'floorFx', 'spray', 'spill']);
   mirror.traverse((o) => {
     if (hiddenInMirror.has(o.name) || o.isSprite) o.visible = false;
   });
@@ -70,6 +70,27 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
   const camera = new THREE.PerspectiveCamera(50, 1, 0.02, 600);
   scene.add(camera);
 
+  // optional glow around bright lights (lamps, LEDs, the hex ceiling): loaded only when asked
+  let composer = null;
+  if (bloom) {
+    try {
+      const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }] = await Promise.all([
+        import('three/addons/postprocessing/EffectComposer.js'),
+        import('three/addons/postprocessing/RenderPass.js'),
+        import('three/addons/postprocessing/UnrealBloomPass.js'),
+        import('three/addons/postprocessing/OutputPass.js'),
+      ]);
+      composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: quality === 'high' ? 4 : 0 }));
+      composer.addPass(new RenderPass(scene, camera));
+      // only the brightest sources bloom (lamps, LEDs), not the sign or the paint
+      composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.3, 0.4, 1.5));
+      composer.addPass(new OutputPass());
+    } catch (err) {
+      console.warn('[stage] bloom unavailable', err);
+      composer = null;
+    }
+  }
+
   const state = { w: 1, h: 1, dpr: 1, offsetX: 0, offsetY: 0 };
   function resize(w, h, dpr = Math.min(window.devicePixelRatio || 1, maxDpr)) {
     state.w = w;
@@ -77,6 +98,10 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
     state.dpr = dpr;
     renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
+    if (composer) {
+      composer.setPixelRatio(dpr);
+      composer.setSize(w, h);
+    }
     camera.aspect = w / h;
     applyOffset();
     camera.updateProjectionMatrix();
@@ -139,7 +164,8 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
     for (let i = 0; i < mirrorTraffic.length; i++) mirrorTraffic[i].position.copy(premises.traffic[i].position);
     for (const [a, b] of sync) b.quaternion.copy(a.quaternion);
     car.update(time, state.h * state.dpr, camera.fov);
-    renderer.render(scene, camera);
+    if (composer) composer.render();
+    else renderer.render(scene, camera);
   }
 
   return { renderer, scene, camera, car, premises, resize, setView, render, park, state };

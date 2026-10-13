@@ -176,6 +176,7 @@ async function createStudioViewer(container, canvas, { quality, car = null, onPr
     carConfig,
     signTexture: '/img/brand/enseigne.webp',
     exterior: false,
+    bloom: quality === 'high',
     maxDpr: quality === 'high' ? 2 : 1.5,
     onProgress,
   });
@@ -209,7 +210,7 @@ function studioParking(shown) {
 }
 
 /** bounds of the car body only: light beams, shadows, stars and glows would stretch the box */
-const NOT_BODY = new Set(['beam', 'shadow', 'stars', 'starExtras', 'floorFx', 'spray']);
+const NOT_BODY = new Set(['beam', 'shadow', 'stars', 'starExtras', 'floorFx', 'spray', 'spill']);
 function bodyBox(group) {
   const box = new THREE.Box3();
   group.updateMatrixWorld(true);
