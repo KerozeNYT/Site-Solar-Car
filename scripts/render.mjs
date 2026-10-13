@@ -20,10 +20,11 @@ export async function renderSite(out, assets) {
   const pricing = await load('content/pricing.js');
   const vehicles = (await load('content/vehicles.js')).default;
   const { guides, guidesPage } = await load('content/guides.js');
+  const { zones, zonesPage } = await load('content/zones.js');
   // every distinct 3D model credit (tour car + simulator cars)
   const credits = [...new Set([car, ...Object.values(vehicles).map((v) => v.config)].filter((c) => c?.credit).map((c) => c.credit.text))];
   const flightTotal = flight.beats.reduce((a, b) => a + b.vh, 0);
-  const ctx = { ...site, car, assets, flightTotal, pricing, credits, guides, guidesPage };
+  const ctx = { ...site, car, assets, flightTotal, pricing, credits, guides, guidesPage, zones, zonesPage };
 
   const pages = [
     ['index.html', T.homePage(ctx)],
@@ -35,6 +36,8 @@ export async function renderSite(out, assets) {
     ['atelier-vouvray/index.html', T.atelierPage(ctx)],
     ['guides/index.html', T.guidesIndexPage(ctx)],
     ...guides.map((g) => [`guides/${g.slug}/index.html`, T.guidePage(ctx, g)]),
+    ['zones-intervention/index.html', T.zonesIndexPage(ctx)],
+    ...zones.map((z) => [`${z.slug}/index.html`, T.zonePage(ctx, z)]),
   ];
   for (const [rel, html] of pages) {
     const file = path.join(out, rel);
@@ -52,6 +55,8 @@ export async function renderSite(out, assets) {
     ['/contact/', '0.8', null],
     ['/guides/', '0.6', null],
     ...guides.map((g) => [`/guides/${g.slug}/`, '0.6', g.still, g.updated]),
+    ['/zones-intervention/', '0.6', null],
+    ...zones.map((z) => [`/${z.slug}/`, '0.6', null]),
     ['/mentions-legales/', '0.2', null],
   ];
   fs.writeFileSync(

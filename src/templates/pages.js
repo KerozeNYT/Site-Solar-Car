@@ -249,6 +249,10 @@ function footer(ctx) {
       <h2 class="site-footer__title">Prestations</h2>
       <ul>${ctx.services.map((s) => `<li><a href="/${s.slug}/">${esc(s.name)}</a></li>`).join('')}</ul>
     </nav>
+    ${ctx.zones?.length ? `<nav aria-label="Zones d’intervention">
+      <h2 class="site-footer__title">Zones d’intervention</h2>
+      <ul class="site-footer__zones">${ctx.zones.map((z) => `<li><a href="/${z.slug}/">${esc(z.town)}</a></li>`).join('')}<li><a href="${ctx.zonesPage.path}">Toutes les communes</a></li></ul>
+    </nav>` : ''}
     <nav aria-label="Informations">
       <h2 class="site-footer__title">Informations</h2>
       <ul><li><a href="/contact/">Contact &amp; devis</a></li><li><a href="/atelier-vouvray/">L’atelier à ${esc(b.address?.city || '')}</a></li><li><a href="/guides/">Guides pratiques</a></li><li><a href="${esc(links.maps)}" rel="noopener" target="_blank">Nos avis Google</a></li><li><a href="/mentions-legales/">Mentions légales</a></li></ul>
@@ -882,3 +886,136 @@ export function notFoundPage(ctx) {
   </section>`;
   return page(ctx, { title: `Page introuvable | ${ctx.business.name}`, description: ctx.home.seo.description, path: '/404.html', noindex: true }, body);
 }
+
+// ------------------------------------------------------------------------- local pages (towns)
+const DIRS = ['au nord', 'au nord-est', 'à l’est', 'au sud-est', 'au sud', 'au sud-ouest', 'à l’ouest', 'au nord-ouest'];
+const dirFrom = (bearing) => DIRS[Math.round(bearing / 45) % 8];
+const kmFr = (n) => String(n).replace('.', ',');
+const deTown = (t) => (/^[AEIOUYÉÈ]/i.test(t) ? `d’${t}` : /^Le /.test(t) ? `du ${t.slice(3)}` : `de ${t}`);
+
+/** short price line per service, from content/pricing.js */
+function priceHint(ctx, slug) {
+  const P = ctx.pricing;
+  const f = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+  if (slug === 'vitres-teintees') return `dès ${f(Math.min(...Object.values(P.tint.rearPackage)))} TTC`;
+  if (slug === 'feux-arriere-teintes') return `${P.lights.perPair.min} à ${f(P.lights.perPair.max)} TTC la paire`;
+  if (slug === 'renovation-phares') return `${f(P.headlights.renovation)} TTC les deux phares`;
+  return 'sur devis';
+}
+
+export function zonePage(ctx, z) {
+  const { business: b, services, zonesPage: zp } = ctx;
+  const town = z.town;
+  const dir = dirFrom(z.bearing);
+  const from = deTown(town);
+  const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(`${town}, France`)}&destination=${encodeURIComponent(addressLine(b))}`;
+  const roadName = (r) => (r.refs?.includes('A10') ? `l’A10 (${r.name})` : r.name);
+  const faq = [
+    {
+      q: `Quelle distance entre ${town} et l’atelier ?`,
+      a: `Environ ${kmFr(z.roadKm)} km par la route depuis le centre ${from} (${kmFr(z.crowKm)} km à vol d’oiseau) : l’atelier est ${dir} ${from}, à Vouvray, ${b.address.street}.`,
+    },
+    {
+      q: 'Faut-il prendre rendez-vous ?',
+      a: `Oui, chaque prestation se fait sur rendez-vous, ${b.hoursText.charAt(0).toLowerCase() + b.hoursText.slice(1)}. Appelez le ${b.phone} ou envoyez votre demande de devis en ligne.`,
+    },
+    {
+      q: `Les tarifs sont-ils les mêmes pour un client ${from} ?`,
+      a: `Oui, les prix sont identiques pour tous et affichés TTC : vitres teintées ${priceHint(ctx, 'vitres-teintees')}, feux teintés ${priceHint(ctx, 'feux-arriere-teintes')}, rénovation de phares ${priceHint(ctx, 'renovation-phares')} ; ciel étoilé et detailing sur devis.`,
+    },
+  ];
+  const others = ctx.zones.filter((o) => o.slug !== z.slug).sort((a, c) => Math.abs(a.roadKm - z.roadKm) - Math.abs(c.roadKm - z.roadKm)).slice(0, 6);
+  const body = `
+  <section class="section page-intro">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li><a href="${zp.path}">Zones d’intervention</a></li><li aria-current="page">${esc(town)}</li></ol></nav>
+      <p class="kicker">${esc(town)} · à ${kmFr(z.roadKm)} km de l’atelier</p>
+      <h1>Vitres teintées, detailing et rénovation de phares près ${esc(from)}</h1>
+      <p class="lead">Vous êtes à ${esc(town)} ? L’atelier ${esc(b.name)} vous accueille à Vouvray, ${esc(dir)} ${esc(from)}, à ${kmFr(z.roadKm)} km par la route : films solaires homologués, feux teintés, rénovation de phares, ciel étoilé et detailing, sur rendez-vous.</p>
+      <div class="ctas"><a class="btn btn--primary" href="/contact/">Demander un devis</a><a class="btn btn--ghost" href="${esc(route)}" rel="noopener" target="_blank">${ICONS.route} Itinéraire depuis ${esc(town)}</a></div>
+    </div>
+  </section>
+  <section class="section section--paper" aria-labelledby="trajet-title">
+    <div class="container container--narrow">
+      <h2 id="trajet-title">Venir ${esc(from)} à l’atelier</h2>
+      <p>Environ <strong>${kmFr(z.roadKm)} km</strong> par la route depuis le centre ${esc(from)}. Le trajet le plus direct :</p>
+      <ol class="route-steps">${z.roads.map((r) => `<li><strong>${esc(roadName(r))}</strong><span>${kmFr(r.km)} km</span></li>`).join('')}<li><strong>${esc(b.address.street)}</strong><span>ZA de l’Étang Vignon, ${esc(b.address.postalCode)} Vouvray</span></li></ol>
+      <p class="price-note">Trajet indicatif calculé sur le réseau routier OpenStreetMap ; votre GPS peut proposer une autre route selon la circulation.</p>
+    </div>
+  </section>
+  <section class="section" aria-labelledby="zone-services">
+    <div class="container">
+      <h2 id="zone-services">Nos prestations pour les conducteurs ${esc(from)}</h2>
+      <ul class="related__list">${services.map((s) => `<li><a href="/${s.slug}/"><strong>${esc(s.name)}</strong><span>${esc(s.short)} <em class="zone-price">${esc(priceHint(ctx, s.slug))}</em></span></a></li>`).join('')}</ul>
+    </div>
+  </section>
+  ${faqBlock(faq, `Questions de nos clients ${from}`)}
+  ${visitBlock(ctx, { title: 'L’atelier, à Vouvray', id: 'atelier' })}
+  <section class="section related" aria-labelledby="zones-near">
+    <div class="container">
+      <h2 id="zones-near">Nous accueillons aussi les conducteurs de…</h2>
+      <ul class="zone-links">${others.map((o) => `<li><a href="/${o.slug}/">${esc(o.town)} <span>${kmFr(o.roadKm)} km</span></a></li>`).join('')}<li><a href="${zp.path}">Toutes les communes</a></li></ul>
+    </div>
+  </section>
+  ${ctaBand(ctx)}`;
+  const path = `/${z.slug}/`;
+  const serviceLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: `Vitres teintées, detailing et rénovation de phares près ${from}`,
+    serviceType: 'Pose de films solaires, detailing automobile',
+    provider: { '@id': abs(b, '/#entreprise') },
+    areaServed: { '@type': 'City', name: town, address: { '@type': 'PostalAddress', addressRegion: b.department, addressCountry: 'FR' } },
+    url: abs(b, path),
+  };
+  return page(
+    ctx,
+    {
+      // titles kept under ~65 characters, descriptions under ~160
+      title: (`Vitres teintées & detailing près ${from} | SOLAR CAR 37`.length > 66 ? `Vitres teintées près ${from} | SOLAR CAR 37` : `Vitres teintées & detailing près ${from} | SOLAR CAR 37`),
+      description: [`${town} : atelier SOLAR CAR 37 à ${kmFr(z.roadKm)} km par la route (Vouvray).`, `Vitres teintées dès 210 € TTC, feux teintés, phares 79 €, detailing.`, 'Trajet et devis.']
+        .reduce((acc, part) => ((acc + ' ' + part).trim().length <= 160 ? (acc + ' ' + part).trim() : acc), ''),
+      path,
+      image: '/stills/hero-1600.jpg',
+      bodyClass: 'page-zone',
+      extra: [ld(localBusiness(ctx)), ld(serviceLd), ld(faqLd(faq)), ld(breadcrumbLd(b, [{ name: 'Accueil', path: '/' }, { name: 'Zones d’intervention', path: zp.path }, { name: town, path }]))].join('\n'),
+    },
+    body
+  );
+}
+
+export function zonesIndexPage(ctx) {
+  const { business: b, zonesPage: zp } = ctx;
+  const sorted = [...ctx.zones].sort((a, c) => a.roadKm - c.roadKm);
+  const body = `
+  <section class="section page-intro">
+    <div class="container container--narrow">
+      <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li aria-current="page">Zones d’intervention</li></ol></nav>
+      <h1>${esc(zp.h1)}</h1>
+      <p class="lead">${esc(zp.intro)}</p>
+    </div>
+  </section>
+  <section class="section section--tight">
+    <div class="container">
+      <ul class="zone-grid">${sorted
+        .map(
+          (z) => `<li><a href="/${z.slug}/"><strong>${esc(z.town)}</strong><span>${kmFr(z.roadKm)} km par la route · ${esc(dirFrom((z.bearing + 180) % 360).replace(/^(au|à l’) ?/, ''))} de l’atelier</span></a></li>`
+        )
+        .join('')}</ul>
+    </div>
+  </section>
+  ${visitBlock(ctx, { title: 'L’atelier, à Vouvray', id: 'atelier' })}
+  ${ctaBand(ctx)}`;
+  return page(
+    ctx,
+    {
+      title: zp.seo.title,
+      description: zp.seo.description,
+      path: zp.path,
+      bodyClass: 'page-zones',
+      extra: [ld(localBusiness(ctx)), ld(breadcrumbLd(b, [{ name: 'Accueil', path: '/' }, { name: 'Zones d’intervention', path: zp.path }]))].join('\n'),
+    },
+    body
+  );
+}
+

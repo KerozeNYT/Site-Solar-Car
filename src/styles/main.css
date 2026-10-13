@@ -1116,6 +1116,104 @@ p {
   color: var(--muted);
   font-size: 0.95rem;
 }
+/* local pages */
+.zone-price {
+  display: block;
+  margin-top: 6px;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--gold-700);
+}
+.route-steps {
+  counter-reset: step;
+  list-style: none;
+  margin: 18px 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+}
+.route-steps li {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 12px 0 12px 44px;
+  border-bottom: 1px solid var(--line);
+}
+.route-steps li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--navy-900);
+  color: var(--gold-300);
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+.route-steps li:last-child::before {
+  content: '★';
+  background: var(--gold-metal);
+  color: var(--navy-900);
+}
+.route-steps span {
+  color: var(--muted);
+}
+.zone-links,
+.zone-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.zone-links a {
+  display: inline-flex;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.zone-links a span {
+  font-weight: 500;
+  color: var(--muted);
+}
+.zone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+}
+.zone-grid a {
+  display: grid;
+  gap: 4px;
+  height: 100%;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+.zone-grid a:hover,
+.zone-links a:hover {
+  border-color: var(--gold-400);
+  color: inherit;
+}
+.zone-grid span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.site-footer__zones {
+  columns: 2;
+  column-gap: 14px;
+}
 .price-table {
   width: 100%;
   border-collapse: collapse;
@@ -1788,7 +1886,7 @@ p {
 }
 .site-footer__grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr));
   gap: clamp(20px, 4vw, 56px);
 }
 @media (max-width: 760px) {
