@@ -544,6 +544,7 @@ export function homePage(ctx) {
   </section>
 
   ${visitBlock(ctx, { title: `Votre atelier à ${b.address?.city || b.department}, près de Tours` })}
+  ${realisationsBlock(ctx)}
   ${partnersBlock(ctx)}
   ${reviewsBlock(ctx)}
   ${instagramBlock(ctx)}
@@ -644,6 +645,7 @@ export function servicePage(ctx, s) {
       </div>
     </section>
     ${law}
+    ${realisationsBlock(ctx, { service: s.slug, title: `${s.name} : nos réalisations` })}
     ${faqBlock(s.faq)}
   </article>
 
@@ -939,6 +941,72 @@ export function guidePage(ctx, x) {
     },
     body
   );
+}
+
+// ------------------------------------------------------------------------- realisations
+/** before / after comparison of two real photos (same angle, same light) */
+function beforeAfter(ba, caption = '') {
+  return `<figure class="ba" data-ba>
+      <div class="ba__frame" style="--pos:50%">
+        <img class="ba__img" src="${esc(ba.after)}" alt="Après : ${esc(ba.alt || '')}" loading="lazy" decoding="async">
+        <img class="ba__img ba__before" src="${esc(ba.before)}" alt="Avant : ${esc(ba.alt || '')}" loading="lazy" decoding="async">
+        <span class="ba__tag ba__tag--before" aria-hidden="true">Avant</span><span class="ba__tag ba__tag--after" aria-hidden="true">Après</span>
+        <span class="ba__handle" aria-hidden="true"></span>
+        <input class="ba__range" type="range" min="0" max="100" value="50" aria-label="Comparer avant et après${ba.alt ? ` : ${esc(ba.alt)}` : ''}">
+      </div>
+      ${caption ? `<figcaption>${caption}</figcaption>` : ''}
+    </figure>`;
+}
+
+/** one job: photos or a before / after, the car, the work, a link to ask for the same */
+function realisationCard(ctx, r) {
+  const s = ctx.services.find((x) => x.slug === r.service);
+  const media = r.beforeAfter
+    ? beforeAfter(r.beforeAfter)
+    : r.photos?.[0]
+      ? `<img class="work__img" src="${esc(r.photos[0].src)}" alt="${esc(r.photos[0].alt || r.vehicle)}" loading="lazy" decoding="async">`
+      : '';
+  return `<li class="work" id="realisation-${esc(r.id)}" data-service="${esc(r.service)}">
+      ${media}
+      <div class="work__body">
+        <p class="kicker">${esc(s?.shortName || s?.name || '')}${r.date ? ` · ${esc(r.date)}` : ''}</p>
+        <h3>${esc(r.vehicle)}</h3>
+        ${r.finish ? `<p class="work__finish">${esc(r.finish)}</p>` : ''}
+        ${r.text ? `<p>${esc(r.text)}</p>` : ''}
+        <a class="work__cta" href="/contact/?prestation=${esc(r.service)}">Demander une prestation similaire <span aria-hidden="true">→</span></a>
+      </div>
+    </li>`;
+}
+
+/** latest jobs (all, or one service); nothing at all while there is none */
+function realisationsBlock(ctx, { service = null, limit = 3, title = 'Nos dernières réalisations' } = {}) {
+  const list = (ctx.realisations || []).filter((r) => !service || r.service === service).slice(0, limit);
+  if (!list.length) return '';
+  return `<section class="section works-block" aria-labelledby="works-${service || 'all'}">
+  <div class="container">
+    <div class="section-head"><h2 id="works-${service || 'all'}">${esc(title)}</h2></div>
+    <ul class="works">${list.map((r) => realisationCard(ctx, r)).join('')}</ul>
+    <p><a class="btn btn--ghost" href="/realisations/">Voir toutes les réalisations</a></p>
+  </div>
+</section>`;
+}
+
+export function realisationsPage(ctx) {
+  const p = ctx.realisationsPage;
+  const b = ctx.business;
+  const used = ctx.services.filter((s) => ctx.realisations.some((r) => r.service === s.slug));
+  const body = `
+  <section class="section page-intro">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li aria-current="page">Réalisations</li></ol></nav>
+      <h1>${esc(p.h1)}</h1>
+      <p class="lead">${esc(p.intro)}</p>
+      ${used.length > 1 ? `<div class="works-filter" role="group" aria-label="Filtrer par prestation" data-works-filter><button type="button" aria-pressed="true" data-filter="">Toutes</button>${used.map((s) => `<button type="button" aria-pressed="false" data-filter="${s.slug}">${esc(s.shortName || s.name)}</button>`).join('')}</div>` : ''}
+      <ul class="works" data-works>${ctx.realisations.map((r) => realisationCard(ctx, r)).join('')}</ul>
+    </div>
+  </section>
+  ${ctaBand(ctx)}`;
+  return page(ctx, { title: p.seo.title, description: p.seo.description, path: '/realisations/', extra: ld(breadcrumbLd(b, [{ name: 'Accueil', path: '/' }, { name: 'Réalisations', path: '/realisations/' }])) }, body);
 }
 
 /** after a request sent with attachments (FormSubmit redirects the visitor here) */

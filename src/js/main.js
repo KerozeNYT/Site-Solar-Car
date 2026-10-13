@@ -184,6 +184,27 @@ document.querySelectorAll('.btn--primary').forEach((btn, i) => {
   btn.style.setProperty('--sheen-delay', `${(0.8 + ((i * 2.3) % 5.2) + Math.random() * 0.8).toFixed(2)}s`);
 });
 
+// ---------------------------------------------------------------- before / after photos
+// the range input (keyboard, touch, mouse) drives the split; the "before" photo is clipped
+document.querySelectorAll('[data-ba]').forEach((fig) => {
+  const frame = fig.querySelector('.ba__frame');
+  const range = fig.querySelector('.ba__range');
+  const set = () => frame.style.setProperty('--pos', `${range.value}%`);
+  range.addEventListener('input', set);
+  set();
+});
+// gallery filter by service (all jobs stay listed without JavaScript)
+const filter = document.querySelector('[data-works-filter]');
+if (filter) {
+  const works = [...document.querySelectorAll('[data-works] > [data-service]')];
+  filter.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-filter]');
+    if (!btn) return;
+    filter.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+    works.forEach((w) => (w.hidden = !!btn.dataset.filter && w.dataset.service !== btn.dataset.filter));
+  });
+}
+
 // ---------------------------------------------------------------- conversion events
 // Privacy first: no tracker, no cookie, no personal data. Each event is a name plus a few
 // non-personal details (page, service), dispatched as `sc37:event` on window and kept in

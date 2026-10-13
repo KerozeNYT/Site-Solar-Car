@@ -21,6 +21,7 @@ export async function renderSite(out, assets) {
   const vehicles = (await load('content/vehicles.js')).default;
   const { guides, guidesPage } = await load('content/guides.js');
   const { zones, zonesPage } = await load('content/zones.js');
+  const { realisations, realisationsPage } = await load('content/realisations.js');
   // every distinct 3D model credit (tour car + simulator cars)
   const credits = [...new Set([car, ...Object.values(vehicles).map((v) => v.config)].filter((c) => c?.credit).map((c) => c.credit.text))];
   const flightTotal = flight.beats.reduce((a, b) => a + b.vh, 0);
@@ -30,7 +31,9 @@ export async function renderSite(out, assets) {
     if (b.chapter && !(b.chapter in flightAt)) flightAt[b.chapter] = acc;
     return acc + b.vh;
   }, 0);
-  const ctx = { ...site, car, assets, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage };
+  // the gallery exists only with real jobs: then it gets its page, menu link and sitemap entry
+  const nav = realisations.length ? [...site.nav.slice(0, 1), { label: 'Réalisations', href: '/realisations/' }, ...site.nav.slice(1)] : site.nav;
+  const ctx = { ...site, nav, car, assets, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, realisations, realisationsPage };
 
   const pages = [
     ['index.html', T.homePage(ctx)],
@@ -43,6 +46,7 @@ export async function renderSite(out, assets) {
     ['atelier-vouvray/index.html', T.atelierPage(ctx)],
     ['guides/index.html', T.guidesIndexPage(ctx)],
     ...guides.map((g) => [`guides/${g.slug}/index.html`, T.guidePage(ctx, g)]),
+    ...(realisations.length ? [['realisations/index.html', T.realisationsPage(ctx)]] : []),
     ['zones-intervention/index.html', T.zonesIndexPage(ctx)],
     ...zones.map((z) => [`${z.slug}/index.html`, T.zonePage(ctx, z)]),
   ];
@@ -60,6 +64,7 @@ export async function renderSite(out, assets) {
     ...site.services.map((s) => [`/${s.slug}/`, '0.9', s.still]),
     ['/atelier-vouvray/', '0.8', 'final'],
     ['/contact/', '0.8', null],
+    ...(realisations.length ? [['/realisations/', '0.7', null]] : []),
     ['/guides/', '0.6', null],
     ...guides.map((g) => [`/guides/${g.slug}/`, '0.6', g.still, g.updated]),
     ['/zones-intervention/', '0.6', null],

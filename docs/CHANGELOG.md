@@ -70,3 +70,12 @@
   `sc37:event`) : clics devis, appel, itinéraire, devis depuis un simulateur, 3D lancée, demande
   envoyée ou en erreur. Prêt pour un outil de mesure sans cookie s'il est choisi plus tard.
 - Architecture de la future réservation en ligne : `docs/RESERVATION.md`.
+
+### Phase 7 — Réalisations
+- `content/realisations.js` : liste administrable des vraies réalisations (photos clients uniquement,
+  jamais de rendu 3D présenté comme une réalisation). Vide pour l'instant : la galerie, son lien de
+  menu, son entrée de sitemap et ses blocs ne sont pas générés tant qu'elle est vide.
+- Dès la première réalisation : page `/realisations/` filtrable par prestation, bloc « dernières
+  réalisations » sur l'accueil et sur chaque page de prestation, bouton « Demander une prestation
+  similaire », comparateur avant/après accessible (clavier, toucher, souris).
+- Testé avec des données temporaires (non publiées).
