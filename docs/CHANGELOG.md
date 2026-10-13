@@ -159,3 +159,12 @@
   1,6 Ko gzip ; aucun téléchargement covering à l'accueil.
 - Formulaire : protection contre les doublons (double clic, renvoi de la même demande dans les 15 min).
 - Détails, sources, mesures et procédure d'ajout d'une référence : `docs/COVERING.md`.
+
+### Correctif : éléments de la visite qui disparaissaient après des allers-retours
+- Cause : le régulateur de performance retirait des éléments dès que la médiane dépassait 30 ms
+  entre deux images ; un écran à 60 Hz qui tourne à 30 images/s donne 33 ms, donc chaque série de
+  mouvements retirait quelque chose (netteté, voitures garées, puis tous les reflets du sol).
+- Désormais : deux fenêtres lentes consécutives sont nécessaires, les à-coups isolés (compilation,
+  allers-retours rapides) sont ignorés, la netteté baisse d'abord (sous ~25 images/s), les voitures
+  garées ne partent que sous ~18 images/s et les reflets sous ~15 images/s soutenues. Même règle
+  pour les simulateurs.

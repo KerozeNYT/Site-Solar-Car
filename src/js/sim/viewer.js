@@ -7,7 +7,7 @@ import { BLD } from '../tour/studio.js';
 import { buildWorkshop, workshopEnvironment, ROOM } from './workshop.js';
 import vehicles, { parked } from '../../../content/vehicles.js';
 import { loadParkedCar } from '../tour/parked.js';
-import { createGovernor } from '../perf.js';
+import { createGovernor, BUDGET } from '../perf.js';
 import porsche from '../../../content/car.js';
 
 /**
@@ -163,18 +163,24 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
     },
     car: () => car,
     setVehicle,
-    // savings for slow devices, in order
+    // savings for slow devices, in order: sharpness first, visible content last
     degrade: [
-      () => setDpr(1.25),
-      () => {
-        wantParked = false;
-        for (const b of bays.values()) if (b.group) scene.remove(b.group, b.mirror);
+      { apply: () => setDpr(1.25), budget: BUDGET.sharpness },
+      { apply: () => setDpr(1), budget: BUDGET.sharpness },
+      {
+        apply: () => {
+          wantParked = false;
+          for (const b of bays.values()) if (b.group) scene.remove(b.group, b.mirror);
+        },
+        budget: BUDGET.scenery,
       },
-      () => setDpr(1),
-      () => {
-        mirrorRoom.visible = false;
-        mirrorsOff = true;
-        for (const e of cars.values()) if (e.mirror) e.mirror.visible = false;
+      {
+        apply: () => {
+          mirrorRoom.visible = false;
+          mirrorsOff = true;
+          for (const e of cars.values()) if (e.mirror) e.mirror.visible = false;
+        },
+        budget: BUDGET.reflections,
       },
     ],
   });
@@ -245,7 +251,12 @@ async function createStudioViewer(container, canvas, { quality, car = null, onPr
     setVehicle: async () => ({ api: stage.car, real: true }),
     // savings for slow devices, in order
     // (the bloom chain stays: it is light and replaces the costly multisampling)
-    degrade: [() => stage.setMaxDpr(1.25), () => stage.unpark(), () => stage.setMaxDpr(1), () => stage.setMirror(false)],
+    degrade: [
+      { apply: () => stage.setMaxDpr(1.25), budget: BUDGET.sharpness },
+      { apply: () => stage.setMaxDpr(1), budget: BUDGET.sharpness },
+      { apply: () => stage.unpark(), budget: BUDGET.scenery },
+      { apply: () => stage.setMirror(false), budget: BUDGET.reflections },
+    ],
   });
   ctl.scenery = scenery; // resolves once the parked cars are in place
   return ctl;

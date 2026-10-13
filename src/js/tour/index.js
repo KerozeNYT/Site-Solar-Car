@@ -4,7 +4,7 @@ import vehicles, { parked } from '../../../content/vehicles.js';
 import { createStage } from './stage.js';
 import { createPath, createTimeline, createEffects } from './flight.js';
 import { clamp, smoothstep } from './math.js';
-import { createGovernor } from '../perf.js';
+import { createGovernor, BUDGET } from '../perf.js';
 import { createCoveringSpot } from './covering-spot.js';
 
 const FADE = 14; // vh used by a chapter to fade in / out (at the computer's pace)
@@ -201,7 +201,13 @@ export async function startTour(section) {
   document.addEventListener('visibilitychange', () => !document.hidden && start());
 
   // savings for slow devices, in order (src/js/perf.js)
-  const governor = createGovernor([() => stage.setMaxDpr(1.25), () => stage.unpark(), () => stage.setMaxDpr(1), () => stage.setMirror(false)]);
+  // sharpness first; parked cars and floor reflections go only on a device that really struggles
+  const governor = createGovernor([
+    { apply: () => stage.setMaxDpr(1.25), budget: BUDGET.sharpness },
+    { apply: () => stage.setMaxDpr(1), budget: BUDGET.sharpness },
+    { apply: () => stage.unpark(), budget: BUDGET.scenery },
+    { apply: () => stage.setMirror(false), budget: BUDGET.reflections },
+  ]);
   let lastFrame = 0;
   // rendering on demand: full rate while the camera moves; once it has settled, about 20 frames
   // a second while something lives on its own (traffic outside, twinkling stars), else nothing
@@ -265,6 +271,6 @@ export async function startTour(section) {
   apply(current, scrollVh(), 1);
   stage.render(0);
   section.classList.add('is-ready');
-  window.__tour = { stage, timeline, get time() { return current; }, get vh() { return scrollVh(); }, get vhPx() { return vhPx; }, get top() { return sectionTop; } };
+  window.__tour = { stage, timeline, get perfLevel() { return governor.level; }, get time() { return current; }, get vh() { return scrollVh(); }, get vhPx() { return vhPx; }, get top() { return sectionTop; } };
   start();
 }
