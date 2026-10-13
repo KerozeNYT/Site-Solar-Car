@@ -85,9 +85,9 @@ if (maps.length && 'IntersectionObserver' in window) {
       for (const en of entries) {
         if (!en.isIntersecting) continue;
         io.unobserve(en.target);
-        import('./map.js')
+        import('./map3d.js')
           .then((m) => m.initMap(en.target))
-          .catch((err) => console.warn('[map] address card kept', err));
+          .catch((err) => console.warn('[map] still image kept', err));
       }
     },
     { rootMargin: '400px 0px' }

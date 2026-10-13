@@ -29,6 +29,13 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `assets-src/models/*.prep.json` | Préparation de chaque modèle 3D (découpe des vitres, renommage, allègement) |
 | `design/logo/official/` | Logo officiel fourni ; `scripts/logo-assets.mjs` en dérive les versions web |
 
+## Carte 3D de l’accès
+
+La carte (« Venir à l’atelier ») est une scène 3D servie par le site lui-même, sans serveur de cartes : `src/js/map3d.js` lit les fichiers de `public/map/`, produits par `scripts/map/bake.py` à partir de données ouvertes (image Sentinel-2 Copernicus, relief Copernicus DEM, eau ESA WorldCover, routes et lieux Overture Maps / OpenStreetMap, limites communales IGN). Le trajet depuis le centre de Tours est calculé sur le réseau routier.
+
+- Refaire les données : `pip install rasterio numpy pillow shapely pyproj pyarrow requests`, puis `python scripts/map/bake.py` (zone, scène satellite et point de l’atelier dans `scripts/map/common.py` et `bake.py`).
+- Refaire l’image fixe (affichée avant la 3D et sans WebGL) : `npm run build`, `node scripts/render-map-poster.mjs`, puis `npm run build`.
+
 ## Aperçu en ligne (GitHub Pages)
 
 `.github/workflows/apercu-pages.yml` construit le site à chaque push et le publie sur la branche `gh-pages`, servie à l’adresse `https://kerozenyt.github.io/Site-Solar-Car/`. Réglage unique : *Settings → Pages → Source : Deploy from a branch → gh-pages / (root)*.

@@ -17,7 +17,7 @@ export function rebase(dir, base) {
   if (!/^\/.*\/$/.test(base)) throw new Error(`SITE_BASE must look like /name/ (got ${base})`);
   const b = base.slice(1); // "Site-Solar-Car/"
   // URLs the scripts build or import at runtime (chunks, 3D models, textures, quote link)
-  const jsPrefix = /(["'`])\/(assets|models|img|stills|contact|mentions-legales)\//g;
+  const jsPrefix = /(["'`])\/(assets|models|img|stills|map|contact|mentions-legales)\//g;
   let count = 0;
   for (const file of walk(dir)) {
     const ext = path.extname(file);

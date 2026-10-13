@@ -283,8 +283,9 @@ export function visitBlock(ctx, { title = 'L’atelier', id = 'atelier', heading
       </div>
       <p class="visit__apps">Ouvrir dans <a href="${esc(links.maps)}" rel="noopener" target="_blank">Google Maps</a> · <a href="${esc(links.waze)}" rel="noopener" target="_blank">Waze</a> · <a href="${esc(links.apple)}" rel="noopener" target="_blank">Plans</a></p>
     </div>
-    ${map ? `<div class="visit__map" data-map data-address="${esc(addressLine(b))}" data-name="${esc(b.name)}"${b.geo ? ` data-lat="${b.geo.lat}" data-lng="${b.geo.lng}"` : ''}>
-      <div class="visit__map-fallback"><p>${ICONS.route} ${esc(addressLine(b))}</p><a class="btn btn--ghost btn--sm" href="${esc(links.maps)}" rel="noopener" target="_blank">Voir sur la carte</a></div>
+    ${map ? `<div class="visit__map" data-map data-address="${esc(addressLine(b))}" data-name="${esc(b.name)}">
+      <img class="visit__map-poster" src="/map/poster-960.webp" srcset="/map/poster-960.webp 960w, /map/poster-1600.webp 1600w" sizes="(min-width: 900px) 640px, 100vw" width="1600" height="1100" loading="lazy" decoding="async" alt="Carte de l’accès à l’atelier ${esc(b.name)} à Vouvray : le trajet depuis le centre de Tours, au nord de la Loire">
+      <a class="visit__map-open btn btn--sm" href="${esc(links.maps)}" rel="noopener" target="_blank">${ICONS.route} Ouvrir dans Google Maps</a>
     </div>` : ''}
   </div>
 </section>`;

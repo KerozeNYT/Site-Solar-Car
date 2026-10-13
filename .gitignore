@@ -6,3 +6,4 @@ dist/
 # raw model sources (large, licences tracked in the .prep.json files)
 assets-src/models/*.glb
 assets-src/models/*.usdz
+__pycache__/

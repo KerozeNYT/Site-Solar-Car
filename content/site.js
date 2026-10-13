@@ -28,10 +28,9 @@ export const business = {
     postalCode: '37210',
     city: 'Vouvray',
   },
-  // Exact GPS point of the workshop. Unknown: the map finds the address itself (Base Adresse
-  // Nationale) and the structured data uses the postal address. Fill in from Google Maps if
-  // you want the pin to be exact without lookup, e.g. { lat: 47.41, lng: 0.79 }.
-  geo: null,
+  // GPS point of the workshop: the national address point (BAN) of 395 rue des Entrepreneurs,
+  // ZA de l'Étang Vignon (same point as the 3D map, scripts/map/common.py).
+  geo: { lat: 47.436104, lng: 0.797154 },
   // Opening hours (schema.org form). Displayed as "Lundi au vendredi, 8 h – 12 h et 13 h – 17 h".
   openingHours: [
     { days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], opens: '08:00', closes: '12:00' },
