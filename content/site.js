@@ -8,31 +8,47 @@
 
 export const business = {
   name: 'SOLAR CAR 37',
-  // Used for canonical URLs, sitemap and social cards. Replace with the real domain.
-  siteUrl: 'https://votre-domaine.fr',
+  // Used for canonical URLs, sitemap and social cards (domain of the contact e-mail).
+  siteUrl: 'https://solarcar37.fr',
   tagline: 'Vitres teintées, detailing & lumière automobile',
   department: 'Indre-et-Loire',
   departmentCode: '37',
   region: 'Centre-Val de Loire',
-  // --- to complete -------------------------------------------------------------------
-  legalName: null, // e.g. 'SOLAR CAR 37 SAS'
-  phone: null, // e.g. '02 47 00 00 00'
-  email: null, // e.g. 'contact@votre-domaine.fr'
+  legalName: null, // e.g. 'SOLAR CAR 37 SAS' (as registered)
+  phone: '06 12 04 57 00',
+  email: 'contact@solarcar37.fr',
+  emailAlt: 'contact.solarcar37@gmail.com',
   address: {
-    street: null, // e.g. '12 rue de l'Exemple'
-    postalCode: null, // e.g. '37000'
-    city: null, // e.g. 'Tours' — also added to page titles once filled in
+    street: '395 rue des Entrepreneurs',
+    postalCode: '37210',
+    city: 'Vouvray',
   },
-  geo: null, // e.g. { lat: 47.39, lng: 0.68 }
-  // Opening hours in schema.org form, e.g. [{ days: ['Mo','Tu','We','Th','Fr'], opens: '09:00', closes: '18:00' }]
-  openingHours: null,
+  // Exact GPS point of the workshop. Unknown: the map finds the address itself (Base Adresse
+  // Nationale) and the structured data uses the postal address. Fill in from Google Maps if
+  // you want the pin to be exact without lookup, e.g. { lat: 47.41, lng: 0.79 }.
+  geo: null,
+  // Opening hours (schema.org form). Displayed as "Lundi au vendredi, 8 h – 12 h et 13 h – 17 h".
+  openingHours: [
+    { days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], opens: '08:00', closes: '12:00' },
+    { days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], opens: '13:00', closes: '17:00' },
+  ],
+  hoursText: 'Du lundi au vendredi, de 8 h à 12 h et de 13 h à 17 h',
   social: {
-    instagram: null,
+    instagram: 'https://www.instagram.com/solarcar37/',
+    tiktok: 'https://www.tiktok.com/@solarcar37',
     facebook: null,
-    tiktok: null,
-    googleBusiness: null,
   },
-  siret: null,
+  // Google: the business profile. Paste the share link of your Google profile (Maps > Partager)
+  // in `profileUrl` and, if you have it, the review link (Profil > Demander des avis) in
+  // `reviewUrl`. Until then the buttons open a Google Maps search for the workshop.
+  google: {
+    profileUrl: null,
+    reviewUrl: null,
+  },
+  // Towns close to the workshop, quoted in the "Accès" section (real places, no doorway pages).
+  nearby: ['Tours', 'Rochecorbon', 'Vernou-sur-Brenne', 'Montlouis-sur-Loire', 'Saint-Pierre-des-Corps', 'Parçay-Meslay', 'Monnaie', 'Saint-Cyr-sur-Loire', 'Amboise'],
+  siret: '890 162 761 00039',
+  priceRange: '€€',
   // Where the contact form posts (Formspree, Getform, your own endpoint...). When null the
   // form is a clearly labelled demo and nothing is sent.
   formEndpoint: null,

@@ -5,7 +5,6 @@
 import { esc } from './pages.js';
 
 const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
-const demoBadge = '<span class="badge-demo">Tarif indicatif à confirmer</span>';
 
 function shell({ kind, title, intro, poster, posterAlt, views, panel, tag = '' }) {
   return `<section class="sim" data-sim="${kind}" id="simulateur" aria-labelledby="sim-title">
@@ -50,12 +49,11 @@ const vehicleGroup = (pricing, legend = 'Votre véhicule', checked = 'berline') 
           )}
         </fieldset>`;
 
-const total = (validated, note = '') => `<div class="sim__total" aria-live="polite">
-          <span class="sim__total-label">Votre tarif</span>
-          <span class="sim__total-value" data-total>—</span>
+const total = (note = '', { quote = false } = {}) => `<div class="sim__total" aria-live="polite">
+          <span class="sim__total-label">${quote ? 'Tarif' : 'Votre tarif TTC'}</span>
+          <span class="sim__total-value" data-total>${quote ? 'Sur devis' : '—'}</span>
           <p class="sim__detail" data-detail>${esc(note)}</p>
-        </div>
-        ${validated ? '' : `<p class="price-note">${demoBadge} Prix d’exemple en attente de la grille officielle.</p>`}`;
+        </div>`;
 
 const actions = (slug, extra = '') => `<div class="sim__actions">
           <a class="btn btn--primary" href="/contact/?prestation=${slug}" data-quote>Demander ce devis</a>
@@ -89,16 +87,16 @@ export function simTint(ctx) {
           ${chips(
             'paint',
             [
+              { value: '#0c1c44', label: 'Bleu nuit', swatch: '#14295e' },
               { value: '#c9ccd1', label: 'Gris argent', swatch: '#c9ccd1' },
               { value: '#f2f2f0', label: 'Blanc', swatch: '#f2f2f0' },
               { value: '#101215', label: 'Noir', swatch: '#101215' },
-              { value: '#1d3b66', label: 'Bleu nuit', swatch: '#1d3b66' },
               { value: '#8a1d1d', label: 'Rouge', swatch: '#8a1d1d' },
             ],
-            '#c9ccd1'
+            '#0c1c44'
           )}
         </fieldset>
-        ${total(tint.validated, 'Choisissez vos vitres')}
+        ${total('Choisissez vos vitres')}
         ${actions('vitres-teintees', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Avant / après</button>')}
         <p class="price-note">Véhicules 3D présentés à titre d’illustration de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle. Crédits des modèles : <a href="/mentions-legales/">mentions légales</a>.</p>`;
   return shell({
@@ -126,7 +124,7 @@ export function tintPriceTable(ctx) {
   <div class="container container--narrow">
     <h2 id="tarifs-title">Tarifs de pose de vitres teintées</h2>
     <table class="price-table">
-      <caption>Prix par catégorie de véhicule, film posé</caption>
+      <caption>Prix TTC par catégorie de véhicule, film posé</caption>
       <thead><tr><th scope="col">Catégorie</th><th scope="col" class="num">3/4 arrière</th><th scope="col" class="num">Véhicule complet</th></tr></thead>
       <tbody>
         ${vehicleTypes
@@ -172,12 +170,13 @@ export function simLights(ctx) {
           )}
         </fieldset>
         <div class="warning"><p><strong>Réglementation :</strong> les feux doivent rester visibles et conformes à leur homologation. Un film sur les feux, en particulier à l’avant, peut rendre le véhicule non conforme pour la circulation sur la voie publique. La pose est réalisée à la demande du client, sous sa responsabilité.</p></div>
-        ${total(L.validated, 'Choisissez vos feux')}
+        ${total('Choisissez vos feux')}
+        <p class="price-note">De ${L.perPair.min} à ${L.perPair.max} € TTC la paire de feux, selon le véhicule.</p>
         ${actions('feux-arriere-teintes')}`;
   return shell({
     kind: 'lights',
     title: 'Simulez vos feux fumés',
-    intro: 'Feux avant, feux arrière, fumé 50 % ou 80 % : voyez le rendu sur la Porsche du studio, allumez les feux ou freinez pour juger la visibilité, et obtenez votre tarif.',
+    intro: 'Feux avant, feux arrière, fumé 50 % ou 80 % : voyez le rendu sur la Porsche du studio, allumez les feux ou freinez pour juger la visibilité, et obtenez votre tarif : de 100 à 120 € TTC la paire.',
     poster: 'tail',
     posterAlt: 'Feux arrière fumés sur la Porsche du studio',
     views: [
@@ -186,7 +185,6 @@ export function simLights(ctx) {
       ['avant', 'Avant'],
       ['34avant', '3/4 avant'],
     ],
-    tag: L.validated ? '' : demoBadge,
     panel,
   });
 }
@@ -213,14 +211,14 @@ export function simHeadlights(ctx) {
         </fieldset>
         <fieldset class="sim__group">
           <legend>Options</legend>
-          ${H.options.map((o) => `<label class="choice"><input type="checkbox" name="opt" value="${o.id}"> ${esc(o.label)} (+${fmt(o.price)})</label>`).join('')}
+          ${H.options.map((o) => `<label class="choice"><input type="checkbox" name="opt" value="${o.id}"> ${esc(o.label)} (+${fmt(o.price)} TTC)</label>`).join('')}
         </fieldset>
-        ${total(H.validated, 'Rénovation de la paire de phares')}
+        ${total('Rénovation des phares')}
         ${actions('renovation-phares', '<button type="button" class="btn btn--ghost" data-play>Lancer la rénovation</button>')}`;
   return shell({
     kind: 'headlights',
     title: 'Avant / après : la rénovation de vos phares',
-    intro: 'Faites glisser le curseur pour polir l’optique jaunie, allumez les phares pour comparer, et affichez le prix de la rénovation.',
+    intro: 'Faites glisser le curseur pour polir l’optique jaunie, allumez les phares pour comparer : rénovation à 79 € TTC, traitement céramique en option (+30 €).',
     poster: 'headlights',
     posterAlt: 'Phares de la Porsche après rénovation',
     views: [
@@ -228,7 +226,6 @@ export function simHeadlights(ctx) {
       ['avant', 'Face avant'],
       ['34avant', '3/4 avant'],
     ],
-    tag: H.validated ? '' : demoBadge,
     panel,
   });
 }
@@ -268,20 +265,19 @@ export function simStarlight(ctx) {
             <option value="croix-du-sud">Croix du Sud</option>
           </select>
         </fieldset>
-        ${vehicleGroup(ctx.pricing, 'Taille du pavillon (votre véhicule)')}
-        ${total(S.validated, 'Kit, pose et réglages compris')}
+        ${vehicleGroup(ctx.pricing, 'Votre véhicule')}
+        ${total('Tarif établi selon le véhicule et la configuration choisie', { quote: true })}
         ${actions('ciel-etoile')}`;
   return shell({
     kind: 'starlight',
     title: 'Composez votre ciel étoilé',
-    intro: 'Densité des étoiles, couleur unie ou bicolore, étoiles filantes, constellation : réglez votre ciel et regardez-le s’allumer dans l’habitacle de la Porsche du studio.',
+    intro: 'Densité des étoiles, couleur unie ou bicolore, étoiles filantes, constellation : réglez votre ciel, regardez-le s’allumer dans l’habitacle de la Porsche du studio, puis envoyez votre configuration pour recevoir un devis.',
     poster: 'stars',
     posterAlt: 'Ciel étoilé en fibre optique dans l’habitacle',
     views: [
       ['plafond', 'Ciel de toit'],
       ['habitacle', 'Habitacle'],
     ],
-    tag: S.validated ? '' : demoBadge,
     panel,
   });
 }
@@ -300,17 +296,17 @@ export function simDetailing(ctx) {
           <div class="packages">${D.packages
             .map(
               (p, i) =>
-                `<label class="package"><input type="radio" name="package" value="${p.id}"${i === 1 ? ' checked' : ''}><span><strong><span>${esc(p.label)}</span><span data-pkg-price="${p.id}">dès ${fmt(p.from)}</span></strong><small>${esc(p.text)}</small></span></label>`
+                `<label class="package"><input type="radio" name="package" value="${p.id}"${i === 1 ? ' checked' : ''}><span><strong><span>${esc(p.label)}</span><span>Sur devis</span></strong><small>${esc(p.text)}</small></span></label>`
             )
             .join('')}</div>
         </fieldset>
         ${vehicleGroup(ctx.pricing)}
-        ${total(D.validated, 'Forfait choisi')}
+        ${total('Prix établi après examen de la peinture', { quote: true })}
         ${actions('detailing-carrosserie', '<button type="button" class="btn btn--ghost" data-play>Lancer la démonstration</button>')}`;
   return shell({
     kind: 'detailing',
     title: 'Le detailing, étape par étape',
-    intro: 'Lavage, décontamination, polissage, protection céramique, finitions : suivez chaque étape sur la Porsche du studio, comparez nos forfaits et obtenez votre tarif.',
+    intro: 'Lavage, décontamination, polissage, protection céramique, finitions : suivez chaque étape sur la Porsche du studio, choisissez votre forfait et demandez votre devis.',
     poster: 'detailing',
     posterAlt: 'Polissage de la carrosserie de la Porsche dans le studio',
     views: [
@@ -319,7 +315,6 @@ export function simDetailing(ctx) {
       ['34arriere', '3/4 arrière'],
       ['dessus', 'Vue drone'],
     ],
-    tag: D.validated ? '' : demoBadge,
     panel,
   });
 }

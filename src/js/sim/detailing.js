@@ -1,5 +1,5 @@
 import { detailing, vehicleTypes } from '../../../content/pricing.js';
-import { fmt, readForm, vehicleLabel, setQuote, stateBadge, play } from './util.js';
+import { readForm, vehicleLabel, setQuote, stateBadge, play } from './util.js';
 import { smoothstep } from '../tour/math.js';
 
 const IDS = detailing.steps.map((s) => s.id);
@@ -45,9 +45,8 @@ function animate(id, k, st) {
   return st;
 }
 
-/** Detailing steps played on the studio Porsche, packages and size-based prices. */
+/** Detailing steps played on the studio Porsche; packages are priced on quote. */
 export function setup({ section, form, view }) {
-  const totalEl = section.querySelector('[data-total]');
   const detailEl = section.querySelector('[data-detail]');
   const stepText = section.querySelector('[data-step-text]');
   const stepBtns = [...section.querySelectorAll('[data-step]')];
@@ -111,20 +110,12 @@ export function setup({ section, form, view }) {
   function update() {
     s = readForm(form);
     pkg = detailing.packages.find((p) => p.id === s.package) || detailing.packages[0];
-    const factor = detailing.sizeFactor[s.vehicle] ?? 1;
-    const priceOf = (p) => Math.round((p.from * factor) / 10) * 10;
-    for (const p of detailing.packages) {
-      const el = section.querySelector(`[data-pkg-price="${p.id}"]`);
-      if (el) el.textContent = `dès ${fmt(priceOf(p))}`;
-    }
     for (const b of stepBtns) b.classList.toggle('is-included', pkg.steps.includes(b.dataset.step));
     const label = vehicleLabel(vehicleTypes, s.vehicle);
-    const price = priceOf(pkg);
-    totalEl.textContent = `dès ${fmt(price)}`;
     detailEl.textContent = `Forfait ${pkg.label} · ${label} — ${pkg.steps.length} étapes : ${pkg.steps
       .map((id) => detailing.steps.find((x) => x.id === id).label.split(' ')[0].toLowerCase())
-      .join(', ')}. Prix final selon l’état de la peinture.`;
-    setQuote(section, { prestation: 'detailing-carrosserie', vehicle: label, config: `Detailing — forfait ${pkg.label} — ${label} — dès ${fmt(price)}` });
+      .join(', ')}. Prix établi après examen de la peinture.`;
+    setQuote(section, { prestation: 'detailing-carrosserie', vehicle: label, config: `Detailing — forfait ${pkg.label} — ${label}` });
   }
 
   return {

@@ -1,5 +1,5 @@
 import { lights } from '../../../content/pricing.js';
-import { fmt, readForm, setQuote, easer } from './util.js';
+import { fmtRange, readForm, setQuote, easer } from './util.js';
 
 const LIGHTS = {
   on: { on: 1, brake: 0, beams: 1 },
@@ -48,13 +48,16 @@ export function setup({ section, form, view }) {
     const parts = [];
     if (s.rear) parts.push(`feux arrière ${labelOf(s.rearShade).toLowerCase()}`);
     if (s.front) parts.push(`feux avant ${labelOf(s.frontShade).toLowerCase()}`);
-    price = s.rear && s.front ? lights.both : s.rear ? lights.rear : s.front ? lights.front : 0;
-    totalEl.textContent = price ? fmt(price) : '—';
-    detailEl.textContent = price
-      ? `${parts.join(' + ')}${s.rear && s.front ? ` (forfait avant + arrière, au lieu de ${fmt(lights.front + lights.rear)})` : ''}`
+    // price per pair (front or rear), between min and max depending on the vehicle
+    const pairs = (s.rear ? 1 : 0) + (s.front ? 1 : 0);
+    price = pairs;
+    const range = pairs ? fmtRange(lights.perPair.min * pairs, lights.perPair.max * pairs) : '';
+    totalEl.textContent = pairs ? range : '—';
+    detailEl.textContent = pairs
+      ? `${parts.join(' + ')} — ${pairs} paire${pairs > 1 ? 's' : ''}, tarif selon le véhicule`
       : 'Cochez les feux à teinter.';
-    quote.setAttribute('aria-disabled', String(!price));
-    setQuote(section, { prestation: 'feux-arriere-teintes', config: price ? `Feux teintés — ${parts.join(', ')} — ${fmt(price)}` : '' });
+    quote.setAttribute('aria-disabled', String(!pairs));
+    setQuote(section, { prestation: 'feux-arriere-teintes', config: pairs ? `Feux teintés — ${parts.join(', ')} — ${range} TTC` : '' });
     fx?.set(targets());
   }
 

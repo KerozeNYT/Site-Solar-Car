@@ -1,5 +1,7 @@
 /** Helpers shared by the simulators. */
 export const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+/** "100 à 120 €" */
+export const fmtRange = (a, b) => (a === b ? fmt(a) : `${a} à ${fmt(b)}`);
 
 /** current form values: radios/selects as strings, checkboxes as booleans, `opt` as a Set */
 export function readForm(form) {

@@ -1,11 +1,16 @@
 import { starlight, vehicleTypes } from '../../../content/pricing.js';
-import { fmt, readForm, vehicleLabel, setQuote } from './util.js';
+import { readForm, vehicleLabel, setQuote } from './util.js';
 
+const OPTIONS = [
+  { id: 'bicolor', label: 'bicolore' },
+  { id: 'twinkle', label: 'scintillement' },
+  { id: 'shooting', label: 'étoiles filantes' },
+  { id: 'constellation', label: 'constellation' },
+];
 const CONSTELLATIONS = { 'grande-ourse': 'Grande Ourse', orion: 'Orion', cassiopee: 'Cassiopée', 'croix-du-sud': 'Croix du Sud' };
 
 /** Fibre-optic headliner in the studio Porsche: density, colours, twinkle, shooting stars. */
 export function setup({ section, form }) {
-  const totalEl = section.querySelector('[data-total]');
   const detailEl = section.querySelector('[data-detail]');
   const countLabel = section.querySelector('[data-count-label]');
   const c2 = section.querySelector('[data-c2]');
@@ -39,24 +44,22 @@ export function setup({ section, form }) {
     viewer.invalidate();
   }
 
+  // the chip's visible name ("Bleu glacier") rather than its colour code
+  const colorName = (name) => form.querySelector(`input[name="${name}"]:checked`)?.closest('label')?.textContent.trim() || '';
+
   function update() {
     s = readForm(form);
     const count = steps[+s.count];
     countLabel.textContent = `${count} étoiles`;
     c2.classList.toggle('is-off', !s.opt.has('bicolor'));
-    const factor = starlight.sizeFactor[s.vehicle] ?? 1;
-    const extra = Math.max(0, count - starlight.baseStars);
-    const kit = (starlight.base + Math.ceil(extra / 100) * starlight.per100) * factor;
-    const opts = starlight.options.filter((o) => s.opt.has(o.id));
-    const price = Math.round((kit + opts.reduce((a, o) => a + o.price, 0)) / 10) * 10;
-    const optLabels = opts.map((o) => (o.id === 'constellation' ? `constellation ${CONSTELLATIONS[s.constellation]}` : o.label.toLowerCase()));
+    const opts = OPTIONS.filter((o) => s.opt.has(o.id));
+    const optLabels = opts.map((o) => (o.id === 'constellation' ? `constellation ${CONSTELLATIONS[s.constellation]}` : o.label));
     const label = vehicleLabel(vehicleTypes, s.vehicle);
-    totalEl.textContent = fmt(price);
     detailEl.textContent = `${count} étoiles${optLabels.length ? ' · ' + optLabels.join(' · ') : ''} · ${label}`;
     setQuote(section, {
       prestation: 'ciel-etoile',
       vehicle: label,
-      config: `Ciel étoilé — ${count} étoiles, couleur ${s.c1}${s.opt.has('bicolor') ? ` / ${s.c2}` : ''}${optLabels.length ? ', ' + optLabels.join(', ') : ''} — ${label} — ${fmt(price)}`,
+      config: `Ciel étoilé — ${count} étoiles, couleur ${colorName('c1')}${s.opt.has('bicolor') ? ` / ${colorName('c2')}` : ''}${optLabels.length ? ', ' + optLabels.join(', ') : ''} — ${label}`,
     });
     apply();
   }
