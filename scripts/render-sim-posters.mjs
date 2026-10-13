@@ -55,7 +55,9 @@ for (const [kind, def] of Object.entries(POSTERS)) {
   if (def.setup) await def.setup(page);
   await page.evaluate(() => window.__sim.viewer.scenery);
   await page.waitForTimeout(4000);
-  const png = await page.locator('[data-sim-view]').screenshot({ type: 'png' });
+  // clip instead of an element shot: no wait for "stable" frames (slow in software rendering)
+  const clip = await page.locator('[data-sim-view]').boundingBox();
+  const png = await page.screenshot({ type: 'png', clip, timeout: 180000 });
   await sharp(png).resize(1600, 1000, { fit: 'cover' }).webp({ quality: 80 }).toFile(path.join(out, `sim-${kind}-1600.webp`));
   await sharp(png).resize(960, 600, { fit: 'cover' }).webp({ quality: 78 }).toFile(path.join(out, `sim-${kind}-960.webp`));
   console.log('poster', kind);
