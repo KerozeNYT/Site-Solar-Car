@@ -297,6 +297,23 @@ if (form) {
     return { prestations, car, wish, subject: `Demande de devis${prestations.length ? ' – ' + prestations.join(', ') : ''} – ${car}` };
   };
 
+  /** the whole request as a pre-filled e-mail (no form service, or the service failed) */
+  const mailtoHref = (to, d) => {
+    const { prestations, car, wish, subject } = fields(d);
+    const body = [
+      `Nom : ${d.get('nom') || ''}`,
+      `Prénom : ${d.get('prenom') || ''}`,
+      `E-mail : ${d.get('email') || ''}`,
+      `Téléphone : ${d.get('telephone') || ''}`,
+      `Véhicule : ${car}`,
+      `Prestation(s) : ${prestations.join(', ')}`,
+      `Rendez-vous souhaité : ${wish || 'indifférent'}`,
+      '',
+      String(d.get('message') || ''),
+    ].join('\n');
+    return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     status.className = 'form__status';
@@ -309,20 +326,7 @@ if (form) {
     if (form.hasAttribute('data-mailto')) {
       // no form service configured: compose the e-mail in the visitor's mail app
       if (form.elements._gotcha?.value) return;
-      const d = new FormData(form);
-      const { prestations, car, wish, subject } = fields(d);
-      const body = [
-        `Nom : ${d.get('nom') || ''}`,
-        `Prénom : ${d.get('prenom') || ''}`,
-        `E-mail : ${d.get('email') || ''}`,
-        `Téléphone : ${d.get('telephone') || ''}`,
-        `Véhicule : ${car}`,
-        `Prestation(s) : ${prestations.join(', ')}`,
-        `Rendez-vous souhaité : ${wish || 'indifférent'}`,
-        '',
-        String(d.get('message') || ''),
-      ].join('\n');
-      location.href = `mailto:${form.dataset.mailto}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      location.href = mailtoHref(form.dataset.mailto, new FormData(form));
       status.textContent = 'Votre messagerie s’ouvre avec la demande pré-remplie : vérifiez-la puis envoyez-la. Rien ne s’ouvre ? Écrivez-nous à ' + form.dataset.mailto + ' ou appelez-nous.';
       status.classList.add('is-ok');
       return;
@@ -406,14 +410,34 @@ if (form) {
       // workshop address, to click once
       console.warn('[form]', err?.message || err);
       track('demande_erreur');
+      // nothing is lost: the same request, ready to send from the visitor's own mail app
       const mail = form.dataset.fallback;
+      const phone = document.querySelector('a[href^="tel:"]');
       status.innerHTML = '';
-      status.append('L’envoi n’a pas abouti. Réessayez dans un instant, ou contactez-nous directement' + (mail ? ' : ' : '.'));
+      const p = document.createElement('p');
+      p.textContent = 'L’envoi en ligne n’a pas abouti. Votre demande n’est pas perdue : envoyez-la depuis votre messagerie (elle est déjà rédigée), ou appelez-nous.';
+      const actions = document.createElement('p');
+      actions.className = 'form__fallback';
       if (mail) {
         const a = document.createElement('a');
-        a.href = `mailto:${mail}`;
-        a.textContent = mail;
-        status.append(a);
+        a.className = 'btn btn--primary btn--sm';
+        a.href = mailtoHref(mail, new FormData(form));
+        a.textContent = 'Envoyer ma demande par e-mail';
+        a.addEventListener('click', () => track('demande_par_email'));
+        actions.append(a);
+      }
+      if (phone) {
+        const t = document.createElement('a');
+        t.className = 'btn btn--ghost btn--sm';
+        t.href = phone.getAttribute('href');
+        t.textContent = 'Appeler l’atelier';
+        actions.append(t);
+      }
+      status.append(p, actions);
+      if (files.length) {
+        const f = document.createElement('p');
+        f.textContent = 'Pensez à joindre vos photos à l’e-mail.';
+        status.append(f);
       }
       status.classList.add('is-error');
     } finally {

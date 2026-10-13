@@ -126,3 +126,8 @@
   que leurs photos retouchées existent. La photo de trois quarts arrière de l'Audi devient l'en-tête
   de la page vitres teintées (avec la mention « Réalisation de l'atelier ») et son image de partage.
 - Cartes de la galerie : vignettes pour passer d'une photo à l'autre.
+
+### Formulaire : aucune demande perdue si l'envoi échoue
+- Si le service d'envoi refuse la demande (formulaire pas encore activé, panne, réseau), le visiteur
+  voit « Envoyer ma demande par e-mail » (sa messagerie s'ouvre avec toute la demande rédigée) et
+  « Appeler l'atelier », au lieu d'un simple message d'erreur.

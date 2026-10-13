@@ -2291,6 +2291,12 @@ p {
   padding: 12px 14px;
   font-size: 0.92rem;
 }
+.form__fallback {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+}
 .form__status {
   margin-top: 12px;
   font-weight: 600;
