@@ -17,7 +17,7 @@ Statuts : À faire · En cours · Terminé et testé · Bloqué · En attente de
 | 7. Réalisations | Prêt, en attente de contenus | Galerie administrable (`content/realisations.js`), filtres, comparateur avant/après, blocs accueil/prestations ; avis Google et Instagram prêts (configuration à fournir) | Playwright avec données temporaires : filtre, comparateur au clavier, bloc par prestation | Vraies photos (avec accord des clients), Place ID + clé Google, URL de flux Instagram |
 | 8. Performance | Terminé et testé (labo) | 3D d'accueil différée sur mobile, image fixe + lancement volontaire sur connexion lente, 3D des simulateurs au toucher sur mobile, rendu à la demande, carte sans erreur sans WebGL | Lighthouse avant/après (LCP accueil mobile 38,4 s → 2,3 s ; page vitres mobile 6,8 Mio → 312 Kio) | Mesures sur vrais appareils après publication |
 | 9. SEO | Terminé (préproduction protégée) | `lastmod` réel par empreinte de contenu, 3 nouveaux guides factuels (prix, choix de teinte, nano-céramique), maillage prestation → tous ses guides, plan de migration `docs/MIGRATION-DOMAINE.md` | Audit 36 pages : 0 erreur, 0 lien cassé, 1 H1, titres ≤ 70 car., axe 0 | Inventaire des URL de l'ancien site, décision sur les pages locales |
-| 10. Tests et livraison | À faire | — | — | — |
+| 10. Tests et livraison | Terminé et testé (périmètre de la session) | Prix par défaut dans le HTML, serveur de test robuste, journal des tests | 36 pages (0 erreur, 0 lien cassé, axe 0), 4 scénarios clients, aperçu en sous-dossier simulé, lecture 3D du detailing, Lighthouse avant/après ; publications GitHub Pages vérifiées dans les Actions | Vrais téléphones, vrai GPU, formulaire réel (FormSubmit à activer) |
 
 ## Informations en attente de validation
 
@@ -34,3 +34,15 @@ Statuts : À faire · En cours · Terminé et testé · Bloqué · En attente de
 | Hébergeur de production | GitHub Pages (aperçu) | Hébergeur retenu pour www.solarcar37.fr |
 | Conservation des demandes | « le temps nécessaire » | Proposition : 3 ans après le dernier contact (prospects), durée légale pour les clients |
 | Pages locales | 14 communes | Garder les 14, ou se concentrer sur 6 à 8 communes prioritaires enrichies ? |
+
+## Avant la mise en production (rappel)
+
+1. Valider les informations du tableau ci-dessus (tarifs, TVA, médiateur, crédits 3D, conservation).
+2. Activer FormSubmit (clic sur l'e-mail reçu à contact@solarcar37.fr) puis tester un envoi réel,
+   avec et sans photo, depuis un ordinateur et un iPhone.
+3. Fournir les vraies photos de réalisations (`content/realisations.js`), le Place ID + la clé
+   Google (avis) et, si souhaité, l'URL du flux Instagram.
+4. Relire la réglementation sur Légifrance (articles R316-3 et R316-3-1, arrêté du 18 octobre 2016).
+5. Suivre `docs/MIGRATION-DOMAINE.md` (inventaire des anciennes URL, redirections, DNS en
+   préservant l'e-mail, HTTPS, Search Console).
+6. Mesurer sur de vrais appareils (PageSpeed Insights, rapport Core Web Vitals).
