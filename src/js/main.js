@@ -148,6 +148,25 @@ if (reviewsEl && 'IntersectionObserver' in window) {
   io.observe(reviewsEl);
 }
 
+// ---------------------------------------------------------------- latest Instagram posts (lazy)
+const instaEl = document.querySelector('[data-insta]');
+if (instaEl && 'IntersectionObserver' in window) {
+  const io = new IntersectionObserver(
+    ([en]) => {
+      if (!en.isIntersecting) return;
+      io.disconnect();
+      import('./instagram.js')
+        .then((m) => m.showInstagram(instaEl))
+        .catch((err) => {
+          console.warn('[instagram] profile link kept', err);
+          instaEl.querySelector('[data-insta-list]')?.remove();
+        });
+    },
+    { rootMargin: '400px 0px' }
+  );
+  io.observe(instaEl);
+}
+
 // ---------------------------------------------------------------- living gold buttons
 // each gold button gets its own rhythm so the light sweeps never fire all at once
 document.querySelectorAll('.btn--primary').forEach((btn, i) => {

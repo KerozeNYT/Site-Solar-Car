@@ -4,6 +4,7 @@ import vehicles, { parked } from '../../../content/vehicles.js';
 import { createStage } from './stage.js';
 import { createPath, createTimeline, createEffects } from './flight.js';
 import { clamp, smoothstep } from './math.js';
+import { createGovernor } from '../perf.js';
 
 const FADE = 18; // vh used by a chapter to fade in / out
 
@@ -36,7 +37,7 @@ export async function startTour(section) {
   loadingEl.hidden = false;
   const stage = await createStage(canvas, {
     quality,
-    maxDpr: stillId ? Number(params.get('dpr') || 1) : mobile ? 1.5 : 1.75,
+    maxDpr: stillId ? Number(params.get('dpr') || 1) : mobile ? 1.25 : 1.5,
     carConfig,
     signTexture: '/img/brand/enseigne.webp',
     onProgress: (e) => {
@@ -170,11 +171,17 @@ export async function startTour(section) {
   io.observe(section);
   document.addEventListener('visibilitychange', () => !document.hidden && start());
 
+  // savings for slow devices, in order (src/js/perf.js)
+  const governor = createGovernor([() => stage.setMaxDpr(1.25), () => stage.unpark(), () => stage.setMaxDpr(1), () => stage.setMirror(false)]);
+  let lastFrame = 0;
   function frame(now) {
     if (!visible || document.hidden) {
       running = false;
+      lastFrame = 0;
       return;
     }
+    if (lastFrame) governor.sample(now - lastFrame);
+    lastFrame = now;
     // rAF timestamps can precede performance.now() taken in start(): never step backwards
     const dt = clamp((now - last) / 1000, 0, 0.1);
     last = now;
@@ -189,6 +196,7 @@ export async function startTour(section) {
   }
   function start() {
     if (running) return;
+    lastFrame = 0;
     running = true;
     last = performance.now();
     requestAnimationFrame(frame);

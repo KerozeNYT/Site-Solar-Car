@@ -54,6 +54,11 @@ export const business = {
     placeId: null,
     mapsApiKey: null,
   },
+  // Instagram: the latest posts (5) on the home page, refreshed by the feed service. Instagram
+  // no longer offers a public feed: connect the account to a feed service (e.g. Behold,
+  // behold.so, "JSON feed") and paste the feed URL in `feedUrl`. Until then the block links to
+  // the profile. Also reads a JSON shaped like the Instagram API answer ({ data: [...] }).
+  instagramFeed: { feedUrl: null, count: 5 },
   // Towns close to the workshop, quoted in the "Accès" section (real places, no doorway pages).
   nearby: ['Tours', 'Rochecorbon', 'Vernou-sur-Brenne', 'Montlouis-sur-Loire', 'Saint-Pierre-des-Corps', 'Parçay-Meslay', 'Monnaie', 'Saint-Cyr-sur-Loire', 'Amboise'],
   siret: '890 162 761 00039',
@@ -100,28 +105,28 @@ export const home = {
         title: 'Des films solaires posés dans les règles',
         text: 'Intimité, confort thermique et protection UV, de 70 % à 5 % de lumière transmise. À l’avant, la loi impose au moins 70 % : nous vous en informons avant toute pose plus foncée.',
         readout: 'vlt',
-        link: { label: 'Les vitres teintées', href: '/vitres-teintees/' },
+        link: { label: 'Découvrir les vitres teintées', href: '/vitres-teintees/' },
         side: 'left',
       },
       tail: {
         kicker: '02 — Feux arrière teintés',
         title: 'Un regard plus sombre, des feux toujours lisibles',
         text: 'Film fumé découpé sur mesure, du voile léger au noir profond. Nous vous conseillons l’intensité adaptée et le cadre réglementaire avant toute pose.',
-        link: { label: 'Les feux teintés', href: '/feux-arriere-teintes/' },
+        link: { label: 'Découvrir les feux teintés', href: '/feux-arriere-teintes/' },
         side: 'right',
       },
       detailing: {
         kicker: '03 — Detailing carrosserie',
         title: 'Le brillant d’origine, panneau par panneau',
         text: 'Décontamination, polissage et correction des micro-rayures, puis protection : la ligne qui avance sépare la peinture terne de la peinture corrigée.',
-        link: { label: 'Le detailing', href: '/detailing-carrosserie/' },
+        link: { label: 'Découvrir le detailing', href: '/detailing-carrosserie/' },
         side: 'left',
       },
       stars: {
         kicker: '04 — Ciel étoilé',
         title: 'Une nuit étoilée au-dessus de vos têtes',
         text: 'Des centaines de points de fibre optique intégrés au pavillon, une lumière douce et réglable : l’habitacle devient une nuit d’été.',
-        link: { label: 'Le ciel étoilé', href: '/ciel-etoile/' },
+        link: { label: 'Découvrir le ciel étoilé', href: '/ciel-etoile/' },
         side: 'left',
       },
       headlights: {
@@ -129,7 +134,7 @@ export const home = {
         title: 'Des optiques claires comme au premier jour',
         text: 'Ponçage, polissage et protection anti-UV : les phares jaunis retrouvent leur transparence et votre éclairage son efficacité.',
         readout: 'beforeAfter',
-        link: { label: 'La rénovation de phares', href: '/renovation-phares/' },
+        link: { label: 'Découvrir la rénovation de phares', href: '/renovation-phares/' },
         side: 'right',
       },
       final: {

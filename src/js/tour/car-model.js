@@ -223,15 +223,19 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
   group.updateMatrixWorld(true);
   tailMeshes.forEach((m) => tailBox.expandByObject(m, true));
   tailBox.applyMatrix4(new THREE.Matrix4().copy(group.matrixWorld).invert());
-  // one red light per side, just behind each cluster
-  const tailLights = [new THREE.PointLight(0xff2010, 0, 1.8, 2), new THREE.PointLight(0xff2010, 0, 1.8, 2)];
+  // one red light per side, just behind each cluster (textured lights only: every point light
+  // costs on every lit pixel of the scene)
+  const tailLights = textured ? [new THREE.PointLight(0xff2010, 0, 1.8, 2), new THREE.PointLight(0xff2010, 0, 1.8, 2)] : [];
+  tailLights.forEach((l) => (l.name = 'tailPoint'));
   const tailLight = { set intensity(v) { tailLights.forEach((l) => (l.intensity = v)); } };
   const spill = makeSpill(0xff1a0c);
   if (!tailBox.isEmpty()) {
     const c = tailBox.getCenter(new THREE.Vector3());
-    tailLights[0].position.set(tailBox.min.x - 0.2, c.y, tailBox.min.z + 0.18);
-    tailLights[1].position.set(tailBox.min.x - 0.2, c.y, tailBox.max.z - 0.18);
-    group.add(...tailLights);
+    if (tailLights.length) {
+      tailLights[0].position.set(tailBox.min.x - 0.2, c.y, tailBox.min.z + 0.18);
+      tailLights[1].position.set(tailBox.min.x - 0.2, c.y, tailBox.max.z - 0.18);
+      group.add(...tailLights);
+    }
     spill.position.set(tailBox.min.x - 0.45, 0.008, c.z);
     spill.scale.set(1.5, 1, Math.max(1.6, (tailBox.max.z - tailBox.min.z) * 1.5));
     group.add(spill);

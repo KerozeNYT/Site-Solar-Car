@@ -351,6 +351,29 @@ function reviewsBlock(ctx) {
 </section>`;
 }
 
+/** Instagram: the latest posts once a feed is set up, otherwise a link to the profile. */
+function instagramBlock(ctx) {
+  const b = ctx.business;
+  const url = b.social?.instagram;
+  if (!url) return '';
+  const handle = `@${url.replace(/\/+$/, '').split('/').pop()}`;
+  const feed = b.instagramFeed?.feedUrl;
+  const n = b.instagramFeed?.count || 5;
+  return `<section class="section insta" aria-labelledby="insta-title"${feed ? ` data-insta="${esc(feed)}" data-count="${n}"` : ''}>
+  <div class="container">
+    <div class="insta__head reveal-up">
+      <div>
+        <p class="kicker">Instagram ${esc(handle)}</p>
+        <h2 id="insta-title">Les dernières sorties d’atelier</h2>
+        <p>Vitres teintées, feux, detailing, ciel étoilé : les voitures qui passent à l’atelier, en photos et en vidéos.</p>
+      </div>
+      <a class="btn btn--primary" href="${esc(url)}" rel="noopener" target="_blank">${ICONS.instagram} Suivre ${esc(handle)}</a>
+    </div>
+    ${feed ? `<ul class="insta__grid" data-insta-list aria-busy="true">${'<li class="insta__item is-skel"></li>'.repeat(n)}</ul>` : ''}
+  </div>
+</section>`;
+}
+
 function page(ctx, opts, body) {
   return `${head(ctx, opts)}
 <body class="${opts.bodyClass || ''}">
@@ -413,7 +436,9 @@ export function homePage(ctx) {
     .map((id, i) => {
       const c = ch[id];
       const H = i === 0 ? 'h1' : 'h2';
-      const link = c.link ? `<p class="chapter__link"><a href="${c.link.href}">${esc(c.link.label)} <span aria-hidden="true">→</span></a></p>` : '';
+      const link = c.link
+        ? `<p class="chapter__link"><a class="btn btn--primary chapter__cta" href="${c.link.href}">${esc(c.link.label)} <span class="chapter__arrow" aria-hidden="true">→</span></a><span class="chapter__hint">Simulateur 3D · tarifs · questions fréquentes</span></p>`
+        : '';
       const readout =
         c.readout === 'vlt'
           ? `<p class="readout" aria-live="off"><span class="readout__label">Transmission lumineuse arrière</span> <span class="readout__value" data-readout="vlt">70</span><span class="readout__unit"> %</span></p>`
@@ -500,6 +525,7 @@ export function homePage(ctx) {
   ${visitBlock(ctx, { title: `Votre atelier à ${b.address?.city || b.department}, près de Tours` })}
   ${partnersBlock(ctx)}
   ${reviewsBlock(ctx)}
+  ${instagramBlock(ctx)}
   ${faqBlock(home.faq)}
   ${ctaBand(ctx)}`;
 

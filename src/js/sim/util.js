@@ -70,6 +70,17 @@ export function easer(viewer, initial, apply, rate = 7) {
   };
 }
 
+/** bring the 3D view back on screen when an animation starts while it is scrolled away */
+export function revealView(section) {
+  const el = section.querySelector('[data-sim-view]');
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  const seen = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
+  if (seen > r.height * 0.6) return;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+}
+
 /** small caption over the 3D view ("Avant", "Étape 2/5"…); returns a setter, '' hides it */
 export function stateBadge(section) {
   const el = document.createElement('p');

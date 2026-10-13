@@ -1,5 +1,5 @@
 import { headlights } from '../../../content/pricing.js';
-import { fmt, readForm, setQuote, easer, stateBadge, play } from './util.js';
+import { fmt, readForm, setQuote, easer, stateBadge, play, revealView } from './util.js';
 
 /** Headlight renovation on the studio Porsche: yellowed → clear, with the lights on or off. */
 export function setup({ section, form, view }) {
@@ -38,6 +38,7 @@ export function setup({ section, form, view }) {
   playBtn?.addEventListener('click', async () => {
     if (!viewer) return;
     anim?.cancel();
+    revealView(section);
     if (viewer.view !== 'phare') view('phare');
     range.value = 0;
     update();

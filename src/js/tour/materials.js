@@ -165,43 +165,51 @@ export function injectPolish(m, uniforms) {
         // the polishing pass: a warm glint travelling with the boundary
         float sideMask = smoothstep(uPolishSide - 0.06, uPolishSide + 0.06, vCarPos.z);
         float glint = (1.0 - smoothstep(0.0, 0.035, abs(vCarPos.x - uPolishX))) * sideMask * step(abs(uPolishX), 3.0);
-        // detailing stages: road grime, snow foam, iron fallout. The noise domain is rotated
-        // so its blobs never line up with the car's axes.
-        vec3 q = mat3(0.80, 0.36, -0.48, -0.60, 0.48, -0.64, 0.0, 0.80, 0.60) * vCarPos;
-        float n1 = vnoise(q * 7.0);
-        float n2 = vnoise(q * 38.0);
-        float fb = n1 * 0.5 + vnoise(q * 15.0) * 0.3 + n2 * 0.2;
-        float low = 1.0 - smoothstep(0.2, 1.0, vCarPos.y);
-        // running liquids: vertical streak noise sliding down with time (uFlow)
-        float drip = vnoise(vec3(vCarPos.x * 46.0, vCarPos.y * 2.6 + uFlow * 0.9, vCarPos.z * 46.0));
-        float drip2 = vnoise(vec3(vCarPos.x * 31.0 + 7.0, vCarPos.y * 3.4 + uFlow * 1.3, vCarPos.z * 31.0));
-        // clear-water rinse: the clean line comes down from the roof
-        float rinsed = smoothstep(uRinseY - 0.05, uRinseY + 0.05 + 0.18 * drip2, vCarPos.y);
-        float grime = uDirt * clamp(0.3 + 0.8 * low + (n1 - 0.5) * 0.9, 0.0, 1.0) * (1.0 - rinsed);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.30, 0.27, 0.21), grime * 0.8);
-        roughnessFactor = mix(roughnessFactor, 0.92, grime);
-        metalnessFactor = mix(metalnessFactor, 0.0, grime);
-        // snow foam: a thick blanket with a bubbly texture that slides down the panels: full
-        // below uFoamTop, only the trails it leaves above
-        float below = 1.0 - smoothstep(uFoamTop - 0.06, uFoamTop + 0.06 + 0.25 * drip, vCarPos.y);
-        float trails = smoothstep(0.6, 0.78, drip) * 0.8;
-        float foam = uFoam * smoothstep(0.26, 0.46, fb + 0.1 * low + 0.15 * (1.0 - below)) * max(below, trails) * (1.0 - rinsed);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 0.97) * (0.8 + 0.2 * vnoise(q * 170.0)), foam);
-        roughnessFactor = mix(roughnessFactor, 1.0, foam);
-        metalnessFactor = mix(metalnessFactor, 0.0, foam);
-        // iron remover turning purple and running down the panels, heavier low on the body
-        float runs = vnoise(vec3(vCarPos.x * 34.0, vCarPos.y * 4.0 + uFlow * 1.1, vCarPos.z * 34.0));
-        float iron = uIron * smoothstep(0.5, 0.7, runs * 0.65 + n2 * 0.35) * (0.45 + 0.55 * low) * (1.0 - rinsed);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.06, 0.52), iron * 0.75);
-        roughnessFactor = mix(roughnessFactor, 0.5, iron);
-        // wet paint where the rinse has passed: darker, glassy, with water sheets running off
-        float wet = uWet * rinsed;
-        float sheet = smoothstep(0.58, 0.86, vnoise(vec3(vCarPos.x * 70.0, vCarPos.y * 1.6 + uFlow * 2.4, vCarPos.z * 70.0)));
-        diffuseColor.rgb *= 1.0 - 0.14 * wet;
-        roughnessFactor = mix(roughnessFactor, 0.04, wet);
+        // detailing stages (grime, foam, iron remover, rinse water): only computed while one of
+        // them is on, so the paint costs nothing extra the rest of the time
+        float mud = 0.0;
+        float wet = 0.0;
+        float sheet = 0.0;
+        float rinsed = 0.0;
+        if (uDirt + uFoam + uIron + uWet > 0.0005) {
+          // detailing stages: road grime, snow foam, iron fallout. The noise domain is rotated
+          // so its blobs never line up with the car's axes.
+          vec3 q = mat3(0.80, 0.36, -0.48, -0.60, 0.48, -0.64, 0.0, 0.80, 0.60) * vCarPos;
+          float n1 = vnoise(q * 7.0);
+          float n2 = vnoise(q * 38.0);
+          float fb = n1 * 0.5 + vnoise(q * 15.0) * 0.3 + n2 * 0.2;
+          float low = 1.0 - smoothstep(0.2, 1.0, vCarPos.y);
+          // running liquids: vertical streak noise sliding down with time (uFlow)
+          float drip = vnoise(vec3(vCarPos.x * 46.0, vCarPos.y * 2.6 + uFlow * 0.9, vCarPos.z * 46.0));
+          float drip2 = vnoise(vec3(vCarPos.x * 31.0 + 7.0, vCarPos.y * 3.4 + uFlow * 1.3, vCarPos.z * 31.0));
+          // clear-water rinse: the clean line comes down from the roof
+          rinsed = smoothstep(uRinseY - 0.05, uRinseY + 0.05 + 0.18 * drip2, vCarPos.y);
+          float grime = uDirt * clamp(0.3 + 0.8 * low + (n1 - 0.5) * 0.9, 0.0, 1.0) * (1.0 - rinsed);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.30, 0.27, 0.21), grime * 0.8);
+          roughnessFactor = mix(roughnessFactor, 0.92, grime);
+          metalnessFactor = mix(metalnessFactor, 0.0, grime);
+          // snow foam: a thick blanket with a bubbly texture that slides down the panels: full
+          // below uFoamTop, only the trails it leaves above
+          float below = 1.0 - smoothstep(uFoamTop - 0.06, uFoamTop + 0.06 + 0.25 * drip, vCarPos.y);
+          float trails = smoothstep(0.6, 0.78, drip) * 0.8;
+          float foam = uFoam * smoothstep(0.26, 0.46, fb + 0.1 * low + 0.15 * (1.0 - below)) * max(below, trails) * (1.0 - rinsed);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 0.97) * (0.8 + 0.2 * vnoise(q * 170.0)), foam);
+          roughnessFactor = mix(roughnessFactor, 1.0, foam);
+          metalnessFactor = mix(metalnessFactor, 0.0, foam);
+          // iron remover turning purple and running down the panels, heavier low on the body
+          float runs = vnoise(vec3(vCarPos.x * 34.0, vCarPos.y * 4.0 + uFlow * 1.1, vCarPos.z * 34.0));
+          float iron = uIron * smoothstep(0.5, 0.7, runs * 0.65 + n2 * 0.35) * (0.45 + 0.55 * low) * (1.0 - rinsed);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.06, 0.52), iron * 0.75);
+          roughnessFactor = mix(roughnessFactor, 0.5, iron);
+          // wet paint where the rinse has passed: darker, glassy, with water sheets running off
+          wet = uWet * rinsed;
+          sheet = smoothstep(0.58, 0.86, vnoise(vec3(vCarPos.x * 70.0, vCarPos.y * 1.6 + uFlow * 2.4, vCarPos.z * 70.0)));
+          diffuseColor.rgb *= 1.0 - 0.14 * wet;
+          roughnessFactor = mix(roughnessFactor, 0.04, wet);
+          mud = grime + foam;
+        }
         // ceramic: deeper colour under the gloss
-        diffuseColor.rgb *= 1.0 - 0.08 * uCeramic;
-        float mud = grime + foam;`
+        diffuseColor.rgb *= 1.0 - 0.08 * uCeramic;`
       )
       .replace(
         '#include <lights_physical_fragment>',

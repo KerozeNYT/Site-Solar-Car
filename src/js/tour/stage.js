@@ -11,7 +11,9 @@ import { loadParkedCar } from './parked.js';
 export async function createStage(canvas, { quality = 'high', logoSvg = null, signTexture = null, maxDpr = 2, carConfig = null, onProgress, exterior = true, bloom = false } = {}) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: quality === 'high',
+    // with the bloom chain, edges are smoothed by a cheap FXAA pass instead of the costly
+    // multisampled canvas
+    antialias: quality === 'high' && !bloom,
     alpha: false,
     powerPreference: 'high-performance',
   });
@@ -43,7 +45,7 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
   const mirror = premises.reflect.clone(true);
   mirror.scale.y = -1;
   mirror.name = 'mirror';
-  const hiddenInMirror = new Set(['sky', 'beam', 'shadow', 'stars', 'starLiner', 'floorFx', 'spray', 'spill']);
+  const hiddenInMirror = new Set(['sky', 'beam', 'shadow', 'stars', 'starLiner', 'floorFx', 'spray', 'spill', 'tailPoint']);
   mirror.traverse((o) => {
     if (hiddenInMirror.has(o.name) || o.isSprite) o.visible = false;
   });
@@ -74,17 +76,20 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
   let composer = null;
   if (bloom) {
     try {
-      const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }] = await Promise.all([
+      const [{ EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }, { FXAAPass }] = await Promise.all([
         import('three/addons/postprocessing/EffectComposer.js'),
         import('three/addons/postprocessing/RenderPass.js'),
         import('three/addons/postprocessing/UnrealBloomPass.js'),
         import('three/addons/postprocessing/OutputPass.js'),
+        import('three/addons/postprocessing/FXAAPass.js'),
       ]);
-      composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: quality === 'high' ? 4 : 0 }));
+      // no multisampling: the bloom softens edges anyway, and it keeps the pass light
+      composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }));
       composer.addPass(new RenderPass(scene, camera));
       // only the brightest sources bloom (lamps, LEDs), not the sign or the paint
       composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.3, 0.4, 1.5));
       composer.addPass(new OutputPass());
+      composer.addPass(new FXAAPass());
     } catch (err) {
       console.warn('[stage] bloom unavailable', err);
       composer = null;
@@ -98,8 +103,11 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
     state.dpr = dpr;
     renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
-    if (composer) {
-      composer.setPixelRatio(dpr);
+    if (composer && bloomOn) {
+      // the glow does not need the full retina resolution
+      const cdpr = Math.min(dpr, 1.25);
+      renderer.setPixelRatio(cdpr);
+      composer.setPixelRatio(cdpr);
       composer.setSize(w, h);
     }
     camera.aspect = w / h;
@@ -138,7 +146,12 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
     if (dirty) camera.updateProjectionMatrix();
   }
 
-  /** Park supplied cars around the studio (scenery). Resolves once they are in place. */
+  /**
+   * Park supplied cars around the studio (scenery). Resolves once they are in place. They are
+   * not mirrored in the floor: a whole car less to draw each, for a reflection hardly seen.
+   */
+  let parkedCars = [];
+  let unparked = false;
   async function park(spots = []) {
     const cars = await Promise.all(
       spots.map((spot) =>
@@ -148,15 +161,30 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
         })
       )
     );
+    if (unparked) return;
     for (const g of cars) {
       if (!g) continue;
       premises.reflect.add(g);
-      const twin = g.clone(true);
-      twin.traverse((o) => {
-        if (hiddenInMirror.has(o.name) || o.isSprite) o.visible = false;
-      });
-      mirror.add(twin);
+      parkedCars.push(g);
     }
+  }
+  /** savings for slow devices (see src/js/perf.js) */
+  function unpark() {
+    unparked = true;
+    for (const g of parkedCars) g.parent?.remove(g);
+    parkedCars = [];
+  }
+  let bloomOn = true;
+  function setBloom(on) {
+    bloomOn = on;
+    resize(state.w, state.h);
+  }
+  function setMirror(on) {
+    mirror.visible = on;
+  }
+  function setMaxDpr(v) {
+    maxDpr = v;
+    resize(state.w, state.h);
   }
 
   function render(time = 0) {
@@ -164,9 +192,9 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
     for (let i = 0; i < mirrorTraffic.length; i++) mirrorTraffic[i].position.copy(premises.traffic[i].position);
     for (const [a, b] of sync) b.quaternion.copy(a.quaternion);
     car.update(time, state.h * state.dpr, camera.fov);
-    if (composer) composer.render();
+    if (composer && bloomOn) composer.render();
     else renderer.render(scene, camera);
   }
 
-  return { renderer, scene, camera, car, premises, resize, setView, render, park, state };
+  return { renderer, scene, camera, car, premises, resize, setView, render, park, unpark, setBloom, setMirror, setMaxDpr, state };
 }

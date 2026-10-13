@@ -11,7 +11,7 @@ export async function loadParkedCar({ config, x = 0, z = 0, ry = 0, color = null
   api.setPolish(10, -1);
   api.setTailOn?.(0); // parked: lights off
   api.group.traverse((o) => {
-    if (o.isSprite || o.isPoints) o.visible = false;
+    if (o.isSprite || o.isPoints || o.isLight) o.visible = false;
   });
   api.group.name = 'parked';
   api.group.position.set(x, 0, z);

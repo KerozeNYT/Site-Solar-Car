@@ -7,6 +7,7 @@ import { BLD } from '../tour/studio.js';
 import { buildWorkshop, workshopEnvironment, ROOM } from './workshop.js';
 import vehicles, { parked } from '../../../content/vehicles.js';
 import { loadParkedCar } from '../tour/parked.js';
+import { createGovernor } from '../perf.js';
 import porsche from '../../../content/car.js';
 
 /**
@@ -47,6 +48,12 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
   controls.autoRotateSpeed = 0.6;
 
   const cars = new Map();
+  let dprCap = quality === 'high' ? 1.5 : 1.25;
+  let mirrorsOff = false;
+  const setDpr = (v) => {
+    dprCap = Math.min(dprCap, v);
+    ctl.resizeNow();
+  };
   let car = null;
   let shown = null;
   let carBox = new THREE.Box3(new THREE.Vector3(-2.3, 0, -1), new THREE.Vector3(2.3, 1.4, 1));
@@ -87,6 +94,7 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
         if (NOT_BODY.has(o.name) || o.isSprite || o.isPoints) o.visible = false;
       });
     }
+    entry.mirror.visible = !mirrorsOff;
     scene.add(car.group, entry.mirror);
     carBox = bodyBox(car.group);
     ctl.invalidate();
@@ -96,7 +104,7 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
 
   // two supplied cars parked behind, never the category on show (desktop only)
   const bays = new Map(); // category -> { group, mirror } (null while loading)
-  const wantParked = quality === 'high' && !navigator.connection?.saveData;
+  let wantParked = quality === 'high' && !navigator.connection?.saveData;
   let parkedNow = [];
   function showParked(t) {
     const b = bays.get(t);
@@ -127,12 +135,8 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
       entry.loading = loadParkedCar({ config: vehicles[t].config }, { quality })
         .then((g) => {
           entry.group = g;
-          entry.mirror = g.clone(true);
-          entry.mirror.scale.y = -1;
-          entry.mirror.traverse((o) => {
-            if (NOT_BODY.has(o.name) || o.isSprite || o.isPoints) o.visible = false;
-          });
-          showParked(t);
+          entry.mirror = new THREE.Group(); // parked cars are not mirrored (lighter)
+          if (wantParked) showParked(t);
         })
         .catch((err) => {
           console.warn('[sim] parked car failed', err);
@@ -154,11 +158,25 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
       renderer.render(scene, camera);
     },
     resize: (w, h) => {
-      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, quality === 'high' ? 2 : 1.5));
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, dprCap));
       renderer.setSize(w, h, false);
     },
     car: () => car,
     setVehicle,
+    // savings for slow devices, in order
+    degrade: [
+      () => setDpr(1.25),
+      () => {
+        wantParked = false;
+        for (const b of bays.values()) if (b.group) scene.remove(b.group, b.mirror);
+      },
+      () => setDpr(1),
+      () => {
+        mirrorRoom.visible = false;
+        mirrorsOff = true;
+        for (const e of cars.values()) if (e.mirror) e.mirror.visible = false;
+      },
+    ],
   });
   ctl.scenery = Promise.resolve();
   return ctl;
@@ -176,8 +194,8 @@ async function createStudioViewer(container, canvas, { quality, car = null, onPr
     carConfig,
     signTexture: '/img/brand/enseigne.webp',
     exterior: false,
-    bloom: quality === 'high',
-    maxDpr: quality === 'high' ? 2 : 1.5,
+    bloom: quality === 'high' && !/[?&]nobloom\b/.test(location.search),
+    maxDpr: quality === 'high' ? 1.5 : 1.25,
     onProgress,
   });
   const { camera, renderer } = stage;
@@ -189,6 +207,21 @@ async function createStudioViewer(container, canvas, { quality, car = null, onPr
       : Promise.resolve();
   // fully polished by default; the detailing simulator sets its own before / after state
   stage.car.setPolish(10, -1);
+  // compile now the shaders of effects that appear later (floor run-off, rinse jet), so they
+  // do not freeze the animation the first time they show up
+  const later = [];
+  stage.car.group.traverse((o) => {
+    if ((o.name === 'floorFx' || o.name === 'spray') && !o.visible) {
+      o.visible = true;
+      later.push(o);
+    }
+  });
+  try {
+    await renderer.compileAsync(stage.scene, camera);
+  } catch {
+    /* older drivers: compiled on first use instead */
+  }
+  later.forEach((o) => (o.visible = false));
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
@@ -197,7 +230,21 @@ async function createStudioViewer(container, canvas, { quality, car = null, onPr
   // stay inside the room: under the ceiling, short of the walls
   const room = { maxDist: Math.min(BLD.x1, BLD.z1) - 0.9, maxY: BLD.h - 1.5 };
   const carBox = bodyBox(stage.car.group);
-  ctl = makeController({ container, renderer, camera, controls, room, carBox: () => carBox, render: (t) => stage.render(t), resize: (w, h) => stage.resize(w, h, Math.min(devicePixelRatio || 1, quality === 'high' ? 2 : 1.5)), car: () => stage.car, setVehicle: async () => ({ api: stage.car, real: true }) });
+  ctl = makeController({
+    container,
+    renderer,
+    camera,
+    controls,
+    room,
+    carBox: () => carBox,
+    render: (t) => stage.render(t),
+    resize: (w, h) => stage.resize(w, h),
+    car: () => stage.car,
+    setVehicle: async () => ({ api: stage.car, real: true }),
+    // savings for slow devices, in order
+    // (the bloom chain stays: it is light and replaces the costly multisampling)
+    degrade: [() => stage.setMaxDpr(1.25), () => stage.unpark(), () => stage.setMaxDpr(1), () => stage.setMirror(false)],
+  });
   ctl.scenery = scenery; // resolves once the parked cars are in place
   return ctl;
 }
@@ -210,7 +257,7 @@ function studioParking(shown) {
 }
 
 /** bounds of the car body only: light beams, shadows, stars and glows would stretch the box */
-const NOT_BODY = new Set(['beam', 'shadow', 'stars', 'starExtras', 'floorFx', 'spray', 'spill']);
+const NOT_BODY = new Set(['beam', 'shadow', 'stars', 'starExtras', 'floorFx', 'spray', 'spill', 'tailPoint']);
 function bodyBox(group) {
   const box = new THREE.Box3();
   group.updateMatrixWorld(true);
@@ -223,7 +270,9 @@ function bodyBox(group) {
   return box;
 }
 
-function makeController({ container, renderer, camera, controls, carBox, render, resize, car, setVehicle, room = null }) {
+function makeController({ container, renderer, camera, controls, carBox, render, resize, car, setVehicle, room = null, degrade = [] }) {
+  const governor = createGovernor(degrade);
+  let lastDrawn = 0;
   const maxDist = room ? room.maxDist : 8.5;
   let dirty = true;
   let tween = null;
@@ -323,7 +372,10 @@ function makeController({ container, renderer, camera, controls, carBox, render,
     if (moved || dirty || busy || animated > 0 || controls.autoRotate) {
       render(now / 1000);
       dirty = false;
-    }
+      // two frames drawn back to back: their spacing is the real frame time
+      if (lastDrawn) governor.sample(now - lastDrawn);
+      lastDrawn = now;
+    } else lastDrawn = 0;
     if (tween || moved || busy || animated > 0 || controls.autoRotate || dirty) requestAnimationFrame(frame);
     else running = false;
   }
@@ -331,6 +383,7 @@ function makeController({ container, renderer, camera, controls, carBox, render,
     if (running) return;
     running = true;
     last = performance.now();
+    lastDrawn = 0;
     requestAnimationFrame(frame);
   }
   onResize();
@@ -347,6 +400,13 @@ function makeController({ container, renderer, camera, controls, carBox, render,
       return current;
     },
     invalidate,
+    resizeNow: onResize,
+    /** apply the next saving now (tests; the governor does it on its own when needed) */
+    degradeStep() {
+      const i = governor.level;
+      if (i < degrade.length) governor.sample(1e3, true);
+      return i;
+    },
     autoRotate(on) {
       controls.autoRotate = on;
       invalidate();

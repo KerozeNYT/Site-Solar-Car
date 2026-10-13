@@ -1,5 +1,5 @@
 import { detailing, vehicleTypes } from '../../../content/pricing.js';
-import { readForm, vehicleLabel, setQuote, stateBadge, play } from './util.js';
+import { readForm, vehicleLabel, setQuote, stateBadge, play, revealView } from './util.js';
 import { smoothstep } from '../tour/math.js';
 
 const IDS = detailing.steps.map((s) => s.id);
@@ -129,6 +129,7 @@ export function setup({ section, form, view }) {
 
   async function playAll() {
     anim?.cancel();
+    revealView(section);
     playBtn.disabled = true;
     viewer?.autoRotate(false);
     for (const id of pkg.steps) {
@@ -143,6 +144,7 @@ export function setup({ section, form, view }) {
       anim?.cancel();
       playBtn.disabled = false;
       viewer?.autoRotate(false);
+      revealView(section);
       playStep(b.dataset.step);
     });
   }
