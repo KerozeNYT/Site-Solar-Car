@@ -3360,6 +3360,18 @@ p {
 .visit__map-open svg {
   vertical-align: -4px;
 }
+/* phones with the 3D tour on the page: the map starts on a tap */
+.visit__map-3d {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  background: rgba(8, 14, 26, 0.78);
+  color: var(--white);
+  border: 1px solid rgba(233, 205, 130, 0.6);
+}
+.visit__map.is-live .visit__map-3d {
+  display: none;
+}
 
 /* 3D map overlay: labels, route chip, view buttons */
 .map3d {

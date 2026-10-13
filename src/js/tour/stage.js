@@ -196,5 +196,12 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
     else renderer.render(scene, camera);
   }
 
-  return { renderer, scene, camera, car, premises, resize, setView, render, park, unpark, setBloom, setMirror, setMaxDpr, state };
+  /** after the browser hands a lost WebGL context back: GPU-only resources are rebuilt (geometry
+   * and textures are uploaded again by three.js on their own) */
+  function restore() {
+    scene.environment = buildEnvironment(renderer);
+    resize(state.w, state.h);
+  }
+
+  return { renderer, scene, camera, car, premises, resize, setView, render, park, unpark, setBloom, setMirror, setMaxDpr, restore, state };
 }

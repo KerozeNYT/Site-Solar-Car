@@ -74,9 +74,16 @@ function webgl2() {
 const tour = document.querySelector('[data-tour]');
 if (tour) {
   const optIn = tour.querySelector('[data-tour-start]');
+  // the static version: every chapter readable (clears what a started tour may have set)
   const fallback = () => {
     html.classList.remove('tour-live');
+    tour.classList.remove('is-ready');
     tour.classList.add('is-static');
+    tour.querySelectorAll('[data-chapter]').forEach((el) => {
+      el.classList.remove('is-visible', 'has-spot-open');
+      el.removeAttribute('inert');
+      el.querySelector('.chapter__copy')?.removeAttribute('style');
+    });
   };
   const go = () =>
     import('./tour/index.js')
@@ -146,21 +153,41 @@ if (bar && 'IntersectionObserver' in window) {
 
 // ---------------------------------------------------------------- workshop map (lazy)
 const maps = document.querySelectorAll('[data-map]');
+const startMap = (el) =>
+  import('./map3d.js')
+    .then((m) => m.initMap(el))
+    .catch((err) => console.warn('[map] still image kept', err));
 // without WebGL the still image stays (no attempt, no console error)
 if (maps.length && 'IntersectionObserver' in window && webgl2()) {
-  const io = new IntersectionObserver(
-    (entries) => {
-      for (const en of entries) {
-        if (!en.isIntersecting) continue;
-        io.unobserve(en.target);
-        import('./map3d.js')
-          .then((m) => m.initMap(en.target))
-          .catch((err) => console.warn('[map] still image kept', err));
-      }
-    },
-    { rootMargin: '400px 0px' }
-  );
-  maps.forEach((m) => io.observe(m));
+  // a phone showing the 3D tour keeps a single 3D scene at a time: two would compete for its
+  // graphics memory, and the browser may then take the tour's away. There the map waits for a tap.
+  const oneScene = matchMedia('(max-width: 760px)').matches && html.classList.contains('tour-live') && document.querySelector('[data-tour]');
+  if (oneScene) {
+    maps.forEach((el) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn--sm visit__map-3d';
+      b.textContent = 'Afficher la carte 3D';
+      b.addEventListener('click', () => {
+        b.disabled = true;
+        b.textContent = 'Chargement de la carte…';
+        startMap(el).then(() => b.remove());
+      });
+      el.append(b);
+    });
+  } else {
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const en of entries) {
+          if (!en.isIntersecting) continue;
+          io.unobserve(en.target);
+          startMap(en.target);
+        }
+      },
+      { rootMargin: '400px 0px' }
+    );
+    maps.forEach((m) => io.observe(m));
+  }
 }
 
 // ---------------------------------------------------------------- reveal on scroll

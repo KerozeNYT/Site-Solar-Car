@@ -8,7 +8,7 @@ import { clamp } from './math.js';
  * paint returns exactly as it was. Uniform changes only: no shader is rebuilt, nothing is
  * downloaded (the colour is one verified 3M reference, content/covering.js `homeDemo`).
  */
-export function createCoveringSpot({ chapter, stage, film, reduceMotion = false }) {
+export function createCoveringSpot({ chapter, stage, film, reduceMotion = false, signal }) {
   const btn = chapter?.querySelector('[data-spot]');
   const card = chapter?.querySelector('[data-spot-card]');
   const car = stage.car;
@@ -42,14 +42,15 @@ export function createCoveringSpot({ chapter, stage, film, reduceMotion = false 
     if (!on && focusBack && card.contains(document.activeElement)) btn.focus();
     stage.wake?.();
   }
-  btn.addEventListener('click', () => set(!open));
-  card.querySelector('[data-spot-close]')?.addEventListener('click', () => set(false));
+  // listeners end with the tour instance (`signal`): a relaunched tour never doubles them
+  btn.addEventListener('click', () => set(!open), { signal });
+  card.querySelector('[data-spot-close]')?.addEventListener('click', () => set(false), { signal });
   chapter.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && open) {
       e.stopPropagation();
       set(false);
     }
-  });
+  }, { signal });
 
   return {
     get busy() {
@@ -81,6 +82,11 @@ export function createCoveringSpot({ chapter, stage, film, reduceMotion = false 
       const behind = v.z > 1;
       btn.style.transform = `translate3d(${((v.x * 0.5 + 0.5) * width).toFixed(1)}px, ${((-v.y * 0.5 + 0.5) * height).toFixed(1)}px, 0)`;
       btn.classList.toggle('is-off-screen', behind || Math.abs(v.x) > 0.95 || Math.abs(v.y) > 0.95);
+    },
+    /** back to the closed state (tour relaunched or switched to its static version) */
+    reset() {
+      set(false, { focusBack: false });
+      btn.hidden = true;
     },
     /** still images: the film fully laid */
     preview() {

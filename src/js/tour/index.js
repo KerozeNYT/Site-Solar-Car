@@ -28,6 +28,9 @@ export async function startTour(section) {
   const revealFrom = beats.find((b) => b.id === 'reveal')?.from ?? Infinity;
   const params = new URLSearchParams(location.search);
   const stillId = params.get('still');
+  // everything this tour instance listens to ends together (relaunch, static fallback)
+  const ac = new AbortController();
+  const signal = ac.signal;
 
   const mobile = matchMedia('(max-width: 760px)').matches;
   // phones: a more direct tour (same camera path, less scrolling)
@@ -74,7 +77,7 @@ export async function startTour(section) {
   }
   let spot = null;
   try {
-    if (spotFilm) spot = createCoveringSpot({ chapter: spotChapter, stage: { car: stage.car, wake: () => start() }, film: spotFilm, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches });
+    if (spotFilm) spot = createCoveringSpot({ chapter: spotChapter, stage: { car: stage.car, wake: () => start() }, film: spotFilm, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches, signal });
   } catch (err) {
     console.warn('[tour] covering spot unavailable', err); // the chapter's own links remain
   }
@@ -87,7 +90,8 @@ export async function startTour(section) {
     stage.resize(stageEl.clientWidth, stageEl.clientHeight);
   };
   measure();
-  new ResizeObserver(measure).observe(stageEl);
+  const ro = new ResizeObserver(measure);
+  ro.observe(stageEl);
 
   const scrollVh = () => ((scrollY - sectionTop) / vhPx) * 100;
   let current = stillId ? stills[stillId] ?? 0 : timeline.timeAt(scrollVh());
@@ -192,21 +196,27 @@ export async function startTour(section) {
   // ------------------------------------------------------------- live loop
   let visible = true;
   let running = false;
+  let dead = false; // this instance was replaced (relaunch) or the page went static
+  let lost = false; // the browser took the WebGL context away (memory, background tab…)
+  let recoverTimer = 0;
+  let waitingForScreen = false;
   let last = performance.now();
   const io = new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting;
+    if (visible && lost && waitingForScreen) recover();
     if (visible) start();
   });
   io.observe(section);
-  document.addEventListener('visibilitychange', () => !document.hidden && start());
+  document.addEventListener('visibilitychange', () => !document.hidden && start(), { signal });
 
-  // savings for slow devices, in order (src/js/perf.js)
-  // sharpness first; parked cars and floor reflections go only on a device that really struggles
+  // savings for slow devices, in order (src/js/perf.js): only the sharpness goes down. Nothing
+  // visible (parked cars, floor reflections) is ever removed during the visit.
   const governor = createGovernor([
     { apply: () => stage.setMaxDpr(1.25), budget: BUDGET.sharpness },
     { apply: () => stage.setMaxDpr(1), budget: BUDGET.sharpness },
-    { apply: () => stage.unpark(), budget: BUDGET.scenery },
-    { apply: () => stage.setMirror(false), budget: BUDGET.reflections },
+    // a device that really struggles (under ~18, then ~15 images a second): softer still
+    { apply: () => stage.setMaxDpr(0.85), budget: 55 },
+    { apply: () => stage.setMaxDpr(0.7), budget: 66 },
   ]);
   let lastFrame = 0;
   // rendering on demand: full rate while the camera moves; once it has settled, about 20 frames
@@ -216,7 +226,7 @@ export async function startTour(section) {
   let lastVh = NaN;
   let lastDraw = 0;
   function frame(now) {
-    if (!visible || document.hidden) {
+    if (dead || lost || !visible || document.hidden) {
       running = false;
       lastFrame = 0;
       return;
@@ -253,24 +263,105 @@ export async function startTour(section) {
     requestAnimationFrame(frame);
   }
   function start() {
-    if (running) return;
+    if (running || dead || lost) return;
     lastFrame = 0;
     idle = 0;
     running = true;
     last = performance.now();
     requestAnimationFrame(frame);
   }
-  addEventListener('scroll', start, { passive: true });
-  addEventListener('resize', start);
-  canvas.addEventListener('webglcontextlost', (ev) => {
-    ev.preventDefault();
-    document.documentElement.classList.remove('tour-live');
-    section.classList.add('is-static');
-  });
+  addEventListener('scroll', start, { passive: true, signal });
+  addEventListener('resize', start, { signal });
+
+  // ------------------------------------------------------------- lost 3D
+  // Phones free the WebGL memory of a page under pressure (a second 3D scene, another app, a
+  // background tab). The copy stays as it is; the browser usually hands the context back
+  // (webglcontextrestored): the scene resumes. Otherwise, once the tour is on screen, it is
+  // relaunched once on a fresh canvas (model from the HTTP cache); a second loss leaves the
+  // static version, with every chapter readable.
+  canvas.addEventListener(
+    'webglcontextlost',
+    (ev) => {
+      ev.preventDefault(); // tells the browser we want it back
+      lost = true;
+      running = false;
+      loadingEl.hidden = false;
+      clearTimeout(recoverTimer);
+      recoverTimer = setTimeout(() => {
+        if (!lost || dead) return;
+        if (visible) recover();
+        else waitingForScreen = true; // no layout change while the visitor is elsewhere
+      }, 2500);
+    },
+    { signal }
+  );
+  canvas.addEventListener(
+    'webglcontextrestored',
+    () => {
+      if (dead) return;
+      clearTimeout(recoverTimer);
+      waitingForScreen = false;
+      lost = false;
+      stage.restore();
+      loadingEl.hidden = true;
+      start();
+    },
+    { signal }
+  );
+  function teardown() {
+    dead = true;
+    clearTimeout(recoverTimer);
+    ac.abort();
+    io.disconnect();
+    ro.disconnect();
+    spot?.reset();
+    try {
+      stage.renderer.dispose();
+    } catch {
+      /* already gone */
+    }
+  }
+  function recover() {
+    waitingForScreen = false;
+    teardown();
+    if (section.dataset.relaunched) {
+      staticTour(section);
+      return;
+    }
+    section.dataset.relaunched = '1';
+    section.classList.remove('is-ready');
+    const fresh = canvas.cloneNode(false);
+    canvas.replaceWith(fresh);
+    startTour(section).catch((err) => {
+      console.warn('[tour] relaunch failed, static version', err);
+      staticTour(section);
+    });
+  }
 
   apply(current, scrollVh(), 1);
   stage.render(0);
   section.classList.add('is-ready');
   window.__tour = { stage, timeline, get perfLevel() { return governor.level; }, get time() { return current; }, get vh() { return scrollVh(); }, get vhPx() { return vhPx; }, get top() { return sectionTop; } };
   start();
+}
+
+/**
+ * The static version of the tour (no 3D): chapters stacked over their still images, every title,
+ * text and button visible. Clears what the live tour set on them (opacity, inert…).
+ */
+export function staticTour(section) {
+  document.documentElement.classList.remove('tour-live');
+  section.classList.remove('is-ready');
+  section.classList.add('is-static');
+  section.querySelector('[data-loading]')?.setAttribute('hidden', '');
+  for (const el of section.querySelectorAll('[data-chapter]')) {
+    el.classList.remove('is-visible', 'is-active', 'has-spot-open');
+    el.removeAttribute('inert');
+    el.style.removeProperty('--o');
+    const copy = el.querySelector('.chapter__copy');
+    if (copy) {
+      copy.style.opacity = '';
+      copy.style.transform = '';
+    }
+  }
 }

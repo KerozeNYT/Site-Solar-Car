@@ -168,3 +168,14 @@
   allers-retours rapides) sont ignorés, la netteté baisse d'abord (sous ~25 images/s), les voitures
   garées ne partent que sous ~18 images/s et les reflets sous ~15 images/s soutenues. Même règle
   pour les simulateurs.
+
+### Correctif : textes de la visite invisibles après la perte de la 3D (téléphones)
+- Cause : quand le navigateur retire la mémoire graphique de la page (deuxième scène 3D comme la
+  carte, autre application, onglet en arrière-plan), la visite passait en version fixe sans remettre
+  ses chapitres d'aplomb : titres, textes et boutons restaient invisibles.
+- Désormais : la visite attend que le navigateur rende la 3D et reprend là où elle était ; sinon
+  elle se relance une fois sur une nouvelle zone de dessin (modèle repris du cache) quand elle est à
+  l'écran ; en dernier recours, version fixe avec tous les chapitres lisibles.
+- Le régulateur de la visite ne retire plus jamais d'élément visible : seule la netteté baisse.
+- Téléphone : sur l'accueil, la carte 3D démarre au toucher (« Afficher la carte 3D ») pour ne
+  jamais avoir deux scènes 3D en même temps.
