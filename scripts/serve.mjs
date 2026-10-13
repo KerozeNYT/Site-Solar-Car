@@ -25,6 +25,7 @@ const types = {
 };
 
 export function serve(dir = root, p = port) {
+  dir = path.resolve(dir); // "a/../b" must still pass the containment check below
   const server = http.createServer((req, res) => {
     let url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     let file = path.join(dir, url);

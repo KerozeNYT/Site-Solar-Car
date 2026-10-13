@@ -98,3 +98,12 @@
 - Chaque page de prestation renvoie vers tous ses guides.
 - Plan de mise en production et de migration du domaine : `docs/MIGRATION-DOMAINE.md` (aucun DNS
   modifié).
+
+### Phase 10 — Tests finaux
+- Prix de la configuration par défaut écrits dans le HTML des simulateurs (visibles avant le script
+  et sans JavaScript).
+- `scripts/serve.mjs` : chemin servi normalisé (un chemin avec « .. » était refusé).
+- Tests exécutés : audit des 36 pages (0 erreur, 0 lien cassé, 0 violation axe-core), 4 scénarios
+  clients (citadine 5 %, phares, ciel étoilé, mobile sans GPU), aperçu GitHub Pages simulé en
+  sous-dossier (visite, simulateur, formulaire avec photo, aucune ressource en erreur), lecture
+  complète du detailing en 3D, Lighthouse avant/après.

@@ -57,9 +57,11 @@ const vehicleGroup = (pricing, legend = 'Votre véhicule', checked = 'berline') 
           )}
         </fieldset>`;
 
-const total = (note = '', { quote = false } = {}) => `<div class="sim__total" aria-live="polite">
+/** price box; `value` = the default configuration's price, written in the page (visible before
+ *  the script runs, and without it) */
+const total = (note = '', { quote = false, value = '' } = {}) => `<div class="sim__total" aria-live="polite">
           <span class="sim__total-label">${quote ? 'Tarif' : 'Tarif indicatif TTC'}</span>
-          <span class="sim__total-value" data-total>${quote ? 'Sur devis' : '—'}</span>
+          <span class="sim__total-value" data-total>${quote ? 'Sur devis' : value || '—'}</span>
           <p class="sim__detail" data-detail>${esc(note)}</p>
         </div>`;
 
@@ -120,7 +122,7 @@ export function simTint(ctx) {
             '#0c1c44'
           )}
         </fieldset>
-        ${total('Choisissez vos vitres')}
+        ${total('Choisissez vos vitres', { value: fmt(tint.rearPackage.coupe) })}
         ${actions('vitres-teintees', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Avant / après</button>')}
         <p class="price-note">Prix TTC indicatifs, confirmés par le devis après vérification du véhicule. Rendu 3D indicatif : il ne mesure pas la transmission lumineuse réelle. Véhicules 3D présentés à titre d’illustration de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle. Crédits des modèles : <a href="/mentions-legales/">mentions légales</a>.</p>`;
   return shell({
@@ -205,7 +207,7 @@ export function simLights(ctx) {
           )}
         </fieldset>
         <div class="warning"><p><strong>Réglementation :</strong> ${esc(lightsRule)}</p></div>
-        ${total('Choisissez vos feux')}
+        ${total('Choisissez vos feux', { value: pairPrice(L.materials[0]) })}
         <p class="price-note">${L.materials.map((m) => `${esc(m.label)} : ${pairPrice(m)}${m.validated ? ' TTC la paire' : ''}`).join(' · ')}. Prix indicatifs selon le véhicule, confirmés par le devis.</p>
         ${actions('feux-arriere-teintes', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Avant / après</button>')}`;
   return shell({
@@ -249,7 +251,7 @@ export function simHeadlights(ctx) {
           ${H.options.map((o) => `<label class="choice"><input type="checkbox" name="opt" value="${o.id}"> ${esc(o.label)} (+${fmt(o.price)} TTC)</label>`).join('')}
           <p class="zone__note">Limites : la rénovation traite la surface extérieure de l’optique. Buée ou humidité à l’intérieur, réflecteur abîmé ou optique fissurée ne se corrigent pas ainsi ; le résultat dépend de l’état de départ, nous vous le disons avant d’intervenir.</p>
         </fieldset>
-        ${total('Rénovation des phares')}
+        ${total('Rénovation des phares', { value: fmt(H.renovation) })}
         ${actions('renovation-phares', '<button type="button" class="btn btn--ghost" data-play>Lancer la rénovation</button>')}`;
   return shell({
     kind: 'headlights',
