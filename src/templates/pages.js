@@ -197,13 +197,13 @@ const CHEVRON = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="tr
 
 function header(ctx, current = '') {
   const items = ctx.nav
-    .map((n) => {
-      if (!n.services) return `<li><a href="${n.href}"${current === n.href ? ' aria-current="page"' : ''}>${esc(n.label)}</a></li>`;
+    .map((n, idx) => {
+      if (!n.services) return `<li style="--i:${idx}"><a href="${n.href}"${current === n.href ? ' aria-current="page"' : ''}>${esc(n.label)}</a></li>`;
       const inside = ctx.services.some((s) => current === `/${s.slug}/`);
       const links = ctx.services
-        .map((s) => `<li><a href="/${s.slug}/"${current === `/${s.slug}/` ? ' aria-current="page"' : ''}><strong>${esc(s.name)}</strong><span>${esc(s.short)}</span></a></li>`)
+        .map((s, i) => `<li style="--i:${i}"><a href="/${s.slug}/"${current === `/${s.slug}/` ? ' aria-current="page"' : ''}><strong>${esc(s.name)}</strong><span>${esc(s.short)}</span></a></li>`)
         .join('');
-      return `<li class="site-nav__group${inside ? ' is-current' : ''}" data-submenu><button class="site-nav__trigger" type="button" aria-expanded="false" aria-controls="menu-prestations">${esc(n.label)} ${CHEVRON}</button><ul class="site-nav__sub" id="menu-prestations">${links}</ul></li>`;
+      return `<li class="site-nav__group${inside ? ' is-current' : ''}" style="--i:${idx}" data-submenu><button class="site-nav__trigger" type="button" aria-expanded="false" aria-controls="menu-prestations">${esc(n.label)} ${CHEVRON}</button><ul class="site-nav__sub" id="menu-prestations">${links}</ul></li>`;
     })
     .join('');
   return `<a class="skip-link" href="#contenu">Aller au contenu</a>
@@ -213,7 +213,7 @@ function header(ctx, current = '') {
     <button class="site-nav__toggle" type="button" aria-expanded="false" aria-controls="menu-principal" data-nav-toggle>
       <span class="site-nav__bars" aria-hidden="true"></span><span class="visually-hidden">Menu</span>
     </button>
-    <ul class="site-nav__list" id="menu-principal">${items}<li class="site-nav__cta"><a class="btn btn--primary btn--sm" href="/contact/">Devis</a></li></ul>
+    <ul class="site-nav__list" id="menu-principal">${items}<li class="site-nav__cta" style="--i:${ctx.nav.length}"><a class="btn btn--primary btn--sm" href="/contact/">Devis</a></li></ul>
   </nav>
   ${ctx.business.phone ? `<a class="site-header__phone" href="${telHref(ctx.business.phone)}">${ICONS.phone}<span>${esc(ctx.business.phone)}</span></a>` : ''}
 </header>`;

@@ -213,13 +213,32 @@ p {
   overflow: hidden;
   isolation: isolate;
   background: var(--gold-metal);
-  background-size: 160% 100%;
+  background-size: 220% 100%;
   color: var(--navy-900);
   box-shadow: 0 10px 30px -14px rgba(162, 106, 29, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s ease, background-position 0.6s ease;
+  transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* living gold, all the time: the metal flows, the glow breathes */
+  animation: gold-flow 5s ease-in-out infinite alternate, gold-glow 3.4s ease-in-out var(--sheen-delay, 1.2s) infinite;
 }
-/* living gold: a light sweep crosses the button every few seconds (staggered per button by
-   main.js through --sheen-delay), the metal drifts and the button lifts under the cursor */
+@keyframes gold-flow {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 100% 0;
+  }
+}
+@keyframes gold-glow {
+  0%,
+  100% {
+    box-shadow: 0 10px 30px -14px rgba(162, 106, 29, 0.9), 0 0 0 0 rgba(233, 205, 130, 0), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+  50% {
+    box-shadow: 0 14px 34px -12px rgba(214, 160, 58, 0.95), 0 0 0 4px rgba(233, 205, 130, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  }
+}
+/* a light sweep crosses each button every few seconds (staggered by main.js through
+   --sheen-delay) and the button lifts under the cursor */
 .btn--primary::after {
   content: '';
   position: absolute;
@@ -229,13 +248,11 @@ p {
   pointer-events: none;
   background: linear-gradient(100deg, transparent 0%, rgba(255, 252, 238, 0) 20%, rgba(255, 252, 238, 0.75) 50%, rgba(255, 252, 238, 0) 80%, transparent 100%);
   transform: translateX(-130%) skewX(-18deg);
-  animation: btn-sheen 6.5s cubic-bezier(0.4, 0, 0.2, 1) var(--sheen-delay, 1.2s) infinite;
+  animation: btn-sheen 3.6s cubic-bezier(0.4, 0, 0.2, 1) var(--sheen-delay, 1.2s) infinite;
 }
 .btn--primary:hover {
   color: var(--navy-900);
-  background-position: 100% 0;
-  transform: translateY(-2px);
-  box-shadow: 0 16px 34px -14px rgba(196, 139, 46, 0.95), 0 0 0 4px rgba(233, 205, 130, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  transform: translateY(-2px) scale(1.02);
 }
 .btn--primary:hover::after {
   animation: btn-sheen-hover 0.9s cubic-bezier(0.4, 0, 0.2, 1) 1;
@@ -247,7 +264,7 @@ p {
   0% {
     transform: translateX(-130%) skewX(-18deg);
   }
-  16%,
+  30%,
   100% {
     transform: translateX(260%) skewX(-18deg);
   }
@@ -320,6 +337,58 @@ p {
 .site-nav__list a:not(.btn):hover,
 .site-nav__list a[aria-current='page'] {
   border-color: var(--gold-500);
+}
+@media (min-width: 981px) {
+  /* underline drawn from the centre, in gold */
+  .site-nav__list > li > a:not(.btn),
+  .site-nav__trigger {
+    position: relative;
+    border-bottom-color: transparent !important;
+  }
+  .site-nav__list > li > a:not(.btn)::after,
+  .site-nav__trigger::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--gold-metal);
+    transform: scaleX(0);
+    transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .site-nav__list > li > a:not(.btn):hover::after,
+  .site-nav__list > li > a[aria-current='page']::after,
+  .site-nav__trigger:hover::after,
+  .site-nav__group.is-current .site-nav__trigger::after,
+  .site-nav__group.is-open .site-nav__trigger::after {
+    transform: scaleX(1);
+  }
+}
+/* drop-down items arrive one after the other */
+.site-nav__sub li {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.28s ease, transform 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: calc(var(--i, 0) * 45ms);
+}
+.site-nav__group.is-open .site-nav__sub li,
+.site-nav__group:focus-within .site-nav__sub li {
+  opacity: 1;
+  transform: none;
+}
+@media (min-width: 981px) and (hover: hover) {
+  .site-nav__group:hover .site-nav__sub li {
+    opacity: 1;
+    transform: none;
+  }
+}
+.site-nav__sub a strong {
+  transition: color 0.2s ease, letter-spacing 0.3s ease;
+}
+.site-nav__sub a:hover strong {
+  color: var(--gold-700);
 }
 .site-nav__toggle {
   display: none;
@@ -473,6 +542,10 @@ p {
   }
   .site-nav__list.is-open {
     display: flex;
+  }
+  .site-nav__list.is-open > li {
+    animation: menu-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: calc(var(--i, 0) * 50ms);
   }
   .site-nav__list a:not(.btn) {
     display: block;
@@ -2825,8 +2898,16 @@ p {
 
 @media (prefers-reduced-motion: reduce) {
   .marquee__track,
-  .btn--primary::after {
-    animation: none;
+  .btn--primary,
+  .btn--primary::after,
+  .site-nav__sub li,
+  .site-nav__list.is-open > li {
+    animation: none !important;
+    transition: none !important;
+  }
+  .site-nav__sub li {
+    opacity: 1 !important;
+    transform: none !important;
   }
   .btn--primary:hover {
     transform: none;
@@ -2837,3 +2918,13 @@ p {
   }
 }
 
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
