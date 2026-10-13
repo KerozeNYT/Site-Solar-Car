@@ -176,9 +176,9 @@ export function simLights(ctx) {
   return shell({
     kind: 'lights',
     title: 'Simulez vos feux fumés',
-    intro: 'Feux avant, feux arrière, fumé 50 % ou 80 % : voyez le rendu sur la Porsche du studio, allumez les feux ou freinez pour juger la visibilité, et obtenez votre tarif : de 100 à 120 € TTC la paire.',
+    intro: 'Feux avant, feux arrière, fumé 50 % ou 80 % : voyez le rendu sur le BMW X6 du studio, allumez les feux ou freinez pour juger la visibilité, et obtenez votre tarif : de 100 à 120 € TTC la paire.',
     poster: 'tail',
-    posterAlt: 'Feux arrière fumés sur la Porsche du studio',
+    posterAlt: 'Feux arrière fumés sur le BMW X6 du studio',
     views: [
       ['arriere', 'Arrière'],
       ['34arriere', '3/4 arrière'],
@@ -220,7 +220,7 @@ export function simHeadlights(ctx) {
     title: 'Avant / après : la rénovation de vos phares',
     intro: 'Faites glisser le curseur pour polir l’optique jaunie, allumez les phares pour comparer : rénovation des deux phares à 79 € TTC, traitement céramique en option (+30 €).',
     poster: 'headlights',
-    posterAlt: 'Phares de la Porsche après rénovation',
+    posterAlt: 'Phares du BMW X6 après rénovation',
     views: [
       ['phare', 'Gros plan'],
       ['avant', 'Face avant'],

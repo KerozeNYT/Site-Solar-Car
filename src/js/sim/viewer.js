@@ -13,11 +13,11 @@ import porsche from '../../../content/car.js';
  * Configurator viewer: the window-film fitting workshop (src/js/sim/workshop.js) where the
  * visitor orbits around the car. Renders on demand to spare batteries.
  */
-export async function createViewer(container, { quality = 'high', mode = 'showroom', onProgress } = {}) {
+export async function createViewer(container, { quality = 'high', mode = 'showroom', car: studioCar = null, onProgress } = {}) {
   const canvas = document.createElement('canvas');
   canvas.setAttribute('aria-hidden', 'true');
   container.prepend(canvas);
-  if (mode === 'studio') return createStudioViewer(container, canvas, { quality, onProgress });
+  if (mode === 'studio') return createStudioViewer(container, canvas, { quality, car: studioCar, onProgress });
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -165,11 +165,15 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
 }
 
 // ------------------------------------------------------------------ dark studio (Porsche)
-/** The home page's detailing studio with the supplied Porsche, orbit camera, on-demand render. */
-async function createStudioViewer(container, canvas, { quality, onProgress }) {
+/**
+ * The home page's detailing studio, orbit camera, on-demand render. The car is the Porsche
+ * unless the simulator asks for another category (`car`, a key of content/vehicles.js).
+ */
+async function createStudioViewer(container, canvas, { quality, car = null, onProgress }) {
+  const carConfig = (car && vehicles[car]?.config) || porsche;
   const stage = await createStage(canvas, {
     quality,
-    carConfig: porsche,
+    carConfig,
     signTexture: '/img/brand/enseigne.webp',
     exterior: false,
     maxDpr: quality === 'high' ? 2 : 1.5,
@@ -180,7 +184,7 @@ async function createStudioViewer(container, canvas, { quality, onProgress }) {
   let ctl = null;
   const scenery =
     quality === 'high' && !navigator.connection?.saveData
-      ? stage.park(parked.studio.map((s) => ({ ...s, config: vehicles[s.car].config }))).then(() => ctl?.invalidate())
+      ? stage.park(studioParking(car)).then(() => ctl?.invalidate())
       : Promise.resolve();
   // fully polished by default; the detailing simulator sets its own before / after state
   stage.car.setPolish(10, -1);
@@ -195,6 +199,13 @@ async function createStudioViewer(container, canvas, { quality, onProgress }) {
   ctl = makeController({ container, renderer, camera, controls, room, carBox: () => carBox, render: (t) => stage.render(t), resize: (w, h) => stage.resize(w, h, Math.min(devicePixelRatio || 1, quality === 'high' ? 2 : 1.5)), car: () => stage.car, setVehicle: async () => ({ api: stage.car, real: true }) });
   ctl.scenery = scenery; // resolves once the parked cars are in place
   return ctl;
+}
+
+/** the cars parked around the studio, never the one on show (swapped for the next category) */
+function studioParking(shown) {
+  const used = new Set(parked.studio.map((s) => s.car).concat(shown || []));
+  const spare = parked.workshop.order.filter((t) => !used.has(t) && vehicles[t]?.config);
+  return parked.studio.map((s) => ({ ...s, car: s.car === shown ? spare.shift() : s.car })).filter((s) => s.car && vehicles[s.car]?.config).map((s) => ({ ...s, config: vehicles[s.car].config }));
 }
 
 /** bounds of the car body only: light beams, shadows, stars and glows would stretch the box */

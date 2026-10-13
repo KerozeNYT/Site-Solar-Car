@@ -53,6 +53,7 @@ export async function initSimulator(section, { webgl = true } = {}) {
         createViewer(viewEl, {
           quality: mobile || weak ? 'low' : 'high',
           mode: sim.mode,
+          car: sim.car,
           onProgress: (e) => {
             if (e.total) startBtn.textContent = `Chargement de la 3D… ${Math.round((e.loaded / e.total) * 100)} %`;
           },

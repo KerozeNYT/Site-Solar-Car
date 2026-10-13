@@ -63,6 +63,7 @@ export function setup({ section, form, view }) {
 
   return {
     mode: 'studio',
+    car: 'suv', // the X6: big light clusters, the smoke reads clearly
     initialView: '34arriere',
     update,
     async attach(v) {

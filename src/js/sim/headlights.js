@@ -58,6 +58,7 @@ export function setup({ section, form, view }) {
 
   return {
     mode: 'studio',
+    car: 'suv', // the X6 and its large headlight lenses
     initialView: 'phare',
     update,
     async attach(v) {

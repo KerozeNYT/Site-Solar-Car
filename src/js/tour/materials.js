@@ -277,9 +277,10 @@ export function makeLens() {
         float c = 1.0 - smoothstep(edge - 0.08, edge + 0.08, 1.0 - vLensUv.x);
         float grain = lhash(floor(vLensUv * vec2(260.0, 40.0)));
         float cloud = 0.5 + 0.5 * sin(vLensUv.x * 23.0 + sin(vLensUv.y * 9.0) * 2.0);
-        vec3 haze = mix(vec3(0.42, 0.29, 0.07), vec3(0.7, 0.55, 0.22), cloud * 0.7 + grain * 0.3);
+        vec3 haze = mix(vec3(0.44, 0.3, 0.06), vec3(0.72, 0.56, 0.2), cloud * 0.7 + grain * 0.3);
         diffuseColor.rgb = mix(haze, vec3(0.02, 0.025, 0.03), c);
-        diffuseColor.a = mix(0.62 + 0.2 * cloud, 0.05, c);
+        // translucent yellowing: the projectors stay visible behind it, as on a real aged lens
+        diffuseColor.a = mix(0.34 + 0.2 * cloud, 0.05, c);
         roughnessFactor = mix(0.45 + 0.25 * grain, 0.02, c);
         // smoked film over a clear lens
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.012, 0.012, 0.014), uSmoke * c);

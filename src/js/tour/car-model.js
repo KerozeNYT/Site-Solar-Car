@@ -377,13 +377,21 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
   let headOn = 0;
   let headSmoke = 0;
   const state = { smoke: 0, brake: 0, on: 1 };
+  // smoked film: the lens turns glossy black and only lets a share of the light through
+  // (80 % film ≈ a fifth); what gets through is a deeper red
+  const tailEmit = new THREE.Color(0xff1810);
+  const tailEmitSmoked = new THREE.Color(0xb00606);
   function applyTail() {
     const { smoke, brake, on } = state;
-    tailMat.color.copy(redRed).lerp(smokeCol, smoke);
-    tailMat.emissiveIntensity = (0.08 + on * 1.52 + brake * 4.5) * (1 - 0.72 * smoke);
+    // share of the lamp light that gets through the film (80 % film: a few percent of the
+    // position lights, the brake light still clearly visible)
+    const pass = Math.pow(1 - Math.min(smoke, 0.98), 1.6);
+    tailMat.color.copy(redRed).lerp(smokeCol, Math.min(1, smoke * 1.15));
+    tailMat.emissive.copy(tailEmit).lerp(tailEmitSmoked, smoke);
+    tailMat.emissiveIntensity = (0.08 + on * 1.52) * pass + brake * 4.5 * (1 - 0.8 * smoke);
     housingMat.color.copy(housingRed).lerp(smokeCol, smoke);
-    housingMat.emissiveIntensity = (0.02 + on * 0.33 + brake * 0.8) * (1 - 0.8 * smoke);
-    for (const g of tailGlows) g.material.opacity = (on * 0.12 + brake * 0.75) * (1 - 0.55 * smoke);
+    housingMat.emissiveIntensity = (0.02 + on * 0.33) * pass + brake * 0.8 * (1 - 0.8 * smoke);
+    for (const g of tailGlows) g.material.opacity = (on * 0.12 + brake * 0.75) * (1 - 0.6 * smoke);
   }
   applyTail();
 
