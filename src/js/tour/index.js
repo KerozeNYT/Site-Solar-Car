@@ -1,5 +1,6 @@
 import { keys, beats, effects, stills } from '../../../content/flight.js';
 import carConfig from '../../../content/car.js';
+import vehicles, { parked } from '../../../content/vehicles.js';
 import { createStage } from './stage.js';
 import { createPath, createTimeline, createEffects } from './flight.js';
 import { clamp, smoothstep } from './math.js';
@@ -43,6 +44,11 @@ export async function startTour(section) {
     },
   });
   loadingEl.hidden = true;
+  // the other supplied cars parked around the studio (scenery, desktop only)
+  const parking =
+    quality === 'high' && !navigator.connection?.saveData
+      ? stage.park(parked.studio.map((s) => ({ ...s, config: vehicles[s.car].config })))
+      : Promise.resolve();
 
   // chapter ranges (vh) from the beats; chapter elements keep their document order
   const ranges = timeline.chapters;
@@ -142,11 +148,13 @@ export async function startTour(section) {
   // ------------------------------------------------------------- still mode (posters)
   if (stillId) {
     document.documentElement.classList.add('is-still');
+    await parking;
     measure();
     apply(current, 0, 1);
     stage.render(3);
     stage.render(3);
     section.classList.add('is-ready');
+    window.__tour = { stage, timeline };
     window.__stillReady = true;
     return;
   }

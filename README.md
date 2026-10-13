@@ -23,7 +23,8 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `content/pricing.js` | Tarifs des simulateurs (`validated: false` = tarifs d’exemple, signalés comme tels) |
 | `content/flight.js` | Vol de la caméra : images clés, temps forts du scroll (`beats`), effets |
 | `content/car.js` | Voiture du studio (visite 3D, feux, phares, ciel étoilé, detailing) et correspondance de ses pièces |
-| `content/vehicles.js` | Voiture 3D de chaque catégorie du simulateur de vitres teintées (`config: null` = silhouette provisoire) |
+| `content/vehicles.js` | Voiture 3D de chaque catégorie du simulateur de vitres teintées (`config: null` = silhouette provisoire) ; `parked` = voitures garées en décor dans le studio et l’atelier (ordinateur uniquement) |
+| `src/js/tour/props.js` | Équipement de l’atelier : sol polydalle (dalles noires, anneau jaune autour de la voiture), rouleaux de film, tableau d’outils, polisseuses, étagère Koch-Chemie |
 | `content/cars/*.js` | Configuration des voitures du simulateur (A 45, A5 Sportback, CLA Shooting Brake, X6 M) |
 | `assets-src/models/*.prep.json` | Préparation de chaque modèle 3D (découpe des vitres, renommage, allègement) |
 | `design/logo/official/` | Logo officiel fourni ; `scripts/logo-assets.mjs` en dérive les versions web |

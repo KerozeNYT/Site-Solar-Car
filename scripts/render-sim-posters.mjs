@@ -43,11 +43,17 @@ for (const [kind, def] of Object.entries(POSTERS)) {
   // 800 x 500 CSS px view at 2x = a 1600 x 1000 poster
   const page = await browser.newPage({ viewport: { width: 1360, height: 900 }, deviceScaleFactor: 2 });
   page.on('pageerror', (e) => console.error(kind, 'page error:', e.message));
+  // posters show the desktop (high quality) scene, parked cars included, whatever this machine is
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+  });
   await page.goto(`http://localhost:4611/${def.slug}/`);
   await page.addStyleTag({ content: '.sim__view > :not(canvas){display:none!important} .sim__view{width:800px!important;aspect-ratio:16/10!important}' });
   await page.evaluate(() => document.querySelector('#simulateur').scrollIntoView({ block: 'start' }));
   await page.waitForSelector('.sim.is-ready', { timeout: 300000 });
   if (def.setup) await def.setup(page);
+  await page.evaluate(() => window.__sim.viewer.scenery);
   await page.waitForTimeout(4000);
   const png = await page.locator('[data-sim-view]').screenshot({ type: 'png' });
   await sharp(png).resize(1600, 1000, { fit: 'cover' }).webp({ quality: 80 }).toFile(path.join(out, `sim-${kind}-1600.webp`));

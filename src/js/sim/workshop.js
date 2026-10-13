@@ -1,10 +1,11 @@
 import * as THREE from 'three';
+import { POLYDALLE_GLSL, Batch, M, propMaterials, kochShelf, polisherWall } from '../tour/props.js';
 
 /**
- * The window-tint workshop of the configurator: a bright, daytime fitting bay (grey epoxy floor
- * with a marked work zone, linear LED fixtures, sectional door with daylight, film-roll rack,
- * cutting table, tool wall). Everything is procedural; `reflect` is mirrored in the floor.
- * The car sits at the origin, nose towards +x.
+ * The window-tint workshop of the configurator: a bright, daytime fitting bay (black polydalle
+ * floor with yellow tiles around the car, linear LED fixtures, sectional door with daylight,
+ * film-roll rack, cutting table, tool wall, polishers and Koch-Chemie shelving). Everything is
+ * procedural; `reflect` is mirrored in the floor. The car sits at the origin, nose towards +x.
  */
 export const ROOM = { x0: -8, x1: 8, z0: -6.5, z1: 6.5, h: 4.8 };
 
@@ -119,11 +120,12 @@ function exitTexture() {
 }
 
 // ---------------------------------------------------------------- floor
-// Epoxy floor over the mirrored scene: opaque when looking down, reflective at grazing angles,
-// a speckled finish, light pools under the fixtures and the yellow lines of the work bay.
+// Polydalle floor over the mirrored scene: black interlocking PVC tiles, a ring of yellow ones
+// around the car (8 m x 5 m), satin (reflective mostly at grazing angles), light pools under
+// the fixtures.
 function floorMaterial() {
   return new THREE.ShaderMaterial({
-    uniforms: { uColor: { value: new THREE.Color(0x9ea2a8) } },
+    uniforms: { uColor: { value: new THREE.Color(0x1d1f23) }, uYellow: { value: new THREE.Color(0xe0a80e) }, uRing: { value: new THREE.Vector4(-8, 7, -5, 4) } },
     vertexShader: /* glsl */ `
       varying vec3 vWorld;
       void main(){
@@ -132,30 +134,21 @@ function floorMaterial() {
         gl_Position = projectionMatrix * viewMatrix * w;
       }`,
     fragmentShader: /* glsl */ `
-      uniform vec3 uColor;
+      uniform vec3 uColor; uniform vec3 uYellow; uniform vec4 uRing;
       varying vec3 vWorld;
-      float hash(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
-      float line(float d, float w){ return 1.0 - smoothstep(w * 0.5, w * 0.5 + 0.004, abs(d)); }
+      ${POLYDALLE_GLSL}
       void main(){
         vec2 p = vWorld.xz;
         vec3 V = normalize(cameraPosition - vWorld);
         float fres = pow(1.0 - clamp(V.y, 0.0, 1.0), 2.5);
         // light pools under the LED rows
         float pool = exp(-pow(p.x / 6.5, 2.0)) * (exp(-pow((p.y - 1.4) / 1.4, 2.0)) + exp(-pow((p.y + 1.4) / 1.4, 2.0)));
-        float sp = hash(floor(p * 260.0));
-        vec3 col = uColor * (0.72 + 0.32 * pool) * (1.0 + (sp - 0.5) * 0.12);
-        // painted work bay: yellow border with corner ticks, a darker apron inside
-        vec2 q = abs(p) - vec2(3.4, 2.3);
-        float inside = step(max(q.x, q.y), 0.0);
-        col *= mix(1.0, 0.86, inside);
-        float border = line(max(q.x, q.y), 0.08);
-        col = mix(col, vec3(0.93, 0.74, 0.12), border * 0.92);
-        // hatched no-parking strip in front of the door
-        if (p.x > 6.2 && abs(p.y) < 2.4) {
-          float h = step(0.5, fract((p.x + p.y) * 2.2));
-          col = mix(col, vec3(0.93, 0.74, 0.12), h * 0.85);
-        }
-        float a = mix(0.93, 0.55, fres);
+        vec4 pd = polydalle(p);
+        float yel = pdRing(pd.xy, uRing);
+        vec3 col = mix(uColor, uYellow, yel) * (0.9 + 0.2 * pdHash(pd.xy + 7.0)) * (1.0 + 0.14 * pdGrain(p));
+        col *= (0.8 + 0.3 * pool) * (1.0 + pd.w * 0.7) * (1.0 - pd.z * 0.85);
+        float a = mix(0.96, 0.62, fres);
+        a = mix(mix(a, min(1.0, a + 0.06), yel), 1.0, pd.z);
         gl_FragColor = vec4(col * a, a);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -262,7 +255,7 @@ export function buildWorkshop({ quality = 'high', signTexture = null } = {}) {
     const exit = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.16), new THREE.MeshBasicMaterial({ map: exitTexture(), toneMapped: false }));
     exit.position.set(0, 2.45, 0.04);
     pd.add(exit);
-    pd.position.x = 4.2;
+    pd.position.x = -4.2;
     g.add(pd);
     g.rotation.y = -Math.PI / 2;
     g.position.x = R.x1 - 0.01;
@@ -279,8 +272,11 @@ export function buildWorkshop({ quality = 'high', signTexture = null } = {}) {
       const w = 4.2;
       const h = w * (640 / 2048);
       g.add(box(w + 0.08, h + 0.08, 0.06, dark, 0, 3.55, 0.03));
-      const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(1.1, 1.1, 1.1), toneMapped: false }));
-      panel.position.set(0, 3.55, 0.065);
+      const panel = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, h),
+        new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(1.1, 1.1, 1.1), toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 })
+      );
+      panel.position.set(0, 3.55, 0.072);
       g.add(panel);
     }
     // rack: two bays of rolls on rods (1.52 m film rolls in smoked shades)
@@ -305,35 +301,6 @@ export function buildWorkshop({ quality = 'high', signTexture = null } = {}) {
         }
       }
     }
-    // cutting table with a green mat, a roll on its dispenser and a cut sheet of film
-    const table = new THREE.Group();
-    table.add(box(2.6, 0.05, 1.3, std(0xeceeef, 0.5), 0, 0.92, 0));
-    const mat = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.2), std(0xffffff, 0.85, 0, { map: matTexture() }));
-    mat.rotation.x = -Math.PI / 2;
-    mat.position.y = 0.946;
-    table.add(mat);
-    for (const [x, z] of [
-      [-1.22, -0.58],
-      [1.22, -0.58],
-      [-1.22, 0.58],
-      [1.22, 0.58],
-    ])
-      table.add(box(0.06, 0.9, 0.06, steel, x, 0.45, z));
-    table.add(box(2.5, 0.03, 1.2, steel, 0, 0.2, 0));
-    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 1.52, hi ? 28 : 16), rollMats[1]);
-    roll.rotation.x = Math.PI / 2;
-    roll.position.set(-1.12, 1.06, 0);
-    table.add(roll);
-    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.8), new THREE.MeshPhysicalMaterial({ color: 0x0b0d10, roughness: 0.08, transparent: true, opacity: 0.82 }));
-    sheet.rotation.x = -Math.PI / 2;
-    sheet.rotation.z = 0.08;
-    sheet.position.set(-0.25, 0.949, 0.05);
-    table.add(sheet);
-    table.add(box(0.3, 0.012, 0.05, std(0x2f6fd6, 0.5), 0.55, 0.952, -0.3)); // squeegee
-    table.add(box(0.24, 0.012, 0.03, chrome, 0.75, 0.952, 0.2)); // cutter
-    table.rotation.y = Math.PI;
-    table.position.set(0, 0, -1.3);
-    g.add(table);
     // fire extinguisher by the corner
     const ext = new THREE.Group();
     ext.add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.5, 16), std(0xc0141c, 0.35, 0.2)));
@@ -347,7 +314,7 @@ export function buildWorkshop({ quality = 'high', signTexture = null } = {}) {
     reflect.add(g);
   }
 
-  // --- back wall: tool chest, pegboard with squeegees and heat guns, product shelves
+  // --- back wall: tool chest, polishers, pegboard with squeegees and heat guns, Koch-Chemie shelf
   {
     const g = new THREE.Group();
     const red = std(0xb3141c, 0.32, 0.45);
@@ -389,26 +356,48 @@ export function buildWorkshop({ quality = 'high', signTexture = null } = {}) {
       g.add(gun);
     }
     for (let i = 0; i < 4; i++) g.add(box(0.03, 0.5, 0.03, dark, 0.3 + i * 0.1, 1.55, 0.05)); // knives / scrapers
-    // shelves with product bottles and boxes
-    const shelf = std(0x2a2e34, 0.6, 0.4);
-    const bottles = [0xff9a3c, 0xe9edf2, 0x2a6fd6, 0x1d1f23].map((c) => std(c, 0.35));
-    for (const y of [0.9, 1.5, 2.1]) {
-      g.add(box(1.8, 0.04, 0.4, shelf, 4.0, y, 0.22));
-      for (let i = 0; i < 9; i++) {
-        const b = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.24, 12), bottles[(i + Math.round(y * 3)) % 4]);
-        b.position.set(3.25 + i * 0.18, y + 0.14, 0.22 + ((i % 2) - 0.5) * 0.12);
-        g.add(b);
-      }
-    }
-    for (const x of [3.1, 4.9]) g.add(box(0.04, 2.2, 0.4, shelf, x, 1.1, 0.22));
+    // Koch-Chemie shelving, and the polishers on their shelf above the tool chest
+    const pm = propMaterials();
+    const kit = new Batch();
+    kit.at(M(4.0, 0, 0), (b) => kochShelf(b, pm, { width: 2.0, depth: 0.42 }));
+    kit.at(M(-1.6, 0, 0), (b) => polisherWall(b, pm, { width: 1.6, n: 3, y: 1.95 }));
+    g.add(kit.build('equipment'));
     g.rotation.y = Math.PI / 2;
     g.position.x = R.x0 + 0.01;
     reflect.add(g);
   }
 
-  // --- driver's-side wall: high window band, workbench, wheeled light stand
+  // --- driver's-side wall: high window band, workbench, cutting table, wheeled light stand
   {
     const g = new THREE.Group();
+    // cutting table with a green mat, a roll on its dispenser and a cut sheet of film
+    const table = new THREE.Group();
+    table.add(box(2.6, 0.05, 1.3, std(0xeceeef, 0.5), 0, 0.92, 0));
+    const mat = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 1.2), std(0xffffff, 0.85, 0, { map: matTexture() }));
+    mat.rotation.x = -Math.PI / 2;
+    mat.position.y = 0.946;
+    table.add(mat);
+    for (const [x, z] of [
+      [-1.22, -0.58],
+      [1.22, -0.58],
+      [-1.22, 0.58],
+      [1.22, 0.58],
+    ])
+      table.add(box(0.06, 0.9, 0.06, steel, x, 0.45, z));
+    table.add(box(2.5, 0.03, 1.2, steel, 0, 0.2, 0));
+    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 1.52, hi ? 28 : 16), std(0x111317, 0.28, 0.35));
+    roll.rotation.x = Math.PI / 2;
+    roll.position.set(-1.12, 1.06, 0);
+    table.add(roll);
+    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.8), new THREE.MeshPhysicalMaterial({ color: 0x0b0d10, roughness: 0.08, transparent: true, opacity: 0.82 }));
+    sheet.rotation.x = -Math.PI / 2;
+    sheet.rotation.z = 0.08;
+    sheet.position.set(-0.25, 0.949, 0.05);
+    table.add(sheet);
+    table.add(box(0.3, 0.012, 0.05, std(0x2f6fd6, 0.5), 0.55, 0.952, -0.3)); // squeegee
+    table.add(box(0.24, 0.012, 0.03, chrome, 0.75, 0.952, 0.2)); // cutter
+    table.position.set(3.6, 0, 0.75);
+    g.add(table);
     for (let i = 0; i < 7; i++) {
       const x = -6 + i * 2;
       g.add(box(1.78, 0.9, 0.04, dark, x, 3.55, 0.02));
@@ -461,7 +450,7 @@ export function workshopEnvironment(renderer, quality = 'high') {
   const room = new THREE.Mesh(new THREE.BoxGeometry(R.x1 - R.x0, R.h, R.z1 - R.z0), new THREE.MeshBasicMaterial({ color: 0x8d9095, side: THREE.BackSide }));
   room.position.y = R.h / 2;
   env.add(room);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(R.x1 - R.x0, R.z1 - R.z0), new THREE.MeshBasicMaterial({ color: 0x5f6368 }));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(R.x1 - R.x0, R.z1 - R.z0), new THREE.MeshBasicMaterial({ color: 0x26282c }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = 0.01;
   env.add(floor);

@@ -19,3 +19,25 @@ export default {
   suv: { config: x6, preset: 'suv', label: 'SUV (BMW X6 M)' },
   utilitaire: { config: null, preset: 'utilitaire', label: 'Utilitaire (silhouette provisoire)' },
 };
+
+/**
+ * Supplied cars parked around as scenery (desktop / high quality only). Positions in metres,
+ * car at the origin nose towards +x; ry turns the parked car (radians).
+ * - studio: the tour and the dark studio of the simulators
+ * - workshop: two slots behind the car of the window-film simulator, filled in this order
+ *   with categories other than the one on show
+ */
+export const parked = {
+  studio: [
+    { car: 'suv', x: 5.6, z: -5.3, ry: 0 },
+    { car: 'berline', x: -6.25, z: 4.85, ry: Math.PI + 0.05 },
+  ],
+  workshop: {
+    slots: [
+      { x: -5.15, z: 4.25, ry: Math.PI - 0.04 },
+      { x: 4.95, z: 4.3, ry: 0.05 },
+    ],
+    order: ['suv', 'berline', 'break', 'citadine'],
+  },
+};
+

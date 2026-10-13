@@ -75,7 +75,7 @@ export function styleTilePage(ctx) {
     </section>
     <section class="tile-card">
       <h2>Direction des images</h2>
-      <p>Studio de detailing de nuit : plafond LED hexagonal, sol époxy miroir, lumière froide et accents or. Caméra en vol continu type drone FPV, voiture réelle mise en scène sans artifice graphique superflu.</p>
+      <p>Studio de detailing de nuit : plafond LED hexagonal, sol en polydalles noires et jaunes, lumière froide et accents or. Caméra en vol continu type drone FPV, voiture réelle mise en scène sans artifice graphique superflu.</p>
       <img src="/stills/detailing-960.webp" alt="" width="960" height="540" loading="lazy">
     </section>
   </div>

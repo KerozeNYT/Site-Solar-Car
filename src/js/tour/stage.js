@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildCar } from './car.js';
 import { loadCarModel } from './car-model.js';
 import { buildPremises, buildEnvironment } from './studio.js';
+import { loadParkedCar } from './parked.js';
 
 /**
  * Owns the WebGL renderer, the scene graph and the camera. Knows nothing about scroll:
@@ -112,6 +113,27 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
     if (dirty) camera.updateProjectionMatrix();
   }
 
+  /** Park supplied cars around the studio (scenery). Resolves once they are in place. */
+  async function park(spots = []) {
+    const cars = await Promise.all(
+      spots.map((spot) =>
+        loadParkedCar(spot, { quality }).catch((err) => {
+          console.warn('[stage] parked car failed', err);
+          return null;
+        })
+      )
+    );
+    for (const g of cars) {
+      if (!g) continue;
+      premises.reflect.add(g);
+      const twin = g.clone(true);
+      twin.traverse((o) => {
+        if (hiddenInMirror.has(o.name) || o.isSprite) o.visible = false;
+      });
+      mirror.add(twin);
+    }
+  }
+
   function render(time = 0) {
     premises.update(time);
     for (let i = 0; i < mirrorTraffic.length; i++) mirrorTraffic[i].position.copy(premises.traffic[i].position);
@@ -120,5 +142,5 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
     renderer.render(scene, camera);
   }
 
-  return { renderer, scene, camera, car, premises, resize, setView, render, state };
+  return { renderer, scene, camera, car, premises, resize, setView, render, park, state };
 }

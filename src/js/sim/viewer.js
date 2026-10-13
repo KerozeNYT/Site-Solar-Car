@@ -5,7 +5,8 @@ import { loadCarModel } from '../tour/car-model.js';
 import { createStage } from '../tour/stage.js';
 import { BLD } from '../tour/studio.js';
 import { buildWorkshop, workshopEnvironment, ROOM } from './workshop.js';
-import vehicles from '../../../content/vehicles.js';
+import vehicles, { parked } from '../../../content/vehicles.js';
+import { loadParkedCar } from '../tour/parked.js';
 import porsche from '../../../content/car.js';
 
 /**
@@ -25,7 +26,7 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
   scene.background = new THREE.Color(0x2c2f34);
   scene.environment = workshopEnvironment(renderer, quality);
 
-  // the fitting workshop, mirrored in its epoxy floor (the car gets its own mirror below)
+  // the fitting workshop, mirrored in its satin polydalle floor (the car gets its own mirror below)
   const ws = buildWorkshop({ quality, signTexture: '/img/brand/enseigne.webp' });
   scene.add(ws.root);
   const mirrorRoom = ws.reflect.clone(true);
@@ -89,7 +90,57 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
     scene.add(car.group, entry.mirror);
     carBox = bodyBox(car.group);
     ctl.invalidate();
+    fillParking(type);
     return entry;
+  }
+
+  // two supplied cars parked behind, never the category on show (desktop only)
+  const bays = new Map(); // category -> { group, mirror } (null while loading)
+  const wantParked = quality === 'high' && !navigator.connection?.saveData;
+  let parkedNow = [];
+  function showParked(t) {
+    const b = bays.get(t);
+    const i = parkedNow.indexOf(t);
+    if (!b?.group || i < 0) return;
+    const slot = parked.workshop.slots[i];
+    b.group.position.set(slot.x, 0, slot.z);
+    b.group.rotation.y = slot.ry;
+    b.mirror.position.copy(b.group.position);
+    b.mirror.rotation.copy(b.group.rotation);
+    scene.add(b.group, b.mirror);
+    ctl.invalidate();
+  }
+  function fillParking(type) {
+    if (!wantParked) return;
+    const want = parked.workshop.order.filter((t) => t !== type && vehicles[t]?.config).slice(0, parked.workshop.slots.length);
+    for (const t of parkedNow) if (!want.includes(t) && bays.get(t)?.group) scene.remove(bays.get(t).group, bays.get(t).mirror);
+    parkedNow = want;
+    const loads = [];
+    for (const t of want) {
+      if (bays.has(t)) {
+        showParked(t);
+        if (bays.get(t).loading) loads.push(bays.get(t).loading);
+        continue;
+      }
+      const entry = { group: null, mirror: null, loading: null };
+      bays.set(t, entry);
+      entry.loading = loadParkedCar({ config: vehicles[t].config }, { quality })
+        .then((g) => {
+          entry.group = g;
+          entry.mirror = g.clone(true);
+          entry.mirror.scale.y = -1;
+          entry.mirror.traverse((o) => {
+            if (NOT_BODY.has(o.name) || o.isSprite || o.isPoints) o.visible = false;
+          });
+          showParked(t);
+        })
+        .catch((err) => {
+          console.warn('[sim] parked car failed', err);
+          bays.delete(t);
+        });
+      loads.push(entry.loading);
+    }
+    ctl.scenery = Promise.all(loads); // resolves once the parked cars are in place
   }
   ctl = makeController({
     container,
@@ -109,6 +160,7 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
     car: () => car,
     setVehicle,
   });
+  ctl.scenery = Promise.resolve();
   return ctl;
 }
 
@@ -125,6 +177,11 @@ async function createStudioViewer(container, canvas, { quality, onProgress }) {
   });
   const { camera, renderer } = stage;
   camera.near = 0.02;
+  let ctl = null;
+  const scenery =
+    quality === 'high' && !navigator.connection?.saveData
+      ? stage.park(parked.studio.map((s) => ({ ...s, config: vehicles[s.car].config }))).then(() => ctl?.invalidate())
+      : Promise.resolve();
   // fully polished by default; the detailing simulator sets its own before / after state
   stage.car.setPolish(10, -1);
   const controls = new OrbitControls(camera, canvas);
@@ -135,7 +192,9 @@ async function createStudioViewer(container, canvas, { quality, onProgress }) {
   // stay inside the room: under the ceiling, short of the walls
   const room = { maxDist: Math.min(BLD.x1, BLD.z1) - 0.9, maxY: BLD.h - 1.5 };
   const carBox = bodyBox(stage.car.group);
-  return makeController({ container, renderer, camera, controls, room, carBox: () => carBox, render: (t) => stage.render(t), resize: (w, h) => stage.resize(w, h, Math.min(devicePixelRatio || 1, quality === 'high' ? 2 : 1.5)), car: () => stage.car, setVehicle: async () => ({ api: stage.car, real: true }) });
+  ctl = makeController({ container, renderer, camera, controls, room, carBox: () => carBox, render: (t) => stage.render(t), resize: (w, h) => stage.resize(w, h, Math.min(devicePixelRatio || 1, quality === 'high' ? 2 : 1.5)), car: () => stage.car, setVehicle: async () => ({ api: stage.car, real: true }) });
+  ctl.scenery = scenery; // resolves once the parked cars are in place
+  return ctl;
 }
 
 /** bounds of the car body only: light beams, shadows, stars and glows would stretch the box */

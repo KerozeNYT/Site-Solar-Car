@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { rng, lerp } from './math.js';
 import { glowTexture } from './materials.js';
+import { POLYDALLE_GLSL, Batch, M, propMaterials, kochShelf, polisherWall, filmRack, tintBoard, towelCubbies } from './props.js';
 
 /*
- * The premises: a detailing studio (hex LED ceiling, epoxy floor, turntable) inside a
+ * The premises: a detailing studio (hex LED ceiling, black polydalle floor with a yellow bay
+ * around the car, film rolls, tool board, polishers and Koch-Chemie shelving) inside a
  * dark clad workshop on a small business park at night. +x is the street side; the big
  * sectional door is in the +x wall, facing the forecourt and the access road.
  */
@@ -23,8 +25,10 @@ export const BLD = {
 // ---------------------------------------------------------------- reflective floor
 // Mirror trick: the scene is drawn a second time flipped under y=0; the floor is a
 // translucent layer over it whose opacity rises at normal incidence (Fresnel).
-function makeFloorMaterial({ color, nearAlpha, farAlpha, speckle = 0.0, pool = [], disc = 0 }) {
+// `tiles`: interlocking PVC tiles (polydalle), with a ring of yellow tiles around the car.
+function makeFloorMaterial({ color, nearAlpha, farAlpha, speckle = 0.0, pool = [], tiles = null }) {
   return new THREE.ShaderMaterial({
+    defines: tiles ? { TILES: '' } : {},
     uniforms: {
       uColor: { value: new THREE.Color(color) },
       uNear: { value: nearAlpha },
@@ -32,7 +36,8 @@ function makeFloorMaterial({ color, nearAlpha, farAlpha, speckle = 0.0, pool = [
       uSpeckle: { value: speckle },
       uPools: { value: Array.from({ length: 8 }, (_, i) => new THREE.Vector4(...(pool[i] || [0, 0, 1, 0]))) },
       uPoolCount: { value: pool.length },
-      uDisc: { value: disc },
+      uYellow: { value: new THREE.Color(tiles ? tiles.yellow : 0) },
+      uRing: { value: new THREE.Vector4(...(tiles ? tiles.ring : [0, 0, 0, 0])) },
     },
     vertexShader: /* glsl */ `
       varying vec3 vWorld;
@@ -43,9 +48,10 @@ function makeFloorMaterial({ color, nearAlpha, farAlpha, speckle = 0.0, pool = [
       }`,
     fragmentShader: /* glsl */ `
       uniform vec3 uColor; uniform float uNear; uniform float uFar; uniform float uSpeckle;
-      uniform vec4 uPools[8]; uniform int uPoolCount; uniform float uDisc;
+      uniform vec4 uPools[8]; uniform int uPoolCount; uniform vec3 uYellow; uniform vec4 uRing;
       varying vec3 vWorld;
       float hash(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
+      ${POLYDALLE_GLSL}
       void main(){
         vec3 V = normalize(cameraPosition - vWorld);
         float fres = pow(1.0 - clamp(V.y, 0.0, 1.0), 3.0);
@@ -56,17 +62,18 @@ function makeFloorMaterial({ color, nearAlpha, farAlpha, speckle = 0.0, pool = [
           float d = length((vWorld.xz - p.xy) / vec2(p.z, p.z * 0.75));
           light += p.w * exp(-d * d * 2.2);
         }
-        float sp = hash(floor(vWorld.xz * 220.0));
-        vec3 col = uColor * (0.35 + light) * (1.0 + uSpeckle * (sp - 0.5) * 0.35);
         float a = mix(uNear, uFar, fres);
-        if (uDisc > 0.0) {
-          float r = length(vWorld.xz);
-          float inDisc = 1.0 - smoothstep(uDisc - 0.01, uDisc + 0.01, r);
-          float seam = smoothstep(0.02, 0.0, abs(r - uDisc - 0.03));
-          col = mix(col, uColor * 0.45 * (0.5 + light), inDisc);
-          a = mix(a, mix(0.72, 0.3, fres), inDisc);
-          col *= 1.0 - seam * 0.6;
-        }
+        #ifdef TILES
+          vec4 pd = polydalle(vWorld.xz);
+          float yel = pdRing(pd.xy, uRing);
+          vec3 base = mix(uColor, uYellow, yel) * (0.9 + 0.2 * pdHash(pd.xy + 7.0)) * (1.0 + 0.14 * pdGrain(vWorld.xz));
+          vec3 col = base * (0.35 + light) * (1.0 + pd.w * 0.9) * (1.0 - pd.z * 0.85);
+          // seams break the reflection; the yellow tiles reflect a little less (lighter colour)
+          a = mix(mix(a, min(1.0, a + 0.08), yel), 1.0, pd.z);
+        #else
+          float sp = hash(floor(vWorld.xz * 220.0));
+          vec3 col = uColor * (0.35 + light) * (1.0 + uSpeckle * (sp - 0.5) * 0.35);
+        #endif
         gl_FragColor = vec4(col * a, a);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -201,7 +208,6 @@ function box(w, h, d, mat, x, y, z) {
 }
 
 export function buildPremises({ quality = 'high', logoSvg = null, signTexture = null, exterior: withExterior = true } = {}) {
-  const hi = quality === 'high';
   const root = new THREE.Group();
   root.name = 'premises';
   const reflect = new THREE.Group(); // everything that appears in floor reflections
@@ -313,13 +319,21 @@ export function buildPremises({ quality = 'high', logoSvg = null, signTexture = 
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.anisotropy = 4;
     } else tex = logoTexture(logoSvg, 2048, 512);
-    const signMat = new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(1, 1, 1).multiplyScalar(1.15), toneMapped: false });
+    const signMat = new THREE.MeshBasicMaterial({
+      map: tex,
+      color: new THREE.Color(1, 1, 1).multiplyScalar(1.15),
+      toneMapped: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -4,
+    });
     const frameMat = new THREE.MeshStandardMaterial({ color: 0x1a1d22, metalness: 0.8, roughness: 0.35 });
     const addSign = (w, x, y, z, ry, parent) => {
       const h = w * (640 / 2048);
       const g = new THREE.Group();
       const panel = new THREE.Mesh(new THREE.PlaneGeometry(w, h), signMat);
-      panel.position.z = 0.031;
+      // 12 mm proud of the frame: with a 1 mm gap it flickered (z-fighting) from the forecourt
+      panel.position.z = 0.042;
       const frame = new THREE.Mesh(new THREE.BoxGeometry(w + 0.08, h + 0.08, 0.06), frameMat);
       g.add(frame, panel);
       g.position.set(x, y, z);
@@ -338,12 +352,6 @@ export function buildPremises({ quality = 'high', logoSvg = null, signTexture = 
     roofSign.position.set(1.0, B.h + 0.42, 0);
     reflect.add(roofSign);
   }
-  // flush turntable: LED ring at floor level (the disc itself is drawn by the floor shader)
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(3.3, 0.014, 8, hi ? 160 : 80), ledWarm);
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.002;
-  ring.scale.z = 0.25;
-  studio.add(ring);
   // detailing props: two inspection light stands and a trolley
   const standMat = new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.5, metalness: 0.7 });
   for (const [x, z, ry] of [
@@ -380,24 +388,27 @@ export function buildPremises({ quality = 'high', logoSvg = null, signTexture = 
   trolley.position.set(-6.4, 0, -4.6);
   trolley.rotation.y = 0.3;
   studio.add(trolley);
-  // wall shelving with product boxes along the left wall
-  const shelfMat = new THREE.MeshStandardMaterial({ color: 0x15171b, roughness: 0.7, metalness: 0.3 });
-  for (const y of [1.2, 1.8, 2.4]) studio.add(box(3.2, 0.04, 0.4, shelfMat, -5.2, y, B.z0 + 0.25));
-  for (let i = 0; i < 14; i++) {
-    const y = [1.2, 1.8, 2.4][i % 3] + 0.14;
-    const c = r() < 0.3 ? 0xff9a3c : r() < 0.5 ? 0x3a3f47 : 0xd9dde3;
-    studio.add(box(0.18, 0.24, 0.24, new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 }), -6.6 + (i / 14) * 2.9, y, B.z0 + 0.27));
-  }
+  // equipment walls. Driver's side (seen behind the car while it is polished): Koch-Chemie
+  // shelving, the polishers with their pads, microfibre cubbies. Passenger side (behind the
+  // car during the window-film chapter): film rolls and the tint tool board.
+  const pm = propMaterials({ dark: true });
+  const kit = new Batch();
+  kit.at(M(-5.9, 0, B.z0), (b) => kochShelf(b, pm, { width: 3.2 }));
+  kit.at(M(-2.4, 0, B.z0), (b) => polisherWall(b, pm, { width: 2.6, n: 5, y: 1.25 }));
+  kit.at(M(1.1, 0, B.z0), (b) => towelCubbies(b, pm, { width: 1.8 }));
+  kit.at(M(-1.2, 0, B.z1, 0, Math.PI, 0), (b) => filmRack(b, pm, { bays: 2, rows: 5 }));
+  kit.at(M(-3.2, 0, B.z1, 0, Math.PI, 0), (b) => tintBoard(b, pm, { w: 2.2, h: 1.3, y: 1.5 }));
+  studio.add(kit.build('equipment'));
 
-  // --- floors (interior epoxy + exterior asphalt) — added to root, not reflected
+  // --- floors (interior polydalle + exterior asphalt) — added to root, not reflected
+  // black tiles, a ring of yellow ones around the car bay (8 m x 5 m, tiles of 0.5 m)
   const floorIn = new THREE.Mesh(
     new THREE.PlaneGeometry(L, D),
     makeFloorMaterial({
-      color: 0x2a2d33,
-      nearAlpha: 0.9,
-      farAlpha: 0.42,
-      speckle: 0.6,
-      disc: 3.25,
+      color: 0x1c1e22,
+      nearAlpha: 0.95,
+      farAlpha: 0.6,
+      tiles: { yellow: 0xd9a10c, ring: [-8, 7, -5, 4] },
       pool: [
         [0, 0, 5.5, 0.9],
         [B.x1 - 1.2, 0, 3.2, 0.25],
@@ -429,7 +440,7 @@ export function buildPremises({ quality = 'high', logoSvg = null, signTexture = 
       [B.x1 + 26, -42, 6, 0.6],
     ],
   });
-  // ground with a hole for the building footprint (the epoxy floor covers the inside)
+  // ground with a hole for the building footprint (the tiled floor covers the inside)
   const gShape = new THREE.Shape();
   gShape.moveTo(-130, -130);
   gShape.lineTo(130, -130);
