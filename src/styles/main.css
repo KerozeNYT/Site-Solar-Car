@@ -742,6 +742,14 @@ p {
   background: rgba(233, 205, 130, 0.16);
   transform: translateY(-1px);
 }
+.tour__opt-in {
+  margin: 1.1em 0 0;
+  font-size: 0.82rem;
+  color: var(--on-dark-muted);
+}
+.tour__opt-in .btn {
+  color: var(--white);
+}
 /* "scroll to enter": only when the live 3D tour is there */
 .hero-hint {
   display: none;

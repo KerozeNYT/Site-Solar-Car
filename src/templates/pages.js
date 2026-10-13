@@ -189,7 +189,7 @@ ${noindex ? '<meta name="robots" content="noindex, follow">' : '<meta name="robo
 <link rel="preload" href="${ctx.assets.font}" as="font" type="font/woff2" crossorigin>
 ${preload}
 <link rel="stylesheet" href="${ctx.assets.css}">
-<script>(function(d){var c=d.documentElement.classList,n=navigator.connection;c.add('js');if(!matchMedia('(prefers-reduced-motion: reduce)').matches&&!(n&&n.saveData)&&!/[?&]static\b/.test(location.search))c.add('tour-live')})(document)</script>
+<script>(function(d){var c=d.documentElement.classList,n=navigator.connection;c.add('js');if(!matchMedia('(prefers-reduced-motion: reduce)').matches&&!(n&&(n.saveData||/2g|3g/.test(n.effectiveType||'')))&&!/[?&]static\\b/.test(location.search))c.add('tour-live')})(document)</script>
 ${extra}
 </head>`;
 }
@@ -463,7 +463,7 @@ export function homePage(ctx) {
           <p class="kicker">${esc(c.kicker)}</p>
           <${H} class="chapter__title${c.brand ? ' chapter__title--brand' : ''}">${heading}</${H}>
           <p class="chapter__text">${esc(c.text)}</p>
-          ${readout}${contact}${ctaLinks(c.ctas, ctx.flightAt)}${quick}${link}${hint}
+          ${readout}${contact}${ctaLinks(c.ctas, ctx.flightAt)}${quick}${link}${hint}${i === 0 ? '<p class="tour__opt-in" data-tour-start hidden><button type="button" class="btn btn--ghost btn--sm">Lancer la visite 3D</button> <span>(données mobiles : quelques Mo)</span></p>' : ''}
         </div>
       </article>`;
     })

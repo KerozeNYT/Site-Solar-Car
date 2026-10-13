@@ -79,3 +79,13 @@
   réalisations » sur l'accueil et sur chaque page de prestation, bouton « Demander une prestation
   similaire », comparateur avant/après accessible (clavier, toucher, souris).
 - Testé avec des données temporaires (non publiées).
+
+### Phase 8 — Performance, résilience
+- Accueil sur téléphone : la 3D se charge après l'affichage de la page, quand le téléphone est
+  disponible (LCP labo 38,4 s → 2,3 s ; ordinateur 7,5 s → 1,3 s).
+- Connexion lente (2G/3G), économie de données ou mouvements réduits : accueil en image fixe, avec
+  un bouton « Lancer la visite 3D » si l'appareil en est capable.
+- Paramètre `?static` réparé (l'expression régulière était cassée par un échappement).
+- Pages de simulateurs sur mobile : 312 Kio au lieu de 6,8 Mio avant interaction.
+- Carte 3D : plus de tentative (ni d'erreur console) sans WebGL, l'image fixe reste.
+- Constat : modèles 3D déjà compressés (meshopt, quantification, textures WebP).

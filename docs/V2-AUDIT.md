@@ -91,3 +91,17 @@ Importance : **P0** critique · **P1** important · **P2** amélioration · **P3
   [QE 1920 (15e législature)](https://questions.assemblee-nationale.fr/dyn/15/questions/QANR5L15QE1920.pdf).
 - Le texte en vigueur (Légifrance) reste à relire avant mise en production : l'environnement de travail
   n'a pas pu y accéder directement.
+
+## Mesures après les phases 2 à 8 (même protocole, labo sans GPU)
+
+| Page | Forme | Perf. avant → après | Access. | LCP avant → après | TBT avant → après | Poids avant → après |
+|---|---|---|---|---|---|---|
+| `/` | mobile | 28 → 60 | 100 | 38,4 s → 2,3 s | 16 640 → 20 300 ms* | 6 770 → 6 783 Kio |
+| `/vitres-teintees/` | mobile | 67 → 80 | 96 → 100 | 2,4 → 2,6 s | 4 490 → 690 ms | 6 856 → 312 Kio |
+| `/contact/` | mobile | 99 → 99 | 100 | 2,1 → 2,2 s | 0 ms | 190 → 201 Kio |
+| `/` | ordinateur | 35 → 58 | 96 → 100 | 7,5 s → 1,3 s | 7 630 → 10 420 ms* | 6 805 → 6 818 Kio |
+| `/vitres-teintees/` | ordinateur | 64 → 72 | 93 → 100 | 1,6 → 0,6 s | 1 140 → 970 ms | stable (3D chargée sur ordinateur) |
+
+\* Le TBT de l'accueil mesure surtout le rendu 3D **logiciel** (SwiftShader) qui démarre pendant la
+mesure : il n'est pas représentatif d'un téléphone avec GPU. Le LCP, lui, ne dépend plus de la 3D.
+À mesurer sur de vrais appareils (PageSpeed Insights / Search Console) une fois le site publié.

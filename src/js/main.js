@@ -73,18 +73,40 @@ function webgl2() {
 }
 const tour = document.querySelector('[data-tour]');
 if (tour) {
+  const optIn = tour.querySelector('[data-tour-start]');
   const fallback = () => {
     html.classList.remove('tour-live');
     tour.classList.add('is-static');
   };
-  if (html.classList.contains('tour-live') && webgl2()) {
+  const go = () =>
     import('./tour/index.js')
       .then((m) => m.startTour(tour))
       .catch((err) => {
         console.warn('[tour] static fallback', err);
         fallback();
       });
-  } else fallback();
+  const gl = webgl2();
+  if (html.classList.contains('tour-live') && gl) {
+    // phones: the page (text, buttons, images) first, the 3D once the phone is idle
+    if (matchMedia('(max-width: 760px)').matches) {
+      const later = () => ('requestIdleCallback' in window ? requestIdleCallback(go, { timeout: 2500 }) : setTimeout(go, 600));
+      if (document.readyState === 'complete') later();
+      else addEventListener('load', later, { once: true });
+    } else go();
+  } else {
+    fallback();
+    // the 3D was left out (data saver, slow connection, reduced motion): the visitor may still ask for it
+    if (gl && optIn) {
+      optIn.hidden = false;
+      optIn.querySelector('button').addEventListener('click', () => {
+        optIn.hidden = true;
+        tour.classList.remove('is-static');
+        html.classList.add('tour-live');
+        scrollTo({ top: tour.getBoundingClientRect().top + scrollY, behavior: 'auto' });
+        go();
+      });
+    }
+  }
 }
 
 // ---------------------------------------------------------------- simulators
@@ -108,7 +130,8 @@ if (bar && 'IntersectionObserver' in window) {
 
 // ---------------------------------------------------------------- workshop map (lazy)
 const maps = document.querySelectorAll('[data-map]');
-if (maps.length && 'IntersectionObserver' in window) {
+// without WebGL the still image stays (no attempt, no console error)
+if (maps.length && 'IntersectionObserver' in window && webgl2()) {
   const io = new IntersectionObserver(
     (entries) => {
       for (const en of entries) {
