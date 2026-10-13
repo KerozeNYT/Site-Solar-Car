@@ -438,6 +438,24 @@ export const atelierPage = {
 };
 
 /** Google reviews: links only — no rating or review is ever displayed without coming from Google. */
+// Partner brands (as given by SOLAR CAR 37). Shown as wordmarks in the site's style; add a
+// `logo` path (SVG/PNG supplied by the brand) to show the official logo instead.
+export const partners = {
+  title: 'Nos marques partenaires',
+  text: 'Films, outillage et produits professionnels : nous travaillons avec des marques reconnues, choisies pour leur qualité et leur tenue dans le temps.',
+  brands: [
+    { name: 'Milwaukee', logo: null },
+    { name: 'TeckWrap', logo: null },
+    { name: 'RUPES', logo: null },
+    { name: '3M', logo: null },
+    { name: 'Solar Screen', logo: null },
+    { name: 'Tego', logo: null },
+    { name: 'Coverstyl’', logo: null },
+    { name: 'STEK', logo: null },
+    { name: 'Protector', logo: null },
+  ],
+};
+
 export const reviews = {
   title: 'Votre avis compte',
   text: 'Vous êtes venu à l’atelier ? Partagez votre expérience sur Google : votre avis aide d’autres conducteurs de Touraine à nous trouver. Et pour vous faire une idée avant de venir, lisez les avis de nos clients.',

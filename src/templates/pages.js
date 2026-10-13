@@ -300,6 +300,25 @@ export function visitBlock(ctx, { title = 'L’atelier', id = 'atelier', heading
 </section>`;
 }
 
+/** Partner brands: an accessible list, doubled into a slow scrolling band (logos when supplied). */
+function partnersBlock(ctx) {
+  const p = ctx.partners;
+  if (!p?.brands?.length) return '';
+  const item = (x) => `<li class="brands__item">${x.logo ? `<img src="${esc(x.logo)}" alt="${esc(x.name)}" loading="lazy" decoding="async">` : `<span>${esc(x.name)}</span>`}</li>`;
+  const list = p.brands.map(item).join('');
+  return `<section class="section brands" aria-labelledby="marques-title">
+  <div class="container brands__head reveal-up">
+    <p class="kicker">Partenaires</p>
+    <h2 id="marques-title">${esc(p.title)}</h2>
+    <p>${esc(p.text)}</p>
+  </div>
+  <div class="brands__band">
+    <ul class="brands__track">${list}</ul>
+    <ul class="brands__track" aria-hidden="true">${list}</ul>
+  </div>
+</section>`;
+}
+
 /** Google reviews: links to the real profile, never a made-up rating. */
 function reviewsBlock(ctx) {
   const b = ctx.business;
@@ -471,6 +490,7 @@ export function homePage(ctx) {
   </section>
 
   ${visitBlock(ctx, { title: `Votre atelier à ${b.address?.city || b.department}, près de Tours` })}
+  ${partnersBlock(ctx)}
   ${reviewsBlock(ctx)}
   ${faqBlock(home.faq)}
   ${ctaBand(ctx)}`;
@@ -573,6 +593,7 @@ export function servicePage(ctx, s) {
   </article>
 
   ${guideFor(ctx, s.slug)}
+  ${partnersBlock(ctx)}
   ${visitBlock(ctx, { title: `${s.name} à ${b.address?.city || b.department}, près de Tours`, id: 'atelier', map: false })}
   <section class="section related" aria-labelledby="related-title">
     <div class="container">
@@ -724,6 +745,7 @@ export function atelierPage(ctx) {
       <ul class="related__list">${services.map((s) => `<li><a href="/${s.slug}/"><strong>${esc(s.name)}</strong><span>${esc(s.short)}</span></a></li>`).join('')}</ul>
     </div>
   </section>
+  ${partnersBlock(ctx)}
   ${reviewsBlock(ctx)}
   ${faqBlock(a.faq, 'Questions pratiques')}
   ${ctaBand(ctx)}`;
