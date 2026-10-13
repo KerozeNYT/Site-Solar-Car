@@ -22,3 +22,10 @@
   « protection céramique longue durée », dépose du film avant contrôle technique.
 - Mentions légales : section tarifs (indicatifs), médiation de la consommation (à compléter),
   notice RGPD complète (finalité, base légale, destinataires et transfert hors UE, durée, droits, CNIL).
+
+### Correctifs prioritaires (P0/P1 de l'audit)
+- Accueil : titre, texte et boutons lisibles et cliquables dès l'ouverture, pendant le chargement
+  de la 3D (ils attendaient auparavant le téléchargement de la voiture, ~5,8 Mo).
+- En-tête mobile : bouton « Devis » et bouton d'appel toujours visibles, hors du menu (la barre
+  d'actions du bas est masquée pendant la visite 3D).
+- Indicateur de chargement de la 3D déplacé en haut sur mobile (il chevauchait un bouton).

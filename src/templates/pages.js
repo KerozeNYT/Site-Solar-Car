@@ -216,7 +216,8 @@ function header(ctx, current = '') {
     </button>
     <ul class="site-nav__list" id="menu-principal">${items}<li class="site-nav__cta" style="--i:${ctx.nav.length}"><a class="btn btn--primary btn--sm" href="/contact/">Devis</a></li></ul>
   </nav>
-  ${ctx.business.phone ? `<a class="site-header__phone" href="${telHref(ctx.business.phone)}">${ICONS.phone}<span>${esc(ctx.business.phone)}</span></a>` : ''}
+  <a class="btn btn--primary btn--sm site-header__quote" href="/contact/"${current === '/contact/' ? ' aria-current="page"' : ''}>Devis</a>
+  ${ctx.business.phone ? `<a class="site-header__phone" href="${telHref(ctx.business.phone)}" aria-label="Appeler l’atelier : ${esc(ctx.business.phone)}">${ICONS.phone}<span>${esc(ctx.business.phone)}</span></a>` : ''}
 </header>`;
 }
 
