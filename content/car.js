@@ -62,6 +62,9 @@ export default {
   // interior surfaces dimmed while the stars are on (Alcantara headliner)
   cabinDim: ['Object_39'],
 
+  // SOLAR CAR show plate on the rear bumper: height of its centre above the ground (metres).
+  plate: { y: 0.47, text: 'SOLAR CAR 37', sub: 'VITRES TEINTÉES · DETAILING · VOUVRAY' },
+
   // Front side windows roll down so the camera can fly into the cabin (model-space belt line).
   windowBelt: 0.915,
   windowDrop: 0.36,

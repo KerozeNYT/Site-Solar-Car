@@ -377,6 +377,9 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
   // ------------------------------------------------------------ contact shadow
   addContactShadow(group, box);
 
+  // ------------------------------------------------------------ SOLAR CAR show plate (rear)
+  if (cfg.plate) await addPlate(group, model, box, cfg.plate).catch((err) => console.warn('[car] plate skipped', err));
+
   // ------------------------------------------------------------ detailing: floor run-off, rinse spray, tyres
   const fx = buildDetailingFx(group, box);
   const tyreMats = [...new Set(find(P.tyres || []).map((o) => (Array.isArray(o.material) ? o.material[0] : o.material)))].map((m) => ({
@@ -961,5 +964,90 @@ function buildDetailingFx(group, box) {
       su.uSize.value = 34 * on;
     },
   };
+}
+
+/**
+ * SOLAR CAR show plate on the rear bumper (520 x 110 mm, like a French plate): the emblem and
+ * the name in gold on navy. Placed by casting a ray at the bumper, `y` metres above the ground.
+ */
+async function addPlate(group, model, box, { y = 0.47, z = 0, text = 'SOLAR CAR 37', sub = 'VITRES TEINTÉES · DETAILING · VOUVRAY' } = {}) {
+  group.updateMatrixWorld(true);
+  const toGroup = new THREE.Matrix4().copy(group.matrixWorld).invert();
+  const meshes = [];
+  model.traverse((o) => o.isMesh && o.visible && !(o.material?.transparent) && meshes.push(o));
+  const ray = new THREE.Raycaster();
+  const from = new THREE.Vector3(box.min.x - 1, y, z).applyMatrix4(group.matrixWorld);
+  ray.set(from, new THREE.Vector3(1, 0, 0).transformDirection(group.matrixWorld));
+  const hit = ray.intersectObjects(meshes, false)[0];
+  if (!hit) return;
+  const p = hit.point.clone().applyMatrix4(toGroup);
+  const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).transformDirection(toGroup);
+  n.y = 0;
+  if (n.lengthSq() < 1e-4 || n.x > 0) n.set(-1, 0, 0);
+  n.normalize();
+
+  // texture: drawn once on a canvas, at 2 px per millimetre
+  await document.fonts?.ready;
+  const emblem = await new Promise((res) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => res(null);
+    img.src = '/img/brand/embleme-256.webp';
+  });
+  const W = 1040;
+  const H = 220;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const g = c.getContext('2d');
+  const round = (x, y0, w, h, r) => {
+    g.beginPath();
+    g.moveTo(x + r, y0);
+    g.arcTo(x + w, y0, x + w, y0 + h, r);
+    g.arcTo(x + w, y0 + h, x, y0 + h, r);
+    g.arcTo(x, y0 + h, x, y0, r);
+    g.arcTo(x, y0, x + w, y0, r);
+    g.closePath();
+  };
+  const bg = g.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#13234a');
+  bg.addColorStop(1, '#070f22');
+  round(0, 0, W, H, 22);
+  g.fillStyle = bg;
+  g.fill();
+  const gold = g.createLinearGradient(0, 0, W, H);
+  gold.addColorStop(0, '#e5b445');
+  gold.addColorStop(0.3, '#a8691f');
+  gold.addColorStop(0.55, '#f1da93');
+  gold.addColorStop(0.8, '#b9792a');
+  gold.addColorStop(1, '#e9c56c');
+  round(9, 9, W - 18, H - 18, 16);
+  g.lineWidth = 6;
+  g.strokeStyle = gold;
+  g.stroke();
+  if (emblem) g.drawImage(emblem, 34, 28, 164, 164);
+  g.textBaseline = 'alphabetic';
+  g.fillStyle = gold;
+  g.font = '800 96px Archivo, "Arial Black", Arial, sans-serif';
+  g.fillText(text, 226, 128, W - 260);
+  g.fillStyle = '#e9edf5';
+  g.font = '600 27px Archivo, Arial, sans-serif';
+  g.fillText(sub.split('').join(String.fromCharCode(8202)), 230, 178, W - 270);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+
+  const plate = new THREE.Group();
+  plate.name = 'plate';
+  const face = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.52, 0.11),
+    new THREE.MeshStandardMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.12, roughness: 0.32, metalness: 0.15, transparent: true })
+  );
+  face.position.z = 0.0045;
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.535, 0.125, 0.006), new THREE.MeshStandardMaterial({ color: 0x0b0c0f, roughness: 0.6 }));
+  plate.add(back, face);
+  plate.position.copy(p).addScaledVector(n, 0.004);
+  plate.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n);
+  group.add(plate);
 }
 
