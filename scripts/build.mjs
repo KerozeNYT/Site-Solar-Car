@@ -62,6 +62,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   fs.mkdirSync(out, { recursive: true });
   const res = await bundle({ minify: !dev });
   copyDir(path.join(root, 'public'), out);
+  // map stylesheet, loaded on demand by src/js/map.js
+  fs.mkdirSync(path.join(out, 'assets/vendor'), { recursive: true });
+  fs.copyFileSync(path.join(root, 'node_modules/maplibre-gl/dist/maplibre-gl.css'), path.join(out, 'assets/vendor/maplibre-gl.css'));
   const assets = assetsFrom(res.metafile);
   const pages = await renderSite(out, assets);
   // sub-folder hosting (GitHub Pages preview): SITE_BASE=/Site-Solar-Car/ ; PREVIEW=1 = noindex

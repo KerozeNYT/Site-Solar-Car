@@ -10,6 +10,8 @@ const out = path.join(root, '.cache/dev');
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
 copyDir(path.join(root, 'public'), out);
+fs.mkdirSync(path.join(out, 'assets/vendor'), { recursive: true });
+fs.copyFileSync(path.join(root, 'node_modules/maplibre-gl/dist/maplibre-gl.css'), path.join(out, 'assets/vendor/maplibre-gl.css'));
 let assets = { js: '/assets/main.js', css: '/assets/styles.css', font: '' };
 const ctx = await bundle({ outdir: out, minify: false, hash: false, watch: true });
 const first = await ctx.rebuild();

@@ -19,10 +19,11 @@ export async function renderSite(out, assets) {
   const flight = await load('content/flight.js');
   const pricing = await load('content/pricing.js');
   const vehicles = (await load('content/vehicles.js')).default;
+  const { guides, guidesPage } = await load('content/guides.js');
   // every distinct 3D model credit (tour car + simulator cars)
   const credits = [...new Set([car, ...Object.values(vehicles).map((v) => v.config)].filter((c) => c?.credit).map((c) => c.credit.text))];
   const flightTotal = flight.beats.reduce((a, b) => a + b.vh, 0);
-  const ctx = { ...site, car, assets, flightTotal, pricing, credits };
+  const ctx = { ...site, car, assets, flightTotal, pricing, credits, guides, guidesPage };
 
   const pages = [
     ['index.html', T.homePage(ctx)],
@@ -31,6 +32,9 @@ export async function renderSite(out, assets) {
     ['404.html', T.notFoundPage(ctx)],
     ['design/style-tile/index.html', styleTile.styleTilePage(ctx)],
     ...site.services.map((s) => [`${s.slug}/index.html`, T.servicePage(ctx, s)]),
+    ['atelier-vouvray/index.html', T.atelierPage(ctx)],
+    ['guides/index.html', T.guidesIndexPage(ctx)],
+    ...guides.map((g) => [`guides/${g.slug}/index.html`, T.guidePage(ctx, g)]),
   ];
   for (const [rel, html] of pages) {
     const file = path.join(out, rel);
@@ -40,11 +44,23 @@ export async function renderSite(out, assets) {
 
   const base = site.business.siteUrl.replace(/\/$/, '');
   const today = new Date().toISOString().slice(0, 10);
-  const urls = ['/', ...site.services.map((s) => `/${s.slug}/`), '/contact/', '/mentions-legales/'];
+  // [path, priority, image id] — images help the pages surface in Google Images
+  const urls = [
+    ['/', '1.0', 'hero'],
+    ...site.services.map((s) => [`/${s.slug}/`, '0.9', s.still]),
+    ['/atelier-vouvray/', '0.8', 'final'],
+    ['/contact/', '0.8', null],
+    ['/guides/', '0.6', null],
+    ...guides.map((g) => [`/guides/${g.slug}/`, '0.6', g.still, g.updated]),
+    ['/mentions-legales/', '0.2', null],
+  ];
   fs.writeFileSync(
     path.join(out, 'sitemap.xml'),
-    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
-      .map((u) => `  <url><loc>${base}${u}</loc><lastmod>${today}</lastmod><priority>${u === '/' ? '1.0' : u.includes('legales') ? '0.2' : '0.8'}</priority></url>`)
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${urls
+      .map(
+        ([u, pr, img, mod]) =>
+          `  <url><loc>${base}${u}</loc><lastmod>${mod || today}</lastmod><priority>${pr}</priority>${img ? `<image:image><image:loc>${base}/stills/${img}-1600.jpg</image:loc></image:image>` : ''}</url>`
+      )
       .join('\n')}\n</urlset>\n`
   );
   fs.writeFileSync(path.join(out, 'robots.txt'), `User-agent: *\nAllow: /\nDisallow: /design/\n\nSitemap: ${base}/sitemap.xml\n`);

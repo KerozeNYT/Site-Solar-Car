@@ -60,14 +60,16 @@ export const nav = [
   { label: 'Detailing', href: '/detailing-carrosserie/' },
   { label: 'Ciel étoilé', href: '/ciel-etoile/' },
   { label: 'Phares', href: '/renovation-phares/' },
+  { label: 'L’atelier', href: '/atelier-vouvray/' },
+  { label: 'Guides', href: '/guides/' },
 ];
 
 /** Home page. The tour chapters are matched to content/flight.js by id. */
 export const home = {
   seo: {
-    title: 'Vitres teintées, detailing & rénovation de phares en Indre-et-Loire | SOLAR CAR 37',
+    title: 'Vitres teintées & detailing à Vouvray, près de Tours | SOLAR CAR 37',
     description:
-      "SOLAR CAR 37, atelier en Indre-et-Loire (37) : pose de films solaires homologués, feux arrière teintés, detailing et correction de peinture, ciel étoilé et rénovation de phares. Devis sur demande.",
+      "Atelier SOLAR CAR 37 à Vouvray, près de Tours : vitres teintées dès 210 € TTC, feux fumés, phares 79 €, detailing, céramique, ciel étoilé. Simulateurs 3D.",
   },
   tour: {
     label: 'Visite de l’atelier en vol continu',
@@ -75,8 +77,8 @@ export const home = {
     loading: 'Préparation du studio 3D',
     chapters: {
       hero: {
-        kicker: 'Atelier automobile · Indre-et-Loire (37)',
-        title: 'Vitres teintées, detailing et rénovation de phares en Indre-et-Loire',
+        kicker: 'Atelier automobile · Vouvray, près de Tours (37)',
+        title: 'Vitres teintées, detailing et rénovation de phares à Vouvray, près de Tours',
         text: 'Films solaires, feux fumés, correction de peinture, ciel étoilé, optiques remises à neuf : entrez dans l’atelier SOLAR CAR 37 et suivez votre voiture, prestation par prestation.',
         ctas: [
           { label: 'Demander un devis', href: '/contact/', primary: true },
@@ -197,9 +199,9 @@ export const services = [
     name: 'Vitres teintées',
     short: 'Films solaires homologués : intimité, confort thermique et protection UV, dans le respect de la loi.',
     seo: {
-      title: 'Vitres teintées et films solaires en Indre-et-Loire (37) | SOLAR CAR 37',
+      title: 'Vitres teintées à Vouvray (Tours) dès 210 € TTC | SOLAR CAR 37',
       description:
-        'Pose de films solaires sur vitres de voiture en Indre-et-Loire : teintes de 5 % à 70 %, simulateur 3D avec prix en direct, conseil réglementaire et devis.',
+        'Films solaires posés à Vouvray, près de Tours : 3/4 arrière dès 210 € TTC, teintes de 5 à 70 %, simulateur 3D avec prix en direct et conseil sur la loi.',
     },
     h1: 'Vitres teintées et films solaires',
     intro:
@@ -244,9 +246,9 @@ export const services = [
     name: 'Feux arrière teintés',
     short: 'Film fumé sur mesure pour vos feux arrière, du voile léger au noir profond.',
     seo: {
-      title: 'Feux arrière teintés et films fumés en Indre-et-Loire (37) | SOLAR CAR 37',
+      title: 'Feux teintés à Vouvray (Tours) : 100 à 120 € la paire | SOLAR CAR 37',
       description:
-        'Teinte de feux arrière par film fumé découpé sur mesure en Indre-et-Loire : plusieurs intensités, pose soignée et conseil sur le cadre réglementaire. Devis sur demande.',
+        'Film fumé 50 % ou 80 % sur feux avant ou arrière, posé à Vouvray près de Tours : de 100 à 120 € TTC la paire. Simulateur 3D feux allumés et au freinage.',
     },
     h1: 'Feux arrière teintés',
     intro:
@@ -285,9 +287,9 @@ export const services = [
     name: 'Detailing carrosserie',
     short: 'Décontamination, polissage, correction de peinture et protection : le brillant d’origine.',
     seo: {
-      title: 'Detailing, polissage et correction de peinture en Indre-et-Loire (37) | SOLAR CAR 37',
+      title: 'Detailing, polissage, céramique à Vouvray (Tours) | SOLAR CAR 37',
       description:
-        'Detailing automobile en Indre-et-Loire : lavage et décontamination, polissage et correction des micro-rayures, protection de la peinture. Résultat avant/après visible. Devis sur demande.',
+        'Detailing à Vouvray, près de Tours : lavage, décontamination, polissage anti micro-rayures et hologrammes, protection céramique. Forfaits sur devis.',
     },
     h1: 'Detailing et correction de peinture',
     intro:
@@ -324,9 +326,9 @@ export const services = [
     name: 'Ciel étoilé',
     short: 'Ciel de toit en fibre optique : une nuit étoilée au-dessus de vos têtes.',
     seo: {
-      title: 'Ciel étoilé voiture (starlight) en Indre-et-Loire (37) | SOLAR CAR 37',
+      title: 'Ciel étoilé voiture à Vouvray, près de Tours | SOLAR CAR 37',
       description:
-        'Installation de ciel étoilé en fibre optique dans le pavillon de votre voiture, en Indre-et-Loire : lumière réglable, pose soignée. Devis selon le véhicule et le kit choisi.',
+        'Ciel étoilé en fibre optique posé à Vouvray, près de Tours : densité, bicolore, scintillement, étoiles filantes, constellation. Configurateur 3D et devis.',
     },
     h1: 'Ciel étoilé en fibre optique',
     intro:
@@ -363,9 +365,9 @@ export const services = [
     name: 'Rénovation de phares',
     short: 'Phares jaunis ou ternes : ponçage, polissage et protection anti-UV.',
     seo: {
-      title: 'Rénovation de phares jaunis et opaques en Indre-et-Loire (37) | SOLAR CAR 37',
+      title: 'Rénovation de phares à Vouvray (Tours) : 79 € TTC | SOLAR CAR 37',
       description:
-        'Rénovation d’optiques de phares jaunies ou opaques en Indre-et-Loire : ponçage, polissage et protection anti-UV pour retrouver transparence et efficacité d’éclairage. Devis.',
+        'Phares jaunis ou opaques : ponçage, polissage et protection à Vouvray (37), près de Tours. Rénovation 79 € TTC, traitement céramique +30 €. Avant/après en 3D.',
     },
     h1: 'Rénovation de phares',
     intro:
@@ -398,11 +400,46 @@ export const services = [
   },
 ];
 
+/** Local page: where the workshop is, how to get there, opening hours. */
+export const atelierPage = {
+  seo: {
+    title: 'Atelier SOLAR CAR 37 à Vouvray : accès, horaires, itinéraire',
+    description:
+      'SOLAR CAR 37, 395 rue des Entrepreneurs, 37210 Vouvray, à 10 km de Tours. Ouvert du lundi au vendredi, 8 h – 12 h et 13 h – 17 h. Carte et itinéraire.',
+  },
+  kicker: 'L’atelier',
+  h1: 'Votre atelier de vitres teintées et de detailing à Vouvray, près de Tours',
+  intro:
+    'SOLAR CAR 37 vous accueille dans son atelier de Vouvray, à une dizaine de kilomètres de Tours : un espace dédié à la pose de films solaires, au detailing et à la personnalisation de votre véhicule.',
+  access:
+    'Facile d’accès depuis Tours et l’est de l’agglomération, l’atelier reçoit les conducteurs de toute la Touraine. Pour être sûr d’être accueilli dans les meilleures conditions, appelez-nous ou envoyez votre demande avant de passer : nous convenons ensemble d’un créneau.',
+  faq: [
+    {
+      q: 'Où se trouve l’atelier SOLAR CAR 37 ?',
+      a: 'Au 395 rue des Entrepreneurs, 37210 Vouvray (Indre-et-Loire), à une dizaine de kilomètres de Tours.',
+    },
+    {
+      q: 'Quels sont vos horaires d’ouverture ?',
+      a: 'Du lundi au vendredi, de 8 h à 12 h et de 13 h à 17 h.',
+    },
+    {
+      q: 'Faut-il prendre rendez-vous ?',
+      a: 'Oui, de préférence : appelez le 06 12 04 57 00 ou envoyez votre demande de devis, nous fixons ensemble la date de prise en charge du véhicule.',
+    },
+  ],
+};
+
+/** Google reviews: links only — no rating or review is ever displayed without coming from Google. */
+export const reviews = {
+  title: 'Votre avis compte',
+  text: 'Vous êtes venu à l’atelier ? Partagez votre expérience sur Google : votre avis aide d’autres conducteurs de Touraine à nous trouver. Et pour vous faire une idée avant de venir, lisez les avis de nos clients.',
+};
+
 export const contactPage = {
   seo: {
-    title: 'Contact et devis | SOLAR CAR 37 — Indre-et-Loire (37)',
+    title: 'Contact et devis — atelier de Vouvray, près de Tours | SOLAR CAR 37',
     description:
-      'Demandez un devis à SOLAR CAR 37 pour vos vitres teintées, feux teintés, detailing, ciel étoilé ou rénovation de phares en Indre-et-Loire.',
+      'Devis vitres teintées, feux fumés, detailing, ciel étoilé, phares : 06 12 04 57 00 ou contact@solarcar37.fr. Atelier au 395 rue des Entrepreneurs, Vouvray.',
   },
   h1: 'Demander un devis',
   intro: 'Décrivez votre véhicule et la prestation souhaitée. Nous revenons vers vous avec un devis détaillé.',

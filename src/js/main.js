@@ -64,6 +64,37 @@ if (sims.length) {
   import('./sim/index.js').then((m) => sims.forEach((el) => m.initSimulator(el, { webgl: webgl2() && !reduceMotion })));
 }
 
+// ---------------------------------------------------------------- mobile quick actions
+// tucked away while the 3D tour (it has its own calls to action) or the footer is on screen
+const bar = document.querySelector('.action-bar');
+if (bar && 'IntersectionObserver' in window) {
+  const hideOn = [...document.querySelectorAll('[data-tour], .site-footer')];
+  const seen = new Set();
+  const io = new IntersectionObserver((entries) => {
+    for (const en of entries) en.isIntersecting ? seen.add(en.target) : seen.delete(en.target);
+    bar.classList.toggle('is-hidden', seen.size > 0);
+  });
+  hideOn.forEach((el) => io.observe(el));
+}
+
+// ---------------------------------------------------------------- workshop map (lazy)
+const maps = document.querySelectorAll('[data-map]');
+if (maps.length && 'IntersectionObserver' in window) {
+  const io = new IntersectionObserver(
+    (entries) => {
+      for (const en of entries) {
+        if (!en.isIntersecting) continue;
+        io.unobserve(en.target);
+        import('./map.js')
+          .then((m) => m.initMap(en.target))
+          .catch((err) => console.warn('[map] address card kept', err));
+      }
+    },
+    { rootMargin: '400px 0px' }
+  );
+  maps.forEach((m) => io.observe(m));
+}
+
 // ---------------------------------------------------------------- reveal on scroll
 if (!reduceMotion && 'IntersectionObserver' in window) {
   const io = new IntersectionObserver(
@@ -77,7 +108,7 @@ if (!reduceMotion && 'IntersectionObserver' in window) {
     },
     { rootMargin: '0px 0px -8% 0px' }
   );
-  document.querySelectorAll('.service-card, .steps li, .benefits li, .faq__item, .checklist li').forEach((el) => {
+  document.querySelectorAll('.service-card, .steps li, .benefits li, .faq__item, .checklist li, .reveal-up, .guide-card, .related__list li').forEach((el) => {
     el.classList.add('reveal');
     io.observe(el);
   });
@@ -111,9 +142,26 @@ if (form) {
       status.classList.add('is-error');
       return;
     }
-    if (form.hasAttribute('data-demo')) {
-      status.textContent = 'Démonstration : le formulaire n’est pas encore relié à une adresse de réception, aucun message n’a été envoyé.';
-      status.classList.add('is-error');
+    if (form.hasAttribute('data-mailto')) {
+      // no form service configured: compose the e-mail in the visitor's mail app
+      if (form.elements._gotcha?.value) return;
+      const d = new FormData(form);
+      const prestations = d.getAll('prestations').map((v) => form.querySelector(`input[name="prestations"][value="${CSS.escape(v)}"]`)?.parentElement.textContent.trim() || v);
+      const body = [
+        `Nom : ${d.get('nom') || ''}`,
+        `E-mail : ${d.get('email') || ''}`,
+        d.get('telephone') ? `Téléphone : ${d.get('telephone')}` : '',
+        `Véhicule : ${d.get('vehicule') || ''}`,
+        prestations.length ? `Prestation(s) : ${prestations.join(', ')}` : '',
+        '',
+        String(d.get('message') || ''),
+      ]
+        .filter((l, i, a) => l !== '' || a[i - 1] !== '')
+        .join('\n');
+      const subject = `Demande de devis${prestations.length ? ' – ' + prestations.join(', ') : ''} – ${d.get('vehicule') || ''}`;
+      location.href = `mailto:${form.dataset.mailto}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      status.textContent = 'Votre messagerie s’ouvre avec la demande pré-remplie : vérifiez-la puis envoyez-la. Rien ne s’ouvre ? Écrivez-nous à ' + form.dataset.mailto + ' ou appelez-nous.';
+      status.classList.add('is-ok');
       return;
     }
     const btn = form.querySelector('[type="submit"]');
