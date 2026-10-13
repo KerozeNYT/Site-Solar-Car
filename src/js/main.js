@@ -19,6 +19,24 @@ if (toggle) {
     }
   });
 }
+// "Nos prestations" drop-down: hover opens it on desktop (CSS), the button toggles it
+// everywhere (keyboard, touch, mobile menu); Escape or a click elsewhere closes it
+document.querySelectorAll('[data-submenu]').forEach((group) => {
+  const btn = group.querySelector('button');
+  const set = (open) => {
+    btn.setAttribute('aria-expanded', String(open));
+    group.classList.toggle('is-open', open);
+  };
+  btn.addEventListener('click', () => set(btn.getAttribute('aria-expanded') !== 'true'));
+  document.addEventListener('click', (e) => !group.contains(e.target) && set(false));
+  group.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && group.classList.contains('is-open')) {
+      set(false);
+      btn.focus();
+    }
+  });
+  group.addEventListener('focusout', (e) => !group.contains(e.relatedTarget) && matchMedia('(min-width: 981px)').matches && set(false));
+});
 
 // ---------------------------------------------------------------- in-page links
 document.addEventListener('click', (e) => {

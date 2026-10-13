@@ -60,14 +60,12 @@ export const business = {
   formEndpoint: 'https://formsubmit.co/contact@solarcar37.fr',
 };
 
+// Header menu. `services: true` = a "Nos prestations" drop-down listing the service pages.
 export const nav = [
-  { label: 'Vitres teintées', href: '/vitres-teintees/' },
-  { label: 'Feux teintés', href: '/feux-arriere-teintes/' },
-  { label: 'Detailing', href: '/detailing-carrosserie/' },
-  { label: 'Ciel étoilé', href: '/ciel-etoile/' },
-  { label: 'Phares', href: '/renovation-phares/' },
+  { label: 'Nos prestations', services: true },
   { label: 'L’atelier', href: '/atelier-vouvray/' },
   { label: 'Guides', href: '/guides/' },
+  { label: 'Contact', href: '/contact/' },
 ];
 
 /** Home page. The tour chapters are matched to content/flight.js by id. */

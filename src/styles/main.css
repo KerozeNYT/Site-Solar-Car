@@ -324,6 +324,97 @@ p {
 .site-nav__toggle {
   display: none;
 }
+/* "Nos prestations" drop-down */
+.site-nav__group {
+  position: relative;
+}
+.site-nav__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--navy-900);
+  font: 600 0.95rem var(--font);
+  cursor: pointer;
+}
+.site-nav__trigger svg {
+  transition: transform 0.25s ease;
+}
+.site-nav__group.is-current .site-nav__trigger,
+.site-nav__trigger:hover {
+  border-color: var(--gold-500);
+}
+.site-nav__group.is-open .site-nav__trigger svg {
+  transform: rotate(180deg);
+}
+.site-nav__sub {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.site-nav__list .site-nav__sub a {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  transition: background-color 0.18s ease;
+}
+.site-nav__sub strong {
+  font-size: 0.95rem;
+}
+.site-nav__sub span {
+  font-weight: 400;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.site-nav__list .site-nav__sub a:hover,
+.site-nav__list .site-nav__sub a[aria-current='page'] {
+  background: rgba(220, 177, 90, 0.14);
+}
+@media (min-width: 981px) {
+  .site-nav__sub {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    width: 360px;
+    padding: 8px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--white);
+    box-shadow: 0 24px 60px -24px rgba(7, 17, 31, 0.45);
+    opacity: 0;
+    visibility: hidden;
+    transform: translate(-50%, 8px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  }
+  /* hover bridge between the trigger and the panel */
+  .site-nav__sub::before {
+    content: '';
+    position: absolute;
+    inset: -12px 0 auto;
+    height: 12px;
+  }
+  .site-nav__group.is-open .site-nav__sub,
+  .site-nav__group:focus-within .site-nav__sub {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+  }
+}
+@media (min-width: 981px) and (hover: hover) {
+  .site-nav__group:hover .site-nav__sub {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+  }
+  .site-nav__group:hover .site-nav__trigger svg {
+    transform: rotate(180deg);
+  }
+}
 @media (max-width: 980px) {
   .site-nav__toggle {
     display: inline-flex;
@@ -387,6 +478,29 @@ p {
     display: block;
     padding: 14px 4px;
     border-bottom: 1px solid var(--line);
+  }
+  .site-nav__trigger {
+    width: 100%;
+    justify-content: space-between;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--line);
+    font-size: 1rem;
+  }
+  .site-nav__sub {
+    display: none;
+    padding: 6px 0 10px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .site-nav__group.is-open .site-nav__sub {
+    display: block;
+  }
+  .site-nav__list .site-nav__sub a:not(.btn) {
+    display: block;
+    padding: 11px 8px;
+    border-bottom: 0;
+  }
+  .site-nav__sub span {
+    display: none;
   }
   .site-nav__cta {
     padding-top: 14px;

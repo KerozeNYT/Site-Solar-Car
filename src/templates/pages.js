@@ -193,9 +193,18 @@ ${extra}
 </head>`;
 }
 
+const CHEVRON = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>';
+
 function header(ctx, current = '') {
   const items = ctx.nav
-    .map((n) => `<li><a href="${n.href}"${current === n.href ? ' aria-current="page"' : ''}>${esc(n.label)}</a></li>`)
+    .map((n) => {
+      if (!n.services) return `<li><a href="${n.href}"${current === n.href ? ' aria-current="page"' : ''}>${esc(n.label)}</a></li>`;
+      const inside = ctx.services.some((s) => current === `/${s.slug}/`);
+      const links = ctx.services
+        .map((s) => `<li><a href="/${s.slug}/"${current === `/${s.slug}/` ? ' aria-current="page"' : ''}><strong>${esc(s.name)}</strong><span>${esc(s.short)}</span></a></li>`)
+        .join('');
+      return `<li class="site-nav__group${inside ? ' is-current' : ''}" data-submenu><button class="site-nav__trigger" type="button" aria-expanded="false" aria-controls="menu-prestations">${esc(n.label)} ${CHEVRON}</button><ul class="site-nav__sub" id="menu-prestations">${links}</ul></li>`;
+    })
     .join('');
   return `<a class="skip-link" href="#contenu">Aller au contenu</a>
 <header class="site-header" data-header>
