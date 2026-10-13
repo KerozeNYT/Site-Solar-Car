@@ -5,6 +5,7 @@ import { createStage } from './stage.js';
 import { createPath, createTimeline, createEffects } from './flight.js';
 import { clamp, smoothstep } from './math.js';
 import { createGovernor } from '../perf.js';
+import { createCoveringSpot } from './covering-spot.js';
 
 const FADE = 14; // vh used by a chapter to fade in / out (at the computer's pace)
 
@@ -22,6 +23,9 @@ export async function startTour(section) {
   const loadingEl = section.querySelector('[data-loading]');
   const pctEl = section.querySelector('[data-loading-pct]');
   const readouts = [...section.querySelectorAll('[data-readout]')];
+  // clock times read from the beats (never hard-coded): headlight chapter start, last road shot
+  const headStart = beats.find((b) => b.chapter === 'headlights')?.from ?? Infinity;
+  const revealFrom = beats.find((b) => b.id === 'reveal')?.from ?? Infinity;
   const params = new URLSearchParams(location.search);
   const stillId = params.get('still');
 
@@ -60,6 +64,20 @@ export async function startTour(section) {
   const order = chapterEls.map((el) => el.dataset.chapter);
   const names = Object.fromEntries(chapterEls.map((el) => [el.dataset.chapter, el.querySelector('.kicker')?.textContent || '']));
   const sideOf = Object.fromEntries(chapterEls.map((el) => [el.dataset.chapter, el.classList.contains('chapter--right') ? -1 : 1]));
+  // covering chapter: the interactive spot on the door (src/js/tour/covering-spot.js)
+  const spotChapter = section.querySelector('[data-chapter="covering"]');
+  let spotFilm = null;
+  try {
+    spotFilm = JSON.parse(spotChapter?.querySelector('[data-spot]')?.dataset.film || 'null');
+  } catch {
+    /* no spot */
+  }
+  let spot = null;
+  try {
+    if (spotFilm) spot = createCoveringSpot({ chapter: spotChapter, stage: { car: stage.car, wake: () => start() }, film: spotFilm, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches });
+  } catch (err) {
+    console.warn('[tour] covering spot unavailable', err); // the chapter's own links remain
+  }
 
   let vhPx = stageEl.clientHeight || innerHeight;
   let sectionTop = 0;
@@ -113,6 +131,10 @@ export async function startTour(section) {
 
     // copy
     const { weights, active } = chapterState(vh);
+    if (spot && !stillId) {
+      spot.step(weights.covering ?? 0, dt);
+      spot.camera(sample);
+    }
     let tx = 0;
     let ty = 0;
     for (const el of chapterEls) {
@@ -136,6 +158,7 @@ export async function startTour(section) {
     offX = clamp(offX + (targetX - offX) * k, -0.4, 0.4);
     offY = clamp(offY + (targetY - offY) * k, -0.4, 0.4);
     stage.setView({ pos: sample.pos, look: sample.look, fov: sample.fov, roll: sample.roll, offsetX: stillId ? 0 : offX, offsetY: stillId ? 0 : offY });
+    if (spot && (weights.covering ?? 0) > 0.01) spot.place(stage.camera, stageEl.clientWidth, stageEl.clientHeight);
 
     // HUD
     progressEl.style.transform = `scaleX(${clamp(vh / timeline.total).toFixed(4)})`;
@@ -146,7 +169,7 @@ export async function startTour(section) {
     }
     for (const r of readouts) {
       if (r.dataset.readout === 'vlt') r.textContent = Math.round(e.rearVLT * 100);
-      if (r.dataset.readout === 'beforeAfter') r.textContent = e.headClear < 0.98 && t > 46 ? (e.headClear < 0.5 ? 'Avant' : 'Après') : 'Après';
+      if (r.dataset.readout === 'beforeAfter') r.textContent = e.headClear < 0.98 && t > headStart ? (e.headClear < 0.5 ? 'Avant' : 'Après') : 'Après';
     }
     return e;
   }
@@ -156,6 +179,7 @@ export async function startTour(section) {
     document.documentElement.classList.add('is-still');
     await parking;
     measure();
+    if (stillId === 'covering') spot?.preview();
     apply(current, 0, 1);
     stage.render(3);
     stage.render(3);
@@ -199,12 +223,12 @@ export async function startTour(section) {
     // ease towards the scroll target; long jumps (links, keyboard) cut straight there
     if (Math.abs(target - current) > 9) current = target;
     else current += (target - current) * (1 - Math.exp(-dt * 6.5));
-    const settled = Math.abs(target - current) < 0.002 && vh === lastVh;
+    const settled = Math.abs(target - current) < 0.002 && vh === lastVh && !spot?.busy;
     lastVh = vh;
     idle = settled ? idle + 1 : 0;
     const e = apply(current, vh, dt);
     // things that move by themselves: the road outside (start and end of the flight), the stars
-    const alive = e.stars > 0.01 || current < 7 || current > 52;
+    const alive = e.stars > 0.01 || current < 7 || current > revealFrom - 2;
     if (idle > 60 && !alive) {
       running = false; // fully still: wait for a scroll, a resize or the tab coming back
       lastFrame = 0;

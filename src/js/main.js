@@ -110,9 +110,25 @@ if (tour) {
 }
 
 // ---------------------------------------------------------------- simulators
-const sims = document.querySelectorAll('[data-sim]');
+// `data-sim-lazy`: the simulator's code (and its catalogue) loads only when it nears the screen
+const sims = [...document.querySelectorAll('[data-sim]')];
 if (sims.length) {
-  import('./sim/index.js').then((m) => sims.forEach((el) => m.initSimulator(el, { webgl: webgl2() && !reduceMotion })));
+  const init = (el) => import('./sim/index.js').then((m) => m.initSimulator(el, { webgl: webgl2(), reduceMotion }));
+  const lazy = 'IntersectionObserver' in window ? sims.filter((el) => el.hasAttribute('data-sim-lazy')) : [];
+  sims.filter((el) => !lazy.includes(el)).forEach(init);
+  if (lazy.length) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const en of entries) {
+          if (!en.isIntersecting) continue;
+          io.unobserve(en.target);
+          init(en.target);
+        }
+      },
+      { rootMargin: '600px 0px' }
+    );
+    lazy.forEach((el) => io.observe(el));
+  }
 }
 
 // ---------------------------------------------------------------- mobile quick actions

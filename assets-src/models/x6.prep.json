@@ -3,7 +3,9 @@
   "output": "public/models/x6.glb",
   "source": "Fichier fourni par le client (2016_bmw_x6_m.glb, export Sketchfab).",
   "license": "À confirmer par le client (origine Sketchfab : licence et crédit de l'auteur à vérifier).",
-  "dropExtensions": ["KHR_materials_transmission"],
+  "dropExtensions": [
+    "KHR_materials_transmission"
+  ],
   "scale": 100,
   "rename": {
     "Boot_Glass4_Mesh_001_M_Opaque_PlasticRoughBlack_Max1_": "win_rearscreen",
@@ -23,7 +25,29 @@
     "HeadLightL6_Mesh_025_M_LightGlass_OuterClear_Low1_": "head_inner_L",
     "HeadLightR6_Mesh_026_M_LightGlass_OuterClear_Low1_": "head_inner_R",
     "HeadLightL6_Mesh_025_M_LightGlass_OuterClear_Low_B": "head_lens_L",
-    "HeadLightR6_Mesh_026_M_LightGlass_OuterClear_Low_B": "head_lens_R"
+    "HeadLightR6_Mesh_026_M_LightGlass_OuterClear_Low_B": "head_lens_R",
+    "Hood6_Mesh_027_M_Engine_Max_005_B:M_CarPaint": "paint_hood",
+    "Chassis7_Mesh_M_Chassis_Max_B:M_CarPaint_Max1": "paint_roof",
+    "MirrorL6_Mesh_030_M_LightGlass_Clear_Low_009_B:M_CarPaint": "paint_mirror_L",
+    "MirrorR6_Mesh_031_M_LightGlass_Clear_Low_009_B:M_CarPaint": "paint_mirror_R",
+    "Spoiler6_Mesh_034_M_Opaque_PlasticRoughBlack_Max_017_B:M_CarPaint": "paint_spoiler",
+    "Boot6_Mesh_009_M_Engine_Max_008_B:M_CarPaint": "paint_tailgate",
+    "FenderFL6_Mesh_019_M_Badge_Max_007_B:M_CarPaint": "paint_fender_L",
+    "FenderFR6_Mesh_020_M_CarPaint_Max_008_B:M_CarPaint": "paint_fender_R",
+    "DoorL_SetA6_Mesh_016_M_Interior_Max_005_B:M_CarPaint": "paint_door_FL",
+    "DoorR_SetA6_Mesh_017_M_Interior_Max_006_B:M_CarPaint": "paint_door_FR",
+    "FendersR6_Mesh_023_M_Opaque_PlasticSmoothBlack_Max_007_B:M_CarPaint": "paint_rear_sides",
+    "FendersR6_Mesh_023_M_Opaque_PlasticSmoothBlack_Max_009_B:M_CarPaint": "paint_rear_lower",
+    "BumperF6_Mesh_013_M_GrilleA_Max6_B:M_CarPaint": "paint_bumper_F",
+    "BumperR6_Mesh_014_M_Light_Max_006_B:M_CarPaint": "paint_bumper_R",
+    "Skirts6_Mesh_032_M_Chassis_Max_008_B:M_CarPaint": "paint_skirts",
+    "Diffuser6_Mesh_015_M_GrilleB_Max2_B:M_CarPaint": "paint_diffuser_A",
+    "Diffuser6_Mesh_015_M_GrilleB_Max3_B:M_CarPaint": "paint_diffuser_B",
+    "Grille6_Mesh_024_M_Opaque_PlasticSmoothBlack_Max_008_B:M_Opaque_ChromeSmooth": "chrome_grille",
+    "FenderFL6_Mesh_019_M_Badge_Max_003_B:M_Opaque_ChromeSmooth": "chrome_gill_L",
+    "FenderFR6_Mesh_020_M_CarPaint_Max_010_B:M_Opaque_ChromeSmooth": "chrome_gill_R",
+    "Exhausts6_Mesh_018_M_Opaque_AluminumRough_Max1_B:M_Opaque_ChromeSmooth": "chrome_exhaust",
+    "Boot6_Mesh_009_M_Engine_Max_006_B:M_Opaque_ChromeSmooth": "chrome_badge_rear"
   },
   "maxTexture": 1024
 }

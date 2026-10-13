@@ -34,30 +34,33 @@ export const keys = [
   { t: 23, p: [-2.2, 1.0, 3.0], l: [-1.0, 0.7, 0.6], fov: 44 },
   { t: 26, p: [-0.2, 1.0, 3.1], l: [0.0, 0.65, 0.7], fov: 44 },
   { t: 29, p: [1.8, 1.0, 3.0], l: [1.0, 0.7, 0.7], fov: 46 },
+  // 05 — Covering: stepping back to see the passenger side whole, door and front wing
+  { t: 31, p: [3.0, 1.3, 3.95], l: [0.3, 0.62, 0.5], fov: 40 },
+  { t: 34, p: [2.55, 1.24, 4.15], l: [0.05, 0.62, 0.45], fov: 40 },
   // into the cabin through the lowered passenger window
-  { t: 31, p: [0.55, 1.1, 1.9], l: [0.1, 1.02, 0.6], fov: 52 },
-  { t: 33, p: [0.05, 1.04, 1.05], l: [-0.05, 1.02, 0.0], fov: 60 },
-  { t: 34.5, p: [-0.05, 1.0, 0.3], l: [-0.25, 1.2, -0.05], fov: 72 },
-  // 05 — Starlight headliner: looking up, slow yaw across the ceiling
-  { t: 37, p: [-0.12, 0.98, 0.1], l: [-0.4, 1.3, 0.0], fov: 82 },
-  { t: 40, p: [-0.2, 0.97, -0.05], l: [-0.2, 1.3, -0.35], fov: 82 },
+  { t: 36, p: [0.55, 1.1, 1.9], l: [0.1, 1.02, 0.6], fov: 52 },
+  { t: 38, p: [0.05, 1.04, 1.05], l: [-0.05, 1.02, 0.0], fov: 60 },
+  { t: 39.5, p: [-0.05, 1.0, 0.3], l: [-0.25, 1.2, -0.05], fov: 72 },
+  // 06 — Starlight headliner: looking up, slow yaw across the ceiling
+  { t: 42, p: [-0.12, 0.98, 0.1], l: [-0.4, 1.3, 0.0], fov: 82 },
+  { t: 45, p: [-0.2, 0.97, -0.05], l: [-0.2, 1.3, -0.35], fov: 82 },
   // out through the driver's window, banking towards the nose
-  { t: 42, p: [-0.05, 1.02, -0.3], l: [0.0, 1.02, -1.4], fov: 66 },
-  { t: 43.5, p: [0.05, 1.04, -1.1], l: [0.6, 0.95, -2.2], fov: 56 },
-  { t: 45, p: [1.4, 1.1, -2.5], l: [1.9, 0.75, -0.5], fov: 50 },
-  // 06 — Headlight renovation: close on the driver's-side headlight
-  { t: 47, p: [3.4, 0.82, -1.65], l: [2.0, 0.66, -0.7], fov: 40 },
-  { t: 51, p: [3.15, 0.78, -1.15], l: [2.0, 0.66, -0.68], fov: 34 },
-  { t: 53.5, p: [3.7, 0.85, -0.6], l: [1.8, 0.7, -0.3], fov: 40 },
+  { t: 47, p: [-0.05, 1.02, -0.3], l: [0.0, 1.02, -1.4], fov: 66 },
+  { t: 48.5, p: [0.05, 1.04, -1.1], l: [0.6, 0.95, -2.2], fov: 56 },
+  { t: 50, p: [1.4, 1.1, -2.5], l: [1.9, 0.75, -0.5], fov: 50 },
+  // 07 — Headlight renovation: close on the driver's-side headlight
+  { t: 52, p: [3.4, 0.82, -1.65], l: [2.0, 0.66, -0.7], fov: 40 },
+  { t: 56, p: [3.15, 0.78, -1.15], l: [2.0, 0.66, -0.68], fov: 34 },
+  { t: 58.5, p: [3.7, 0.85, -0.6], l: [1.8, 0.7, -0.3], fov: 40 },
   // exit: backwards out of the door, still facing the car, then climb
-  { t: 55.5, p: [6.2, 1.2, -0.2], l: [0.5, 0.8, 0.0], fov: 46 },
-  { t: 57.5, p: [9.6, 1.9, 0.0], l: [0.5, 0.9, 0.0], fov: 48 },
-  { t: 60, p: [16.0, 6.5, 0.5], l: [4.0, 1.0, 0.0], fov: 50 },
-  // 07 — Reveal: the workshop on its business park, roads and traffic around it
-  { t: 63, p: [27.0, 19.0, 11.0], l: [5.0, 0.0, -1.0], fov: 50 },
+  { t: 60.5, p: [6.2, 1.2, -0.2], l: [0.5, 0.8, 0.0], fov: 46 },
+  { t: 62.5, p: [9.6, 1.9, 0.0], l: [0.5, 0.9, 0.0], fov: 48 },
+  { t: 65, p: [16.0, 6.5, 0.5], l: [4.0, 1.0, 0.0], fov: 50 },
+  // 08 — Reveal: the workshop on its business park, roads and traffic around it
+  { t: 68, p: [27.0, 19.0, 11.0], l: [5.0, 0.0, -1.0], fov: 50 },
 ];
 
-// V2: about 6 screens of scrolling on a computer (was 13.4), the camera path unchanged;
+// V2: about 6.9 screens of scrolling on a computer (was 13.4), covering chapter included;
 // phones scroll a further 15 % less (`mobileScale`, src/js/tour/index.js)
 export const beats = [
   { id: 'hero', vh: 45, from: 0, to: 0, chapter: 'hero' },
@@ -67,12 +70,13 @@ export const beats = [
   { id: 'tail', vh: 58, from: 15, to: 20.5, chapter: 'tail' },
   { id: 'around', vh: 22, from: 20.5, to: 22, chapter: null },
   { id: 'detailing', vh: 70, from: 22, to: 29.6, chapter: 'detailing' },
-  { id: 'window-in', vh: 32, from: 29.6, to: 34.5, chapter: null },
-  { id: 'stars', vh: 65, from: 34.5, to: 41, chapter: 'stars' },
-  { id: 'window-out', vh: 32, from: 41, to: 46, chapter: null },
-  { id: 'headlights', vh: 70, from: 46, to: 54, chapter: 'headlights' },
-  { id: 'reveal', vh: 45, from: 54, to: 63, chapter: null },
-  { id: 'final', vh: 45, from: 63, to: 63, chapter: 'final' },
+  { id: 'covering', vh: 60, from: 29.6, to: 34.6, chapter: 'covering' },
+  { id: 'window-in', vh: 32, from: 34.6, to: 39.5, chapter: null },
+  { id: 'stars', vh: 65, from: 39.5, to: 46, chapter: 'stars' },
+  { id: 'window-out', vh: 32, from: 46, to: 51, chapter: null },
+  { id: 'headlights', vh: 70, from: 51, to: 59, chapter: 'headlights' },
+  { id: 'reveal', vh: 45, from: 59, to: 68, chapter: null },
+  { id: 'final', vh: 45, from: 68, to: 68, chapter: 'final' },
 ];
 export const mobileScale = 0.85;
 
@@ -85,12 +89,12 @@ export const effects = {
   brake: [[0, 0], [18.3, 0], [18.8, 1], [20.4, 1], [21.4, 0]],
   // polish boundary along the car (m). Polished where x < value: sweeps rear -> front.
   polishX: [[0, -10], [21, -10], [22.2, -2.5], [29.2, 2.5], [29.6, 10]],
-  windowR: [[0, 0], [30.3, 0], [31.8, 1], [36, 1], [37, 0]],
-  windowL: [[0, 0], [40.5, 0], [42.2, 1], [45, 1], [46, 0]],
-  stars: [[0, 0], [34.5, 0], [37.6, 1], [42.5, 1], [44, 0]],
+  windowR: [[0, 0], [35.3, 0], [36.8, 1], [41, 1], [42, 0]],
+  windowL: [[0, 0], [45.5, 0], [47.2, 1], [50, 1], [51, 0]],
+  stars: [[0, 0], [39.5, 0], [42.6, 1], [47.5, 1], [49, 0]],
   // lenses are "aged" while the camera is inside the cabin, then restored on camera
-  headClear: [[0, 1], [38.9, 1], [39, 0], [48, 0], [51.5, 1]],
-  headlights: [[0, 0], [51.8, 0], [53, 1]],
+  headClear: [[0, 1], [43.9, 1], [44, 0], [53, 0], [56.5, 1]],
+  headlights: [[0, 0], [56.8, 0], [58, 1]],
 };
 
 // Representative clock time of each chapter (stills for reduced motion, posters, OG image).
@@ -99,7 +103,8 @@ export const stills = {
   tint: 11.8,
   tail: 19.6,
   detailing: 25.6,
-  stars: 39.5,
-  headlights: 53.4,
-  final: 63,
+  covering: 32.6,
+  stars: 44.5,
+  headlights: 58.4,
+  final: 68,
 };

@@ -4,14 +4,17 @@
  */
 import { esc } from './pages.js';
 import { glazing, glazingReminder, lightsRule, roadStatus } from '../../content/regulation.js';
+import { simDefaults, disclaimer } from '../../content/covering.js';
+import { byId } from '../../content/films/index.js';
+import vehicles from '../../content/vehicles.js';
 
 const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
-function shell({ kind, title, intro, poster, posterAlt, views, panel, tag = '' }) {
-  return `<section class="sim" data-sim="${kind}" id="simulateur" aria-labelledby="sim-title">
+function shell({ kind, title, intro, poster, posterAlt, views, panel, tag = '', kicker = 'Simulateur 3D en temps réel', startLabel = 'Lancer la vue 3D', viewExtra = '', cls = '', attrs = '' }) {
+  return `<section class="sim${cls ? ' ' + cls : ''}" data-sim="${kind}" id="simulateur" aria-labelledby="sim-title"${attrs}>
   <div class="container">
     <div class="sim__head">
-      <p class="kicker" style="color:var(--gold-300)">Simulateur 3D en temps réel</p>
+      <p class="kicker" style="color:var(--gold-300)">${esc(kicker)}</p>
       <h2 id="sim-title">${esc(title)}</h2>
       <p>${esc(intro)}</p>
     </div>
@@ -19,7 +22,7 @@ function shell({ kind, title, intro, poster, posterAlt, views, panel, tag = '' }
       <div class="sim__view" data-sim-view>
         <img src="/stills/sim-${kind}-960.webp" srcset="/stills/sim-${kind}-960.webp 960w, /stills/sim-${kind}-1600.webp 1600w" sizes="(min-width: 960px) 60vw, 100vw" width="1600" height="1000" alt="${esc(posterAlt)}" loading="lazy" decoding="async">
         ${tag ? `<p class="sim__tag">${tag}</p>` : ''}
-        <button class="btn btn--primary sim__start" type="button" data-sim-start>Lancer la vue 3D</button>
+        <button class="btn btn--primary sim__start" type="button" data-sim-start>${esc(startLabel)}</button>${viewExtra}
         <div class="sim__views" role="group" aria-label="Points de vue">${views
           .map(([id, label], i) => `<button type="button" data-view="${id}" aria-pressed="${i === 0}">${esc(label)}</button>`)
           .join('')}</div>
@@ -376,7 +379,113 @@ export function simFor(ctx, slug) {
       return simStarlight(ctx);
     case 'detailing-carrosserie':
       return simDetailing(ctx);
+    case 'covering-dechromage':
+      return simCovering(ctx);
     default:
       return '';
   }
+}
+
+// ------------------------------------------------------------------------- covering & déchromage
+/**
+ * Covering simulator. The form holds the whole configuration (mode, film of each zone as hidden
+ * fields, déchromage elements), so it is remembered, reset and sent like the other simulators;
+ * the colour chart (nuancier) is built by src/js/sim/covering.js from the lazily loaded films.
+ */
+export function simCovering(ctx) {
+  const car = vehicles.suv.config;
+  const cov = car.covering;
+  const film = (id) => byId.get(id);
+  const filmLine = (f) => (f ? `${f.brand}™ ${f.code} ${f.name}` : '');
+  const chip = (f) => `<i class="swatch" style="background:${f.preview}"></i>`;
+  const black = simDefaults.dechromeFilms.map((id) => film(id)).filter(Boolean);
+  const target = (value, label, checked = false) =>
+    `<label class="cov-target"><input type="radio" name="target" value="${value}"${checked ? ' checked' : ''}><span>${esc(label)}</span></label>`;
+  const current = (slot, id) =>
+    `<span class="cov-current" data-current="${slot}">${chip(film(id))}<span><strong>${esc(film(id).code)}</strong> ${esc(film(id).label)}</span></span>`;
+  const panel = `
+        <div class="cov-panel__bar"><button type="button" class="cov-panel__toggle" data-panel-toggle aria-expanded="true" aria-controls="cov-panel-body">Réglages</button></div>
+        <div class="cov-panel__body" id="cov-panel-body">
+        <fieldset class="sim__group">
+          <legend>Type de projet</legend>
+          ${chips('mode', [
+            { value: 'complet', label: 'Complet' },
+            { value: 'partiel', label: 'Partiel' },
+            { value: 'dechromage', label: 'Déchromage' },
+          ], 'complet')}
+          <p class="cov-note" data-mode-note aria-live="polite"></p>
+        </fieldset>
+
+        <fieldset class="sim__group cov-block" data-block="complet">
+          <legend>Carrosserie complète</legend>
+          <p class="cov-help">Toutes les surfaces peintes de la carrosserie, dans un seul film. Vitrages, pneus, jantes, optiques, calandres et joints ne changent pas.</p>
+          ${target('body', 'Film de carrosserie', true)}
+          ${current('body', simDefaults.body)}
+        </fieldset>
+
+        <fieldset class="sim__group cov-block" data-block="partiel" hidden>
+          <legend>Zones du covering partiel</legend>
+          <p class="cov-help">Cochez les zones à habiller, puis choisissez la référence de chacune dans le nuancier.</p>
+          <ul class="cov-zones">${cov.zones
+            .map(
+              (z) => `<li class="cov-zone" data-zone="${z.id}">
+            <label class="cov-zone__on"><input type="checkbox" name="zone-${z.id}"> ${esc(z.label)}</label>
+            ${target(z.id, 'Modifier', false)}
+            ${current(z.id, simDefaults.zone)}
+          </li>`
+            )
+            .join('')}</ul>
+        </fieldset>
+
+        <input type="hidden" name="film-body" value="${simDefaults.body}" data-default="${simDefaults.body}">
+        ${cov.zones.map((z) => `<input type="hidden" name="film-${z.id}" value="${simDefaults.zone}" data-default="${simDefaults.zone}">`).join('')}
+
+        <section class="nuancier" data-nuancier aria-labelledby="nuancier-title">
+          <h3 class="sim__label" id="nuancier-title">Nuancier <span data-nuancier-for></span></h3>
+          <p class="nuancier__loading" data-nuancier-loading>Chargement du nuancier 3M™…</p>
+          <noscript><p class="cov-help">Le nuancier interactif demande JavaScript. Demandez le nuancier à l’atelier ou décrivez la teinte souhaitée dans votre demande de devis.</p></noscript>
+        </section>
+
+        <fieldset class="sim__group cov-block" data-block="dechromage">
+          <legend>Déchromage</legend>
+          <p class="cov-help">Les pièces réellement chromées de ce modèle, passées au noir. Combinable avec le covering.</p>
+          <div class="cov-dc">${cov.chrome.map((c) => `<label class="zone__toggle"><input type="checkbox" name="dc-${c.id}"> ${esc(c.label)}</label>`).join('')}</div>
+          <p class="zone__label">Finition du noir</p>
+          ${chips('film-dechrome', black.map((f) => ({ value: f.id, label: `${f.label} · ${f.code}`, swatch: f.preview })), simDefaults.dechrome)}
+          <ul class="cov-notes">${cov.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
+        </fieldset>
+
+        </div>
+
+        <div class="cov-summary" aria-live="polite">
+          <p class="sim__label">Votre configuration</p>
+          <div class="cov-summary__text" data-summary><p>Covering complet — ${esc(filmLine(film(simDefaults.body)))}</p></div>
+          ${total('Faisabilité et prix confirmés après étude du véhicule.', { quote: true })}
+        </div>
+        <div class="sim__actions">
+          <a class="btn btn--primary" href="/contact/?prestation=covering-dechromage" data-quote>Demander un devis pour cette configuration</a>
+          <button type="button" class="btn btn--ghost" data-copy="summary">Copier le récapitulatif</button>
+          <button type="button" class="btn btn--ghost" data-copy="link">Copier le lien de partage</button>
+          <button type="reset" class="sim__reset">Réinitialiser</button>
+        </div>
+        <p class="cov-status" data-copy-status role="status"></p>
+        <p class="price-note">${esc(disclaimer)} Véhicule de démonstration : ${esc(cov.label)}. Références 3M™ Série 2080 vérifiées sur le site de 3M France ; couleurs d’aperçu approximatives. Prix sur devis.</p>`;
+  return shell({
+    kind: 'covering',
+    cls: 'sim--covering',
+    attrs: ' data-sim-lazy',
+    kicker: 'Simulateur 3D · nuancier 3M™',
+    title: 'Configurez votre covering et votre déchromage',
+    intro: 'Choisissez un covering complet, partiel ou un déchromage, puis une référence 3M™ Série 2080 : la voiture change en direct. Comparez avec l’origine, envoyez la configuration pour un devis.',
+    posterAlt: 'Aperçu du simulateur de covering : SUV de démonstration dans l’atelier',
+    startLabel: 'Activer le simulateur 3D',
+    viewExtra: '<button type="button" class="sim__origin" data-origin aria-pressed="false" hidden>Voir l’origine</button>',
+    views: [
+      ['34avant', '3/4 avant'],
+      ['profil', 'Profil'],
+      ['34arriere', '3/4 arrière'],
+      ['dessus', 'Vue du toit'],
+    ],
+    panel,
+  });
 }

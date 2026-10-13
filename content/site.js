@@ -98,7 +98,7 @@ export const home = {
         // the H1 reads « SOLAR CAR 37 — Esthétique & personnalisation automobile »
         brand: 'SOLAR CAR 37',
         title: 'Esthétique & personnalisation automobile',
-        text: 'Vitres teintées, feux fumés, detailing et correction de peinture, ciel étoilé, rénovation de phares : un atelier dédié à Vouvray, près de Tours.',
+        text: 'Vitres teintées, feux fumés, detailing, covering et déchromage, ciel étoilé, rénovation de phares : un atelier dédié à Vouvray, près de Tours.',
         ctas: [
           { label: 'Demander un devis', href: '/contact/', primary: true },
           // jumps into the tour, to the first service (the template adds the scroll position)
@@ -130,15 +130,30 @@ export const home = {
         link: { label: 'Découvrir le detailing', href: '/detailing-carrosserie/' },
         side: 'left',
       },
+      covering: {
+        kicker: '04 — Covering & déchromage',
+        title: 'Une nouvelle couleur, sans toucher à la peinture',
+        text: 'Covering complet ou partiel, finitions brillantes, satinées ou mates, chromes passés au noir : changez de style sans repeindre, et revenez à la teinte d’origine quand vous le souhaitez.',
+        link: { label: 'Découvrir le covering', href: '/covering-dechromage/' },
+        linkHint: 'Simulateur 3D · nuancier 3M™ · devis',
+        // the interactive spot on the car (src/js/tour/covering-spot.js)
+        spot: {
+          label: 'Covering & déchromage',
+          text: 'Aperçu indicatif sur la carrosserie : film 3M™ 2080-M21 Matte Silver Metallic.',
+          discover: { label: 'Découvrir la prestation', href: '/covering-dechromage/' },
+          configure: { label: 'Configurer mon covering', href: '/covering-dechromage/#simulateur' },
+        },
+        side: 'left',
+      },
       stars: {
-        kicker: '04 — Ciel étoilé',
+        kicker: '05 — Ciel étoilé',
         title: 'Une nuit étoilée au-dessus de vos têtes',
         text: 'Des centaines de points de fibre optique intégrés au pavillon, une lumière douce et réglable : l’habitacle devient une nuit d’été.',
         link: { label: 'Découvrir le ciel étoilé', href: '/ciel-etoile/' },
         side: 'left',
       },
       headlights: {
-        kicker: '05 — Rénovation de phares',
+        kicker: '06 — Rénovation de phares',
         title: 'Des optiques claires comme au premier jour',
         text: 'Ponçage, polissage et protection anti-UV : les phares jaunis retrouvent leur transparence et votre éclairage son efficacité.',
         readout: 'beforeAfter',
@@ -156,8 +171,8 @@ export const home = {
     },
   },
   intro: {
-    title: 'Un atelier, cinq savoir-faire',
-    text: 'SOLAR CAR 37 réunit sous un même toit la pose de films solaires, la teinte des feux, le detailing de carrosserie, l’installation de ciels étoilés et la rénovation d’optiques. Chaque véhicule est traité au cas par cas, avec un devis clair avant toute intervention.',
+    title: 'Un atelier, six savoir-faire',
+    text: 'SOLAR CAR 37 réunit sous un même toit la pose de films solaires, la teinte des feux, le detailing de carrosserie, le covering et le déchromage, l’installation de ciels étoilés et la rénovation d’optiques. Chaque véhicule est traité au cas par cas, avec un devis clair avant toute intervention.',
   },
   process: {
     title: 'Comment se déroule une prestation',
@@ -353,6 +368,62 @@ export const services = [
     ],
   },
   {
+    slug: 'covering-dechromage',
+    shortName: 'Covering',
+    chapter: 'covering',
+    still: 'covering',
+    name: 'Covering & déchromage',
+    short: 'Covering complet ou partiel et déchromage : films 3M™ Série 2080, simulateur 3D avec nuancier.',
+    seo: {
+      title: 'Covering & déchromage à Vouvray, près de Tours | SOLAR CAR 37',
+      description:
+        'Covering complet ou partiel (toit, capot, rétroviseurs) et déchromage à Vouvray, près de Tours : films 3M™ Série 2080, simulateur 3D avec nuancier, devis.',
+    },
+    h1: 'Covering et déchromage automobile près de Tours',
+    intro:
+      'Changer la couleur ou la finition de votre véhicule sans le repeindre : un film adhésif posé sur la carrosserie, en totalité ou sur quelques éléments, et des chromes passés au noir. Essayez les teintes sur la voiture 3D, puis venez valider l’échantillon à l’atelier de Vouvray.',
+    benefits: [
+      { title: 'Réversible', text: 'Le film se pose sur la peinture d’origine et se retire par un professionnel quand vous voulez changer.' },
+      { title: 'Des finitions introuvables en peinture', text: 'Satiné, mat, métallisé, nacré, reflets changeants, carbone : le style que vous voulez.' },
+      { title: 'Partiel ou complet', text: 'Un toit noir, des rétroviseurs contrastés ou toute la carrosserie : au choix.' },
+      { title: 'Chromes au noir', text: 'Le déchromage donne une ligne plus sobre sans remplacer les pièces.' },
+    ],
+    steps: [
+      'Choix du film sur nuancier, à la lumière du jour, et étude du véhicule',
+      'Lavage, décontamination et dégraissage des surfaces',
+      'Démontage des éléments qui gênent une pose propre (selon le véhicule)',
+      'Pose panneau par panneau, rentrés et finitions des bords',
+      'Remontage, contrôle et conseils d’entretien',
+    ],
+    law: null,
+    faq: [
+      {
+        q: 'Quelle différence entre un covering complet et partiel ?',
+        a: 'Le covering complet habille toutes les surfaces peintes visibles de la carrosserie. Le partiel ne concerne que quelques éléments (toit, capot, coques de rétroviseurs, becquet…), souvent pour créer un contraste. Les deux se chiffrent sur devis, après étude du véhicule.',
+      },
+      {
+        q: 'Comment choisir entre brillant, satiné et mat ?',
+        a: 'Le brillant se rapproche d’une peinture d’origine, le satiné adoucit les reflets, le mat les supprime presque et souligne les lignes. Un mat demande un entretien plus attentif. Nous vous montrons les échantillons en extérieur avant de choisir : l’écran ne rend pas fidèlement une finition.',
+      },
+      {
+        q: 'Qu’est-ce que le déchromage ?',
+        a: 'C’est l’habillage des pièces chromées (calandre, entourages de vitres, baguettes…) avec un film noir brillant, satiné ou mat. Seules les pièces réellement chromées de votre véhicule sont concernées ; il se combine avec un covering complet ou partiel.',
+      },
+      {
+        q: 'Comment entretenir un véhicule covering ?',
+        a: 'Lavage à la main ou sans brosses, produits doux, pas de lustrage ni de cire abrasive sur un film mat ou satiné, pas de jet haute pression de près sur les bords. Nous vous remettons les conseils adaptés à votre film à la restitution.',
+      },
+      {
+        q: 'Le film peut-il être retiré ?',
+        a: 'Oui : un film de covering est conçu pour être retiré par un professionnel. Sur une peinture d’origine en bon état, la dépose se fait en principe proprement ; une peinture refaite, écaillée ou fragile peut être abîmée. C’est pourquoi nous vérifions l’état de la peinture avant toute pose.',
+      },
+      {
+        q: 'Comment obtenir un devis ?',
+        a: 'Configurez votre projet dans le simulateur et envoyez-le avec « Demander un devis pour cette configuration », ou décrivez-le dans le formulaire. Le prix dépend du véhicule, des surfaces, des démontages et du film : la faisabilité et le tarif sont confirmés après étude du véhicule.',
+      },
+    ],
+  },
+  {
     slug: 'ciel-etoile',
     shortName: 'Ciel étoilé',
     chapter: 'stars',
@@ -493,7 +564,7 @@ export const contactPage = {
   seo: {
     title: 'Contact et devis — atelier de Vouvray, près de Tours | SOLAR CAR 37',
     description:
-      'Devis vitres teintées, feux fumés, detailing, ciel étoilé, phares : 06 12 04 57 00 ou contact@solarcar37.fr. Atelier au 395 rue des Entrepreneurs, Vouvray.',
+      'Devis vitres teintées, feux fumés, detailing, covering, ciel étoilé, phares : 06 12 04 57 00 ou contact@solarcar37.fr. Atelier au 395 rue des Entrepreneurs, Vouvray.',
   },
   h1: 'Demander un devis',
   intro: 'Décrivez votre véhicule et la prestation souhaitée. Nous revenons vers vous avec un devis détaillé.',

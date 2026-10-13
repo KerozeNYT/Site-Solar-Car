@@ -1141,6 +1141,161 @@ p {
   }
 }
 
+/* covering chapter: a spot pinned on the car's door (3D only), and its card */
+.spot-layer {
+  display: none;
+}
+.tour-live .tour.is-ready .spot-layer {
+  display: block;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--o, 0);
+}
+.spot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: -22px 0 0 -21px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 16px 6px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(233, 205, 130, 0.6);
+  background: rgba(4, 10, 20, 0.66);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--white);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  pointer-events: auto;
+  will-change: transform;
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+}
+.spot__dot {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--gold-200) 0 27%, rgba(233, 205, 130, 0.38) 29% 58%, transparent 60%);
+}
+.spot__dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--gold-300);
+  animation: spot-pulse 2.2s ease-out infinite;
+}
+@keyframes spot-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+.spot:hover,
+.spot[aria-expanded='true'] {
+  border-color: var(--gold-300);
+  background: rgba(4, 10, 20, 0.82);
+}
+.spot:focus-visible {
+  outline: 3px solid var(--gold-300);
+  outline-offset: 3px;
+}
+.spot.is-off-screen {
+  visibility: hidden;
+}
+.spot-card {
+  position: absolute;
+  top: calc(var(--header-h) + 72px);
+  right: var(--gutter);
+  width: min(360px, calc(100% - 2 * var(--gutter)));
+  padding: 18px 20px 16px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(233, 205, 130, 0.4);
+  background: rgba(7, 17, 31, 0.93);
+  color: var(--on-dark);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+  pointer-events: auto;
+  text-shadow: none;
+}
+.spot-card__title {
+  margin: 0 2.2em 0.3em 0;
+  font-weight: 800;
+  font-stretch: 112%;
+  font-size: 1.12rem;
+  color: var(--white);
+}
+.spot-card__text {
+  margin: 0 0 0.9em;
+  font-size: 0.9rem;
+  color: var(--on-dark-muted);
+}
+.spot-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+.spot-card__actions .btn {
+  flex: 1 1 auto;
+}
+.spot-card .btn--ghost {
+  color: var(--white);
+}
+.spot-card__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--on-dark);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.spot-card__close:hover,
+.spot-card__close:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  outline: 2px solid var(--gold-300);
+}
+@media (max-width: 760px) {
+  .spot__label {
+    font-size: 0.84rem;
+  }
+  /* below the car, in place of the chapter copy: the film stays in sight */
+  .spot-card {
+    top: auto;
+    bottom: 56px;
+    left: var(--gutter);
+    right: var(--gutter);
+    width: auto;
+  }
+  /* the copy at the bottom steps aside while the card is open */
+  .tour-live .tour .chapter.has-spot-open .chapter__copy {
+    visibility: hidden;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spot__dot::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 /* ------------------------------------------------------------------ services */
 .service-grid {
   list-style: none;
@@ -1914,6 +2069,459 @@ p {
 .zone.is-off .zone__note {
   opacity: 0.55;
 }
+/* ------------------------------------------------------------------ covering & déchromage */
+/* the hero stays light: a shorter header over the 3D render */
+.service-hero--light {
+  min-height: min(64svh, 620px);
+}
+.cov-offers__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: clamp(14px, 2vw, 22px);
+}
+.cov-offer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: clamp(18px, 2vw, 26px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+}
+.cov-offer h3 {
+  margin: 0 0 4px;
+}
+.cov-offer .checklist {
+  margin: 8px 0 12px;
+}
+.cov-offer__price {
+  margin: auto 0 12px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.cov-offer__price span {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cov-offer__price strong {
+  font-size: 1.15rem;
+}
+.cov-offer .btn {
+  align-self: flex-start;
+  color: var(--ink);
+}
+.cov-films__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 8px clamp(20px, 3vw, 40px);
+}
+.cov-films__block h3 {
+  margin-bottom: 0.3em;
+}
+.cov-refs {
+  margin-top: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+}
+.cov-refs summary {
+  padding: 14px 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cov-refs__scroll {
+  overflow-x: auto;
+  padding: 0 18px 16px;
+}
+.cov-refs table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.cov-refs caption {
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.82rem;
+  padding: 0 0 8px;
+}
+.cov-refs th,
+.cov-refs td {
+  text-align: left;
+  padding: 7px 10px 7px 0;
+  border-top: 1px solid var(--line);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.cov-refs tbody th {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* simulator: the canvas lets the page scroll (vertical swipes) and turns the car sideways */
+.sim--covering .sim__view canvas {
+  touch-action: pan-y;
+}
+.sim__origin {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 3;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 8px 14px;
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(233, 205, 130, 0.6);
+  background: rgba(4, 10, 20, 0.7);
+  color: var(--white);
+  cursor: pointer;
+}
+.sim__origin[aria-pressed='true'] {
+  background: var(--gold-200);
+  color: var(--ink);
+}
+.sim:not(.is-ready) .sim__origin {
+  display: none;
+}
+.sim__origin:focus-visible {
+  outline: 3px solid var(--gold-300);
+  outline-offset: 2px;
+}
+.cov-panel__bar {
+  display: none;
+}
+.cov-help,
+.cov-note {
+  margin: 0 0 10px;
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+.cov-note {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--gold-100);
+  color: var(--ink);
+}
+.cov-block[hidden] {
+  display: none;
+}
+.cov-target {
+  position: relative;
+  display: inline-flex;
+}
+.cov-target input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.cov-target span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.cov-target input:checked + span {
+  border-color: var(--gold-500);
+  background: var(--gold-100);
+}
+.cov-target input:checked + span::before {
+  content: '✎ ';
+  margin-right: 4px;
+}
+.cov-target input:focus-visible + span {
+  outline: 3px solid var(--gold-400);
+  outline-offset: 2px;
+}
+.cov-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  font-size: 0.86rem;
+}
+.cov-current .swatch {
+  width: 22px;
+  height: 22px;
+}
+.cov-zones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cov-zone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.cov-zone__on {
+  flex: 1 0 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cov-zone__on input,
+.cov-dc input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--gold-600);
+}
+.cov-zone.is-off .cov-target,
+.cov-zone.is-off .cov-current {
+  opacity: 0.5;
+}
+.cov-dc {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.cov-notes {
+  margin: 10px 0 0;
+  padding-left: 1.1em;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+/* colour chart */
+.nuancier {
+  margin: 4px 0 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.nuancier[hidden] {
+  display: none;
+}
+.nuancier__loading {
+  min-height: 380px; /* about the chart's own height: no jump when it arrives */
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.nuancier__tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.nuancier__search {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.95rem;
+}
+.nuancier__filter {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.nuancier__filter select {
+  min-height: 40px;
+  margin-top: 2px;
+  padding: 6px 8px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font: inherit;
+  font-size: 0.86rem;
+  color: var(--ink);
+}
+.nuancier__search:focus-visible,
+.nuancier__filter select:focus-visible {
+  outline: 3px solid var(--gold-400);
+  outline-offset: 1px;
+}
+.nuancier__count {
+  margin: 10px 0 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.nuancier__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+  gap: 8px;
+}
+.film {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 2px 3px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  color: var(--ink);
+}
+.film__chip {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(7, 17, 31, 0.18);
+  background: var(--c);
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.18);
+}
+/* finishes: a highlight that softens from mirror to matte */
+.film__chip[data-finish='high-gloss'] {
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.75) 0 14%, rgba(255, 255, 255, 0) 34%), var(--c);
+}
+.film__chip[data-finish='gloss'] {
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.5) 0 12%, rgba(255, 255, 255, 0) 36%), var(--c);
+}
+.film__chip[data-finish='satin'] {
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%), var(--c);
+}
+/* effects */
+.film__chip[data-effects~='metallic'] {
+  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 50%), repeating-conic-gradient(rgba(255, 255, 255, 0.07) 0 6deg, rgba(0, 0, 0, 0.06) 6deg 12deg), var(--c);
+}
+.film__chip[data-effects~='pearl'] {
+  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 50%), linear-gradient(135deg, var(--c) 35%, var(--f));
+}
+.film__chip[data-effects~='flip'] {
+  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 45%), linear-gradient(135deg, var(--c) 20%, var(--f) 80%);
+}
+.film__chip[data-effects~='carbon'] {
+  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0) 50%), repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0 3px, rgba(0, 0, 0, 0.2) 3px 6px), var(--c);
+}
+.film__code {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.film:hover .film__chip {
+  transform: scale(1.06);
+}
+/* chosen: a gold ring and a tick, readable without the colour */
+.film[aria-pressed='true'] .film__chip {
+  outline: 3px solid var(--gold-500);
+  outline-offset: 2px;
+}
+.film[aria-pressed='true']::after {
+  content: '✓';
+  position: absolute;
+  top: 0;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--white);
+  font-size: 0.72rem;
+  line-height: 20px;
+  text-align: center;
+}
+.film[aria-pressed='true'] .film__code {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.film:focus-visible {
+  outline: 3px solid var(--gold-400);
+  outline-offset: 1px;
+}
+.nuancier__card {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--ivory);
+  font-size: 0.86rem;
+}
+.nuancier__card p {
+  margin: 0 0 2px;
+}
+.film__chip--big {
+  flex: none;
+  width: 56px;
+  height: 56px;
+}
+.nuancier__name strong {
+  margin-right: 4px;
+}
+.nuancier__meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.cov-summary {
+  margin-top: 14px;
+}
+.cov-summary__text {
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 0.86rem;
+}
+.cov-summary__text p {
+  margin: 0 0 4px;
+}
+.cov-status {
+  margin: 8px 0 0;
+  min-height: 1.4em;
+  font-size: 0.84rem;
+  color: var(--ok);
+}
+@media (max-width: 960px) {
+  /* phones and tablets: the car first, the settings fold away */
+  .cov-panel__bar {
+    display: flex;
+    justify-content: flex-end;
+    margin: -6px 0 6px;
+  }
+  .cov-panel__toggle {
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    min-height: 40px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    background: var(--white);
+    cursor: pointer;
+  }
+  .cov-panel__toggle::after {
+    content: ' ▴';
+  }
+  .cov-panel__toggle[aria-expanded='false']::after {
+    content: ' ▾';
+  }
+}
+@media (min-width: 961px) {
+  .cov-panel__body[hidden] {
+    display: block !important;
+  }
+}
+
 /* road status of a window zone (content/regulation.js): allowed, to check, preview only */
 .road {
   grid-column: 1 / -1;

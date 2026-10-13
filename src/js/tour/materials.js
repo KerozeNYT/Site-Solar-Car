@@ -119,6 +119,11 @@ export function injectPolish(m, uniforms) {
         uniform float uRinseY;
         uniform float uWet;
         uniform float uSweep;
+        // covering preview: a film laid from the rear to the front (vCarPos.x < uWrapX)
+        uniform float uWrap;
+        uniform float uWrapX;
+        uniform vec3 uWrapCol;
+        uniform vec4 uWrapMat; // roughness, metalness, clearcoat, clearcoat roughness
         float h31(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
         float vnoise(vec3 p){
           vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -209,7 +214,13 @@ export function injectPolish(m, uniforms) {
           mud = grime + foam;
         }
         // ceramic: deeper colour under the gloss
-        diffuseColor.rgb *= 1.0 - 0.08 * uCeramic;`
+        diffuseColor.rgb *= 1.0 - 0.08 * uCeramic;
+        // covering preview (uniforms only: changing the film never recompiles the shader)
+        float wrapped = uWrap * (1.0 - smoothstep(-0.03, 0.03, vCarPos.x - uWrapX));
+        diffuseColor.rgb = mix(diffuseColor.rgb, uWrapCol, wrapped);
+        roughnessFactor = mix(roughnessFactor, uWrapMat.x, wrapped);
+        metalnessFactor = mix(metalnessFactor, uWrapMat.y, wrapped);
+        float wrapEdge = uWrap * (1.0 - smoothstep(0.0, 0.05, abs(vCarPos.x - uWrapX))) * step(abs(uWrapX), 3.0);`
       )
       .replace(
         '#include <lights_physical_fragment>',
@@ -219,9 +230,13 @@ export function injectPolish(m, uniforms) {
           material.clearcoat *= 1.0 - clamp(mud, 0.0, 1.0);
           // ceramic: a glass-smooth top layer, mirror reflections
           material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.004, uCeramic);
+          material.clearcoat = mix(material.clearcoat, uWrapMat.z, wrapped);
+          material.clearcoatRoughness = mix(material.clearcoatRoughness, uWrapMat.w, wrapped);
         #endif
         material.roughness = mix(material.roughness, material.roughness * 0.55, uCeramic);
         totalEmissiveRadiance += vec3(1.0, 0.72, 0.38) * glint * 0.9;
+        // the squeegee line where the film is being laid
+        totalEmissiveRadiance += vec3(1.0, 0.82, 0.5) * wrapEdge * 0.35;
         // ceramic: a band of light sweeping across the coated paint
         float band = exp(-pow((vCarPos.x - mix(-3.4, 3.4, uSweep) + vCarPos.y * 0.7) / 0.14, 2.0));
         totalEmissiveRadiance += vec3(1.0, 0.95, 0.86) * band * uCeramic * 0.5 * step(0.001, uSweep) * (1.0 - step(0.999, uSweep));

@@ -14,7 +14,7 @@ import porsche from '../../../content/car.js';
  * Configurator viewer: the window-film fitting workshop (src/js/sim/workshop.js) where the
  * visitor orbits around the car. Renders on demand to spare batteries.
  */
-export async function createViewer(container, { quality = 'high', mode = 'showroom', car: studioCar = null, onProgress } = {}) {
+export async function createViewer(container, { quality = 'high', mode = 'showroom', car: studioCar = null, onProgress, parked: withParked = true, maxDpr = null } = {}) {
   const canvas = document.createElement('canvas');
   canvas.setAttribute('aria-hidden', 'true');
   container.prepend(canvas);
@@ -48,7 +48,7 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
   controls.autoRotateSpeed = 0.6;
 
   const cars = new Map();
-  let dprCap = quality === 'high' ? 1.5 : 1.25;
+  let dprCap = maxDpr ?? (quality === 'high' ? 1.5 : 1.25);
   let mirrorsOff = false;
   const setDpr = (v) => {
     dprCap = Math.min(dprCap, v);
@@ -104,7 +104,7 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
 
   // two supplied cars parked behind, never the category on show (desktop only)
   const bays = new Map(); // category -> { group, mirror } (null while loading)
-  let wantParked = quality === 'high' && !navigator.connection?.saveData;
+  let wantParked = withParked && quality === 'high' && !navigator.connection?.saveData;
   let parkedNow = [];
   function showParked(t) {
     const b = bays.get(t);
@@ -179,6 +179,8 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
     ],
   });
   ctl.scenery = Promise.resolve();
+  // the floor reflection of the car on show (simulators that swap materials update it too)
+  Object.defineProperty(ctl, 'mirror', { get: () => cars.get(shown)?.mirror || null });
   return ctl;
 }
 
@@ -273,6 +275,7 @@ function bodyBox(group) {
 function makeController({ container, renderer, camera, controls, carBox, render, resize, car, setVehicle, room = null, degrade = [] }) {
   const governor = createGovernor(degrade);
   let lastDrawn = 0;
+  let disposed = false;
   const maxDist = room ? room.maxDist : 8.5;
   let dirty = true;
   let tween = null;
@@ -299,12 +302,15 @@ function makeController({ container, renderer, camera, controls, carBox, render,
     camera.updateProjectionMatrix();
     invalidate();
   };
-  new ResizeObserver(onResize).observe(container);
-  new IntersectionObserver(([e]) => {
+  const ro = new ResizeObserver(onResize);
+  ro.observe(container);
+  const io = new IntersectionObserver(([e]) => {
     visible = e.isIntersecting;
     if (visible) invalidate();
-  }).observe(container);
-  document.addEventListener('visibilitychange', () => !document.hidden && invalidate());
+  });
+  io.observe(container);
+  const onVisibility = () => !document.hidden && invalidate();
+  document.addEventListener('visibilitychange', onVisibility);
 
   let current = null;
   function setView(name, { instant = false } = {}) {
@@ -352,7 +358,7 @@ function makeController({ container, renderer, camera, controls, carBox, render,
   }
   let last = performance.now();
   function frame(now) {
-    if (!visible || document.hidden) {
+    if (disposed || !visible || document.hidden) {
       running = false;
       return;
     }
@@ -380,7 +386,7 @@ function makeController({ container, renderer, camera, controls, carBox, render,
     else running = false;
   }
   function start() {
-    if (running) return;
+    if (running || disposed) return;
     running = true;
     last = performance.now();
     lastDrawn = 0;
@@ -422,6 +428,16 @@ function makeController({ container, renderer, camera, controls, carBox, render,
     },
     release() {
       animated = Math.max(0, animated - 1);
+    },
+    /** stops everything and frees the GPU (relaunch after a lost context) */
+    dispose() {
+      disposed = true;
+      ro.disconnect();
+      io.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+      controls.dispose();
+      renderer.dispose();
+      renderer.domElement.remove();
     },
   };
 }

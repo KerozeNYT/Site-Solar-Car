@@ -1,5 +1,7 @@
 import { simFor } from './sims.js';
 import { priceText } from '../../content/pricing.js';
+import { homeDemo, coveringPage as CP, FINISHES, EFFECTS } from '../../content/covering.js';
+import { films as coveringFilms, ranges as filmRanges } from '../../content/films/index.js';
 
 /**
  * Static HTML templates. Every page is rendered at build time from content/*.js so search
@@ -438,6 +440,7 @@ export function homePage(ctx) {
     tail: 'Arrière de la voiture avec feux arrière teintés par film fumé',
     detailing: 'Flanc de la voiture pendant le polissage : peinture terne à droite, corrigée à gauche',
     stars: 'Pavillon intérieur de la voiture illuminé par un ciel étoilé en fibre optique',
+    covering: 'Rendu 3D : la voiture du studio habillée d’un film argent métallisé mat, vue de trois quarts avant',
     headlights: 'Phares avant rénovés et allumés, optiques redevenues transparentes',
     final: `Vue aérienne de nuit de l’atelier ${b.name}, de ses abords et de la route`,
   };
@@ -447,7 +450,7 @@ export function homePage(ctx) {
       const c = ch[id];
       const H = i === 0 ? 'h1' : 'h2';
       const link = c.link
-        ? `<p class="chapter__link"><a class="btn btn--primary chapter__cta" href="${c.link.href}">${esc(c.link.label)} <span class="chapter__arrow" aria-hidden="true">→</span></a><span class="chapter__hint">Simulateur 3D · tarifs · questions fréquentes</span></p>`
+        ? `<p class="chapter__link"><a class="btn btn--primary chapter__cta" href="${c.link.href}">${esc(c.link.label)} <span class="chapter__arrow" aria-hidden="true">→</span></a><span class="chapter__hint">${esc(c.linkHint || 'Simulateur 3D · tarifs · questions fréquentes')}</span></p>`
         : '';
       const readout =
         c.readout === 'vlt'
@@ -461,6 +464,18 @@ export function homePage(ctx) {
         ? `<nav class="hero-quick" aria-label="Accès direct aux prestations"><span class="hero-quick__label">${esc(c.quick)}</span><ul>${services.map((s) => `<li><a href="/${s.slug}/">${esc(s.shortName || s.name)}</a></li>`).join('')}</ul></nav>`
         : '';
       const hint = c.hint ? `<p class="hero-hint" aria-hidden="true"><span class="hero-hint__mouse"></span>${esc(c.hint)}</p>` : '';
+      // an interactive spot on the car (3D only): src/js/tour/covering-spot.js
+      const spot = c.spot
+        ? `<div class="spot-layer">
+          <button class="spot" type="button" data-spot data-film="${esc(JSON.stringify({ color: homeDemo.color, roughness: homeDemo.roughness, metalness: homeDemo.metalness, coat: homeDemo.coat, coatRough: homeDemo.coatRough }))}" aria-expanded="false" aria-controls="spot-${id}" hidden><span class="spot__dot" aria-hidden="true"></span><span class="spot__label">${esc(c.spot.label)}</span></button>
+          <div class="spot-card" id="spot-${id}" data-spot-card role="group" aria-labelledby="spot-${id}-title" hidden>
+            <p class="spot-card__title" id="spot-${id}-title">${esc(c.spot.label)}</p>
+            <p class="spot-card__text">${esc(c.spot.text)}</p>
+            <p class="spot-card__actions"><a class="btn btn--primary btn--sm" href="${c.spot.discover.href}">${esc(c.spot.discover.label)}</a><a class="btn btn--ghost btn--sm" href="${c.spot.configure.href}">${esc(c.spot.configure.label)}</a></p>
+            <button type="button" class="spot-card__close" data-spot-close><span aria-hidden="true">×</span><span class="visually-hidden">Fermer et revenir à la peinture d’origine</span></button>
+          </div>
+        </div>`
+        : '';
       return `<article class="chapter chapter--${c.side || 'left'}${i === 0 ? ' is-active' : ''}" data-chapter="${id}" id="chapitre-${id}">
         <div class="chapter__still">${still(id, altFor[id] || '', { eager: i === 0 })}</div>
         <div class="chapter__copy">
@@ -468,7 +483,7 @@ export function homePage(ctx) {
           <${H} class="chapter__title${c.brand ? ' chapter__title--brand' : ''}">${heading}</${H}>
           <p class="chapter__text">${esc(c.text)}</p>
           ${readout}${contact}${ctaLinks(c.ctas, ctx.flightAt)}${quick}${link}${hint}${i === 0 ? '<p class="tour__opt-in" data-tour-start hidden><button type="button" class="btn btn--ghost btn--sm">Lancer la visite 3D</button> <span>(données mobiles : quelques Mo)</span></p>' : ''}
-        </div>
+        </div>${spot}
       </article>`;
     })
     .join('\n      ');
@@ -601,6 +616,7 @@ function offersFor(ctx, slug) {
 }
 
 export function servicePage(ctx, s) {
+  if (s.slug === 'covering-dechromage') return coveringServicePage(ctx, s);
   // a real job photo for the header when one is published (content/realisations.js), else the 3D still
   const hero = s.heroPhoto ? (ctx.realisations || []).flatMap((r) => r.photos || []).find((p) => p.id === s.heroPhoto) : null;
   const b = ctx.business;
@@ -678,6 +694,138 @@ export function servicePage(ctx, s) {
       preload: hero
         ? `<link rel="preload" as="image" href="/img/realisations/${hero.id}-1600.webp" imagesrcset="/img/realisations/${hero.id}-960.webp 960w, /img/realisations/${hero.id}-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`
         : `<link rel="preload" as="image" href="/stills/${s.still}-1600.webp" imagesrcset="/stills/${s.still}-960.webp 960w, /stills/${s.still}-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`,
+    },
+    body
+  );
+}
+
+// ------------------------------------------------------------------------- covering & déchromage
+/** frDate for an ISO day (2026-10-13 -> 13 octobre 2026) */
+const frDay = (d) => new Date(d + 'T12:00:00Z').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+function coveringServicePage(ctx, s) {
+  const b = ctx.business;
+  const others = ctx.services.filter((o) => o.slug !== s.slug);
+  const works = (ctx.realisations || []).filter((r) => r.service === s.slug);
+  const insta = b.social?.instagram;
+  const range = filmRanges[0];
+  const verified = [...new Set(coveringFilms.map((f) => f.verified))].sort().pop();
+  const offers = CP.offers.items
+    .map(
+      (o) => `<li class="cov-offer" id="offre-${o.id}">
+        <h3>${esc(o.title)}</h3>
+        <p>${esc(o.text)}</p>
+        <ul class="checklist">${o.points.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+        <p class="cov-offer__price"><span>Tarif</span> <strong>${esc(CP.offers.price)}</strong></p>
+        <a class="btn btn--ghost btn--sm" href="#simulateur" data-scroll data-mode-link="${o.id}">Simuler : ${esc(o.title.toLowerCase())}</a>
+      </li>`
+    )
+    .join('');
+  const table = `<details class="cov-refs">
+          <summary>Les ${coveringFilms.length} références du nuancier (${esc(range.label)})</summary>
+          <div class="cov-refs__scroll"><table>
+            <caption>Références intégrées au simulateur, vérifiées sur le site de 3M France le ${esc(frDay(verified))}. Couleurs d’aperçu approximatives.</caption>
+            <thead><tr><th scope="col">Référence</th><th scope="col">Nom officiel</th><th scope="col">Teinte</th><th scope="col">Finition</th><th scope="col">Effet</th><th scope="col">Fiche</th></tr></thead>
+            <tbody>${coveringFilms
+              .map(
+                (f) =>
+                  `<tr><th scope="row"><i class="swatch" style="background:${f.preview}" aria-hidden="true"></i> ${esc(f.code)}</th><td lang="en">${esc(f.name)}</td><td>${esc(f.label)}</td><td>${esc(FINISHES[f.finish]?.label || f.finish)}</td><td>${esc(f.effects.map((e) => EFFECTS[e]?.label || e).join(', ') || '—')}</td><td><a href="${esc(f.source)}" rel="noopener" target="_blank">3M France<span class="visually-hidden"> : ${esc(f.code)}</span></a></td></tr>`
+              )
+              .join('')}</tbody>
+          </table></div>
+        </details>`;
+  const serviceLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: s.name,
+    serviceType: 'Covering automobile et déchromage',
+    description: s.seo.description,
+    provider: { '@id': abs(b, '/#entreprise') },
+    areaServed: [{ '@type': 'City', name: b.address?.city }, { '@type': 'City', name: 'Tours' }, { '@type': 'AdministrativeArea', name: `${b.department} (${b.departmentCode})` }],
+    url: abs(b, `/${s.slug}/`),
+    image: abs(b, `/stills/${s.still}-1600.jpg`),
+    hasOfferCatalog: {
+      '@type': 'OfferCatalog',
+      name: 'Covering et déchromage',
+      itemListElement: CP.offers.items.map((o) => ({ '@type': 'Offer', itemOffered: { '@type': 'Service', name: o.title, description: o.text } })),
+    },
+  };
+  const body = `
+  <article class="service service--covering">
+    <header class="service-hero service-hero--light">
+      <div class="service-hero__media">${still(s.still, CP.heroAlt, { eager: true })}<p class="service-hero__credit">Rendu 3D indicatif</p></div>
+      <div class="container service-hero__copy">
+        <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li aria-current="page">${esc(s.name)}</li></ol></nav>
+        <p class="kicker">${esc(b.name)} · ${esc(placeLabel(b))}</p>
+        <h1>${esc(s.h1)}</h1>
+        <p class="lead">${esc(s.intro)}</p>
+        <div class="ctas"><a class="btn btn--primary" href="#simulateur" data-scroll>Simuler mon covering</a><a class="btn btn--ghost" href="/contact/?prestation=${s.slug}">Demander un devis</a></div>
+      </div>
+    </header>
+
+    <section class="section cov-offers" aria-labelledby="offres-title">
+      <div class="container">
+        <div class="section-head"><h2 id="offres-title">${esc(CP.offers.title)}</h2><p class="lead">${esc(CP.offers.priceNote)}</p></div>
+        <ul class="cov-offers__list">${offers}</ul>
+      </div>
+    </section>
+
+    ${simFor(ctx, s.slug)}
+
+    <section class="section section--paper cov-films" aria-labelledby="films-title">
+      <div class="container">
+        <h2 id="films-title">${esc(CP.films.title)}</h2>
+        <div class="cov-films__grid">${CP.films.blocks.map((x) => `<div class="cov-films__block"><h3>${esc(x.title)}</h3>${x.text.map((t) => `<p>${esc(t)}</p>`).join('')}</div>`).join('')}</div>
+        ${table}
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="benefits-${s.slug}">
+      <div class="container">
+        <h2 id="benefits-${s.slug}">Ce que vous y gagnez</h2>
+        <ul class="benefits">${s.benefits.map((x) => `<li><h3>${esc(x.title)}</h3><p>${esc(x.text)}</p></li>`).join('')}</ul>
+      </div>
+    </section>
+
+    <section class="section section--paper" aria-labelledby="steps-${s.slug}">
+      <div class="container container--narrow">
+        <h2 id="steps-${s.slug}">Déroulé de la prestation</h2>
+        <ol class="numbered">${s.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
+      </div>
+    </section>
+
+    ${
+      works.length
+        ? realisationsBlock(ctx, { service: s.slug, title: CP.works.title })
+        : `<section class="section section--tight" aria-labelledby="works-cov"><div class="container container--narrow"><h2 id="works-cov">${esc(CP.works.title)}</h2><p>${esc(CP.works.empty)}</p>${insta ? `<p><a class="btn btn--ghost" href="${esc(insta)}" rel="noopener" target="_blank">Voir l’atelier sur Instagram</a></p>` : ''}</div></section>`
+    }
+    ${faqBlock(s.faq)}
+  </article>
+
+  <section class="cta-band">
+    <div class="container cta-band__inner">
+      <div><h2>Un projet de covering ou de déchromage ?</h2><p>Envoyez votre configuration ou décrivez votre idée : nous étudions le véhicule et revenons vers vous avec un devis.</p></div>
+      <a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a>
+    </div>
+  </section>
+  ${partnersBlock(ctx)}
+  ${visitBlock(ctx, { title: `${s.name} à ${b.address?.city || b.department}, près de Tours`, id: 'atelier', map: false })}
+  <section class="section related" aria-labelledby="related-title">
+    <div class="container">
+      <h2 id="related-title">Nos autres prestations</h2>
+      <ul class="related__list">${others.map((o) => `<li><a href="/${o.slug}/"><strong>${esc(o.name)}</strong><span>${esc(o.short)}</span></a></li>`).join('')}</ul>
+    </div>
+  </section>`;
+  return page(
+    ctx,
+    {
+      title: s.seo.title,
+      description: s.seo.description,
+      path: `/${s.slug}/`,
+      image: `/stills/${s.still}-1600.jpg`,
+      bodyClass: 'page-service page-covering',
+      extra: [ld(serviceLd), ld(faqLd(s.faq)), ld(breadcrumbLd(b, [{ name: 'Accueil', path: '/' }, { name: s.name, path: `/${s.slug}/` }]))].join('\n'),
+      preload: `<link rel="preload" as="image" href="/stills/${s.still}-1600.webp" imagesrcset="/stills/${s.still}-960.webp 960w, /stills/${s.still}-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`,
     },
     body
   );

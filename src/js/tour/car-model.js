@@ -102,6 +102,10 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     uRinseY: { value: 9 },
     uWet: { value: 0 },
     uSweep: { value: 0 },
+    uWrap: { value: 0 },
+    uWrapX: { value: -10 },
+    uWrapCol: { value: new THREE.Color() },
+    uWrapMat: { value: new THREE.Vector4(0.5, 0, 1, 0.1) },
     uCarInv: { value: carInv },
   };
   const paintMats = new Set();
@@ -564,6 +568,19 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
         if (!m.userData.baseColor) m.userData.baseColor = m.color.clone();
         if (color) m.color.set(color);
         else m.color.copy(m.userData.baseColor);
+      }
+    },
+    /**
+     * covering preview on the body panels: `film` = { color, roughness, metalness, coat,
+     * coatRough }; `x` = how far the film is laid along the car (metres, rear to front; past
+     * the nose = the whole body); amount 0 = the paint as it is
+     */
+    setWrap({ amount = 1, x = 10, film = null } = {}) {
+      polishU.uWrap.value = amount;
+      polishU.uWrapX.value = x;
+      if (film) {
+        polishU.uWrapCol.value.set(film.color);
+        polishU.uWrapMat.value.set(film.roughness ?? 0.5, film.metalness ?? 0, film.coat ?? 1, film.coatRough ?? 0.1);
       }
     },
     setHeadSmoke(v) {

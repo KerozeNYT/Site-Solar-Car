@@ -10,9 +10,15 @@ const loaders = {
   headlights: () => import('./headlights.js'),
   starlight: () => import('./starlight.js'),
   detailing: () => import('./detailing.js'),
+  covering: () => import('./covering.js'),
 };
 
-export async function initSimulator(section, { webgl = true } = {}) {
+/**
+ * `webgl`: the device can draw 3D. `reduceMotion`: the visitor asked for less motion; the 3D is
+ * then left out, except for simulators that run without animation (`reducedMotionOk`), which
+ * wait for a tap and move the camera without transitions.
+ */
+export async function initSimulator(section, { webgl = true, reduceMotion = false } = {}) {
   const load = loaders[section.dataset.sim];
   if (!load) return;
   const mod = await load();
@@ -26,12 +32,12 @@ export async function initSimulator(section, { webgl = true } = {}) {
   form.addEventListener('submit', (e) => e.preventDefault());
 
   /** move the camera and keep the view buttons in sync (unknown names clear them) */
-  function view(name, opts) {
+  function view(name, opts = {}) {
     for (const b of viewBtns) b.setAttribute('aria-pressed', String(b.dataset.view === name));
-    viewer?.setView(name, opts);
+    viewer?.setView(name, { instant: reduceMotion, ...opts });
   }
   let viewer = null;
-  const sim = mod.setup({ section, form, view: (name, opts) => view(name, opts) });
+  const sim = await mod.setup({ section, form, view: (name, opts) => view(name, opts), reduceMotion });
   sim.update();
   const changed = () => {
     sim.update();
@@ -50,7 +56,7 @@ export async function initSimulator(section, { webgl = true } = {}) {
   });
   if (restored) section.querySelector('[data-sim-restored]')?.removeAttribute('hidden');
 
-  if (!webgl) {
+  if (!webgl || (reduceMotion && !sim.reducedMotionOk)) {
     startBtn.hidden = true;
     const p = document.createElement('p');
     p.className = 'sim__fallback';
@@ -73,6 +79,7 @@ export async function initSimulator(section, { webgl = true } = {}) {
           quality: mobile || weak ? 'low' : 'high',
           mode: sim.mode,
           car: sim.car,
+          ...(sim.viewer?.({ mobile, weak }) || {}),
           onProgress: (e) => {
             if (e.total) startBtn.textContent = `Chargement de la 3D… ${Math.round((e.loaded / e.total) * 100)} %`;
           },
@@ -86,9 +93,18 @@ export async function initSimulator(section, { webgl = true } = {}) {
         dispatchEvent(new CustomEvent('sc37:sim', { detail: { service: section.dataset.sim } }));
         window.__sim = { viewer, sim };
         viewer.renderer.domElement.addEventListener('webglcontextlost', (ev) => {
+          // the graphics driver dropped the 3D (memory, sleep…): back to the preview image, the
+          // panel keeps working, and the visitor may relaunch it once
           ev.preventDefault();
           section.classList.remove('is-ready');
-          startBtn.hidden = true;
+          sim.detach?.();
+          viewer.dispose?.();
+          viewer = null;
+          starting = null;
+          startBtn.disabled = false;
+          startBtn.hidden = false;
+          startBtn.textContent = 'Relancer la vue 3D';
+          dispatchEvent(new CustomEvent('sc37:sim-lost', { detail: { service: section.dataset.sim } }));
         });
       })
       .catch((err) => {
@@ -105,7 +121,7 @@ export async function initSimulator(section, { webgl = true } = {}) {
   const conn = navigator.connection;
   const lite = conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType || '');
   const phone = matchMedia('(max-width: 760px)').matches;
-  if (lite || phone) startBtn.textContent = `${label} (quelques Mo)`;
+  if (lite || phone || reduceMotion) startBtn.textContent = `${label} (quelques Mo)`;
   else if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver(
       ([e]) => {
