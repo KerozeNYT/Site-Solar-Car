@@ -1,0 +1,26 @@
+{
+  "name": "SOLAR CAR 37",
+  "short_name": "SOLAR CAR 37",
+  "lang": "fr",
+  "start_url": "/Site-Solar-Car/",
+  "display": "standalone",
+  "background_color": "#07080a",
+  "theme_color": "#07080a",
+  "icons": [
+    {
+      "src": "/Site-Solar-Car/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/Site-Solar-Car/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/Site-Solar-Car/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
