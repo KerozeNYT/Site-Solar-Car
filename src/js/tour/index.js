@@ -1,4 +1,4 @@
-import { keys, beats, effects, stills } from '../../../content/flight.js';
+import { keys, beats, effects, stills, mobileScale } from '../../../content/flight.js';
 import carConfig from '../../../content/car.js';
 import vehicles, { parked } from '../../../content/vehicles.js';
 import { createStage } from './stage.js';
@@ -6,7 +6,7 @@ import { createPath, createTimeline, createEffects } from './flight.js';
 import { clamp, smoothstep } from './math.js';
 import { createGovernor } from '../perf.js';
 
-const FADE = 18; // vh used by a chapter to fade in / out
+const FADE = 14; // vh used by a chapter to fade in / out (at the computer's pace)
 
 /**
  * Scroll-driven fly-through. Native scrolling is never hijacked: scroll position is read,
@@ -25,12 +25,16 @@ export async function startTour(section) {
   const params = new URLSearchParams(location.search);
   const stillId = params.get('still');
 
-  const timeline = createTimeline(beats);
+  const mobile = matchMedia('(max-width: 760px)').matches;
+  // phones: a more direct tour (same camera path, less scrolling)
+  const scale = mobile && !stillId ? mobileScale : 1;
+  const fade = FADE * scale;
+  const timeline = createTimeline(scale === 1 ? beats : beats.map((b) => ({ ...b, vh: b.vh * scale })));
   const path = createPath(keys);
   const fx = createEffects(effects);
   section.style.setProperty('--travel', timeline.total);
+  section.dataset.scale = String(scale); // read by the "fly to a chapter" links (src/js/main.js)
 
-  const mobile = matchMedia('(max-width: 760px)').matches;
   const weak = (navigator.hardwareConcurrency || 4) <= 4 || (navigator.deviceMemory || 8) <= 4;
   const quality = stillId ? 'high' : mobile || weak ? 'low' : 'high';
 
@@ -80,8 +84,8 @@ export async function startTour(section) {
     ranges.forEach((r, i) => {
       const first = i === 0;
       const last = i === ranges.length - 1;
-      const inA = first ? 1 : smoothstep(r.start, r.start + FADE, vh);
-      const outA = last ? 1 : 1 - smoothstep(r.end - FADE, r.end, vh);
+      const inA = first ? 1 : smoothstep(r.start, r.start + fade, vh);
+      const outA = last ? 1 : 1 - smoothstep(r.end - fade, r.end, vh);
       const o = clamp(Math.min(inA, outA));
       weights[r.id] = o;
       if (o > best) {
@@ -144,6 +148,7 @@ export async function startTour(section) {
       if (r.dataset.readout === 'vlt') r.textContent = Math.round(e.rearVLT * 100);
       if (r.dataset.readout === 'beforeAfter') r.textContent = e.headClear < 0.98 && t > 46 ? (e.headClear < 0.5 ? 'Avant' : 'Après') : 'Après';
     }
+    return e;
   }
 
   // ------------------------------------------------------------- still mode (posters)
@@ -174,14 +179,18 @@ export async function startTour(section) {
   // savings for slow devices, in order (src/js/perf.js)
   const governor = createGovernor([() => stage.setMaxDpr(1.25), () => stage.unpark(), () => stage.setMaxDpr(1), () => stage.setMirror(false)]);
   let lastFrame = 0;
+  // rendering on demand: full rate while the camera moves; once it has settled, about 20 frames
+  // a second while something lives on its own (traffic outside, twinkling stars), else nothing
+  // until the next scroll (battery and heat on phones)
+  let idle = 0;
+  let lastVh = NaN;
+  let lastDraw = 0;
   function frame(now) {
     if (!visible || document.hidden) {
       running = false;
       lastFrame = 0;
       return;
     }
-    if (lastFrame) governor.sample(now - lastFrame);
-    lastFrame = now;
     // rAF timestamps can precede performance.now() taken in start(): never step backwards
     const dt = clamp((now - last) / 1000, 0, 0.1);
     last = now;
@@ -190,17 +199,39 @@ export async function startTour(section) {
     // ease towards the scroll target; long jumps (links, keyboard) cut straight there
     if (Math.abs(target - current) > 9) current = target;
     else current += (target - current) * (1 - Math.exp(-dt * 6.5));
-    apply(current, vh, dt);
+    const settled = Math.abs(target - current) < 0.002 && vh === lastVh;
+    lastVh = vh;
+    idle = settled ? idle + 1 : 0;
+    const e = apply(current, vh, dt);
+    // things that move by themselves: the road outside (start and end of the flight), the stars
+    const alive = e.stars > 0.01 || current < 7 || current > 52;
+    if (idle > 60 && !alive) {
+      running = false; // fully still: wait for a scroll, a resize or the tab coming back
+      lastFrame = 0;
+      return;
+    }
+    if (idle > 60 && now - lastDraw < 48) {
+      lastFrame = 0;
+      requestAnimationFrame(frame);
+      return;
+    }
+    // the performance governor only measures back-to-back frames while things move
+    if (lastFrame && idle === 0) governor.sample(now - lastFrame);
+    lastFrame = now;
+    lastDraw = now;
     stage.render(now / 1000);
     requestAnimationFrame(frame);
   }
   function start() {
     if (running) return;
     lastFrame = 0;
+    idle = 0;
     running = true;
     last = performance.now();
     requestAnimationFrame(frame);
   }
+  addEventListener('scroll', start, { passive: true });
+  addEventListener('resize', start);
   canvas.addEventListener('webglcontextlost', (ev) => {
     ev.preventDefault();
     document.documentElement.classList.remove('tour-live');

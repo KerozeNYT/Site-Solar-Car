@@ -39,3 +39,12 @@
 - Débordement horizontal mobile de l'accueil corrigé.
 - Accessibilité : contrastes des pastilles inactives conformes (4,5:1), `aside` imbriqués remplacés
   (axe-core : 0 violation sur les 32 pages).
+
+### Phase 4 — Visite immersive
+- Parcours raccourci : 6,3 écrans de défilement sur ordinateur (13,4 auparavant), 5,3 sur mobile
+  (`mobileScale` 0,85), même trajectoire de caméra ; fondus des chapitres ajustés.
+- « Découvrir l'expérience » fait voler la caméra jusqu'au premier chapitre ; repères cliquables
+  sur la ligne de progression (un par chapitre, zone tactile 24 px).
+- Rendu à la demande : pleine cadence pendant les mouvements, ~20 i/s quand seuls les étoiles ou
+  le trafic extérieur bougent, aucun rendu quand tout est immobile (reprise au défilement).
+  Mesure : 2 rendus en 3 s immobile au lieu d'environ 180.

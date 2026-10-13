@@ -10,8 +10,8 @@ Statuts : À faire · En cours · Terminé et testé · Bloqué · En attente de
 |---|---|---|---|---|
 | 1. Audit initial | Terminé et testé | `docs/V2-AUDIT.md` (23 constats P0→P3), tableau de bord, journal | Build, 32 pages (Playwright), axe-core, Lighthouse | Pas de GPU ni de vrai mobile ; services tiers bloqués |
 | 2. Fiabilité commerciale | En attente de validation | Tarifs centralisés (`content/pricing.js` → `priceText`), règles centralisées (`content/regulation.js`), statut routier par zone dans le simulateur (autorisé / à vérifier / sous le seuil / visualisation esthétique), décharge de responsabilité retirée, covering et PPF distincts, dérogations exactes, notice RGPD complétée, mentions tarifs et médiation | Build, audit 32 pages (0 erreur), panneaux vitres/feux testés (citadine 220 € + avant 50 € = 270 €) | Tarifs feux/break/ciel étoilé/detailing, TVA, médiateur, crédits 3D, durée de conservation |
-| 3. Design premium | À faire | — | — | — |
-| 4. Visite immersive | À faire | — | — | — |
+| 3. Design premium | En cours | Accueil de marque (qui/quoi/où/devis), accès direct aux 5 prestations, devis et appel visibles sur mobile, contrastes et repères corrigés | Captures 360/390/1366 px, axe-core 0 violation | Photos réelles de l'atelier pour remplacer les rendus |
+| 4. Visite immersive | Terminé et testé (périmètre de la session) | Parcours 6,3 écrans (mobile 5,3), saut vers les chapitres, repères cliquables, rendu à la demande | Playwright + SwiftShader : sauts, chapitres actifs, comptage des rendus à l'arrêt | Réalisme matière/caméra à évaluer sur vrai GPU ; vidéos réelles à fournir |
 | 5. Simulateurs | À faire | — | — | — |
 | 6. Conversion | À faire | — | — | Activation FormSubmit (clic sur l'e-mail) |
 | 7. Réalisations | À faire | — | — | Photos réelles, Place ID Google, flux Instagram |

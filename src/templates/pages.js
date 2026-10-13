@@ -396,7 +396,7 @@ const ctaLinks = (ctas = [], tourAt = {}) =>
   ctas.length
     ? `<div class="ctas">${ctas
         .map((c) => {
-          const at = c.tour && tourAt[c.tour] != null ? ` data-tour-at="${tourAt[c.tour] + 26}"` : '';
+          const at = c.tour && tourAt[c.tour] != null ? ` data-tour-at="${tourAt[c.tour] + 22}"` : '';
           return `<a class="btn ${c.primary ? 'btn--primary' : 'btn--ghost'}" href="${c.href}"${c.href.startsWith('#') ? ' data-scroll' : ''}${at}>${esc(c.label)}${c.tour ? ' <span class="btn__arrow" aria-hidden="true">↓</span>' : ''}</a>`;
         })
         .join('')}</div>`
@@ -492,9 +492,19 @@ export function homePage(ctx) {
       <div class="tour__chapters">
       ${chapters}
       </div>
-      <div class="tour__hud" aria-hidden="true">
-        <div class="tour__progress"><span data-progress></span></div>
-        <p class="tour__label"><span data-chapter-index>01</span> / 0${order.length} <span class="tour__name" data-chapter-name></span></p>
+      <div class="tour__hud">
+        <div class="tour__track">
+        <div class="tour__progress" aria-hidden="true"><span data-progress></span></div>
+        <nav class="tour__marks" aria-label="Chapitres de la visite">${order
+          .filter((id) => ctx.flightAt[id] != null)
+          .map((id) => {
+            const at = id === 'hero' ? 0 : ctx.flightAt[id] + 22;
+            const name = (ch[id].kicker || '').replace(/^\d+\s*—\s*/, '');
+            return `<a href="#chapitre-${id}" data-scroll data-tour-at="${at}" style="left:${((at / ctx.flightTotal) * 100).toFixed(2)}%" title="${esc(name)}"><span class="visually-hidden">${esc(name)}</span></a>`;
+          })
+          .join('')}</nav>
+        </div>
+        <p class="tour__label" aria-hidden="true"><span data-chapter-index>01</span> / 0${order.length} <span class="tour__name" data-chapter-name></span></p>
       </div>
       <p class="tour__loading" data-loading hidden><span class="tour__spinner" aria-hidden="true"></span><span>${esc(home.tour.loading)}</span> <span data-loading-pct></span></p>
       <a class="tour__skip btn btn--ghost btn--sm" href="#prestations" data-scroll>${esc(home.tour.skip)} <span aria-hidden="true">↓</span></a>

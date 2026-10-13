@@ -47,7 +47,9 @@ document.addEventListener('click', (e) => {
   const tourEl = a.dataset.tourAt && html.classList.contains('tour-live') && document.querySelector('[data-tour]');
   if (tourEl) {
     e.preventDefault();
-    const top = tourEl.getBoundingClientRect().top + scrollY + (Number(a.dataset.tourAt) / 100) * innerHeight;
+    // positions are written at the computer's pace; phones run a shorter tour (data-scale)
+    const at = Number(a.dataset.tourAt) * (Number(tourEl.dataset.scale) || 1);
+    const top = tourEl.getBoundingClientRect().top + scrollY + (at / 100) * innerHeight;
     scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' });
     return;
   }

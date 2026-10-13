@@ -57,21 +57,24 @@ export const keys = [
   { t: 63, p: [27.0, 19.0, 11.0], l: [5.0, 0.0, -1.0], fov: 50 },
 ];
 
+// V2: about 6 screens of scrolling on a computer (was 13.4), the camera path unchanged;
+// phones scroll a further 15 % less (`mobileScale`, src/js/tour/index.js)
 export const beats = [
-  { id: 'hero', vh: 80, from: 0, to: 0, chapter: 'hero' },
-  { id: 'approach', vh: 110, from: 0, to: 6, chapter: null },
-  { id: 'tint', vh: 150, from: 6, to: 12.5, chapter: 'tint' },
-  { id: 'corner', vh: 50, from: 12.5, to: 15, chapter: null },
-  { id: 'tail', vh: 120, from: 15, to: 20.5, chapter: 'tail' },
-  { id: 'around', vh: 45, from: 20.5, to: 22, chapter: null },
-  { id: 'detailing', vh: 150, from: 22, to: 29.6, chapter: 'detailing' },
-  { id: 'window-in', vh: 70, from: 29.6, to: 34.5, chapter: null },
-  { id: 'stars', vh: 140, from: 34.5, to: 41, chapter: 'stars' },
-  { id: 'window-out', vh: 70, from: 41, to: 46, chapter: null },
-  { id: 'headlights', vh: 150, from: 46, to: 54, chapter: 'headlights' },
-  { id: 'reveal', vh: 120, from: 54, to: 63, chapter: null },
-  { id: 'final', vh: 80, from: 63, to: 63, chapter: 'final' },
+  { id: 'hero', vh: 45, from: 0, to: 0, chapter: 'hero' },
+  { id: 'approach', vh: 50, from: 0, to: 6, chapter: null },
+  { id: 'tint', vh: 70, from: 6, to: 12.5, chapter: 'tint' },
+  { id: 'corner', vh: 22, from: 12.5, to: 15, chapter: null },
+  { id: 'tail', vh: 58, from: 15, to: 20.5, chapter: 'tail' },
+  { id: 'around', vh: 22, from: 20.5, to: 22, chapter: null },
+  { id: 'detailing', vh: 70, from: 22, to: 29.6, chapter: 'detailing' },
+  { id: 'window-in', vh: 32, from: 29.6, to: 34.5, chapter: null },
+  { id: 'stars', vh: 65, from: 34.5, to: 41, chapter: 'stars' },
+  { id: 'window-out', vh: 32, from: 41, to: 46, chapter: null },
+  { id: 'headlights', vh: 70, from: 46, to: 54, chapter: 'headlights' },
+  { id: 'reveal', vh: 45, from: 54, to: 63, chapter: null },
+  { id: 'final', vh: 45, from: 63, to: 63, chapter: 'final' },
 ];
+export const mobileScale = 0.85;
 
 export const effects = {
   // rear window + rear quarter windows: from 70 % to 5 % visible light transmission
