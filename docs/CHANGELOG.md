@@ -59,3 +59,14 @@
   (optique ternie → préparation → polissage → transparence → protection → résultat) et limites
   de la rénovation affichées.
 - Detailing : différence entre entretien, polissage, correction et protection céramique expliquée.
+
+### Phase 6 — Conversion
+- Pièces jointes : envoi classique multipart (méthode documentée par FormSubmit pour les fichiers)
+  puis page de confirmation `/contact/merci/` (non indexée) ; sans fichier, l'envoi rapide (AJAX)
+  est conservé. Testé avec un FormSubmit simulé ; le vrai service reste à tester après activation.
+- Formulaire : rendez-vous souhaité facultatif (date, matin/après-midi), clairement présenté comme
+  une demande et non une réservation ; consigne « inutile d'envoyer une carte grise complète ».
+- Suivi de conversion sans traceur ni cookie ni donnée personnelle (`window.sc37Events`, événement
+  `sc37:event`) : clics devis, appel, itinéraire, devis depuis un simulateur, 3D lancée, demande
+  envoyée ou en erreur. Prêt pour un outil de mesure sans cookie s'il est choisi plus tard.
+- Architecture de la future réservation en ligne : `docs/RESERVATION.md`.

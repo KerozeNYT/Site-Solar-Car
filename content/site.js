@@ -495,6 +495,13 @@ export const contactPage = {
   },
   h1: 'Demander un devis',
   intro: 'Décrivez votre véhicule et la prestation souhaitée. Nous revenons vers vous avec un devis détaillé.',
+  // shown after a request sent with attachments (the form service brings the visitor back here)
+  thanks: {
+    title: 'Demande envoyée | SOLAR CAR 37',
+    h1: 'Merci, votre demande est envoyée',
+    text: 'Nous l’étudions et revenons vers vous rapidement avec un devis détaillé, par e-mail ou par téléphone.',
+    next: ['Gardez votre téléphone à portée : nous pouvons vous appeler pour préciser un détail.', 'Le créneau de rendez-vous éventuel est confirmé par l’atelier : ce n’est pas une réservation automatique.'],
+  },
 };
 
 export const legalPage = {

@@ -731,8 +731,14 @@ export function contactPage(ctx) {
         ${demo ? '' : `<div class="form__row">
           <label for="f-files">Photos ou documents <span class="optional">(facultatif)</span></label>
           <input id="f-files" name="attachment" type="file" accept="image/*,.pdf" multiple data-max-mb="10">
-          <p class="form__hint">Photos du véhicule, des vitres, des phares ou de la carrosserie, carte grise… Images ou PDF, 10 Mo maximum au total.</p>
+          <p class="form__hint">Photos du véhicule, des vitres, des phares ou de la carrosserie. Images (JPG, PNG, HEIC…) ou PDF, 10 Mo maximum au total. Inutile d’envoyer une carte grise complète.</p>
         </div>`}
+        <fieldset class="form__row form__row--2 form__slot">
+          <legend>Rendez-vous souhaité <span class="optional">(facultatif)</span></legend>
+          <div><label for="f-date">À partir du</label><input id="f-date" name="date_souhaitee" type="date" min="${new Date().toISOString().slice(0, 10)}"></div>
+          <div><label for="f-slot">Moment</label><select id="f-slot" name="moment"><option value="">Indifférent</option><option>Matin (8 h – 12 h)</option><option>Après-midi (13 h – 17 h)</option></select></div>
+          <p class="form__hint">Atelier ouvert du lundi au vendredi. Ce n’est pas une réservation : nous vous confirmons le créneau.</p>
+        </fieldset>
         <div class="form__row form__consent">
           <label class="choice"><input type="checkbox" name="consentement" required> J’accepte que mes données soient utilisées pour répondre à ma demande (voir <a href="/mentions-legales/#confidentialite">confidentialité</a>).</label>
         </div>
@@ -933,6 +939,24 @@ export function guidePage(ctx, x) {
     },
     body
   );
+}
+
+/** after a request sent with attachments (FormSubmit redirects the visitor here) */
+export function thanksPage(ctx) {
+  const t = ctx.contactPage.thanks;
+  const b = ctx.business;
+  const body = `
+  <section class="section page-intro">
+    <div class="container container--narrow">
+      <p class="kicker">Devis</p>
+      <h1>${esc(t.h1)}</h1>
+      <p class="lead">${esc(t.text)}</p>
+      <ul class="checklist">${t.next.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
+      <p>Une question en attendant ? ${b.phone ? `<a href="${telHref(b.phone)}">${esc(b.phone)}</a>` : ''}${b.phone && b.email ? ' · ' : ''}${b.email ? `<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>` : ''}</p>
+      <div class="ctas"><a class="btn btn--primary" href="/">Retour à l’accueil</a><a class="btn btn--ghost" href="/atelier-vouvray/">Venir à l’atelier</a></div>
+    </div>
+  </section>`;
+  return page(ctx, { title: t.title, description: ctx.contactPage.seo.description, path: '/contact/merci/', noindex: true }, body);
 }
 
 export function notFoundPage(ctx) {

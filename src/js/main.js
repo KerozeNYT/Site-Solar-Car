@@ -184,10 +184,34 @@ document.querySelectorAll('.btn--primary').forEach((btn, i) => {
   btn.style.setProperty('--sheen-delay', `${(0.8 + ((i * 2.3) % 5.2) + Math.random() * 0.8).toFixed(2)}s`);
 });
 
+// ---------------------------------------------------------------- conversion events
+// Privacy first: no tracker, no cookie, no personal data. Each event is a name plus a few
+// non-personal details (page, service), dispatched as `sc37:event` on window and kept in
+// window.sc37Events, ready for a cookieless audience tool if one is configured later.
+const events = (window.sc37Events = window.sc37Events || []);
+function track(name, detail = {}) {
+  const ev = { name, page: location.pathname, ...detail, at: Date.now() };
+  events.push(ev);
+  dispatchEvent(new CustomEvent('sc37:event', { detail: ev }));
+}
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href]');
+  if (!a) return;
+  const href = a.getAttribute('href');
+  if (href.startsWith('tel:')) track('appel');
+  else if (/google\.[a-z.]+\/maps|maps\.apple|waze\.com/.test(href)) track('itineraire');
+  else if (a.hasAttribute('data-quote')) track('devis_simulateur', { service: a.closest('[data-sim]')?.dataset.sim });
+  else if (/\/contact\/$/.test(a.pathname)) track('clic_devis');
+});
+addEventListener('sc37:sim', (e) => track('simulateur_3d', e.detail));
+
 // ---------------------------------------------------------------- contact form
 const form = document.querySelector('[data-form]');
 if (form) {
   const status = form.querySelector('[data-form-status]');
+  // the earliest wished date is today (the page itself may be older)
+  const dateInput = form.querySelector('input[type="date"]');
+  if (dateInput) dateInput.min = new Date().toISOString().slice(0, 10);
   // prefill from a simulator ("demander ce devis") or a service page link
   const q = new URLSearchParams(location.search);
   const presta = q.get('prestation');
@@ -210,7 +234,8 @@ if (form) {
     const label = (v) => form.querySelector(`input[name="prestations"][value="${CSS.escape(v)}"]`)?.parentElement.textContent.trim() || v;
     const prestations = d.getAll('prestations').map(label);
     const car = [d.get('marque'), d.get('modele'), d.get('annee')].filter(Boolean).join(' ');
-    return { prestations, car, subject: `Demande de devis${prestations.length ? ' – ' + prestations.join(', ') : ''} – ${car}` };
+    const wish = [d.get('date_souhaitee') ? `à partir du ${new Date(d.get('date_souhaitee')).toLocaleDateString('fr-FR')}` : '', d.get('moment') || ''].filter(Boolean).join(', ');
+    return { prestations, car, wish, subject: `Demande de devis${prestations.length ? ' – ' + prestations.join(', ') : ''} – ${car}` };
   };
 
   form.addEventListener('submit', async (e) => {
@@ -226,7 +251,7 @@ if (form) {
       // no form service configured: compose the e-mail in the visitor's mail app
       if (form.elements._gotcha?.value) return;
       const d = new FormData(form);
-      const { prestations, car, subject } = fields(d);
+      const { prestations, car, wish, subject } = fields(d);
       const body = [
         `Nom : ${d.get('nom') || ''}`,
         `Prénom : ${d.get('prenom') || ''}`,
@@ -234,6 +259,7 @@ if (form) {
         `Téléphone : ${d.get('telephone') || ''}`,
         `Véhicule : ${car}`,
         `Prestation(s) : ${prestations.join(', ')}`,
+        `Rendez-vous souhaité : ${wish || 'indifférent'}`,
         '',
         String(d.get('message') || ''),
       ].join('\n');
@@ -262,7 +288,7 @@ if (form) {
       if (/formsubmit\.co\//.test(form.action)) {
         // FormSubmit AJAX endpoint: readable labels in the e-mail, reply-to = the visitor
         const d = new FormData(form);
-        const { prestations, subject } = fields(d);
+        const { prestations, wish, subject } = fields(d);
         const payload = {
           Nom: d.get('nom') || '',
           Prénom: d.get('prenom') || '',
@@ -272,22 +298,38 @@ if (form) {
           Modèle: d.get('modele') || '',
           Année: d.get('annee') || '',
           'Prestation(s)': prestations.join(', '),
+          'Rendez-vous souhaité': wish || 'indifférent',
           Message: d.get('message') || '',
           _subject: subject,
           _template: 'table',
           _captcha: 'false',
           _honey: '',
         };
-        const url = form.action.replace('formsubmit.co/', 'formsubmit.co/ajax/');
         if (files.length) {
-          // with attachments: multipart form data, files under "attachment"
-          const fd = new FormData();
-          for (const [k, v] of Object.entries(payload)) fd.append(k, v);
-          for (const f of files) fd.append('attachment', f, f.name);
-          res = await fetch(url, { method: 'POST', headers: { Accept: 'application/json' }, body: fd });
-        } else {
-          res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(payload) });
+          // with attachments: the classic multipart post FormSubmit documents for files (its
+          // AJAX endpoint is not documented for uploads), then back to our thank-you page
+          const root = new URL(document.querySelector('.site-header__logo')?.getAttribute('href') || '/', location.href);
+          const post = document.createElement('form');
+          post.method = 'post';
+          post.enctype = 'multipart/form-data';
+          post.action = form.action;
+          post.hidden = true;
+          for (const [k, v] of Object.entries({ ...payload, _next: new URL('contact/merci/', root).href })) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = k;
+            input.value = v;
+            post.append(input);
+          }
+          fileInput.name = 'attachment';
+          post.append(fileInput); // moved with its files
+          document.body.append(post);
+          track('demande_envoyee', { pieces_jointes: files.length });
+          post.submit();
+          return;
         }
+        const url = form.action.replace('formsubmit.co/', 'formsubmit.co/ajax/');
+        res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(payload) });
         const json = await res.json().catch(() => ({}));
         // only a confirmed success counts (the service answers success: "true" or true)
         if (!res.ok || String(json.success) !== 'true') throw new Error(json.message || String(res.status));
@@ -296,12 +338,15 @@ if (form) {
         if (!res.ok) throw new Error(String(res.status));
       }
       form.reset();
+      track('demande_envoyee', { pieces_jointes: 0 });
       status.textContent = 'Merci ! Votre demande a bien été envoyée, nous revenons vers vous rapidement.';
       status.classList.add('is-ok');
+      status.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
     } catch (err) {
       // e.g. "This form needs Activation": the first request sends an activation e-mail to the
       // workshop address, to click once
       console.warn('[form]', err?.message || err);
+      track('demande_erreur');
       const mail = form.dataset.fallback;
       status.innerHTML = '';
       status.append('L’envoi n’a pas abouti. Réessayez dans un instant, ou contactez-nous directement' + (mail ? ' : ' : '.'));

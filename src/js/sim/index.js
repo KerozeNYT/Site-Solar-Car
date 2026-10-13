@@ -83,6 +83,7 @@ export async function initSimulator(section, { webgl = true } = {}) {
         await sim.attach(v);
         view(sim.initialView, { instant: true });
         section.classList.add('is-ready');
+        dispatchEvent(new CustomEvent('sc37:sim', { detail: { service: section.dataset.sim } }));
         window.__sim = { viewer, sim };
         viewer.renderer.domElement.addEventListener('webglcontextlost', (ev) => {
           ev.preventDefault();

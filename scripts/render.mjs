@@ -35,6 +35,7 @@ export async function renderSite(out, assets) {
   const pages = [
     ['index.html', T.homePage(ctx)],
     ['contact/index.html', T.contactPage(ctx)],
+    ['contact/merci/index.html', T.thanksPage(ctx)],
     ['mentions-legales/index.html', T.legalPage(ctx)],
     ['404.html', T.notFoundPage(ctx)],
     ['design/style-tile/index.html', styleTile.styleTilePage(ctx)],
