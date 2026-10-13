@@ -681,6 +681,11 @@ export function contactPage(ctx) {
           <label for="f-msg">Votre message</label>
           <textarea id="f-msg" name="message" rows="5" required></textarea>
         </div>
+        ${demo ? '' : `<div class="form__row">
+          <label for="f-files">Photos ou documents <span class="optional">(facultatif)</span></label>
+          <input id="f-files" name="attachment" type="file" accept="image/*,.pdf" multiple data-max-mb="10">
+          <p class="form__hint">Photos du véhicule, des vitres, des phares ou de la carrosserie, carte grise… Images ou PDF, 10 Mo maximum au total.</p>
+        </div>`}
         <div class="form__row form__consent">
           <label class="choice"><input type="checkbox" name="consentement" required> J’accepte que mes données soient utilisées pour répondre à ma demande (voir <a href="/mentions-legales/#confidentialite">confidentialité</a>).</label>
         </div>

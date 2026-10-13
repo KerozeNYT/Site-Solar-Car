@@ -215,6 +215,16 @@ if (form) {
     const btn = form.querySelector('[type="submit"]');
     // bots fill the hidden field: pretend nothing happened
     if (form.elements._honey?.value || form.elements._gotcha?.value) return;
+    // optional attachments: images or PDF, 10 MB in all
+    const fileInput = form.querySelector('input[type="file"]');
+    const files = fileInput ? [...fileInput.files] : [];
+    const maxMb = Number(fileInput?.dataset.maxMb || 10);
+    if (files.reduce((a, f) => a + f.size, 0) > maxMb * 1024 * 1024 || files.some((f) => !/^image\/|pdf$/.test(f.type))) {
+      status.textContent = `Pièces jointes : images ou PDF uniquement, ${maxMb} Mo maximum au total.`;
+      status.classList.add('is-error');
+      fileInput.focus();
+      return;
+    }
     btn.disabled = true;
     status.textContent = 'Envoi en cours…';
     try {
@@ -238,11 +248,16 @@ if (form) {
           _captcha: 'false',
           _honey: '',
         };
-        res = await fetch(form.action.replace('formsubmit.co/', 'formsubmit.co/ajax/'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        const url = form.action.replace('formsubmit.co/', 'formsubmit.co/ajax/');
+        if (files.length) {
+          // with attachments: multipart form data, files under "attachment"
+          const fd = new FormData();
+          for (const [k, v] of Object.entries(payload)) fd.append(k, v);
+          for (const f of files) fd.append('attachment', f, f.name);
+          res = await fetch(url, { method: 'POST', headers: { Accept: 'application/json' }, body: fd });
+        } else {
+          res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(payload) });
+        }
         const json = await res.json().catch(() => ({}));
         // only a confirmed success counts (the service answers success: "true" or true)
         if (!res.ok || String(json.success) !== 'true') throw new Error(json.message || String(res.status));
@@ -253,7 +268,10 @@ if (form) {
       form.reset();
       status.textContent = 'Merci ! Votre demande a bien été envoyée, nous revenons vers vous rapidement.';
       status.classList.add('is-ok');
-    } catch {
+    } catch (err) {
+      // e.g. "This form needs Activation": the first request sends an activation e-mail to the
+      // workshop address, to click once
+      console.warn('[form]', err?.message || err);
       const mail = form.dataset.fallback;
       status.innerHTML = '';
       status.append('L’envoi n’a pas abouti. Réessayez dans un instant, ou contactez-nous directement' + (mail ? ' : ' : '.'));

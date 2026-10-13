@@ -1782,6 +1782,27 @@ p {
     grid-template-columns: 1fr;
   }
 }
+.form__hint {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.form input[type='file'] {
+  padding: 10px;
+  background: var(--ivory);
+  border-style: dashed;
+  cursor: pointer;
+}
+.form input[type='file']::file-selector-button {
+  margin-right: 12px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--navy-900);
+  color: var(--white);
+  font: 700 0.85rem var(--font);
+  cursor: pointer;
+}
 .form__req {
   margin: 0 0 14px;
   font-size: 0.86rem;
