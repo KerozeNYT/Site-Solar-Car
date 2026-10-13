@@ -129,15 +129,25 @@ if (form) {
   const presta = q.get('prestation');
   if (presta) form.querySelectorAll(`input[name="prestations"][value="${CSS.escape(presta)}"]`).forEach((i) => (i.checked = true));
   const config = q.get('config');
-  if (config) {
-    const msg = form.querySelector('[name="message"]');
-    if (msg && !msg.value) msg.value = `Configuration choisie sur le simulateur :\n${config}\n\n`;
-  }
   const vehicle = q.get('vehicule');
-  if (vehicle) {
-    const v = form.querySelector('[name="vehicule"]');
-    if (v && !v.value) v.value = vehicle;
+  const msg = form.querySelector('[name="message"]');
+  if (msg && !msg.value && (config || vehicle)) {
+    const lines = ['Configuration choisie sur le simulateur :'];
+    if (config) lines.push(config);
+    if (vehicle && !(config || '').includes(vehicle)) lines.push(`Catégorie de véhicule : ${vehicle}`);
+    msg.value = lines.join('\n') + '\n\n';
   }
+  // at least one service ticked (the browser checks the rest)
+  const boxes = [...form.querySelectorAll('[data-required-group] input[type="checkbox"]')];
+  const syncGroup = () => boxes[0]?.setCustomValidity(boxes.some((b) => b.checked) ? '' : 'Cochez au moins une prestation (ou « Autre demande »).');
+  boxes.forEach((b) => b.addEventListener('change', syncGroup));
+  syncGroup();
+  const fields = (d) => {
+    const label = (v) => form.querySelector(`input[name="prestations"][value="${CSS.escape(v)}"]`)?.parentElement.textContent.trim() || v;
+    const prestations = d.getAll('prestations').map(label);
+    const car = [d.get('marque'), d.get('modele'), d.get('annee')].filter(Boolean).join(' ');
+    return { prestations, car, subject: `Demande de devis${prestations.length ? ' – ' + prestations.join(', ') : ''} – ${car}` };
+  };
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -152,19 +162,17 @@ if (form) {
       // no form service configured: compose the e-mail in the visitor's mail app
       if (form.elements._gotcha?.value) return;
       const d = new FormData(form);
-      const prestations = d.getAll('prestations').map((v) => form.querySelector(`input[name="prestations"][value="${CSS.escape(v)}"]`)?.parentElement.textContent.trim() || v);
+      const { prestations, car, subject } = fields(d);
       const body = [
         `Nom : ${d.get('nom') || ''}`,
+        `Prénom : ${d.get('prenom') || ''}`,
         `E-mail : ${d.get('email') || ''}`,
-        d.get('telephone') ? `Téléphone : ${d.get('telephone')}` : '',
-        `Véhicule : ${d.get('vehicule') || ''}`,
-        prestations.length ? `Prestation(s) : ${prestations.join(', ')}` : '',
+        `Téléphone : ${d.get('telephone') || ''}`,
+        `Véhicule : ${car}`,
+        `Prestation(s) : ${prestations.join(', ')}`,
         '',
         String(d.get('message') || ''),
-      ]
-        .filter((l, i, a) => l !== '' || a[i - 1] !== '')
-        .join('\n');
-      const subject = `Demande de devis${prestations.length ? ' – ' + prestations.join(', ') : ''} – ${d.get('vehicule') || ''}`;
+      ].join('\n');
       location.href = `mailto:${form.dataset.mailto}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       status.textContent = 'Votre messagerie s’ouvre avec la demande pré-remplie : vérifiez-la puis envoyez-la. Rien ne s’ouvre ? Écrivez-nous à ' + form.dataset.mailto + ' ou appelez-nous.';
       status.classList.add('is-ok');
@@ -180,16 +188,18 @@ if (form) {
       if (/formsubmit\.co\//.test(form.action)) {
         // FormSubmit AJAX endpoint: readable labels in the e-mail, reply-to = the visitor
         const d = new FormData(form);
-        const label = (v) => form.querySelector(`input[name="prestations"][value="${CSS.escape(v)}"]`)?.parentElement.textContent.trim() || v;
-        const prestations = d.getAll('prestations').map(label);
+        const { prestations, subject } = fields(d);
         const payload = {
           Nom: d.get('nom') || '',
+          Prénom: d.get('prenom') || '',
           email: d.get('email') || '',
           Téléphone: d.get('telephone') || '',
-          Véhicule: d.get('vehicule') || '',
+          Marque: d.get('marque') || '',
+          Modèle: d.get('modele') || '',
+          Année: d.get('annee') || '',
           'Prestation(s)': prestations.join(', '),
           Message: d.get('message') || '',
-          _subject: `Demande de devis${prestations.length ? ' – ' + prestations.join(', ') : ''} – ${d.get('vehicule') || ''}`,
+          _subject: subject,
           _template: 'table',
           _captcha: 'false',
           _honey: '',

@@ -1537,10 +1537,21 @@ p {
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
+.form__row--3 {
+  display: grid;
+  grid-template-columns: 1.3fr 1.3fr 1fr;
+  gap: 14px;
+}
 @media (max-width: 560px) {
-  .form__row--2 {
+  .form__row--2,
+  .form__row--3 {
     grid-template-columns: 1fr;
   }
+}
+.form__req {
+  margin: 0 0 14px;
+  font-size: 0.86rem;
+  color: var(--muted);
 }
 .form label,
 .form legend {

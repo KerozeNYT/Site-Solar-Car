@@ -621,25 +621,27 @@ export function contactPage(ctx) {
     <div class="container contact-grid">
       <form class="form" data-form ${demo ? `data-mailto="${esc(b.email || '')}"` : `action="${esc(b.formEndpoint)}" method="post" data-fallback="${esc(b.email || '')}"`} novalidate>
         ${demo ? `<p class="form__demo" role="note">Votre demande s’ouvre dans votre messagerie, adressée à ${esc(b.email)} : il ne reste qu’à l’envoyer. Vous pouvez aussi nous appeler au ${esc(b.phone)}.</p>` : ''}
-        <div class="form__row">
-          <label for="f-name">Nom et prénom</label>
-          <input id="f-name" name="nom" autocomplete="name" required>
+        <p class="form__req">Tous les champs sont obligatoires.</p>
+        <div class="form__row form__row--2">
+          <div><label for="f-last">Nom</label><input id="f-last" name="nom" autocomplete="family-name" required></div>
+          <div><label for="f-first">Prénom</label><input id="f-first" name="prenom" autocomplete="given-name" required></div>
         </div>
         <div class="form__row form__row--2">
           <div><label for="f-email">E-mail</label><input id="f-email" name="email" type="email" autocomplete="email" required></div>
-          <div><label for="f-phone">Téléphone <span class="optional">(facultatif)</span></label><input id="f-phone" name="telephone" type="tel" autocomplete="tel"></div>
+          <div><label for="f-phone">Téléphone</label><input id="f-phone" name="telephone" type="tel" autocomplete="tel" inputmode="tel" pattern="[0-9+().\s\-]{10,20}" title="Un numéro de téléphone, par exemple 06 12 34 56 78" required></div>
         </div>
-        <div class="form__row">
-          <label for="f-car">Véhicule (marque, modèle, année)</label>
-          <input id="f-car" name="vehicule" required>
+        <div class="form__row form__row--3">
+          <div><label for="f-make">Marque du véhicule</label><input id="f-make" name="marque" placeholder="ex. Peugeot" required></div>
+          <div><label for="f-model">Modèle du véhicule</label><input id="f-model" name="modele" placeholder="ex. 308 SW" required></div>
+          <div><label for="f-year">Année du véhicule</label><input id="f-year" name="annee" type="number" inputmode="numeric" min="1950" max="${new Date().getFullYear() + 1}" placeholder="ex. 2019" required></div>
         </div>
-        <fieldset class="form__row">
+        <fieldset class="form__row" data-required-group>
           <legend>Prestation(s) souhaitée(s)</legend>
-          <div class="choices">${services.map((s) => `<label class="choice"><input type="checkbox" name="prestations" value="${s.slug}"> ${esc(s.name)}</label>`).join('')}</div>
+          <div class="choices">${services.map((s) => `<label class="choice"><input type="checkbox" name="prestations" value="${s.slug}"> ${esc(s.name)}</label>`).join('')}<label class="choice"><input type="checkbox" name="prestations" value="autre"> Autre demande</label></div>
         </fieldset>
         <div class="form__row">
           <label for="f-msg">Votre message</label>
-          <textarea id="f-msg" name="message" rows="5"></textarea>
+          <textarea id="f-msg" name="message" rows="5" required></textarea>
         </div>
         <div class="form__row form__consent">
           <label class="choice"><input type="checkbox" name="consentement" required> J’accepte que mes données soient utilisées pour répondre à ma demande (voir <a href="/mentions-legales/#confidentialite">confidentialité</a>).</label>
