@@ -304,7 +304,9 @@ export function visitBlock(ctx, { title = 'L’atelier', id = 'atelier', heading
 function partnersBlock(ctx) {
   const p = ctx.partners;
   if (!p?.brands?.length) return '';
-  const item = (x) => `<li class="brands__item">${x.logo ? `<img src="${esc(x.logo)}" alt="${esc(x.name)}" loading="lazy" decoding="async">` : `<span>${esc(x.name)}</span>`}</li>`;
+  // logos are painted in gold through a CSS mask (any single-colour SVG / transparent PNG)
+  const item = (x) =>
+    `<li class="brands__item">${x.logo ? `<i class="brands__logo" style="--logo:url(${esc(x.logo)})" role="img" aria-label="${esc(x.name)}"></i>` : `<span>${esc(x.name)}</span>`}</li>`;
   const list = p.brands.map(item).join('');
   return `<section class="section brands" aria-labelledby="marques-title">
   <div class="container brands__head reveal-up">

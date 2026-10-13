@@ -2019,12 +2019,14 @@ p {
   background-clip: text;
   color: transparent;
 }
-.brands__item img {
-  max-width: 140px;
-  max-height: 44px;
-  object-fit: contain;
-  filter: grayscale(1) brightness(1.6);
-  opacity: 0.9;
+.brands__logo {
+  display: block;
+  width: 120px;
+  height: 58px;
+  background: var(--gold-metal);
+  background-size: 200% 100%;
+  -webkit-mask: var(--logo) center / contain no-repeat;
+  mask: var(--logo) center / contain no-repeat;
 }
 @keyframes brands {
   to {

@@ -443,8 +443,9 @@ export const atelierPage = {
 };
 
 /** Google reviews: links only — no rating or review is ever displayed without coming from Google. */
-// Partner brands (as given by SOLAR CAR 37). Shown as wordmarks in the site's style; add a
-// `logo` path (SVG/PNG supplied by the brand) to show the official logo instead.
+// Partner brands (as given by SOLAR CAR 37). Shown as wordmarks in the site's style; a `logo`
+// (single-colour SVG or PNG on a transparent background, in public/img/partners/) is shown
+// instead, painted in the site's gold. 3M: logo from the Simple Icons set (CC0 drawing).
 export const partners = {
   title: 'Nos marques partenaires',
   text: 'Films, outillage et produits professionnels : nous travaillons avec des marques reconnues, choisies pour leur qualité et leur tenue dans le temps.',
@@ -452,7 +453,7 @@ export const partners = {
     { name: 'Milwaukee', logo: null },
     { name: 'TeckWrap', logo: null },
     { name: 'RUPES', logo: null },
-    { name: '3M', logo: null },
+    { name: '3M', logo: '/img/partners/3m.svg' },
     { name: 'Solar Screen', logo: null },
     { name: 'Tego', logo: null },
     { name: 'Coverstyl’', logo: null },
