@@ -677,8 +677,10 @@ export function servicePage(ctx, s) {
 
 /** "Bon à savoir" teaser linking a service page to its guide */
 function guideFor(ctx, slug) {
-  const g = (ctx.guides || []).find((x) => x.service === slug);
+  const related = (ctx.guides || []).filter((x) => x.service === slug);
+  const g = related[0];
   if (!g) return '';
+  const more = related.slice(1);
   return `<section class="section section--tight guide-teaser">
   <div class="container container--narrow">
     <a class="guide-teaser__card reveal-up" href="/guides/${g.slug}/">
@@ -687,6 +689,7 @@ function guideFor(ctx, slug) {
       <span>${esc(g.intro)}</span>
       <span class="guide-teaser__more">Lire le guide <span aria-hidden="true">→</span></span>
     </a>
+    ${more.length ? `<ul class="guide-teaser__list">${more.map((m) => `<li><a href="/guides/${m.slug}/">${esc(m.title)}</a></li>`).join('')}</ul>` : ''}
   </div>
 </section>`;
 }
@@ -737,7 +740,7 @@ export function contactPage(ctx) {
         </div>`}
         <fieldset class="form__row form__row--2 form__slot">
           <legend>Rendez-vous souhaité <span class="optional">(facultatif)</span></legend>
-          <div><label for="f-date">À partir du</label><input id="f-date" name="date_souhaitee" type="date" min="${new Date().toISOString().slice(0, 10)}"></div>
+          <div><label for="f-date">À partir du</label><input id="f-date" name="date_souhaitee" type="date"></div>
           <div><label for="f-slot">Moment</label><select id="f-slot" name="moment"><option value="">Indifférent</option><option>Matin (8 h – 12 h)</option><option>Après-midi (13 h – 17 h)</option></select></div>
           <p class="form__hint">Atelier ouvert du lundi au vendredi. Ce n’est pas une réservation : nous vous confirmons le créneau.</p>
         </fieldset>

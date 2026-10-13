@@ -1,6 +1,7 @@
 // Renders every HTML page, the sitemap, robots.txt and the web manifest into `out`.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -50,14 +51,31 @@ export async function renderSite(out, assets) {
     ['zones-intervention/index.html', T.zonesIndexPage(ctx)],
     ...zones.map((z) => [`${z.slug}/index.html`, T.zonePage(ctx, z)]),
   ];
+  const today = new Date().toISOString().slice(0, 10);
+  // sitemap <lastmod> = the day a page's main content last changed, not the build date:
+  // content/lastmod.json keeps a fingerprint of each page's <main> (commit it with the content)
+  const manifestFile = path.join(root, 'content', 'lastmod.json');
+  let manifest = {};
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8'));
+  } catch {
+    /* first build */
+  }
+  const before = JSON.stringify(manifest);
   for (const [rel, html] of pages) {
     const file = path.join(out, rel);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, html);
+    const url = '/' + rel.replace(/index\.html$/, '');
+    const main = html.match(/<main[\s\S]*<\/main>/)?.[0] || html;
+    const hash = crypto.createHash('sha1').update(main).digest('hex').slice(0, 16);
+    if (manifest[url]?.hash !== hash) manifest[url] = { hash, date: today };
   }
+  const sorted = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)));
+  if (JSON.stringify(sorted) !== before) fs.writeFileSync(manifestFile, JSON.stringify(sorted, null, 1) + '\n');
+  const changedOn = (u) => manifest[u]?.date || today;
 
   const base = site.business.siteUrl.replace(/\/$/, '');
-  const today = new Date().toISOString().slice(0, 10);
   // [path, priority, image id] — images help the pages surface in Google Images
   const urls = [
     ['/', '1.0', 'hero'],
@@ -76,7 +94,7 @@ export async function renderSite(out, assets) {
     `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${urls
       .map(
         ([u, pr, img, mod]) =>
-          `  <url><loc>${base}${u}</loc><lastmod>${mod || today}</lastmod><priority>${pr}</priority>${img ? `<image:image><image:loc>${base}/stills/${img}-1600.jpg</image:loc></image:image>` : ''}</url>`
+          `  <url><loc>${base}${u}</loc><lastmod>${[mod, changedOn(u)].filter(Boolean).sort().pop()}</lastmod><priority>${pr}</priority>${img ? `<image:image><image:loc>${base}/stills/${img}-1600.jpg</image:loc></image:image>` : ''}</url>`
       )
       .join('\n')}\n</urlset>\n`
   );

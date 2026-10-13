@@ -6,7 +6,7 @@
  * service (related service slug), still (image id in /stills), intro, sections [{ h2, p: [],
  * list?: [] }], faq [{ q, a }].
  */
-import { priceText as P } from './pricing.js';
+import { priceText as P, tint, vehicleTypes } from './pricing.js';
 import { glazing as G } from './regulation.js';
 
 export const guidesPage = {
@@ -300,6 +300,158 @@ export const guides = [
         q: 'Le polissage abîme-t-il la peinture ?',
         a: 'Réalisé avec méthode, il retire une épaisseur infime de vernis. C’est pourquoi on ne repolit pas une voiture à chaque lavage : une protection prend ensuite le relais.',
       },
+    ],
+  },
+  {
+    slug: 'prix-vitres-teintees-tours',
+    title: 'Prix des vitres teintées près de Tours : ce qui fait le tarif',
+    seo: {
+      title: `Prix vitres teintées près de Tours : dès ${P.tintFrom} TTC | SOLAR CAR 37`,
+      description: `Tarifs de pose de films solaires à Vouvray, près de Tours : 3/4 arrière dès ${P.tintFrom} TTC selon la catégorie, vitres avant, pare-brise. Ce qui fait varier le prix.`,
+    },
+    kicker: 'Tarifs',
+    updated: '2026-10-13',
+    service: 'vitres-teintees',
+    still: 'tint',
+    intro:
+      'Combien coûte la pose de vitres teintées ? À l’atelier, le prix dépend d’abord de la catégorie du véhicule et des vitres traitées, pas de la teinte. Voici nos tarifs indicatifs et ce qui peut les faire varier.',
+    sections: [
+      {
+        h2: 'Nos tarifs indicatifs',
+        p: ['Forfait « 3/4 arrière » (vitres latérales arrière et lunette), film posé, prix TTC :'],
+        list: vehicleTypes.map((v) => `${v.label} : ${tint.rearPackage[v.id]} € ;`),
+      },
+      {
+        h2: 'Vitres avant et pare-brise',
+        p: [
+          `Les deux vitres avant seules coûtent ${P.tintFrontOnly} TTC ; ajoutées au forfait arrière, elles comptent ${P.tintFrontWithRear}. Le film de pare-brise est chiffré à part (${P.windshield('athermique')} TTC pour le film athermique).`,
+          'À l’avant, la règle des 70 % de lumière transmise s’applique au vitrage complet, film compris : nous faisons le point avec vous avant toute pose (voir notre guide sur la loi).',
+        ],
+      },
+      {
+        h2: 'Ce qui fait varier le prix',
+        list: [
+          'la catégorie du véhicule : nombre, taille et forme des vitres ;',
+          'la lunette arrière : une grande lunette très bombée demande plus de temps de mise en forme du film ;',
+          'un ancien film à déposer : il allonge l’intervention, nous le précisons sur le devis ;',
+          'les vitres traitées : arrière seul, véhicule complet, pare-brise.',
+        ],
+        p: ['La teinte, elle, ne change pas le prix : 5 %, 15 %, 25 %, 35 %, 50 % ou 70 % sont au même tarif.'],
+      },
+      {
+        h2: 'Obtenir votre prix exact',
+        p: [
+          'Le simulateur 3D de la page vitres teintées affiche le tarif de votre catégorie en direct, avec la teinte choisie. Le devis confirme ensuite le prix après un coup d’œil au véhicule.',
+        ],
+      },
+    ],
+    faq: [
+      { q: 'Le prix dépend-il de la teinte choisie ?', a: 'Non : toutes les teintes proposées sont au même prix. Le tarif dépend de la catégorie du véhicule et des vitres traitées.' },
+      { q: 'Combien coûtent les vitres avant ?', a: `${P.tintFrontOnly} TTC seules, ou ${P.tintFrontWithRear} avec le forfait arrière. Attention à la règle des 70 % à l’avant, film compris.` },
+    ],
+  },
+  {
+    slug: 'choisir-teinte-vitres',
+    title: 'Vitres teintées : 5 %, 15 %, 25 %, 35 % ou 50 %, quelle teinte choisir ?',
+    seo: {
+      title: 'Teinte vitres : 5 %, 15 %, 25 %, 35 %, que choisir ? | SOLAR CAR 37',
+      description: 'Ce que veut dire le pourcentage d’un film teinté, le rendu de chaque teinte, la visibilité de nuit, la chaleur et la règle des 70 % à l’avant.',
+    },
+    kicker: 'Conseils',
+    updated: '2026-10-13',
+    service: 'vitres-teintees',
+    still: 'tint',
+    intro:
+      'Le pourcentage d’un film teinté n’est pas une intensité de « noir » : c’est la part de lumière visible qui le traverse. Plus le chiffre est bas, plus la vitre est sombre. Voici comment choisir.',
+    sections: [
+      {
+        h2: 'Que veut dire le pourcentage ?',
+        p: [
+          'Un film à 15 % laisse passer environ 15 % de la lumière visible ; un film à 50 % en laisse passer la moitié. Posé sur une vitre, le film s’ajoute à la teinte d’origine du verre : le vitrage complet est donc toujours un peu plus sombre que le chiffre du film seul.',
+        ],
+      },
+      {
+        h2: 'Le rendu de chaque teinte',
+        list: [
+          '5 % : noir profond, intérieur quasiment invisible de l’extérieur ;',
+          '15 % : forte intimité, le choix le plus courant à l’arrière ;',
+          '25 % : sombre, avec un peu plus de visibilité vers l’extérieur la nuit ;',
+          '35 % : teinte bien visible, ambiance plus claire à bord ;',
+          '50 % : teinte légère, surtout pour l’esthétique et l’éblouissement ;',
+          '70 % : voile très léger.',
+        ],
+      },
+      {
+        h2: 'Visibilité de nuit et marche arrière',
+        p: [
+          'Plus la lunette est sombre, moins on voit à travers la nuit, en particulier en marche arrière. Les vitres arrière ne sont pas soumises à un seuil, à condition que le véhicule dispose de deux rétroviseurs extérieurs : pensez à votre usage (stationnement de nuit, routes non éclairées) avant de choisir le plus foncé.',
+        ],
+      },
+      {
+        h2: 'La chaleur ne dépend pas que de la teinte',
+        p: [
+          'Le pourcentage décrit la lumière visible, pas la chaleur. Un film clair de technologie céramique peut filtrer davantage d’infrarouges qu’un film plus sombre simplement teinté. Pour le confort thermique, c’est la technologie du film qui compte, plus que sa couleur.',
+        ],
+      },
+      {
+        h2: 'À l’avant : la règle des 70 %',
+        p: [
+          `Le pare-brise et les vitres latérales avant doivent laisser passer au moins ${G.frontMin} % de la lumière, vitre et film ensemble. Un film à 70 % posé sur une vitre d’origine fait en général descendre l’ensemble sous ce seuil : à l’avant, seule une mesure sur le véhicule permet de conclure.`,
+        ],
+      },
+    ],
+    faq: [
+      { q: 'Quelle teinte pour l’intimité sans trop assombrir ?', a: 'Le 15 % à 25 % à l’arrière est le compromis le plus demandé : bonne intimité, visibilité correcte vers l’extérieur.' },
+      { q: 'Peut-on voir le rendu avant la pose ?', a: 'Oui : le simulateur 3D montre chaque teinte sur votre catégorie de véhicule, de l’extérieur et depuis l’habitacle, et nous vous montrons les échantillons à l’atelier.' },
+    ],
+  },
+  {
+    slug: 'film-nano-ceramique',
+    title: 'Film nano-céramique : comment il filtre la chaleur',
+    seo: {
+      title: 'Film nano-céramique pour vitres : principe et intérêt | SOLAR CAR 37',
+      description: 'Film teinté, métallisé ou nano-céramique : comment chacun agit sur la lumière et la chaleur, et pourquoi le pourcentage de teinte ne dit pas tout.',
+    },
+    kicker: 'Technologie',
+    updated: '2026-10-13',
+    service: 'vitres-teintees',
+    still: 'tint',
+    intro:
+      'Tous les films solaires ne se valent pas. À teinte égale, un film nano-céramique et un film simplement teinté n’ont pas le même effet sur la chaleur. Voici les différences, sans jargon.',
+    sections: [
+      {
+        h2: 'Trois grandes familles de films',
+        list: [
+          'film teinté dans la masse : il assombrit la vitre en absorbant la lumière ; c’est le plus simple ;',
+          'film métallisé : de fines couches métalliques réfléchissent une partie de l’énergie solaire ; il peut gêner certaines ondes (téléphone, GPS, télépéage) ;',
+          'film nano-céramique : des particules céramiques filtrent une partie du rayonnement infrarouge, sans métal, donc sans gêner les ondes.',
+        ],
+      },
+      {
+        h2: 'Pourquoi la céramique pour la chaleur',
+        p: [
+          'Une grande partie de la chaleur du soleil arrive sous forme d’infrarouges, invisibles. Les particules céramiques sont choisies pour en filtrer une part tout en laissant passer la lumière visible voulue : un film céramique clair peut ainsi améliorer le confort sans assombrir beaucoup la vitre.',
+        ],
+      },
+      {
+        h2: 'Lire une fiche technique',
+        list: [
+          'transmission lumineuse (en %) : la teinte, ce que voit l’œil ;',
+          'rejet d’énergie solaire totale : la part de la chaleur du soleil qui n’entre pas ;',
+          'rejet des infrarouges et des UV : à lire selon la longueur d’onde indiquée.',
+        ],
+        p: ['Ces valeurs varient d’une référence à l’autre : nous vous indiquons la référence posée et ses caractéristiques sur le devis.'],
+      },
+      {
+        h2: 'Et la loi ?',
+        p: [
+          `La technologie ne change rien à la règle : à l’avant, le vitrage complet doit laisser passer au moins ${G.frontMin} % de la lumière, film compris. À l’arrière, la teinte est libre (véhicule équipé de deux rétroviseurs extérieurs).`,
+        ],
+      },
+    ],
+    faq: [
+      { q: 'Un film céramique clair chauffe-t-il moins qu’un film foncé ?', a: 'Cela peut être le cas : la chaleur dépend surtout de la technologie du film, pas seulement de sa teinte. Comparez les fiches techniques des références proposées.' },
+      { q: 'Le film céramique gêne-t-il le téléphone ou le GPS ?', a: 'Non, il ne contient pas de couche métallique, contrairement aux films métallisés.' },
     ],
   },
 ];

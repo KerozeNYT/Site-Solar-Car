@@ -3395,6 +3395,15 @@ p {
 }
 
 /* ------------------------------------------------------------------ guides */
+.guide-teaser__list {
+  margin: 14px 0 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 6px;
+}
+.guide-teaser__list a {
+  font-weight: 600;
+}
 .guide-teaser__card {
   display: grid;
   gap: 6px;

@@ -52,4 +52,6 @@ Le build d’aperçu utilise `SITE_BASE=/Site-Solar-Car/` (préfixe de toutes le
 
 Les fichiers sources (`.glb`, `.usdz`) restent hors du dépôt ; seuls les modèles optimisés de `public/models/` sont publiés. Vérifier la licence de chaque modèle et compléter son crédit (`credit` dans sa configuration) : les crédits s’affichent dans les mentions légales.
 
-Suivi de la V2 : `docs/V2-ROADMAP.md` (tableau de bord), `docs/V2-AUDIT.md` (audit initial) et `docs/CHANGELOG.md` (journal des changements).
+`content/lastmod.json` : empreinte du contenu de chaque page, mise à jour par le build ; la commiter avec le contenu (le sitemap date ainsi les vraies modifications).
+
+Mise en production : `docs/MIGRATION-DOMAINE.md`. Suivi de la V2 : `docs/V2-ROADMAP.md` (tableau de bord), `docs/V2-AUDIT.md` (audit initial) et `docs/CHANGELOG.md` (journal des changements).

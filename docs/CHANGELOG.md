@@ -89,3 +89,12 @@
 - Pages de simulateurs sur mobile : 312 Kio au lieu de 6,8 Mio avant interaction.
 - Carte 3D : plus de tentative (ni d'erreur console) sans WebGL, l'image fixe reste.
 - Constat : modèles 3D déjà compressés (meshopt, quantification, textures WebP).
+
+### Phase 9 — SEO
+- Sitemap : `lastmod` = date de la dernière modification réelle du contenu de chaque page
+  (empreinte dans `content/lastmod.json`), plus la date du build.
+- Trois guides factuels : prix des vitres teintées près de Tours (depuis la grille centrale), choix
+  de la teinte (5 % à 70 %), film nano-céramique (principe, sans chiffres non sourcés).
+- Chaque page de prestation renvoie vers tous ses guides.
+- Plan de mise en production et de migration du domaine : `docs/MIGRATION-DOMAINE.md` (aucun DNS
+  modifié).
