@@ -634,7 +634,9 @@ export function buildEnvironment(renderer) {
   const hex = hexLights({ y: 4.35, w: 9.2, d: 6.4, r: 0.62, intensity: 9 });
   env.add(hex);
   // soft side panels: long horizontal softboxes give the body sides a clean highlight line
-  const soft = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 1, 1).multiplyScalar(2.2) });
+  // bright enough to draw crisp lines in a mirror-finish clearcoat (and to show swirl marks
+  // around them before polishing), as in a real detailing studio
+  const soft = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 1, 1).multiplyScalar(7) });
   for (const z of [B.z0 + 0.05, B.z1 - 0.05]) env.add(box(L(B) - 1, 0.25, 0.05, soft, 0, 2.6, z));
   for (let i = -5; i <= 5; i++) env.add(box(0.05, 3.6, 0.06, soft, B.x0 + 0.06, 2.2, i * 1.1));
   // the open door: dark night outside with a warm portal frame

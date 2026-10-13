@@ -54,6 +54,22 @@ export function makePaint(color = 0x0c2746) {
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.35 + vec3(0.035, 0.037, 0.04), dull);`
       )
       .replace(
+        '#include <clearcoat_normal_fragment_maps>',
+        `#include <clearcoat_normal_fragment_maps>
+        #ifdef USE_CLEARCOAT
+          if (dull > 0.001) {
+            // project on the plane facing the panel, tilt along the scratches, back to view space
+            vec3 an = abs(vCarNormal);
+            vec3 U = an.y > max(an.x, an.z) ? vec3(1.0, 0.0, 0.0) : an.z > an.x ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 0.0, 1.0);
+            vec3 V = an.y > max(an.x, an.z) ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
+            vec2 t = swirlTilt(vec2(dot(vCarPos, U), dot(vCarPos, V)));
+            vec3 tCar = (U * t.x + V * t.y) * 0.45 * dull;
+            vec3 tView = mat3(viewMatrix) * (transpose(mat3(uCarInv)) * tCar);
+            clearcoatNormal = normalize(clearcoatNormal + tView);
+          }
+        #endif`
+      )
+      .replace(
         '#include <lights_physical_fragment>',
         `#include <lights_physical_fragment>
         #ifdef USE_CLEARCOAT
@@ -87,6 +103,7 @@ export function injectPolish(m, uniforms) {
       .replace(
         '#include <common>',
         `#include <common>
+        uniform mat4 uCarInv;
         varying vec3 vCarPos;
         varying vec3 vCarNormal;
         uniform float uPolishX;
@@ -103,20 +120,43 @@ export function injectPolish(m, uniforms) {
           return mix(mix(mix(h31(i), h31(i + vec3(1,0,0)), f.x), mix(h31(i + vec3(0,1,0)), h31(i + vec3(1,1,0)), f.x), f.y),
                      mix(mix(h31(i + vec3(0,0,1)), h31(i + vec3(1,0,1)), f.x), mix(h31(i + vec3(0,1,1)), h31(i + vec3(1,1,1)), f.x), f.y), f.z);
         }
-        float swirlRings(vec3 p){
-          float r = length(p.xy - vec2(floor(p.x * 2.0) / 2.0 + 0.25, 0.7));
-          return 0.5 + 0.5 * sin(r * 180.0);
+        // Buffer swirls: broken concentric scratches around random centres, as left by a
+        // rotary machine. Returns a small tilt (2D, in the plane of p) for the clearcoat normal;
+        // scratches thinner than a pixel fade out instead of shimmering.
+        vec2 swirlTilt(vec2 p){
+          const float CELL = 0.22;
+          vec2 acc = vec2(0.0);
+          vec2 cell = floor(p / CELL);
+          for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+              vec2 c = cell + vec2(float(i), float(j));
+              vec3 h = vec3(h31(vec3(c, 1.7)), h31(vec3(c, 5.3)), h31(vec3(c, 9.1)));
+              vec2 d = p - (c + h.xy) * CELL;
+              float r = length(d);
+              if (r < 0.004 || r > 0.3) continue;
+              // one ring every ~1.6 cm: each stands for a bundle of finer scratches, so the
+              // marks stay readable at screen scale instead of vanishing below a pixel
+              float ring = r * 62.0 + h.z * 13.0;
+              float id = floor(ring);
+              float keep = step(0.62, h31(vec3(c * 3.1, id)));
+              float a = atan(d.y, d.x);
+              float arc = smoothstep(0.35, 0.7, sin(a * (1.0 + floor(h.z * 3.0)) + id * 2.3 + h.x * 6.28));
+              float line = exp(-pow((fract(ring) - 0.5) / 0.2, 2.0));
+              float aa = 1.0 - smoothstep(0.35, 0.9, fwidth(ring));
+              acc += (d / r) * keep * arc * line * aa * (1.0 - r / 0.3);
+            }
+          }
+          return acc;
         }`
       )
       .replace(
         '#include <metalnessmap_fragment>',
         `#include <metalnessmap_fragment>
         float polished = smoothstep(-0.025, 0.025, (vCarPos.x - uPolishX) * uPolishDir);
+        // before polishing the paint stays glossy but micro-scratched: swirl marks in the
+        // clearcoat (see below) and the faint milky veil they cast on a dark colour
         float dull = (1.0 - polished) * smoothstep(uPolishSide - 0.06, uPolishSide + 0.06, vCarPos.z);
-        roughnessFactor = mix(roughnessFactor, 0.78, dull);
-        metalnessFactor = mix(metalnessFactor, 0.2, dull);
-        vec3 haze = vec3(dot(diffuseColor.rgb, vec3(0.333)));
-        diffuseColor.rgb = mix(diffuseColor.rgb, mix(diffuseColor.rgb, haze, 0.45) * 1.55 + vec3(0.05, 0.052, 0.055), dull);
+        diffuseColor.rgb += vec3(0.016, 0.018, 0.022) * dull;
         // the polishing pass: a warm glint travelling with the boundary
         float sideMask = smoothstep(uPolishSide - 0.06, uPolishSide + 0.06, vCarPos.z);
         float glint = (1.0 - smoothstep(0.0, 0.035, abs(vCarPos.x - uPolishX))) * sideMask * step(abs(uPolishX), 3.0);
@@ -147,8 +187,7 @@ export function injectPolish(m, uniforms) {
         '#include <lights_physical_fragment>',
         `#include <lights_physical_fragment>
         #ifdef USE_CLEARCOAT
-          material.clearcoat = mix(material.clearcoat, 0.2, dull);
-          material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.4 + 0.15 * swirlRings(vCarPos), dull);
+          material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.1, dull);
           material.clearcoat *= 1.0 - clamp(mud, 0.0, 1.0);
           material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.0525, uCeramic);
         #endif

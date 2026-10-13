@@ -66,6 +66,8 @@ export async function createViewer(container, { quality = 'high', mode = 'showro
         }
       }
       if (!api) api = buildCar({ quality, preset: def.preset, paintColor: 0xc9ccd1 });
+      // showroom cars are pristine: no unpolished (micro-scratched) side
+      api.setPolish(10, -1);
       // daylight showroom: no light halos (they read as smudges on the bright backdrop)
       api.group.traverse((o) => {
         if (o.isSprite) o.visible = false;
@@ -123,6 +125,8 @@ async function createStudioViewer(container, canvas, { quality, onProgress }) {
   });
   const { camera, renderer } = stage;
   camera.near = 0.02;
+  // fully polished by default; the detailing simulator sets its own before / after state
+  stage.car.setPolish(10, -1);
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;

@@ -98,11 +98,25 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     uCarInv: { value: carInv },
   };
   const paintMats = new Set();
+  const finish = cfg.paint?.finish || {};
+  // glTF paints without physical extensions load as MeshStandardMaterial, which has no
+  // clearcoat: upgrade them so the varnish layer (gloss, swirl marks, polish) exists
+  const upgraded = new Map();
+  const physical = (m) => {
+    if (!m || m.isMeshPhysicalMaterial || !finish.clearcoat) return m;
+    if (!upgraded.has(m)) {
+      const p = new THREE.MeshPhysicalMaterial();
+      THREE.MeshStandardMaterial.prototype.copy.call(p, m);
+      p.defines = { STANDARD: '', PHYSICAL: '' };
+      upgraded.set(m, p);
+    }
+    return upgraded.get(m);
+  };
   for (const o of find([...(cfg.paint?.materials || []), ...(cfg.paint?.accents || [])])) {
+    o.material = Array.isArray(o.material) ? o.material.map(physical) : physical(o.material);
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     mats.forEach((m) => m && paintMats.add(m));
   }
-  const finish = cfg.paint?.finish || {};
   for (const m of paintMats) {
     if (cfg.paint?.color) m.color.set(cfg.paint.color);
     for (const k of ['metalness', 'roughness', 'clearcoat', 'clearcoatRoughness']) if (finish[k] !== undefined && k in m) m[k] = finish[k];

@@ -20,12 +20,12 @@ export default {
   length: 4.57,
 
   paint: {
-    // null keeps the model's own colour; any CSS colour repaints the body
-    color: null,
+    // null keeps the model's own colour; any CSS colour repaints the body (bleu nuit brillant)
+    color: '#0c1c44',
     // body panels that receive the polishing effect (and the colour above)
     materials: ['Object_2', 'Object_77', 'Object_61', 'Object_103', 'Object_17'],
     accents: [],
-    finish: { metalness: 0.62, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.03 },
+    finish: { metalness: 0.58, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.018 },
   },
 
   // Per-mesh material fixes (e.g. tyres exported as metal).
