@@ -1,7 +1,18 @@
 import { headlights } from '../../../content/pricing.js';
 import { fmt, readForm, setQuote, easer, stateBadge, play, revealView } from './util.js';
 
-/** Headlight renovation on the studio Porsche: yellowed → clear, with the lights on or off. */
+/** The renovation, step by step, along the slider (an explanation: every headlight differs). */
+const STAGES = [
+  [0, '1/6 — Optique ternie et jaunie'],
+  [1, '2/6 — Préparation : protection autour, ponçage de la couche oxydée'],
+  [30, '3/6 — Polissage : la transparence revient'],
+  [70, '4/6 — Transparence restaurée'],
+  [90, '5/6 — Protection de finition'],
+  [100, '6/6 — Résultat : allumez les phares pour comparer'],
+];
+const stageAt = (pct) => STAGES.reduce((cur, st) => (pct >= st[0] ? st[1] : cur), STAGES[0][1]);
+
+/** Headlight renovation on the studio X6: yellowed → clear, with the lights on or off. */
 export function setup({ section, form, view }) {
   const totalEl = section.querySelector('[data-total]');
   const detailEl = section.querySelector('[data-detail]');
@@ -20,7 +31,7 @@ export function setup({ section, form, view }) {
     s = readForm(form);
     const pct = +s.clear;
     clearLabel.textContent = pct >= 100 ? 'Rénovée' : pct <= 0 ? 'Avant' : `${pct} %`;
-    badge(pct <= 0 ? 'Avant : optiques jaunies' : pct >= 100 ? 'Après rénovation' : `Polissage… ${pct} %`);
+    badge(stageAt(pct));
     const opts = headlights.options.filter((o) => s.opt.has(o.id));
     const price = headlights.renovation + opts.reduce((a, o) => a + o.price, 0);
     totalEl.textContent = fmt(price);

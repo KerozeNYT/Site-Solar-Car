@@ -1,5 +1,5 @@
 import { lights } from '../../../content/pricing.js';
-import { fmtRange, readForm, setQuote, easer } from './util.js';
+import { fmtRange, readForm, setQuote, easer, stateBadge } from './util.js';
 
 const LIGHTS = {
   on: { on: 1, brake: 0, beams: 1 },
@@ -21,6 +21,18 @@ export function setup({ section, form, view }) {
   let fx = null;
   let s = readForm(form);
   let price = 0;
+  const badge = stateBadge(section);
+  let compare = false; // « Avant / après »: the same lights without film
+  const compareBtn = section.querySelector('[data-compare]');
+  const setCompare = (on) => {
+    compare = on;
+    compareBtn?.setAttribute('aria-pressed', String(on));
+    if (compareBtn) compareBtn.textContent = on ? 'Voir avec le film' : 'Avant / après';
+  };
+  compareBtn?.addEventListener('click', () => {
+    setCompare(!compare);
+    update();
+  });
 
   form.addEventListener('change', (e) => {
     const zone = e.target.closest('[data-zone]');
@@ -38,8 +50,8 @@ export function setup({ section, form, view }) {
   });
 
   const targets = () => ({
-    tail: s.rear ? smokeOf(s.rearShade) : 0,
-    head: s.front ? smokeOf(s.frontShade) : 0,
+    tail: s.rear && !compare ? smokeOf(s.rearShade) : 0,
+    head: s.front && !compare ? smokeOf(s.frontShade) : 0,
     ...LIGHTS[s.lightsOn || 'on'],
   });
 
@@ -63,6 +75,7 @@ export function setup({ section, form, view }) {
       : 'Cochez les feux à teinter.';
     quote.setAttribute('aria-disabled', String(!pairs));
     setQuote(section, { prestation: 'feux-arriere-teintes', config: pairs ? `Feux teintés — ${m.label} — ${parts.join(', ')} — ${range}` : '' });
+    badge(compare ? 'Sans film (avant)' : '');
     fx?.set(targets());
   }
 
@@ -71,6 +84,7 @@ export function setup({ section, form, view }) {
     car: 'suv', // the X6: big light clusters, the smoke reads clearly
     initialView: '34arriere',
     update,
+    reset: () => setCompare(false),
     async attach(v) {
       viewer = v;
       fx = easer(v, targets(), (c) => {

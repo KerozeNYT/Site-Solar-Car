@@ -26,6 +26,7 @@ function shell({ kind, title, intro, poster, posterAlt, views, panel, tag = '' }
         <p class="sim__hint">Glissez pour tourner · pincez ou molette pour zoomer</p>
       </div>
       <form class="sim__panel" data-sim-form>
+        <p class="sim__restored" data-sim-restored hidden>Vos derniers réglages ont été repris. <button type="reset">Repartir de zéro</button></p>
         ${panel}
       </form>
     </div>
@@ -65,6 +66,7 @@ const total = (note = '', { quote = false } = {}) => `<div class="sim__total" ar
 const actions = (slug, extra = '') => `<div class="sim__actions">
           <a class="btn btn--primary" href="/contact/?prestation=${slug}" data-quote>Demander ce devis</a>
           ${extra}
+          <button type="reset" class="sim__reset">Réinitialiser</button>
         </div>`;
 
 // ------------------------------------------------------------------------- window tint
@@ -205,7 +207,7 @@ export function simLights(ctx) {
         <div class="warning"><p><strong>Réglementation :</strong> ${esc(lightsRule)}</p></div>
         ${total('Choisissez vos feux')}
         <p class="price-note">${L.materials.map((m) => `${esc(m.label)} : ${pairPrice(m)}${m.validated ? ' TTC la paire' : ''}`).join(' · ')}. Prix indicatifs selon le véhicule, confirmés par le devis.</p>
-        ${actions('feux-arriere-teintes')}`;
+        ${actions('feux-arriere-teintes', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Avant / après</button>')}`;
   return shell({
     kind: 'lights',
     title: 'Simulez vos feux fumés',
@@ -245,6 +247,7 @@ export function simHeadlights(ctx) {
         <fieldset class="sim__group">
           <legend>Options</legend>
           ${H.options.map((o) => `<label class="choice"><input type="checkbox" name="opt" value="${o.id}"> ${esc(o.label)} (+${fmt(o.price)} TTC)</label>`).join('')}
+          <p class="zone__note">Limites : la rénovation traite la surface extérieure de l’optique. Buée ou humidité à l’intérieur, réflecteur abîmé ou optique fissurée ne se corrigent pas ainsi ; le résultat dépend de l’état de départ, nous vous le disons avant d’intervenir.</p>
         </fieldset>
         ${total('Rénovation des phares')}
         ${actions('renovation-phares', '<button type="button" class="btn btn--ghost" data-play>Lancer la rénovation</button>')}`;
@@ -287,6 +290,11 @@ export function simStarlight(ctx) {
           <div data-c2>${chips('c2', colors, '#9fc6ff')}</div>
         </fieldset>
         <fieldset class="sim__group">
+          <legend>Intensité</legend>
+          <input class="range" type="range" name="intensity" min="20" max="100" value="100" step="5" aria-label="Intensité lumineuse">
+          <div class="range-row"><span>Douce</span><strong data-intensity-label>100 %</strong><span>Maximale</span></div>
+        </fieldset>
+        <fieldset class="sim__group">
           <legend>Effets</legend>
           <label class="choice"><input type="checkbox" name="opt" value="twinkle" checked> Scintillement</label><br>
           <label class="choice"><input type="checkbox" name="opt" value="shooting"> Étoiles filantes</label><br>
@@ -297,10 +305,11 @@ export function simStarlight(ctx) {
             <option value="cassiopee">Cassiopée</option>
             <option value="croix-du-sud">Croix du Sud</option>
           </select>
+          <p class="zone__note">Couleurs, bicolore, étoiles filantes et constellations dépendent du kit posé : leur disponibilité pour votre véhicule est confirmée sur le devis.</p>
         </fieldset>
         ${vehicleGroup(ctx.pricing, 'Votre véhicule')}
         ${total('Tarif établi selon le véhicule et la configuration choisie', { quote: true })}
-        ${actions('ciel-etoile')}`;
+        ${actions('ciel-etoile', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Éteindre</button>')}`;
   return shell({
     kind: 'starlight',
     title: 'Composez votre ciel étoilé',
@@ -332,6 +341,7 @@ export function simDetailing(ctx) {
                 `<label class="package"><input type="radio" name="package" value="${p.id}"${i === 1 ? ' checked' : ''}><span><strong><span>${esc(p.label)}</span><span>Sur devis</span></strong><small>${esc(p.text)}</small></span></label>`
             )
             .join('')}</div>
+          <p class="zone__note">Entretien esthétique : nettoyage et décontamination, sans polissage. Polissage : une passe qui atténue micro-rayures et ternissement. Correction : plusieurs passes pour retirer davantage de défauts. Protection céramique : un revêtement sur le vernis corrigé. Le niveau de correction possible dépend de l’état et de l’épaisseur du vernis : il est évalué à l’atelier.</p>
         </fieldset>
         ${vehicleGroup(ctx.pricing)}
         ${total('Prix établi après examen de la peinture', { quote: true })}

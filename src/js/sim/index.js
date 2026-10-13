@@ -2,6 +2,8 @@
  * Service-page simulators. The panel (an ordinary form) computes the price on its own; the 3D
  * viewer is an enhancement loaded when the simulator comes into view or on "Lancer la vue 3D".
  */
+import { restoreForm, saveForm, forgetForm } from './util.js';
+
 const loaders = {
   tint: () => import('./tint.js'),
   lights: () => import('./lights.js'),
@@ -15,6 +17,9 @@ export async function initSimulator(section, { webgl = true } = {}) {
   if (!load) return;
   const mod = await load();
   const form = section.querySelector('[data-sim-form]');
+  const key = `simulateur:${section.dataset.sim}`;
+  // the visitor's last settings come back (before the first update)
+  const restored = restoreForm(form, key);
   const viewEl = section.querySelector('[data-sim-view]');
   const startBtn = section.querySelector('[data-sim-start]');
   const viewBtns = [...section.querySelectorAll('[data-view]')];
@@ -28,8 +33,22 @@ export async function initSimulator(section, { webgl = true } = {}) {
   let viewer = null;
   const sim = mod.setup({ section, form, view: (name, opts) => view(name, opts) });
   sim.update();
-  form.addEventListener('input', () => sim.update());
-  form.addEventListener('change', () => sim.update());
+  const changed = () => {
+    sim.update();
+    saveForm(form, key);
+  };
+  form.addEventListener('input', changed);
+  form.addEventListener('change', changed);
+  // « Réinitialiser »: back to the page's defaults (the form resets itself first)
+  form.addEventListener('reset', () => {
+    forgetForm(key);
+    section.querySelector('[data-sim-restored]')?.setAttribute('hidden', '');
+    setTimeout(() => {
+      sim.reset?.();
+      sim.update();
+    });
+  });
+  if (restored) section.querySelector('[data-sim-restored]')?.removeAttribute('hidden');
 
   if (!webgl) {
     startBtn.hidden = true;
@@ -80,10 +99,12 @@ export async function initSimulator(section, { webgl = true } = {}) {
   startBtn.addEventListener('click', start);
   for (const b of viewBtns) b.addEventListener('click', () => view(b.dataset.view));
 
-  // load by itself when it nears the viewport, unless the visitor saves data
+  // computers: loads by itself when it nears the viewport. Phones and data savers: the preview
+  // image stays until the visitor asks for the 3D (several megabytes of models)
   const conn = navigator.connection;
   const lite = conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType || '');
-  if (lite) startBtn.textContent = `${label} (≈ 6 Mo)`;
+  const phone = matchMedia('(max-width: 760px)').matches;
+  if (lite || phone) startBtn.textContent = `${label} (quelques Mo)`;
   else if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver(
       ([e]) => {

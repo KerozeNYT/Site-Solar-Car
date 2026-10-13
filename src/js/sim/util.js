@@ -19,6 +19,46 @@ export function readForm(form) {
   return out;
 }
 
+/**
+ * Remember a simulator's settings on this device, so a visitor who leaves (to the quote form,
+ * another page) finds them again. Kept 14 days; storage may be unavailable (private mode):
+ * then nothing is remembered and nothing breaks.
+ */
+const KEEP_MS = 14 * 24 * 3600 * 1000;
+export function saveForm(form, key) {
+  try {
+    const values = [...form.elements].filter((el) => el.name).map((el) => [el.name, el.type === 'checkbox' || el.type === 'radio' ? (el.checked ? el.value : null) : el.value]);
+    localStorage.setItem(key, JSON.stringify({ at: Date.now(), values }));
+  } catch {
+    /* storage unavailable */
+  }
+}
+export function restoreForm(form, key) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || 'null');
+    if (!saved || Date.now() - saved.at > KEEP_MS) return false;
+    const checked = new Set(saved.values.filter(([, v]) => v !== null).map(([n, v]) => `${n}=${v}`));
+    for (const el of form.elements) {
+      if (!el.name) continue;
+      if (el.type === 'checkbox' || el.type === 'radio') el.checked = checked.has(`${el.name}=${el.value}`);
+      else {
+        const v = saved.values.find(([n]) => n === el.name);
+        if (v && v[1] !== null) el.value = v[1];
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+export function forgetForm(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 /** vehicle label for a category id */
 export const vehicleLabel = (types, id) => types.find((v) => v.id === id)?.label || id;
 

@@ -150,6 +150,11 @@ export function setup({ section, form, view }) {
     mode: 'showroom',
     initialView: '34arriere',
     update,
+    reset() {
+      compare = false;
+      compareBtn?.setAttribute('aria-pressed', 'false');
+      if (compareBtn) compareBtn.textContent = 'Avant / après';
+    },
     async attach(v) {
       viewer = v;
       fx = easer(v, targets(), (c) => {

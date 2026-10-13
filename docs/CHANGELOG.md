@@ -48,3 +48,14 @@
 - Rendu à la demande : pleine cadence pendant les mouvements, ~20 i/s quand seuls les étoiles ou
   le trafic extérieur bougent, aucun rendu quand tout est immobile (reprise au défilement).
   Mesure : 2 rendus en 3 s immobile au lieu d'environ 180.
+
+### Phase 5 — Simulateurs
+- Communs : bouton « Réinitialiser » ; réglages mémorisés 14 jours sur l'appareil et repris au
+  retour (avec « Repartir de zéro ») ; sur téléphone et en économie de données, la 3D ne se
+  télécharge qu'au toucher de « Lancer la vue 3D » (l'aperçu fixe reste affiché avant).
+- Feux : bouton « Avant / après » (mêmes feux sans film, allumés ou au freinage).
+- Ciel étoilé : réglage d'intensité, bouton « Éteindre / Allumer », note sur les options selon le kit.
+- Rénovation de phares : six étapes pédagogiques le long du curseur et de la démonstration
+  (optique ternie → préparation → polissage → transparence → protection → résultat) et limites
+  de la rénovation affichées.
+- Detailing : différence entre entretien, polissage, correction et protection céramique expliquée.

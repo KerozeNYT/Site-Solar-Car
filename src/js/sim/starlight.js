@@ -1,5 +1,5 @@
 import { starlight, vehicleTypes } from '../../../content/pricing.js';
-import { readForm, vehicleLabel, setQuote } from './util.js';
+import { readForm, vehicleLabel, setQuote, stateBadge } from './util.js';
 
 const OPTIONS = [
   { id: 'bicolor', label: 'bicolore' },
@@ -16,8 +16,23 @@ export function setup({ section, form }) {
   const c2 = section.querySelector('[data-c2]');
   const steps = starlight.starSteps;
   const maxStep = steps[steps.length - 1];
+  const intensityLabel = section.querySelector('[data-intensity-label]');
+  const compareBtn = section.querySelector('[data-compare]');
+  const badge = stateBadge(section);
   let viewer = null;
   let s = readForm(form);
+  // « Éteindre / Allumer »: the headliner with the fibres off, to compare
+  let off = false;
+  const setOff = (v) => {
+    off = v;
+    compareBtn?.setAttribute('aria-pressed', String(v));
+    if (compareBtn) compareBtn.textContent = v ? 'Allumer' : 'Éteindre';
+    badge(v ? 'Ciel étoilé éteint' : '');
+  };
+  compareBtn?.addEventListener('click', () => {
+    setOff(!off);
+    apply();
+  });
 
   // choosing a second colour switches the bicolour option on
   form.addEventListener('change', (e) => {
@@ -31,7 +46,8 @@ export function setup({ section, form }) {
     const count = steps[+s.count];
     // the 3D headliner holds a fixed number of points: show the density proportionally
     const cap = car.starCapacity || maxStep;
-    car.setStars(1);
+    // the intensity setting dims the whole headliner (fibres off when compared)
+    car.setStars(off ? 0 : Math.max(0.2, (+s.intensity || 100) / 100));
     car.setStarlight({
       count: Math.max(1, Math.round((count / maxStep) * Math.min(cap, maxStep))),
       twinkle: s.opt.has('twinkle'),
@@ -51,6 +67,7 @@ export function setup({ section, form }) {
     s = readForm(form);
     const count = steps[+s.count];
     countLabel.textContent = `${count} étoiles`;
+    if (intensityLabel) intensityLabel.textContent = `${s.intensity || 100} %`;
     c2.classList.toggle('is-off', !s.opt.has('bicolor'));
     const opts = OPTIONS.filter((o) => s.opt.has(o.id));
     const optLabels = opts.map((o) => (o.id === 'constellation' ? `constellation ${CONSTELLATIONS[s.constellation]}` : o.label));
@@ -59,7 +76,7 @@ export function setup({ section, form }) {
     setQuote(section, {
       prestation: 'ciel-etoile',
       vehicle: label,
-      config: `Ciel étoilé — ${count} étoiles, couleur ${colorName('c1')}${s.opt.has('bicolor') ? ` / ${colorName('c2')}` : ''}${optLabels.length ? ', ' + optLabels.join(', ') : ''} — ${label}`,
+      config: `Ciel étoilé — ${count} étoiles, intensité ${s.intensity || 100} %, couleur ${colorName('c1')}${s.opt.has('bicolor') ? ` / ${colorName('c2')}` : ''}${optLabels.length ? ', ' + optLabels.join(', ') : ''} — ${label}`,
     });
     apply();
   }
@@ -68,6 +85,7 @@ export function setup({ section, form }) {
     mode: 'studio',
     initialView: 'plafond',
     update,
+    reset: () => setOff(false),
     async attach(v) {
       viewer = v;
       // seen up close in a small frame: slightly larger, brighter fibres than in the tour

@@ -1967,6 +1967,36 @@ p {
 .sim__actions .btn {
   flex: 1 1 auto;
 }
+.sim__reset,
+.sim__restored button {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: none;
+  border: 0;
+  padding: 8px 4px;
+  min-height: 40px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.sim__reset:hover,
+.sim__restored button:hover {
+  color: var(--ink);
+}
+.sim__restored {
+  margin: 0 0 14px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--ivory);
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+.sim__restored button {
+  min-height: 32px;
+  padding: 4px;
+}
 .sim .warning {
   margin-top: 12px;
 }
