@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { rng, lerp } from './math.js';
+import { rng } from './math.js';
 import { glowTexture } from './materials.js';
 import { POLYDALLE_GLSL, Batch, M, propMaterials, kochShelf, polisherWall, filmRack, tintBoard, towelCubbies } from './props.js';
 
