@@ -7,3 +7,5 @@ dist/
 assets-src/models/*.glb
 assets-src/models/*.usdz
 __pycache__/
+# untouched photos (plates, GPS position): only the retouched web versions are published
+assets-src/photos/originals/

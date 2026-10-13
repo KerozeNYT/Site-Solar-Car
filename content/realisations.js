@@ -20,7 +20,30 @@
  *   beforeAfter: { before: '/img/realisations/golf-r-avant.jpg', after: '/img/realisations/golf-r-apres.jpg', alt: 'Vitres arrière de la Golf R' },
  * },
  */
-export const realisations = [];
+export const realisations = [
+  {
+    id: 'audi-a5-coupe',
+    service: 'vitres-teintees',
+    vehicle: 'Audi A5 Coupé S line',
+    finish: 'Lunette et vitres arrière teintées',
+    text: 'Une lunette et des vitres arrière bien foncées, en contraste net avec la carrosserie blanche.',
+    // photos prepared by scripts/photos.mjs (plate cover, other plates pixelated, no metadata);
+    // a photo only shows once its web version exists in public/img/realisations/
+    photos: [
+      { id: 'audi-a5-coupe-34-arriere', alt: 'Audi A5 Coupé blanche, lunette et vitres arrière teintées, vue de trois quarts arrière devant l’atelier', focus: '62% 62%' },
+      { id: 'audi-a5-coupe-atelier', alt: 'Audi A5 Coupé blanche devant l’atelier SOLAR CAR à Vouvray', focus: '45% 62%' },
+      { id: 'audi-a5-coupe-profil', alt: 'Audi A5 Coupé blanche de profil, vitres teintées', focus: '50% 58%' },
+    ],
+  },
+  {
+    id: 'volvo-v60',
+    service: 'vitres-teintees',
+    vehicle: 'Volvo V60',
+    finish: 'Vitres arrière et lunette teintées',
+    text: 'Vitres arrière et lunette teintées sur ce break, pour l’intimité des passagers et le confort à bord.',
+    photos: [{ id: 'volvo-v60-34-arriere', alt: 'Volvo V60 bronze, vitres arrière et lunette teintées, vue de trois quarts arrière', focus: '45% 62%' }],
+  },
+];
 
 export const realisationsPage = {
   seo: {

@@ -405,6 +405,10 @@ const ctaLinks = (ctas = [], tourAt = {}) =>
 const still = (id, alt, { sizes = '100vw', eager = false, cls = '' } = {}) =>
   `<img class="${cls}" src="/stills/${id}-960.webp" srcset="/stills/${id}-960.webp 960w, /stills/${id}-1600.webp 1600w" sizes="${sizes}" width="1600" height="900" alt="${esc(alt)}" ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}>`;
 
+/** a real photo prepared by scripts/photos.mjs (public/img/realisations/<id>-960|1600.webp) */
+const photo = (p, { sizes = '100vw', eager = false, cls = '' } = {}) =>
+  `<img class="${cls}" src="/img/realisations/${p.id}-960.webp" srcset="/img/realisations/${p.id}-960.webp 960w, /img/realisations/${p.id}-1600.webp 1600w" sizes="${sizes}" width="1200" height="1600" alt="${esc(p.alt || '')}"${p.focus ? ` style="object-position:${esc(p.focus)}"` : ''} ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}>`;
+
 function ctaBand(ctx) {
   const c = ctx.home.ctaBand;
   return `<section class="cta-band">
@@ -597,6 +601,8 @@ function offersFor(ctx, slug) {
 }
 
 export function servicePage(ctx, s) {
+  // a real job photo for the header when one is published (content/realisations.js), else the 3D still
+  const hero = s.heroPhoto ? (ctx.realisations || []).flatMap((r) => r.photos || []).find((p) => p.id === s.heroPhoto) : null;
   const b = ctx.business;
   const others = ctx.services.filter((o) => o.slug !== s.slug);
   const law = s.law
@@ -614,13 +620,13 @@ export function servicePage(ctx, s) {
     provider: { '@id': abs(b, '/#entreprise') },
     areaServed: [{ '@type': 'City', name: b.address?.city }, { '@type': 'City', name: 'Tours' }, { '@type': 'AdministrativeArea', name: `${b.department} (${b.departmentCode})` }],
     url: abs(b, `/${s.slug}/`),
-    image: abs(b, `/stills/${s.still}-1600.jpg`),
+    image: abs(b, hero ? `/img/realisations/${hero.id}-1600.jpg` : `/stills/${s.still}-1600.jpg`),
     ...offersFor(ctx, s.slug),
   };
   const body = `
   <article class="service">
     <header class="service-hero">
-      <div class="service-hero__media">${still(s.still, `${s.name} — ${b.name}`, { eager: true })}</div>
+      <div class="service-hero__media">${hero ? `${photo(hero, { eager: true })}<p class="service-hero__credit">Réalisation de l’atelier ${esc(b.name)}</p>` : still(s.still, `${s.name} — ${b.name}`, { eager: true })}</div>
       <div class="container service-hero__copy">
         <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li aria-current="page">${esc(s.name)}</li></ol></nav>
         <p class="kicker">${esc(b.name)} · ${esc(placeLabel(b))}</p>
@@ -666,10 +672,12 @@ export function servicePage(ctx, s) {
       title,
       description: s.seo.description,
       path: `/${s.slug}/`,
-      image: `/stills/${s.still}-1600.jpg`,
+      image: hero ? `/img/realisations/${hero.id}-1600.jpg` : `/stills/${s.still}-1600.jpg`,
       bodyClass: 'page-service',
       extra: [ld(serviceLd), ld(faqLd(s.faq)), ld(breadcrumbLd(b, [{ name: 'Accueil', path: '/' }, { name: s.name, path: `/${s.slug}/` }]))].join('\n'),
-      preload: `<link rel="preload" as="image" href="/stills/${s.still}-1600.webp" imagesrcset="/stills/${s.still}-960.webp 960w, /stills/${s.still}-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`,
+      preload: hero
+        ? `<link rel="preload" as="image" href="/img/realisations/${hero.id}-1600.webp" imagesrcset="/img/realisations/${hero.id}-960.webp 960w, /img/realisations/${hero.id}-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`
+        : `<link rel="preload" as="image" href="/stills/${s.still}-1600.webp" imagesrcset="/stills/${s.still}-960.webp 960w, /stills/${s.still}-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`,
     },
     body
   );
@@ -964,10 +972,20 @@ function beforeAfter(ba, caption = '') {
 /** one job: photos or a before / after, the car, the work, a link to ask for the same */
 function realisationCard(ctx, r) {
   const s = ctx.services.find((x) => x.slug === r.service);
+  const shots = r.photos || [];
   const media = r.beforeAfter
     ? beforeAfter(r.beforeAfter)
-    : r.photos?.[0]
-      ? `<img class="work__img" src="${esc(r.photos[0].src)}" alt="${esc(r.photos[0].alt || r.vehicle)}" loading="lazy" decoding="async">`
+    : shots[0]
+      ? `<div class="work__media">${photo({ ...shots[0], alt: shots[0].alt || r.vehicle }, { sizes: '(min-width: 900px) 33vw, 100vw', cls: 'work__img' })}${
+          shots.length > 1
+            ? `<div class="work__thumbs" role="group" aria-label="Autres photos">${shots
+                .map(
+                  (p, i) =>
+                    `<a href="/img/realisations/${p.id}-1600.webp" data-work-photo="${p.id}" data-alt="${esc(p.alt || r.vehicle)}" data-focus="${esc(p.focus || '')}"${i === 0 ? ' aria-current="true"' : ''}><img src="/img/realisations/${p.id}-960.webp" alt="" width="96" height="128" loading="lazy" decoding="async"${p.focus ? ` style="object-position:${esc(p.focus)}"` : ''}><span class="visually-hidden">Photo ${i + 1}</span></a>`
+                )
+                .join('')}</div>`
+            : ''
+        }</div>`
       : '';
   return `<li class="work" id="realisation-${esc(r.id)}" data-service="${esc(r.service)}">
       ${media}

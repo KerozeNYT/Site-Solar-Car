@@ -117,3 +117,12 @@
   CLA, X6, Crafter, en plus de la Porsche), hauteur relevée par balayage de chaque modèle ;
   visible aussi sur les voitures garées en décor.
 - Aperçus des simulateurs vitres et feux régénérés (cache-plaque visible).
+
+### Photos de réalisations (chaîne prête, en attente des fichiers)
+- `scripts/photos.mjs` : pose du cache-plaque SOLAR CAR 37 en perspective sur la plaque, plaques
+  d'autres véhicules pixelisées, métadonnées retirées (position GPS des iPhone), versions web.
+- Dessin du cache-plaque partagé entre la 3D et les photos (`src/js/plate-art.js`).
+- Réalisations déclarées : Audi A5 Coupé S line (3 photos) et Volvo V60 ; elles s'affichent dès
+  que leurs photos retouchées existent. La photo de trois quarts arrière de l'Audi devient l'en-tête
+  de la page vitres teintées (avec la mention « Réalisation de l'atelier ») et son image de partage.
+- Cartes de la galerie : vignettes pour passer d'une photo à l'autre.

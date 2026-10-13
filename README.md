@@ -42,6 +42,15 @@ La carte (« Venir à l’atelier ») est une scène 3D servie par le site lui-m
 
 Le build d’aperçu utilise `SITE_BASE=/Site-Solar-Car/` (préfixe de toutes les adresses) et `PREVIEW=1` (pages en `noindex`, `robots.txt` fermé). Pour la mise en ligne sur le vrai domaine, construire sans ces variables (`npm run build`) et renseigner `siteUrl` dans `content/site.js`.
 
+## Photos de réalisations (galerie, page vitres teintées)
+
+1. Déposer les photos d'origine dans `assets-src/photos/originals/` (dossier hors dépôt : plaques et position GPS).
+2. Décrire chaque photo dans `assets-src/photos/photos.json` : coins de la plaque (fractions de la largeur et de la hauteur, dans l'ordre haut-gauche, haut-droite, bas-droite, bas-gauche) pour y poser le cache-plaque SOLAR CAR 37, zones à pixeliser (plaques d'autres véhicules).
+3. `node scripts/photos.mjs --debug` écrit les versions web sans métadonnées dans `public/img/realisations/` (et un contrôle des coins dans `.cache/photos/`).
+4. Déclarer la réalisation dans `content/realisations.js` : elle apparaît dans la galerie `/realisations/`, sur l'accueil et sur la page de la prestation ; `heroPhoto` (dans `content/site.js`) choisit la photo d'en-tête d'une prestation.
+
+Ne publier que des photos de véhicules dont le propriétaire est d'accord.
+
 ## Ajouter ou remplacer une voiture du simulateur
 
 1. Déposer le fichier dans `assets-src/models/` (un `.usdz` se convertit d’abord : `node scripts/convert-usdz.mjs fichier.usdz sortie.glb`).

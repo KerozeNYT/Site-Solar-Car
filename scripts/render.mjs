@@ -22,7 +22,11 @@ export async function renderSite(out, assets) {
   const vehicles = (await load('content/vehicles.js')).default;
   const { guides, guidesPage } = await load('content/guides.js');
   const { zones, zonesPage } = await load('content/zones.js');
-  const { realisations, realisationsPage } = await load('content/realisations.js');
+  const { realisations: allJobs, realisationsPage } = await load('content/realisations.js');
+  // a job photo is published only once scripts/photos.mjs has written its web versions; a job
+  // without any published photo (or before / after) is left out
+  const published = (p) => p.src || fs.existsSync(path.join(root, 'public', 'img', 'realisations', `${p.id}-1600.webp`));
+  const realisations = allJobs.map((r) => ({ ...r, photos: (r.photos || []).filter(published) })).filter((r) => r.photos.length || r.beforeAfter);
   // every distinct 3D model credit (tour car + simulator cars)
   const credits = [...new Set([car, ...Object.values(vehicles).map((v) => v.config)].filter((c) => c?.credit).map((c) => c.credit.text))];
   const flightTotal = flight.beats.reduce((a, b) => a + b.vh, 0);

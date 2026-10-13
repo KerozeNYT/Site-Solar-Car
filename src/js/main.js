@@ -216,6 +216,21 @@ document.querySelectorAll('[data-ba]').forEach((fig) => {
   range.addEventListener('input', set);
   set();
 });
+// a job's other photos: a tap on a thumbnail shows it in place (without JavaScript the link opens it)
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('[data-work-photo]');
+  if (!a) return;
+  e.preventDefault();
+  const box = a.closest('.work__media');
+  const img = box.querySelector('.work__img');
+  const id = a.dataset.workPhoto;
+  img.src = `${a.getAttribute('href').replace(/[^/]*$/, '')}${id}-960.webp`;
+  img.srcset = `${img.src} 960w, ${a.getAttribute('href')} 1600w`;
+  img.alt = a.dataset.alt;
+  img.style.objectPosition = a.dataset.focus || '';
+  box.querySelectorAll('[data-work-photo]').forEach((t) => t.toggleAttribute('aria-current', t === a));
+});
+
 // gallery filter by service (all jobs stay listed without JavaScript)
 const filter = document.querySelector('[data-works-filter]');
 if (filter) {

@@ -1356,6 +1356,19 @@ p {
   height: 100%;
   object-fit: cover;
 }
+.service-hero__credit {
+  position: absolute;
+  right: var(--gutter);
+  bottom: 14px;
+  z-index: 1;
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--white);
+  background: rgba(4, 10, 20, 0.55);
+}
 .service-hero__media::after {
   content: '';
   position: absolute;
@@ -3033,9 +3046,38 @@ p {
 .work[hidden] {
   display: none;
 }
+.work__media {
+  position: relative;
+}
 .work__img {
+  display: block;
   width: 100%;
+  height: auto;
   aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+.work__thumbs {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  gap: 6px;
+}
+.work__thumbs a {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 12px rgba(4, 10, 20, 0.35);
+}
+.work__thumbs a[aria-current] {
+  border-color: var(--gold-300);
+}
+.work__thumbs img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 .work__body {

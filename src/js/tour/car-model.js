@@ -11,6 +11,7 @@ import {
   vltToOpacity,
 } from './materials.js';
 import { rng, clamp } from './math.js';
+import { drawPlate, loadEmblem, PLATE_TEXT } from '../plate-art.js';
 
 /*
  * Loads a real car model (.glb) and exposes the same "service" API as the procedural car:
@@ -1031,7 +1032,7 @@ function buildDetailingFx(group, box) {
  * SOLAR CAR show plate on the rear bumper (520 x 110 mm, like a French plate): the emblem and
  * the name in gold on navy. Placed by casting a ray at the bumper, `y` metres above the ground.
  */
-async function addPlate(group, model, box, { y = 0.47, z = 0, text = 'SOLAR CAR 37', sub = 'VITRES TEINTÉES · DETAILING · VOUVRAY' } = {}) {
+async function addPlate(group, model, box, { y = 0.47, z = 0, text = PLATE_TEXT.text, sub = PLATE_TEXT.sub } = {}) {
   group.updateMatrixWorld(true);
   const toGroup = new THREE.Matrix4().copy(group.matrixWorld).invert();
   const meshes = [];
@@ -1047,53 +1048,9 @@ async function addPlate(group, model, box, { y = 0.47, z = 0, text = 'SOLAR CAR 
   if (n.lengthSq() < 1e-4 || n.x > 0) n.set(-1, 0, 0);
   n.normalize();
 
-  // texture: drawn once on a canvas, at 2 px per millimetre
+  // texture: the shared plate drawing (src/js/plate-art.js), at 2 px per millimetre
   await document.fonts?.ready;
-  const emblem = await new Promise((res) => {
-    const img = new Image();
-    img.onload = () => res(img);
-    img.onerror = () => res(null);
-    img.src = '/img/brand/embleme-256.webp';
-  });
-  const W = 1040;
-  const H = 220;
-  const c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
-  const g = c.getContext('2d');
-  const round = (x, y0, w, h, r) => {
-    g.beginPath();
-    g.moveTo(x + r, y0);
-    g.arcTo(x + w, y0, x + w, y0 + h, r);
-    g.arcTo(x + w, y0 + h, x, y0 + h, r);
-    g.arcTo(x, y0 + h, x, y0, r);
-    g.arcTo(x, y0, x + w, y0, r);
-    g.closePath();
-  };
-  const bg = g.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#13234a');
-  bg.addColorStop(1, '#070f22');
-  round(0, 0, W, H, 22);
-  g.fillStyle = bg;
-  g.fill();
-  const gold = g.createLinearGradient(0, 0, W, H);
-  gold.addColorStop(0, '#e5b445');
-  gold.addColorStop(0.3, '#a8691f');
-  gold.addColorStop(0.55, '#f1da93');
-  gold.addColorStop(0.8, '#b9792a');
-  gold.addColorStop(1, '#e9c56c');
-  round(9, 9, W - 18, H - 18, 16);
-  g.lineWidth = 6;
-  g.strokeStyle = gold;
-  g.stroke();
-  if (emblem) g.drawImage(emblem, 34, 28, 164, 164);
-  g.textBaseline = 'alphabetic';
-  g.fillStyle = gold;
-  g.font = '800 96px Archivo, "Arial Black", Arial, sans-serif';
-  g.fillText(text, 226, 128, W - 260);
-  g.fillStyle = '#e9edf5';
-  g.font = '600 27px Archivo, Arial, sans-serif';
-  g.fillText(sub.split('').join(String.fromCharCode(8202)), 230, 178, W - 270);
+  const c = drawPlate({ emblem: await loadEmblem(), text, sub });
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;

@@ -218,6 +218,8 @@ export const services = [
   {
     slug: 'vitres-teintees',
     shortName: 'Vitres teintées',
+    // header photo: a real job (content/realisations.js), used once its web version exists
+    heroPhoto: 'audi-a5-coupe-34-arriere',
     chapter: 'tint',
     still: 'tint',
     name: 'Vitres teintées',

@@ -1,0 +1,25 @@
+[
+  {
+    "id": "audi-a5-coupe-34-arriere",
+    "src": "audi-a5-coupe-34-arriere.jpg",
+    "plate": [[0.8120, 0.5750], [0.8753, 0.5570], [0.8780, 0.5800], [0.8160, 0.5985]],
+    "tone": -0.04,
+    "hide": [[0.195, 0.440, 0.050, 0.020]]
+  },
+  {
+    "id": "audi-a5-coupe-atelier",
+    "src": "audi-a5-coupe-atelier.jpg",
+    "plate": [[0.1240, 0.6960], [0.2200, 0.7100], [0.2190, 0.7310], [0.1220, 0.7150]],
+    "tone": -0.02
+  },
+  {
+    "id": "audi-a5-coupe-profil",
+    "src": "audi-a5-coupe-profil.jpg"
+  },
+  {
+    "id": "volvo-v60-34-arriere",
+    "src": "volvo-v60-34-arriere.jpg",
+    "plate": [[0.1310, 0.5860], [0.2610, 0.6020], [0.2580, 0.6340], [0.1290, 0.6200]],
+    "tone": -0.03
+  }
+]
