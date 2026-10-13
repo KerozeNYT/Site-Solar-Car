@@ -76,6 +76,20 @@ export function simTint(ctx) {
             <label class="zone__toggle"><input type="checkbox" name="front"> Vitres avant <small>conducteur + passager</small></label>
             ${chips('frontShade', shadeItems, '70')}
           </div>
+          <div class="zone is-off" data-zone="windshield">
+            <label class="zone__toggle"><input type="checkbox" name="windshield"> Pare-brise <small>film athermique ou irisé</small></label>
+            ${chips(
+              'windshieldFilm',
+              tint.windshield.films.map((f) => ({ value: f.id, label: `${f.label} · ${fmt(f.price)}`, swatch: f.iridescent ? 'linear-gradient(135deg,#3d6cff,#9b46ff 45%,#f7da78)' : `rgba(10,14,20,${(1 - f.vlt / 100) * 0.95 + 0.04})` })),
+              'athermique'
+            )}
+            <div class="zone__more" data-irise hidden>
+              <p class="zone__label">Couleur du film irisé</p>
+              ${chips('iriseColor', tint.windshield.colors.map((c) => ({ value: c.id, label: c.label, swatch: c.swatch })), tint.windshield.colors[0].id)}
+              <p class="zone__note">Effet caméléon : la teinte change selon l’angle et la lumière. La transmission lumineuse du film est précisée sur le devis (70 % minimum exigés sur le pare-brise).</p>
+            </div>
+            <p class="zone__note" data-wind-note>Le film athermique 70 % est conforme : il bloque la chaleur et les UV sans assombrir la route.</p>
+          </div>
           <div class="warning" data-front-warning hidden>
             <p><strong>Attention — réglementation :</strong> depuis le 1er janvier 2017, le pare-brise et les vitres latérales avant doivent laisser passer au moins ${tint.legalFrontMin} % de la lumière (décret n° 2016-448). Une teinte plus foncée à l’avant expose le conducteur à une amende de 135 € et au retrait de 3 points, sauf dérogation médicale.</p>
             <p>Cette pose est réalisée à la demande expresse du client, sous sa seule responsabilité : ${esc(ctx.business.name)} ne pourra être tenu responsable des conséquences de son utilisation sur la voie publique.</p>
@@ -136,6 +150,7 @@ export function tintPriceTable(ctx) {
       </tbody>
     </table>
     <p class="price-note">Vitres avant seules (sans forfait arrière) : <strong>${fmt(tint.frontOnly)}</strong>. Avec le forfait 3/4 arrière, les vitres avant ajoutent <strong>${fmt(tint.frontWithRear)}</strong>. Toutes les teintes au même prix : ${tint.shades.join(' %, ')} % de transmission lumineuse.</p>
+    <p class="price-note">Pare-brise : film athermique 70 % (conforme) <strong>${fmt(tint.windshield.films.find((f) => f.id === 'athermique').price)}</strong> · film irisé effet caméléon <strong>${fmt(tint.windshield.films.find((f) => f.iridescent).price)}</strong> (${tint.windshield.colors.map((c) => c.label.toLowerCase()).join(', ')}…).</p>
     <p class="price-note">« 3/4 arrière » : vitres latérales arrière et lunette arrière. Devis définitif après vérification du véhicule.</p>
   </div>
 </section>`;

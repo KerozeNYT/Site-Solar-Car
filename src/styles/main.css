@@ -1426,6 +1426,28 @@ p {
 .zone.is-off .chips {
   opacity: 0.5;
 }
+.zone__more,
+.zone__note {
+  grid-column: 1 / -1;
+}
+.zone__more[hidden],
+.zone__note[hidden] {
+  display: none;
+}
+.zone__label {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.zone__note {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.zone.is-off .zone__more,
+.zone.is-off .zone__note {
+  opacity: 0.55;
+}
 .sim__total {
   margin: 18px 0 6px;
   padding: 16px 18px;

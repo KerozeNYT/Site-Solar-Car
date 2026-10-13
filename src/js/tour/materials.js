@@ -295,6 +295,33 @@ export function makeLens() {
   return m;
 }
 
+/**
+ * Chameleon (iridescent) film on a glass made by makeGlass(): a reflected colour that slides
+ * from A (looking straight at the glass) to B (grazing angles). Off while uIrid = 0.
+ */
+export function addChameleon(m) {
+  const u = { uIrid: { value: 0 }, uIridA: { value: new THREE.Color(0x3d6cff) }, uIridB: { value: new THREE.Color(0xb04dff) } };
+  m.userData.chameleon = u;
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (sh, r) => {
+    prev.call(m, sh, r);
+    Object.assign(sh.uniforms, u);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uIrid; uniform vec3 uIridA; uniform vec3 uIridB;')
+      .replace(
+        'gl_FragColor = vec4( totalDiffuse',
+        `float cf = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
+        vec3 cham = mix(uIridA, uIridB, smoothstep(0.05, 0.8, cf));
+        totalSpecular += cham * uIrid * (0.12 + 0.58 * cf * cf);
+        totalDiffuse += cham * uIrid * 0.06;
+        gl_FragColor = vec4( totalDiffuse`
+      );
+  };
+  const key = m.customProgramCacheKey ? m.customProgramCacheKey() : '';
+  m.customProgramCacheKey = () => key + '-chameleon';
+  return u;
+}
+
 // ---------------------------------------------------------------- tail light (smoked film)
 export function makeTailLens() {
   const uniforms = { uSmoke: { value: 0 }, uBrake: { value: 0 } };

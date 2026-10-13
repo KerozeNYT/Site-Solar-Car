@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import {
   makeGlass,
+  addChameleon,
   makeLens,
   makeStarMaterial,
   makeGlow,
@@ -172,6 +173,7 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     };
     m.customProgramCacheKey = () => 'glass-drop-model';
   }
+  const chameleon = addChameleon(glass.wind);
   setMat(find(P.windshield), glass.wind);
   setMat(find(P.frontWindows?.L), glass.frontL);
   setMat(find(P.frontWindows?.R), glass.frontR);
@@ -407,6 +409,21 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     },
     setFrontVLT(v) {
       glass.frontL.opacity = glass.frontR.opacity = vltToOpacity(v);
+    },
+    /** windshield film: light transmission, and an iridescent (thin-film) sheen 0..1 */
+    setWindshield({ vlt = 0.8, irid = 0, film = [180, 400], colors = null } = {}) {
+      const m = glass.wind;
+      m.opacity = vltToOpacity(vlt);
+      if (m.iridescence > 0 !== irid > 0) m.needsUpdate = true;
+      m.iridescence = irid;
+      m.iridescenceIOR = 1.9;
+      m.iridescenceThicknessRange = film;
+      m.envMapIntensity = 1.35 + irid * 1.2;
+      chameleon.uIrid.value = irid;
+      if (colors) {
+        chameleon.uIridA.value.set(colors[0]);
+        chameleon.uIridB.value.set(colors[1]);
+      }
     },
     setWindowDrop(side, t) {
       const m = glass[side === 'L' ? 'frontL' : 'frontR'];

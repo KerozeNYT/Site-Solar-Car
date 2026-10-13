@@ -238,6 +238,10 @@ export const services = [
         a: 'Oui : certains films clairs conformes (70 % et plus) filtrent une partie de la chaleur et des UV sans assombrir la vitre.',
       },
       {
+        q: 'Peut-on poser un film sur le pare-brise ?',
+        a: 'Oui. Le film athermique 70 % (290 € TTC) reste conforme : il bloque la chaleur et les UV sans assombrir la route. Un film plus foncé est possible mais n’est ni conseillé ni légal. Le film irisé (350 € TTC) donne un effet caméléon bleu-violet, jaune doré ou rouge selon l’angle ; sa transmission lumineuse est précisée sur le devis.',
+      },
+      {
         q: 'Puis-je baisser mes vitres juste après la pose ?',
         a: 'Il faut laisser le film sécher quelques jours avant de manœuvrer les vitres. Nous vous donnons le délai exact selon le film et la saison.',
       },

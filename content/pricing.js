@@ -27,6 +27,22 @@ export const tint = {
   frontWithRear: 50,
   shades: [5, 15, 25, 35, 50, 70], // % of visible light transmitted
   legalFrontMin: 70,
+  // windshield film, priced on its own line. Clear heat-rejection film at 70 % = legal; darker
+  // films are possible but neither advised nor legal (price assumed the same as the 70 %:
+  // to confirm). Iridescent (chameleon) film: colour chosen below; `colors` = the two tones the
+  // 3D preview slides between with the viewing angle, `film` = thin-film thickness (nm).
+  windshield: {
+    films: [
+      { id: 'athermique', label: 'Athermique 70 %', vlt: 70, price: 290, legal: true },
+      { id: 'teinte50', label: 'Teinté 50 %', vlt: 50, price: 290, legal: false },
+      { id: 'irise', label: 'Irisé', vlt: 76, price: 350, iridescent: true },
+    ],
+    colors: [
+      { id: 'bleu-violet', label: 'Bleu-violet', swatch: 'linear-gradient(135deg,#3d6cff,#9b46ff)', colors: ['#3d6cff', '#b04dff'], film: [380, 460] },
+      { id: 'jaune-dore', label: 'Jaune doré', swatch: 'linear-gradient(135deg,#f7da78,#c4860f)', colors: ['#f2c94c', '#c77a12'], film: [180, 250] },
+      { id: 'rouge', label: 'Rouge', swatch: 'linear-gradient(135deg,#ff6a4d,#b0124f)', colors: ['#ff5a3c', '#c0145a'], film: [290, 350] },
+    ],
+  },
 };
 
 // Tinted lights: price per pair (front pair or rear pair), depending on the vehicle.

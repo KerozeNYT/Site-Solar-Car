@@ -404,6 +404,9 @@ export function posePreset(b, name, anchors = null) {
       return { pos: P(c.x - L * 0.12, Hh * 0.74, 0.0001), target: P(c.x + L * 0.3, Hh * 0.72, 0) };
     case 'plafond':
       return { pos: P(c.x + L * 0.04, Hh * 0.72, 0), target: P(c.x - L * 0.06, Hh * 1.3, 0.0001) };
+    case 'parebrise':
+      // above the bonnet, three-quarter: the windshield catches the light at a grazing angle
+      return { pos: P(b.max.x + r * 0.42, Hh * 1.55, b.min.z - r * 0.38), target: P(c.x + L * 0.1, Hh * 0.82, 0) };
     case 'flanc':
       return { pos: P(c.x - L * 0.05, Hh * 0.8, b.max.z + r * 0.98), target: P(c.x, Hh * 0.42, 0) };
     case '34avant':
