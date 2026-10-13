@@ -99,7 +99,14 @@ export async function setup({ section, form, view, reduceMotion = false }) {
   const modeNote = $('[data-mode-note]');
   const shared = new URLSearchParams(location.search).get('cfg');
   let note = '';
-  if (shared) note = decode(shared) ? 'Configuration partagée chargée.' : 'Lien de configuration incomplet : les éléments non reconnus ont été ignorés.';
+  if (shared) {
+    note = decode(shared) ? 'Configuration partagée chargée.' : 'Lien de configuration incomplet : les éléments non reconnus ont été ignorés.';
+    // applied once: a reload then keeps the visitor's own changes (remembered on the device)
+    const q = new URLSearchParams(location.search);
+    q.delete('cfg');
+    const rest = q.toString();
+    history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
+  }
   sanitize();
 
   // ---------------------------------------------------------------- the colour chart
@@ -203,7 +210,7 @@ export async function setup({ section, form, view, reduceMotion = false }) {
   });
 
   // ---------------------------------------------------------------- summary, quote, link
-  const filmText = (f) => `${f.brand}™ Série ${f.range} · ${f.code} · ${f.name} (${f.label.toLowerCase()}) · finition ${FINISHES[f.finish].fem}${f.effects.length ? `, ${f.effects.map((e) => EFFECTS[e].label.toLowerCase()).join(', ')}` : ''}`;
+  const filmText = (f) => `${f.brand}™ Série ${f.range} · ${f.code} · ${f.name} (${f.label.toLowerCase()}) · finition ${FINISHES[f.finish].fem}${f.effects.length ? `, effet ${f.effects.map((e) => EFFECTS[e].label.toLowerCase()).join(', ')}` : ''}`;
   function summary(s) {
     const lines = [`Type : ${MODE_LABEL[s.mode]}`];
     if (s.mode === 'complet') lines.push(`Carrosserie complète : ${filmText(byId.get(s.film.body))}`);
@@ -415,13 +422,15 @@ export async function setup({ section, form, view, reduceMotion = false }) {
       filter();
       showOrigin = false;
       syncOrigin();
-      if (shared) history.replaceState(null, '', location.pathname + location.hash);
       if (viewer) view('34avant');
     },
     async attach(v) {
       viewer = v;
       const entry = await v.setVehicle('suv');
       if (!entry) return;
+      // a vertical swipe on the car scrolls the page (OrbitControls sets « none »); sideways
+      // drags still turn the car, two fingers still zoom
+      v.renderer.domElement.style.touchAction = 'pan-y';
       three = build(v, quality, cov, zones);
       // a control must change something: zones or parts missing from the model are disabled
       for (const z of zones) if (!z.parts.every((n) => three.parts.has(n))) disable(`zone-${z.id}`);

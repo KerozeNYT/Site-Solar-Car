@@ -1,6 +1,6 @@
 # SOLAR CAR 37 — site vitrine
 
-Site statique optimisé SEO avec visite 3D pilotée au scroll (Three.js) : vitres teintées, feux teintés, detailing, ciel étoilé, rénovation de phares.
+Site statique optimisé SEO avec visite 3D pilotée au scroll (Three.js) : vitres teintées, feux teintés, detailing, covering et déchromage, ciel étoilé, rénovation de phares.
 
 ## Commandes
 
@@ -25,7 +25,9 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `content/car.js` | Voiture du studio (visite 3D, feux, phares, ciel étoilé, detailing) et correspondance de ses pièces |
 | `content/vehicles.js` | Voiture 3D de chaque catégorie du simulateur de vitres teintées (`config: null` = silhouette provisoire) ; `parked` = voitures garées en décor dans le studio et l’atelier (ordinateur uniquement) |
 | `src/js/tour/props.js` | Équipement de l’atelier : sol polydalle (dalles noires, anneau jaune autour de la voiture), rouleaux de film, tableau d’outils, polisseuses, étagère Koch-Chemie |
-| `content/cars/*.js` | Configuration des voitures du simulateur (A 45, A5 Sportback, CLA Shooting Brake, X6 M) |
+| `content/cars/*.js` | Configuration des voitures du simulateur (A 45, A5 Sportback, CLA Shooting Brake, X6 M, Crafter) ; `covering` dans `x6.js` = zones du simulateur de covering |
+| `content/covering.js` | Covering & déchromage : textes de la page, finitions et effets (rendu), films par défaut, mention « simulation indicative » |
+| `content/films/` | Nuancier : un fichier par marque et gamme (`3m-2080.js`), `index.js` liste les gammes intégrées |
 | `assets-src/models/*.prep.json` | Préparation de chaque modèle 3D (découpe des vitres, renommage, allègement) |
 | `design/logo/official/` | Logo officiel fourni ; `scripts/logo-assets.mjs` en dérive les versions web |
 
@@ -50,6 +52,14 @@ Le build d’aperçu utilise `SITE_BASE=/Site-Solar-Car/` (préfixe de toutes le
 4. Déclarer la réalisation dans `content/realisations.js` : elle apparaît dans la galerie `/realisations/`, sur l'accueil et sur la page de la prestation ; `heroPhoto` (dans `content/site.js`) choisit la photo d'en-tête d'une prestation.
 
 Ne publier que des photos de véhicules dont le propriétaire est d'accord.
+
+## Covering : ajouter une référence ou une marque
+
+Tout est décrit dans `docs/COVERING.md`. En bref :
+
+- **Une référence** : copier une ligne de `content/films/3m-2080.js`, lui donner un `id` nouveau (jamais réutilisé ni renommé : les liens partagés et les réglages mémorisés y renvoient), le code et le nom officiel tels qu’ils figurent sur la fiche 3M France, l’adresse de cette fiche et la date de vérification. La couleur d’aperçu reste une approximation.
+- **Une marque ou une gamme** : créer `content/films/<marque>-<gamme>.js` avec les mêmes champs et l’ajouter dans `content/films/index.js`. Seules les gammes listées là s’affichent.
+- Une référence vue seulement sur un site étranger va dans `pending` (jamais affichée) jusqu’à confirmation par le fournisseur.
 
 ## Ajouter ou remplacer une voiture du simulateur
 

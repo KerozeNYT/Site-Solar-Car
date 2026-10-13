@@ -2287,9 +2287,13 @@ p {
   height: 20px;
   accent-color: var(--gold-600);
 }
-.cov-zone.is-off .cov-target,
+/* a zone not ticked: its text stays readable (contrast), only the colour chip fades */
+.cov-zone.is-off .cov-current .swatch {
+  opacity: 0.45;
+}
+.cov-zone.is-off .cov-target span,
 .cov-zone.is-off .cov-current {
-  opacity: 0.5;
+  color: var(--muted);
 }
 .cov-dc {
   display: grid;

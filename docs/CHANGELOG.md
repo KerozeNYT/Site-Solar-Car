@@ -131,3 +131,31 @@
 - Si le service d'envoi refuse la demande (formulaire pas encore activé, panne, réseau), le visiteur
   voit « Envoyer ma demande par e-mail » (sa messagerie s'ouvre avec toute la demande rédigée) et
   « Appeler l'atelier », au lieu d'un simple message d'erreur.
+
+### Covering & déchromage
+- Nouvelle prestation et page `/covering-dechromage/` (H1 « Covering et déchromage automobile près de
+  Tours ») : trois offres (complet, partiel, déchromage) « Sur devis », simulateur, films, finitions et
+  préparation, tableau des références, réalisations (bloc prêt, vide pour l'instant), FAQ, devis.
+- Partout dans le site : menu « Nos prestations », cartes de l'accueil, accès direct, pied de page, cases
+  du formulaire, prestations liées, données structurées, sitemap.
+- Nuancier 3M™ Série 2080 : 29 références vérifiées sur 3M France (fiche et date pour chacune),
+  recherche par nom ou code, filtres famille / finition / effet, pastilles accessibles au clavier (une
+  seule tabulation, flèches), état choisi signalé par un anneau et une coche. 2080-HG61 et 2080-S327 :
+  vues seulement sur le site américain, non intégrées.
+- Simulateur sur le BMW X6 M déjà présent (pièces renommées, géométrie identique) : covering complet
+  (17 pièces peintes), partiel (toit, capot, coques de rétroviseurs, becquet, une référence chacun),
+  déchromage des vraies pièces chromées (calandre, ouïes d'ailes) en noir brillant, satiné ou mat,
+  combinable. Vitrages, pneus, jantes, optiques, grilles et joints jamais modifiés.
+- Vues 3/4 avant, profil, 3/4 arrière, toit ; « Voir l'origine » / « Voir ma configuration » ;
+  « Réinitialiser » ; récapitulatif copiable ; lien partageable (identifiants seulement, validés) ;
+  « Demander un devis pour cette configuration » préremplit le formulaire.
+- Performance : code et catalogue chargés à l'approche du simulateur ; sur téléphone et en mouvements
+  réduits, 3D au toucher de « Activer le simulateur 3D » ; un matériau par zone, aucun shader recréé au
+  changement de film (40 changements mesurés) ; densité de pixels 1 (téléphone) / 1,5 ; pas de voitures
+  garées ; relance contrôlée après perte du contexte 3D (tous les simulateurs).
+- Accueil : chapitre « 04 — Covering & déchromage » dans la visite (6,9 écrans au lieu de 6,3, autres
+  chapitres inchangés), point interactif sur la portière (clavier, toucher) : la caméra s'approche, un
+  film 3M™ 2080-M21 se pose sur la carrosserie, la peinture d'origine revient en sortie. JS ajouté :
+  1,6 Ko gzip ; aucun téléchargement covering à l'accueil.
+- Formulaire : protection contre les doublons (double clic, renvoi de la même demande dans les 15 min).
+- Détails, sources, mesures et procédure d'ajout d'une référence : `docs/COVERING.md`.

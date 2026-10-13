@@ -33,7 +33,7 @@ npm run build          # sans SITE_BASE ni PREVIEW : pages indexables, robots.tx
 | … | `/contact/` |
 
 Nouvelles URL indexables (sitemap) : `/`, `/vitres-teintees/`, `/feux-arriere-teintes/`,
-`/detailing-carrosserie/`, `/ciel-etoile/`, `/renovation-phares/`, `/atelier-vouvray/`, `/contact/`,
+`/detailing-carrosserie/`, `/covering-dechromage/`, `/ciel-etoile/`, `/renovation-phares/`, `/atelier-vouvray/`, `/contact/`,
 `/guides/` et ses 8 guides, `/zones-intervention/` et ses 14 pages locales, `/mentions-legales/`
 (et `/realisations/` dès la première réalisation).
 

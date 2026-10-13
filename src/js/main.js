@@ -330,9 +330,54 @@ if (form) {
     return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
+  // duplicates: one request at a time, and the same request sent again within 15 minutes is
+  // only re-sent on purpose (a double tap, a back-and-forth, a reload never sends it twice)
+  const DUP_KEY = 'sc37:derniere-demande';
+  const signature = () => {
+    const d = new FormData(form);
+    return JSON.stringify(['nom', 'prenom', 'email', 'telephone', 'marque', 'modele', 'message'].map((k) => String(d.get(k) || '').trim().toLowerCase()).concat(d.getAll('prestations').sort()));
+  };
+  const lastSent = () => {
+    try {
+      const v = JSON.parse(sessionStorage.getItem(DUP_KEY) || 'null');
+      return v && Date.now() - v.at < 15 * 60 * 1000 ? v : null;
+    } catch {
+      return null;
+    }
+  };
+  const remember = (sig) => {
+    try {
+      sessionStorage.setItem(DUP_KEY, JSON.stringify({ sig, at: Date.now() }));
+    } catch {
+      /* storage unavailable */
+    }
+  };
+  let sending = false;
+  let resendOk = false;
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (sending) return;
     status.className = 'form__status';
+    const sig = signature();
+    const prev = lastSent();
+    if (prev && prev.sig === sig && !resendOk) {
+      const minutes = Math.max(1, Math.round((Date.now() - prev.at) / 60000));
+      status.innerHTML = '';
+      const p = document.createElement('p');
+      p.textContent = `Cette demande nous a déjà été envoyée il y a ${minutes} min : inutile de la renvoyer, nous revenons vers vous.`;
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'btn btn--ghost btn--sm';
+      again.textContent = 'La renvoyer quand même';
+      again.addEventListener('click', () => {
+        resendOk = true;
+        form.requestSubmit();
+      });
+      status.append(p, again);
+      status.classList.add('is-ok');
+      return;
+    }
+    resendOk = false;
     if (!form.checkValidity()) {
       form.reportValidity();
       status.textContent = 'Merci de compléter les champs obligatoires.';
@@ -361,6 +406,7 @@ if (form) {
       return;
     }
     btn.disabled = true;
+    sending = true;
     status.textContent = 'Envoi en cours…';
     try {
       let res;
@@ -403,6 +449,7 @@ if (form) {
           fileInput.name = 'attachment';
           post.append(fileInput); // moved with its files
           document.body.append(post);
+          remember(sig);
           track('demande_envoyee', { pieces_jointes: files.length });
           post.submit();
           return;
@@ -416,6 +463,7 @@ if (form) {
         res = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
         if (!res.ok) throw new Error(String(res.status));
       }
+      remember(sig);
       form.reset();
       track('demande_envoyee', { pieces_jointes: 0 });
       status.textContent = 'Merci ! Votre demande a bien été envoyée, nous revenons vers vous rapidement.';
@@ -458,6 +506,7 @@ if (form) {
       status.classList.add('is-error');
     } finally {
       btn.disabled = false;
+      sending = false;
     }
   });
 }

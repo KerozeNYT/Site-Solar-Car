@@ -60,7 +60,7 @@ export async function initSimulator(section, { webgl = true, reduceMotion = fals
     startBtn.hidden = true;
     const p = document.createElement('p');
     p.className = 'sim__fallback';
-    p.textContent = 'La vue 3D n’est pas disponible sur cet appareil : le simulateur de prix reste utilisable.';
+    p.textContent = 'La vue 3D n’est pas disponible sur cet appareil : les réglages, le récapitulatif et la demande de devis restent utilisables.';
     viewEl.append(p);
     return;
   }

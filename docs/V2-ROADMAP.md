@@ -18,6 +18,7 @@ Statuts : À faire · En cours · Terminé et testé · Bloqué · En attente de
 | 8. Performance | Terminé et testé (labo) | 3D d'accueil différée sur mobile, image fixe + lancement volontaire sur connexion lente, 3D des simulateurs au toucher sur mobile, rendu à la demande, carte sans erreur sans WebGL | Lighthouse avant/après (LCP accueil mobile 38,4 s → 2,3 s ; page vitres mobile 6,8 Mio → 312 Kio) | Mesures sur vrais appareils après publication |
 | 9. SEO | Terminé (préproduction protégée) | `lastmod` réel par empreinte de contenu, 3 nouveaux guides factuels (prix, choix de teinte, nano-céramique), maillage prestation → tous ses guides, plan de migration `docs/MIGRATION-DOMAINE.md` | Audit 36 pages : 0 erreur, 0 lien cassé, 1 H1, titres ≤ 70 car., axe 0 | Inventaire des URL de l'ancien site, décision sur les pages locales |
 | 10. Tests et livraison | Terminé et testé (périmètre de la session) | Prix par défaut dans le HTML, serveur de test robuste, journal des tests | 36 pages (0 erreur, 0 lien cassé, axe 0), 4 scénarios clients, aperçu en sous-dossier simulé, lecture 3D du detailing, Lighthouse avant/après ; publications GitHub Pages vérifiées dans les Actions | Vrais téléphones, vrai GPU, formulaire réel (FormSubmit à activer) |
+| Covering & déchromage | Terminé et testé (labo) | Page, simulateur 3D (complet, partiel, déchromage), nuancier 3M™ Série 2080 (29 références vérifiées), chapitre et point interactif à l'accueil, anti-doublon du formulaire (`docs/COVERING.md`) | Audit 37 pages (0 erreur, 0 lien cassé, axe 0), axe sur le nuancier dans les 3 modes et sur le point ouvert, 40 changements sans shader ni téléchargement, sans WebGL, mouvements réduits, perte de contexte, sous-dossier de l'aperçu, Lighthouse A/B | Disponibilité des références chez le fournisseur, tarifs (« Sur devis »), photos de réalisations, mesures sur vrais appareils |
 
 ## Informations en attente de validation
 
@@ -33,6 +34,8 @@ Statuts : À faire · En cours · Terminé et testé · Bloqué · En attente de
 | Crédits modèles 3D | « à compléter selon la licence » | Licence et auteur de chaque modèle |
 | Hébergeur de production | GitHub Pages (aperçu) | Hébergeur retenu pour www.solarcar37.fr |
 | Conservation des demandes | « le temps nécessaire » | Proposition : 3 ans après le dernier contact (prospects), durée légale pour les clients |
+| Covering : références | 29 films 3M™ 2080 vérifiés sur 3M France ; HG61 et S327 non intégrés (vus seulement aux États-Unis) | Confirmer la disponibilité chez le fournisseur ; autres gammes à ajouter (TeckWrap, Coverstyl') ? |
+| Covering : tarifs | « Sur devis » partout | Donner des repères (partiel, déchromage) si l'atelier le souhaite |
 | Pages locales | 14 communes | Garder les 14, ou se concentrer sur 6 à 8 communes prioritaires enrichies ? |
 
 ## Avant la mise en production (rappel)
