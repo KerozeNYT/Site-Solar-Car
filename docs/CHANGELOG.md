@@ -107,3 +107,13 @@
   clients (citadine 5 %, phares, ciel étoilé, mobile sans GPU), aperçu GitHub Pages simulé en
   sous-dossier (visite, simulateur, formulaire avec photo, aucune ressource en erreur), lecture
   complète du detailing en 3D, Lighthouse avant/après.
+
+### Modèles 3D : Volkswagen Crafter et cache-plaques
+- Catégorie « utilitaire » du simulateur de vitres : Volkswagen Crafter fourni par l'atelier
+  (`.usdz` converti, 84 Mo → 2,9 Mo), peinture, vitres (pare-brise, portes avant, vitres
+  latérales, porte coulissante, portes arrière) et feux arrière nommés
+  (`assets-src/models/crafter.prep.json`, `content/cars/crafter.js`). Plus de silhouette provisoire.
+- Cache-plaque SOLAR CAR 37 posé sur la plaque d'origine de toutes les voitures 3D (A 45, A5,
+  CLA, X6, Crafter, en plus de la Porsche), hauteur relevée par balayage de chaque modèle ;
+  visible aussi sur les voitures garées en décor.
+- Aperçus des simulateurs vitres et feux régénérés (cache-plaque visible).

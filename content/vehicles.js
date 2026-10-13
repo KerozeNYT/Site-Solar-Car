@@ -10,6 +10,7 @@ import a45 from './cars/a45.js';
 import a5 from './cars/a5.js';
 import cla from './cars/cla.js';
 import x6 from './cars/x6.js';
+import crafter from './cars/crafter.js';
 
 export default {
   coupe: { config: porsche, preset: 'coupe', label: 'Coupé (Porsche 992 GT3 RS)' },
@@ -17,7 +18,7 @@ export default {
   berline: { config: a5, preset: 'berline', label: 'Berline (Audi A5 Sportback)' },
   break: { config: cla, preset: 'break', label: 'Break (Mercedes-AMG CLA 45 Shooting Brake)' },
   suv: { config: x6, preset: 'suv', label: 'SUV (BMW X6 M)' },
-  utilitaire: { config: null, preset: 'utilitaire', label: 'Utilitaire (silhouette provisoire)' },
+  utilitaire: { config: crafter, preset: 'utilitaire', label: 'Utilitaire (Volkswagen Crafter)' },
 };
 
 /**

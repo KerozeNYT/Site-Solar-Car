@@ -28,6 +28,8 @@ export default {
   },
   // lights glow from the model's own light texture (LED guides, angel-eye rings) behind glass
   lights: { textured: true },
+  // SOLAR CAR plate over the car's own plate: height of its centre above the ground (metres)
+  plate: { y: 1.02 },
   windowBelt: 0.92,
   windowDrop: 0.4,
   doors: {},

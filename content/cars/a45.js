@@ -26,6 +26,8 @@ export default {
     headLens: ['head_lens_L', 'head_lens_R'],
     hide: [],
   },
+  // SOLAR CAR plate over the car's own plate: height of its centre above the ground (metres)
+  plate: { y: 0.765 },
   windowBelt: 4.97,
   windowDrop: 1.6,
   doors: {},
