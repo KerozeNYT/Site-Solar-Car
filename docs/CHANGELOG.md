@@ -29,3 +29,13 @@
 - En-tête mobile : bouton « Devis » et bouton d'appel toujours visibles, hors du menu (la barre
   d'actions du bas est masquée pendant la visite 3D).
 - Indicateur de chargement de la 3D déplacé en haut sur mobile (il chevauchait un bouton).
+
+### Phase 3 — Design premium (accueil, accessibilité)
+- Accueil : « SOLAR CAR 37 » en grand (reflet doré lent), « Esthétique & personnalisation
+  automobile », « Atelier à Vouvray — Tours (37) », deux actions (« Demander un devis »,
+  « Découvrir l'expérience » qui fait entrer la caméra dans l'atelier), accès direct aux cinq
+  prestations, indication « faites défiler » quand la 3D est active.
+- « Passer la visite » devient « Aller aux prestations ».
+- Débordement horizontal mobile de l'accueil corrigé.
+- Accessibilité : contrastes des pastilles inactives conformes (4,5:1), `aside` imbriqués remplacés
+  (axe-core : 0 violation sur les 32 pages).

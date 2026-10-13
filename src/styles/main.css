@@ -642,6 +642,169 @@ p {
   font-size: clamp(1.02rem, 0.98rem + 0.25vw, 1.18rem);
   max-width: 54ch;
 }
+/* home: the brand first (who), the trade (what), the place (where), then two actions */
+.chapter__title--brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+  margin: 0.1em 0 0.55em;
+}
+.chapter__brand {
+  font-size: clamp(2.7rem, 1.5rem + 5vw, 5.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.012em;
+  font-stretch: 112%;
+  /* a slow pale-gold light passes over the white lettering */
+  background: linear-gradient(100deg, #fff 0%, #fff 40%, var(--gold-200) 50%, #fff 60%, #fff 100%);
+  background-size: 260% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 2px 18px rgba(4, 10, 20, 0.55));
+  animation: brand-sheen 8s ease-in-out 1.2s infinite;
+}
+@keyframes brand-sheen {
+  0%,
+  55% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0% 0;
+  }
+}
+.chapter__line {
+  font-size: clamp(0.8rem, 0.66rem + 0.5vw, 1.05rem);
+  line-height: 1.45;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--gold-200);
+}
+.btn__arrow {
+  display: inline-block;
+  animation: arrow-down 1.8s ease-in-out infinite;
+}
+@keyframes arrow-down {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+/* direct links to the five services, under the two main actions */
+.hero-quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 1.2em;
+}
+.hero-quick__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--on-dark-muted);
+}
+.hero-quick ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.hero-quick a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(233, 205, 130, 0.32);
+  background: rgba(4, 10, 20, 0.5);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--white);
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  text-shadow: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+.hero-quick a:hover,
+.hero-quick a:focus-visible {
+  border-color: var(--gold-300);
+  background: rgba(233, 205, 130, 0.16);
+  transform: translateY(-1px);
+}
+/* "scroll to enter": only when the live 3D tour is there */
+.hero-hint {
+  display: none;
+}
+.tour-live .tour .hero-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 1.4em 0 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: var(--on-dark-muted);
+}
+.hero-hint__mouse {
+  position: relative;
+  width: 18px;
+  height: 28px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  border-radius: 10px;
+  flex: none;
+}
+.hero-hint__mouse::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 2px;
+  height: 6px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: var(--gold-300);
+  animation: mouse-wheel 1.8s ease-in-out infinite;
+}
+@keyframes mouse-wheel {
+  0% {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@media (max-width: 760px) {
+  .hero-quick__label,
+  .tour-live .tour .hero-hint {
+    display: none;
+  }
+  .hero-quick ul {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(-1 * var(--gutter));
+    padding-inline: var(--gutter);
+  }
+  .chapter__title--brand {
+    margin-bottom: 0.4em;
+  }
+}
+
 /* the way into each service page: a large gold button that cannot be missed */
 .chapter__link {
   display: flex;
@@ -788,6 +951,7 @@ p {
   display: none;
 }
 .tour-live .tour .chapter__copy {
+  min-width: 0; /* a flex item: never wider than the screen because of a scrolling row inside */
   will-change: opacity, transform;
   max-width: min(540px, 40vw);
   margin-left: var(--gutter);
@@ -871,10 +1035,14 @@ p {
   font-size: 0.85rem;
   color: var(--on-dark);
 }
+/* top left, clear of the copy and its buttons */
+.tour-live .tour .tour__loading:not([hidden]) {
+  top: calc(var(--header-h) + 18px);
+  bottom: auto;
+}
 @media (max-width: 760px) {
   .tour-live .tour .tour__loading:not([hidden]) {
-    top: calc(var(--header-h) + 14px);
-    bottom: auto;
+    top: calc(var(--header-h) + 62px);
     padding: 6px 12px;
     font-size: 0.78rem;
   }
@@ -899,6 +1067,7 @@ p {
   .tour-live .tour .chapter__copy,
   .tour-live .tour .chapter--right .chapter__copy {
     max-width: none;
+    width: 100%;
     margin: 0;
     padding: 0 var(--gutter) 64px;
   }
@@ -1655,8 +1824,9 @@ p {
   grid-column: 1 / -1;
   margin-top: 6px;
 }
-.zone.is-off .chips {
-  opacity: 0.78;
+/* a zone not chosen yet: its chips stay readable (contrast), only the colour swatches fade */
+.zone.is-off .chips .swatch {
+  opacity: 0.45;
 }
 .zone__more,
 .zone__note {
@@ -1895,8 +2065,12 @@ p {
 .sim [data-quote][aria-disabled='true'] {
   opacity: 0.6;
 }
-[data-c2].is-off {
-  opacity: 0.45;
+/* second colour not used by the chosen mode: faded swatches, text still readable */
+[data-c2].is-off .swatch {
+  opacity: 0.4;
+}
+[data-c2].is-off .chip span {
+  color: var(--ink-soft);
 }
 .is-flash {
   animation: flash 0.9s ease;

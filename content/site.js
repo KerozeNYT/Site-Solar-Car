@@ -90,17 +90,22 @@ export const home = {
   },
   tour: {
     label: 'Visite de l’atelier en vol continu',
-    skip: 'Passer la visite',
+    skip: 'Aller aux prestations',
     loading: 'Préparation du studio 3D',
     chapters: {
       hero: {
-        kicker: 'Atelier automobile · Vouvray, près de Tours (37)',
-        title: 'Vitres teintées, detailing et rénovation de phares à Vouvray, près de Tours',
-        text: 'Films solaires, feux fumés, correction de peinture, ciel étoilé, optiques remises à neuf : entrez dans l’atelier SOLAR CAR 37 et suivez votre voiture, prestation par prestation.',
+        kicker: 'Atelier à Vouvray — Tours (37)',
+        // the H1 reads « SOLAR CAR 37 — Esthétique & personnalisation automobile »
+        brand: 'SOLAR CAR 37',
+        title: 'Esthétique & personnalisation automobile',
+        text: 'Vitres teintées, feux fumés, detailing et correction de peinture, ciel étoilé, rénovation de phares : un atelier dédié à Vouvray, près de Tours.',
         ctas: [
           { label: 'Demander un devis', href: '/contact/', primary: true },
-          { label: 'Voir les prestations', href: '#prestations' },
+          // jumps into the tour, to the first service (the template adds the scroll position)
+          { label: 'Découvrir l’expérience', href: '#chapitre-tint', tour: 'tint' },
         ],
+        quick: 'Accès direct',
+        hint: 'Faites défiler : la caméra entre dans l’atelier',
         side: 'left',
       },
       tint: {
@@ -212,6 +217,7 @@ export const home = {
 export const services = [
   {
     slug: 'vitres-teintees',
+    shortName: 'Vitres teintées',
     chapter: 'tint',
     still: 'tint',
     name: 'Vitres teintées',
@@ -264,6 +270,7 @@ export const services = [
   },
   {
     slug: 'feux-arriere-teintes',
+    shortName: 'Feux teintés',
     chapter: 'tail',
     still: 'tail',
     name: 'Feux arrière teintés',
@@ -305,6 +312,7 @@ export const services = [
   },
   {
     slug: 'detailing-carrosserie',
+    shortName: 'Detailing',
     chapter: 'detailing',
     still: 'detailing',
     name: 'Detailing carrosserie',
@@ -344,6 +352,7 @@ export const services = [
   },
   {
     slug: 'ciel-etoile',
+    shortName: 'Ciel étoilé',
     chapter: 'stars',
     still: 'stars',
     name: 'Ciel étoilé',
@@ -383,6 +392,7 @@ export const services = [
   },
   {
     slug: 'renovation-phares',
+    shortName: 'Phares',
     chapter: 'headlights',
     still: 'headlights',
     name: 'Rénovation de phares',

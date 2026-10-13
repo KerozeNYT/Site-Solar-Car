@@ -42,6 +42,15 @@ document.querySelectorAll('[data-submenu]').forEach((group) => {
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[data-scroll]');
   if (!a) return;
+  // into the 3D tour: its chapters are layered in one sticky stage, so scroll to the chapter's
+  // position along the tour (in viewport heights) and let the camera fly there
+  const tourEl = a.dataset.tourAt && html.classList.contains('tour-live') && document.querySelector('[data-tour]');
+  if (tourEl) {
+    e.preventDefault();
+    const top = tourEl.getBoundingClientRect().top + scrollY + (Number(a.dataset.tourAt) / 100) * innerHeight;
+    scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' });
+    return;
+  }
   const target = document.querySelector(a.getAttribute('href'));
   if (!target) return;
   e.preventDefault();

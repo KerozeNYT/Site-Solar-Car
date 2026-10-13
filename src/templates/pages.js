@@ -391,10 +391,14 @@ ${actionBar(ctx)}
 `;
 }
 
-const ctaLinks = (ctas = []) =>
+/** call-to-action links; `tour` = a chapter of the 3D tour to fly to (scroll position in vh) */
+const ctaLinks = (ctas = [], tourAt = {}) =>
   ctas.length
     ? `<div class="ctas">${ctas
-        .map((c) => `<a class="btn ${c.primary ? 'btn--primary' : 'btn--ghost'}" href="${c.href}"${c.href.startsWith('#') ? ' data-scroll' : ''}>${esc(c.label)}</a>`)
+        .map((c) => {
+          const at = c.tour && tourAt[c.tour] != null ? ` data-tour-at="${tourAt[c.tour] + 26}"` : '';
+          return `<a class="btn ${c.primary ? 'btn--primary' : 'btn--ghost'}" href="${c.href}"${c.href.startsWith('#') ? ' data-scroll' : ''}${at}>${esc(c.label)}${c.tour ? ' <span class="btn__arrow" aria-hidden="true">↓</span>' : ''}</a>`;
+        })
         .join('')}</div>`
     : '';
 
@@ -448,13 +452,18 @@ export function homePage(ctx) {
             ? `<p class="readout readout--ba" aria-live="off"><span class="readout__label">Optiques</span> <span class="readout__value" data-readout="beforeAfter">Avant</span></p>`
             : '';
       const contact = c.contact ? contactLines(b, { compact: true }) : '';
+      const heading = c.brand ? `<span class="chapter__brand">${esc(c.brand)}</span> <span class="chapter__line">${esc(c.title)}</span>` : esc(c.title);
+      const quick = c.quick
+        ? `<nav class="hero-quick" aria-label="Accès direct aux prestations"><span class="hero-quick__label">${esc(c.quick)}</span><ul>${services.map((s) => `<li><a href="/${s.slug}/">${esc(s.shortName || s.name)}</a></li>`).join('')}</ul></nav>`
+        : '';
+      const hint = c.hint ? `<p class="hero-hint" aria-hidden="true"><span class="hero-hint__mouse"></span>${esc(c.hint)}</p>` : '';
       return `<article class="chapter chapter--${c.side || 'left'}${i === 0 ? ' is-active' : ''}" data-chapter="${id}" id="chapitre-${id}">
         <div class="chapter__still">${still(id, altFor[id] || '', { eager: i === 0 })}</div>
         <div class="chapter__copy">
           <p class="kicker">${esc(c.kicker)}</p>
-          <${H} class="chapter__title">${esc(c.title)}</${H}>
+          <${H} class="chapter__title${c.brand ? ' chapter__title--brand' : ''}">${heading}</${H}>
           <p class="chapter__text">${esc(c.text)}</p>
-          ${readout}${contact}${ctaLinks(c.ctas)}${link}
+          ${readout}${contact}${ctaLinks(c.ctas, ctx.flightAt)}${quick}${link}${hint}
         </div>
       </article>`;
     })
@@ -722,12 +731,12 @@ export function contactPage(ctx) {
         <button class="btn btn--primary" type="submit">${demo ? 'Préparer l’e-mail de demande' : 'Envoyer la demande'}</button>
         <p class="form__status" role="status" aria-live="polite" data-form-status></p>
       </form>
-      <aside class="contact-card">
+      <div class="contact-card">
         <h2>Nous joindre</h2>
         <p>${esc(b.name)} — ${esc(b.address?.city || '')} (${esc(b.departmentCode)})</p>
         ${contactLines(b)}
         ${socialLinks(b, 'social')}
-      </aside>
+      </div>
     </div>
   </section>
   ${visitBlock(ctx, { title: 'Venir à l’atelier' })}`;
@@ -886,7 +895,7 @@ export function guidePage(ctx, x) {
     <div class="section section--tight">
       <div class="container container--narrow prose">
         ${x.sections.map(section).join('\n        ')}
-        ${service ? `<aside class="guide__cta"><p><strong>${esc(service.name)} à ${esc(b.address?.city || '')}, près de Tours.</strong> Essayez le simulateur 3D et obtenez votre tarif en direct.</p><div class="ctas"><a class="btn btn--primary" href="/${service.slug}/#simulateur">Ouvrir le simulateur</a><a class="btn btn--ghost" href="/contact/?prestation=${service.slug}">Demander un devis</a></div></aside>` : ''}
+        ${service ? `<div class="guide__cta"><p><strong>${esc(service.name)} à ${esc(b.address?.city || '')}, près de Tours.</strong> Essayez le simulateur 3D et obtenez votre tarif en direct.</p><div class="ctas"><a class="btn btn--primary" href="/${service.slug}/#simulateur">Ouvrir le simulateur</a><a class="btn btn--ghost" href="/contact/?prestation=${service.slug}">Demander un devis</a></div></div>` : ''}
       </div>
     </div>
     ${x.faq?.length ? faqBlock(x.faq) : ''}

@@ -24,7 +24,13 @@ export async function renderSite(out, assets) {
   // every distinct 3D model credit (tour car + simulator cars)
   const credits = [...new Set([car, ...Object.values(vehicles).map((v) => v.config)].filter((c) => c?.credit).map((c) => c.credit.text))];
   const flightTotal = flight.beats.reduce((a, b) => a + b.vh, 0);
-  const ctx = { ...site, car, assets, flightTotal, pricing, credits, guides, guidesPage, zones, zonesPage };
+  // scroll position (vh from the top of the tour) where each chapter starts
+  const flightAt = {};
+  flight.beats.reduce((acc, b) => {
+    if (b.chapter && !(b.chapter in flightAt)) flightAt[b.chapter] = acc;
+    return acc + b.vh;
+  }, 0);
+  const ctx = { ...site, car, assets, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage };
 
   const pages = [
     ['index.html', T.homePage(ctx)],
