@@ -24,10 +24,10 @@ export function setup({ section, form, view }) {
     const opts = headlights.options.filter((o) => s.opt.has(o.id));
     const price = headlights.renovation + opts.reduce((a, o) => a + o.price, 0);
     totalEl.textContent = fmt(price);
-    detailEl.textContent = ['Rénovation des phares (ponçage, polissage, vernis de protection)', ...opts.map((o) => o.label.toLowerCase())].join(' + ');
+    detailEl.textContent = ['Rénovation des deux phares (ponçage, polissage, vernis de protection)', ...opts.map((o) => o.label.toLowerCase())].join(' + ');
     setQuote(section, {
       prestation: 'renovation-phares',
-      config: `Rénovation de phares${opts.length ? ` + ${opts.map((o) => o.label).join(', ')}` : ''} — ${fmt(price)} TTC`,
+      config: `Rénovation des deux phares${opts.length ? ` + ${opts.map((o) => o.label).join(', ')}` : ''} — ${fmt(price)} TTC`,
     });
     fx?.set(targets());
   }

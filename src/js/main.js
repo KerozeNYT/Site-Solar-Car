@@ -114,6 +114,12 @@ if (!reduceMotion && 'IntersectionObserver' in window) {
   });
 }
 
+// ---------------------------------------------------------------- living gold buttons
+// each gold button gets its own rhythm so the light sweeps never fire all at once
+document.querySelectorAll('.btn--primary').forEach((btn, i) => {
+  btn.style.setProperty('--sheen-delay', `${(0.8 + ((i * 2.3) % 5.2) + Math.random() * 0.8).toFixed(2)}s`);
+});
+
 // ---------------------------------------------------------------- contact form
 const form = document.querySelector('[data-form]');
 if (form) {
@@ -165,16 +171,54 @@ if (form) {
       return;
     }
     const btn = form.querySelector('[type="submit"]');
+    // bots fill the hidden field: pretend nothing happened
+    if (form.elements._honey?.value || form.elements._gotcha?.value) return;
     btn.disabled = true;
     status.textContent = 'Envoi en cours…';
     try {
-      const res = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
-      if (!res.ok) throw new Error(String(res.status));
+      let res;
+      if (/formsubmit\.co\//.test(form.action)) {
+        // FormSubmit AJAX endpoint: readable labels in the e-mail, reply-to = the visitor
+        const d = new FormData(form);
+        const label = (v) => form.querySelector(`input[name="prestations"][value="${CSS.escape(v)}"]`)?.parentElement.textContent.trim() || v;
+        const prestations = d.getAll('prestations').map(label);
+        const payload = {
+          Nom: d.get('nom') || '',
+          email: d.get('email') || '',
+          Téléphone: d.get('telephone') || '',
+          Véhicule: d.get('vehicule') || '',
+          'Prestation(s)': prestations.join(', '),
+          Message: d.get('message') || '',
+          _subject: `Demande de devis${prestations.length ? ' – ' + prestations.join(', ') : ''} – ${d.get('vehicule') || ''}`,
+          _template: 'table',
+          _captcha: 'false',
+          _honey: '',
+        };
+        res = await fetch(form.action.replace('formsubmit.co/', 'formsubmit.co/ajax/'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json().catch(() => ({}));
+        // only a confirmed success counts (the service answers success: "true" or true)
+        if (!res.ok || String(json.success) !== 'true') throw new Error(json.message || String(res.status));
+      } else {
+        res = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error(String(res.status));
+      }
       form.reset();
       status.textContent = 'Merci ! Votre demande a bien été envoyée, nous revenons vers vous rapidement.';
       status.classList.add('is-ok');
     } catch {
-      status.textContent = 'L’envoi a échoué. Réessayez ou contactez-nous directement par téléphone ou e-mail.';
+      const mail = form.dataset.fallback;
+      status.innerHTML = '';
+      status.append('L’envoi n’a pas abouti. Réessayez dans un instant, ou contactez-nous directement' + (mail ? ' : ' : '.'));
+      if (mail) {
+        const a = document.createElement('a');
+        a.href = `mailto:${mail}`;
+        a.textContent = mail;
+        status.append(a);
+      }
       status.classList.add('is-error');
     } finally {
       btn.disabled = false;

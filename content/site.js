@@ -8,16 +8,21 @@
 
 export const business = {
   name: 'SOLAR CAR 37',
-  // Used for canonical URLs, sitemap and social cards (domain of the contact e-mail).
-  siteUrl: 'https://solarcar37.fr',
+  // Used for canonical URLs, sitemap and social cards. The domain comes back from local.fr at
+  // the end of the year; until then the preview runs on GitHub Pages (noindex).
+  siteUrl: 'https://www.solarcar37.fr',
   tagline: 'Vitres teintées, detailing & lumière automobile',
   department: 'Indre-et-Loire',
   departmentCode: '37',
   region: 'Centre-Val de Loire',
-  legalName: null, // e.g. 'SOLAR CAR 37 SAS' (as registered)
+  // Legal status: SOLAR CAR 37 is the trade name of an individual entrepreneur (EI,
+  // micro-entreprise). The law asks for the name followed by "EI" on documents.
+  legalName: 'Nicolas MALAGA EI',
+  legalForm: 'Entrepreneur individuel (EI) — micro-entreprise',
+  owner: 'Nicolas MALAGA',
   phone: '06 12 04 57 00',
   email: 'contact@solarcar37.fr',
-  emailAlt: 'contact.solarcar37@gmail.com',
+  emailAlt: null, // a second address to display (none: only contact@ is public)
   address: {
     street: '395 rue des Entrepreneurs',
     postalCode: '37210',
@@ -49,9 +54,11 @@ export const business = {
   nearby: ['Tours', 'Rochecorbon', 'Vernou-sur-Brenne', 'Montlouis-sur-Loire', 'Saint-Pierre-des-Corps', 'Parçay-Meslay', 'Monnaie', 'Saint-Cyr-sur-Loire', 'Amboise'],
   siret: '890 162 761 00039',
   priceRange: '€€',
-  // Where the contact form posts (Formspree, Getform, your own endpoint...). When null the
-  // form is a clearly labelled demo and nothing is sent.
-  formEndpoint: null,
+  // Where the contact form posts. FormSubmit (formsubmit.co, free, no account) forwards each
+  // request by e-mail to the address in the URL; the very first request sends an "Activate
+  // Form" e-mail to that address, to click once. After activation FormSubmit e-mails a random
+  // alias: it can replace the address below. When null the form opens the visitor's e-mail app.
+  formEndpoint: 'https://formsubmit.co/contact@solarcar37.fr',
 };
 
 export const nav = [
@@ -69,7 +76,7 @@ export const home = {
   seo: {
     title: 'Vitres teintées & detailing à Vouvray, près de Tours | SOLAR CAR 37',
     description:
-      "Atelier SOLAR CAR 37 à Vouvray, près de Tours : vitres teintées dès 210 € TTC, feux fumés, phares 79 €, detailing, céramique, ciel étoilé. Simulateurs 3D.",
+      "Atelier SOLAR CAR 37 à Vouvray, près de Tours : vitres teintées dès 210 € TTC, feux fumés, phares 79 € la paire, detailing, céramique, ciel étoilé. Simulateurs 3D.",
   },
   tour: {
     label: 'Visite de l’atelier en vol continu',
@@ -365,9 +372,9 @@ export const services = [
     name: 'Rénovation de phares',
     short: 'Phares jaunis ou ternes : ponçage, polissage et protection anti-UV.',
     seo: {
-      title: 'Rénovation de phares à Vouvray (Tours) : 79 € TTC | SOLAR CAR 37',
+      title: 'Rénovation de phares à Vouvray (Tours) : 79 € la paire | SOLAR CAR 37',
       description:
-        'Phares jaunis ou opaques : ponçage, polissage et protection à Vouvray (37), près de Tours. Rénovation 79 € TTC, traitement céramique +30 €. Avant/après en 3D.',
+        'Phares jaunis ou opaques : ponçage, polissage et protection à Vouvray (37), près de Tours. Rénovation des deux phares 79 € TTC, céramique +30 €. Avant/après en 3D.',
     },
     h1: 'Rénovation de phares',
     intro:
@@ -450,7 +457,8 @@ export const legalPage = {
     title: 'Mentions légales et confidentialité | SOLAR CAR 37',
     description: 'Mentions légales, hébergement et politique de confidentialité du site SOLAR CAR 37.',
   },
-  // Host details are required by French law (LCEN). Fill in once the hosting is chosen.
-  host: { name: null, address: null, phone: null },
-  publisher: null, // directeur de la publication
+  // Host details are required by French law (LCEN). The site is published with GitHub Pages;
+  // change this if it moves to another host.
+  host: { name: 'GitHub, Inc. (GitHub Pages)', address: '88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis', phone: null },
+  publisher: 'Nicolas MALAGA', // directeur de la publication
 };

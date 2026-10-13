@@ -209,14 +209,56 @@ p {
   transform: translateY(1px);
 }
 .btn--primary {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   background: var(--gold-metal);
   background-size: 160% 100%;
   color: var(--navy-900);
   box-shadow: 0 10px 30px -14px rgba(162, 106, 29, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s ease, background-position 0.6s ease;
+}
+/* living gold: a light sweep crosses the button every few seconds (staggered per button by
+   main.js through --sheen-delay), the metal drifts and the button lifts under the cursor */
+.btn--primary::after {
+  content: '';
+  position: absolute;
+  inset: -2px auto -2px 0;
+  width: 55%;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 252, 238, 0) 20%, rgba(255, 252, 238, 0.75) 50%, rgba(255, 252, 238, 0) 80%, transparent 100%);
+  transform: translateX(-130%) skewX(-18deg);
+  animation: btn-sheen 6.5s cubic-bezier(0.4, 0, 0.2, 1) var(--sheen-delay, 1.2s) infinite;
 }
 .btn--primary:hover {
   color: var(--navy-900);
   background-position: 100% 0;
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px -14px rgba(196, 139, 46, 0.95), 0 0 0 4px rgba(233, 205, 130, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+.btn--primary:hover::after {
+  animation: btn-sheen-hover 0.9s cubic-bezier(0.4, 0, 0.2, 1) 1;
+}
+.btn--primary:active {
+  transform: translateY(0);
+}
+@keyframes btn-sheen {
+  0% {
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  16%,
+  100% {
+    transform: translateX(260%) skewX(-18deg);
+  }
+}
+@keyframes btn-sheen-hover {
+  from {
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(260%) skewX(-18deg);
+  }
 }
 .btn--ghost {
   --b: currentColor;
@@ -2119,8 +2161,12 @@ p {
 
 @media (prefers-reduced-motion: reduce) {
   .marquee__track,
-  .map-pin__badge {
+  .map-pin__badge,
+  .btn--primary::after {
     animation: none;
+  }
+  .btn--primary:hover {
+    transform: none;
   }
   ::view-transition-old(root),
   ::view-transition-new(root) {

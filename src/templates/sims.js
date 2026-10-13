@@ -218,7 +218,7 @@ export function simHeadlights(ctx) {
   return shell({
     kind: 'headlights',
     title: 'Avant / après : la rénovation de vos phares',
-    intro: 'Faites glisser le curseur pour polir l’optique jaunie, allumez les phares pour comparer : rénovation à 79 € TTC, traitement céramique en option (+30 €).',
+    intro: 'Faites glisser le curseur pour polir l’optique jaunie, allumez les phares pour comparer : rénovation des deux phares à 79 € TTC, traitement céramique en option (+30 €).',
     poster: 'headlights',
     posterAlt: 'Phares de la Porsche après rénovation',
     views: [

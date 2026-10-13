@@ -136,9 +136,9 @@ export const guides = [
     slug: 'phares-jaunis-renovation',
     title: 'Phares jaunis ou opaques : pourquoi et comment les rénover',
     seo: {
-      title: 'Phares jaunis : causes et rénovation (79 €) | SOLAR CAR 37',
+      title: 'Phares jaunis : causes et rénovation (79 € la paire) | SOLAR CAR 37',
       description:
-        'Pourquoi les optiques jaunissent, ce que change une rénovation (ponçage, polissage, protection) et quand remplacer le phare. Rénovation 79 € TTC près de Tours.',
+        'Pourquoi les optiques jaunissent, ce que change une rénovation (ponçage, polissage, protection) et quand remplacer le phare. Rénovation des deux phares 79 € TTC près de Tours.',
     },
     kicker: 'Entretien',
     updated: '2026-10-13',
@@ -171,7 +171,7 @@ export const guides = [
           'application d’une protection pour ralentir le retour du jaunissement.',
         ],
         p: [
-          'À l’atelier, la rénovation est à 79 € TTC. Le traitement céramique en option (+30 €) renforce la protection de l’optique dans le temps.',
+          'À l’atelier, la rénovation des deux phares est à 79 € TTC. Le traitement céramique en option (+30 €) renforce la protection de l’optique dans le temps.',
         ],
       },
       {

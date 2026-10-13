@@ -43,7 +43,7 @@ export const lights = {
 export const headlights = {
   validated: true,
   currency: 'EUR',
-  // price for the headlights of the vehicle (to confirm: pair)
+  // price for both headlights (the pair)
   renovation: 79,
   options: [{ id: 'ceramic', label: 'Traitement céramique', price: 30 }],
 };

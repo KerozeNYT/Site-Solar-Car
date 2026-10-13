@@ -492,7 +492,7 @@ function offersFor(ctx, slug) {
   if (slug === 'renovation-phares')
     return {
       offers: [
-        { '@type': 'Offer', name: 'Rénovation de phares', price: String(headlights.renovation), priceCurrency: 'EUR', priceSpecification: { ...ttc, price: headlights.renovation } },
+        { '@type': 'Offer', name: 'Rénovation des deux phares', price: String(headlights.renovation), priceCurrency: 'EUR', priceSpecification: { ...ttc, price: headlights.renovation } },
         ...headlights.options.map((o) => ({ '@type': 'Offer', name: `Option : ${o.label}`, price: String(o.price), priceCurrency: 'EUR', priceSpecification: { ...ttc, price: o.price } })),
       ],
     };
@@ -607,6 +607,7 @@ function guideFor(ctx, slug) {
 export function contactPage(ctx) {
   const { contactPage: c, business: b, services } = ctx;
   const demo = !b.formEndpoint;
+  const formsubmit = /formsubmit\.co/.test(b.formEndpoint || '');
   const body = `
   <section class="section page-intro">
     <div class="container container--narrow">
@@ -617,7 +618,7 @@ export function contactPage(ctx) {
   </section>
   <section class="section section--tight">
     <div class="container contact-grid">
-      <form class="form" data-form ${demo ? `data-mailto="${esc(b.email || '')}"` : `action="${esc(b.formEndpoint)}" method="post"`} novalidate>
+      <form class="form" data-form ${demo ? `data-mailto="${esc(b.email || '')}"` : `action="${esc(b.formEndpoint)}" method="post" data-fallback="${esc(b.email || '')}"`} novalidate>
         ${demo ? `<p class="form__demo" role="note">Votre demande s’ouvre dans votre messagerie, adressée à ${esc(b.email)} : il ne reste qu’à l’envoyer. Vous pouvez aussi nous appeler au ${esc(b.phone)}.</p>` : ''}
         <div class="form__row">
           <label for="f-name">Nom et prénom</label>
@@ -642,7 +643,8 @@ export function contactPage(ctx) {
         <div class="form__row form__consent">
           <label class="choice"><input type="checkbox" name="consentement" required> J’accepte que mes données soient utilisées pour répondre à ma demande (voir <a href="/mentions-legales/#confidentialite">confidentialité</a>).</label>
         </div>
-        <input type="text" name="_gotcha" class="visually-hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <input type="text" name="${formsubmit ? '_honey' : '_gotcha'}" class="visually-hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+        ${formsubmit ? '<input type="hidden" name="_subject" value="Demande de devis depuis le site"><input type="hidden" name="_template" value="table">' : ''}
         <button class="btn btn--primary" type="submit">${demo ? 'Préparer l’e-mail de demande' : 'Envoyer la demande'}</button>
         <p class="form__status" role="status" aria-live="polite" data-form-status></p>
       </form>
@@ -667,7 +669,7 @@ export function legalPage(ctx) {
     <div class="container container--narrow prose">
       <h1>Mentions légales</h1>
       <h2>Éditeur du site</h2>
-      <p>${todo(b.legalName || b.name, 'Raison sociale')}<br>${todo(addressLine(b), 'Adresse du siège')}<br>SIRET : ${todo(b.siret, 'SIRET')}<br>Contact : ${todo(b.email || b.phone, 'E-mail ou téléphone')}</p>
+      <p><strong>${esc(b.name)}</strong>${b.legalName ? ` — nom commercial de ${esc(b.legalName)}` : ''}<br>${b.legalForm ? `${esc(b.legalForm)}<br>` : ''}${todo(addressLine(b), 'Adresse du siège')}<br>SIRET : ${todo(b.siret, 'SIRET')}<br>Téléphone : ${todo(b.phone, 'Téléphone')}<br>E-mail : ${todo(b.email, 'E-mail')}</p>
       <p>Directeur de la publication : ${todo(l.publisher, 'Nom')}</p>
       <h2>Hébergement</h2>
       <p>${todo(l.host?.name, 'Hébergeur')}<br>${todo(l.host?.address, 'Adresse de l’hébergeur')}</p>
@@ -675,7 +677,9 @@ export function legalPage(ctx) {
       <p>Les textes, visuels et le logo de ${esc(b.name)} sont protégés. Les marques et modèles de véhicules apparaissant sur le site appartiennent à leurs propriétaires respectifs ; leur présence n’implique aucun partenariat.</p>
       ${(ctx.credits || []).length ? `<p>Modèles 3D utilisés sur le site :</p><ul>${ctx.credits.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
       <h2 id="confidentialite">Confidentialité</h2>
-      <p>Les informations transmises via le formulaire de contact servent uniquement à répondre à votre demande et ne sont ni vendues ni cédées. Vous pouvez demander leur consultation, rectification ou suppression en nous écrivant.</p>
+      <p>Les informations transmises via le formulaire de contact servent uniquement à répondre à votre demande (devis, prise de rendez-vous) et ne sont ni vendues ni cédées. Responsable du traitement : ${esc(b.owner || b.name)}.</p>
+      ${b.formEndpoint && /formsubmit\.co/.test(b.formEndpoint) ? '<p>Le formulaire est acheminé par le service FormSubmit (formsubmit.co), qui transmet votre demande par e-mail à l’atelier sans la publier. Elle est ensuite conservée dans notre messagerie le temps nécessaire au suivi de votre demande.</p>' : ''}
+      <p>Vous pouvez demander la consultation, la rectification ou la suppression de vos données en nous écrivant${b.email ? ` à ${esc(b.email)}` : ''}.</p>
       <p>Ce site n’utilise pas de cookie publicitaire ni d’outil de mesure d’audience tiers. Les polices de caractères sont hébergées sur le site lui-même.</p>
     </div>
   </section>`;
