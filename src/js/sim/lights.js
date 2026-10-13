@@ -13,6 +13,8 @@ export function setup({ section, form, view }) {
   const detailEl = section.querySelector('[data-detail]');
   const quote = section.querySelector('[data-quote]');
   const zones = Object.fromEntries([...section.querySelectorAll('[data-zone]')].map((z) => [z.dataset.zone, z]));
+  const materialNotes = [...section.querySelectorAll('[data-material-note]')];
+  const material = () => lights.materials.find((m) => m.id === s.material) || lights.materials[0];
   const smokeOf = (id) => lights.shades.find((x) => String(x.id) === String(id))?.smoke ?? 0;
   const labelOf = (id) => lights.shades.find((x) => String(x.id) === String(id))?.label ?? '';
   let viewer = null;
@@ -45,19 +47,22 @@ export function setup({ section, form, view }) {
     s = readForm(form);
     zones.rear.classList.toggle('is-off', !s.rear);
     zones.front.classList.toggle('is-off', !s.front);
+    const m = material();
+    materialNotes.forEach((el) => (el.hidden = el.dataset.materialNote !== m.id));
     const parts = [];
     if (s.rear) parts.push(`feux arrière ${labelOf(s.rearShade).toLowerCase()}`);
     if (s.front) parts.push(`feux avant ${labelOf(s.frontShade).toLowerCase()}`);
-    // price per pair (front or rear), between min and max depending on the vehicle
+    // price per pair (front or rear), between min and max depending on the vehicle; a price
+    // waiting for validation is never shown: « Sur devis »
     const pairs = (s.rear ? 1 : 0) + (s.front ? 1 : 0);
     price = pairs;
-    const range = pairs ? fmtRange(lights.perPair.min * pairs, lights.perPair.max * pairs) : '';
-    totalEl.textContent = pairs ? range : '—';
+    const range = pairs && m.validated ? `${fmtRange(m.perPair.min * pairs, m.perPair.max * pairs)} TTC` : 'sur devis';
+    totalEl.textContent = !pairs ? '—' : m.validated ? fmtRange(m.perPair.min * pairs, m.perPair.max * pairs) : 'Sur devis';
     detailEl.textContent = pairs
-      ? `${parts.join(' + ')} — ${pairs} paire${pairs > 1 ? 's' : ''}, tarif selon le véhicule`
+      ? `${m.label} — ${parts.join(' + ')} — ${pairs} paire${pairs > 1 ? 's' : ''}, ${m.validated ? 'tarif indicatif selon le véhicule' : 'tarif établi sur devis'}`
       : 'Cochez les feux à teinter.';
     quote.setAttribute('aria-disabled', String(!pairs));
-    setQuote(section, { prestation: 'feux-arriere-teintes', config: pairs ? `Feux teintés — ${parts.join(', ')} — ${range} TTC` : '' });
+    setQuote(section, { prestation: 'feux-arriere-teintes', config: pairs ? `Feux teintés — ${m.label} — ${parts.join(', ')} — ${range}` : '' });
     fx?.set(targets());
   }
 

@@ -3,6 +3,7 @@
  * usable without WebGL); src/js/sim/*.js binds them to the 3D viewer and computes prices.
  */
 import { esc } from './pages.js';
+import { glazing, glazingReminder, lightsRule, roadStatus } from '../../content/regulation.js';
 
 const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
@@ -32,6 +33,12 @@ function shell({ kind, title, intro, poster, posterAlt, views, panel, tag = '' }
 </section>`;
 }
 
+/** road status line of a window zone (updated live by src/js/sim/tint.js) */
+const road = (zone, vlt) => {
+  const r = roadStatus(zone, vlt);
+  return `<p class="road road--${r.id}" data-road="${zone}"><strong>${esc(r.label)}</strong> <span>${esc(r.note)}</span></p>`;
+};
+
 const chips = (name, items, checked, type = 'radio') =>
   `<div class="chips">${items
     .map(
@@ -50,7 +57,7 @@ const vehicleGroup = (pricing, legend = 'Votre véhicule', checked = 'berline') 
         </fieldset>`;
 
 const total = (note = '', { quote = false } = {}) => `<div class="sim__total" aria-live="polite">
-          <span class="sim__total-label">${quote ? 'Tarif' : 'Votre tarif TTC'}</span>
+          <span class="sim__total-label">${quote ? 'Tarif' : 'Tarif indicatif TTC'}</span>
           <span class="sim__total-value" data-total>${quote ? 'Sur devis' : '—'}</span>
           <p class="sim__detail" data-detail>${esc(note)}</p>
         </div>`;
@@ -71,10 +78,12 @@ export function simTint(ctx) {
           <div class="zone" data-zone="rear">
             <label class="zone__toggle"><input type="checkbox" name="rear" checked> 3/4 arrière <small>vitres latérales arrière + lunette</small></label>
             ${chips('rearShade', shadeItems, '15')}
+            ${road('rear', 15)}
           </div>
           <div class="zone is-off" data-zone="front">
             <label class="zone__toggle"><input type="checkbox" name="front"> Vitres avant <small>conducteur + passager</small></label>
             ${chips('frontShade', shadeItems, '70')}
+            ${road('front', 70)}
           </div>
           <div class="zone is-off" data-zone="windshield">
             <label class="zone__toggle"><input type="checkbox" name="windshield"> Pare-brise <small>film athermique ou irisé</small></label>
@@ -86,14 +95,13 @@ export function simTint(ctx) {
             <div class="zone__more" data-irise hidden>
               <p class="zone__label">Couleur du film irisé</p>
               ${chips('iriseColor', tint.windshield.colors.map((c) => ({ value: c.id, label: c.label, swatch: c.swatch })), tint.windshield.colors[0].id)}
-              <p class="zone__note">Effet caméléon : la teinte change selon l’angle et la lumière. La transmission lumineuse du film est précisée sur le devis (70 % minimum exigés sur le pare-brise).</p>
+              <p class="zone__note">Effet caméléon : la teinte change selon l’angle et la lumière. La référence du film et sa transmission figurent sur le devis.</p>
             </div>
-            <p class="zone__note" data-wind-note>Le film athermique 70 % est conforme : il bloque la chaleur et les UV sans assombrir la route.</p>
+            ${road('windshield', tint.windshield.films[0].vlt)}
           </div>
           <div class="warning" data-front-warning hidden>
-            <p><strong>Attention — réglementation :</strong> depuis le 1er janvier 2017, le pare-brise et les vitres latérales avant doivent laisser passer au moins ${tint.legalFrontMin} % de la lumière (décret n° 2016-448). Une teinte plus foncée à l’avant expose le conducteur à une amende de 135 € et au retrait de 3 points, sauf dérogation médicale.</p>
-            <p>Cette pose est réalisée à la demande expresse du client, sous sa seule responsabilité : ${esc(ctx.business.name)} ne pourra être tenu responsable des conséquences de son utilisation sur la voie publique.</p>
-            <label class="choice"><input type="checkbox" name="ack" data-ack> J’ai pris connaissance de la réglementation et j’en accepte la responsabilité.</label>
+            <p><strong>Réglementation (${esc(glazing.article)}) :</strong> ${esc(glazingReminder)}</p>
+            <p>Les configurations marquées « visualisation esthétique » sont montrées pour le rendu : elles ne sont pas autorisées sur la voie publique. L’atelier vous conseille une alternative adaptée.</p>
           </div>
         </fieldset>
         <fieldset class="sim__group">
@@ -112,7 +120,7 @@ export function simTint(ctx) {
         </fieldset>
         ${total('Choisissez vos vitres')}
         ${actions('vitres-teintees', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Avant / après</button>')}
-        <p class="price-note">Véhicules 3D présentés à titre d’illustration de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle. Crédits des modèles : <a href="/mentions-legales/">mentions légales</a>.</p>`;
+        <p class="price-note">Prix TTC indicatifs, confirmés par le devis après vérification du véhicule. Rendu 3D indicatif : il ne mesure pas la transmission lumineuse réelle. Véhicules 3D présentés à titre d’illustration de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle. Crédits des modèles : <a href="/mentions-legales/">mentions légales</a>.</p>`;
   return shell({
     kind: 'tint',
     title: 'Simulez la teinte de vos vitres et votre prix',
@@ -150,8 +158,8 @@ export function tintPriceTable(ctx) {
       </tbody>
     </table>
     <p class="price-note">Vitres avant seules (sans forfait arrière) : <strong>${fmt(tint.frontOnly)}</strong>. Avec le forfait 3/4 arrière, les vitres avant ajoutent <strong>${fmt(tint.frontWithRear)}</strong>. Toutes les teintes au même prix : ${tint.shades.join(' %, ')} % de transmission lumineuse.</p>
-    <p class="price-note">Pare-brise : film athermique 70 % (conforme) <strong>${fmt(tint.windshield.films.find((f) => f.id === 'athermique').price)}</strong> · film irisé effet caméléon <strong>${fmt(tint.windshield.films.find((f) => f.iridescent).price)}</strong> (${tint.windshield.colors.map((c) => c.label.toLowerCase()).join(', ')}…).</p>
-    <p class="price-note">« 3/4 arrière » : vitres latérales arrière et lunette arrière. Devis définitif après vérification du véhicule.</p>
+    <p class="price-note">Pare-brise : film athermique <strong>${fmt(tint.windshield.films.find((f) => f.id === 'athermique').price)}</strong> · film irisé effet caméléon <strong>${fmt(tint.windshield.films.find((f) => f.iridescent).price)}</strong> (${tint.windshield.colors.map((c) => c.label.toLowerCase()).join(', ')}…). Le pare-brise et les vitres avant doivent laisser passer au moins ${glazing.frontMin} % de la lumière, film compris : la conformité dépend du film et du vitrage, elle se vérifie sur le véhicule.</p>
+    <p class="price-note">« 3/4 arrière » : vitres latérales arrière et lunette arrière. Prix TTC indicatifs ; devis définitif après vérification du véhicule.</p>
   </div>
 </section>`;
 }
@@ -160,7 +168,17 @@ export function tintPriceTable(ctx) {
 export function simLights(ctx) {
   const L = ctx.pricing.lights;
   const shades = L.shades.map((s) => ({ value: String(s.id), label: s.label, swatch: `rgba(12,10,12,${s.smoke})` }));
+  const pairPrice = (m) => (m.validated ? (m.perPair.min === m.perPair.max ? fmt(m.perPair.min) : `${m.perPair.min} à ${fmt(m.perPair.max)}`) : 'sur devis');
   const panel = `
+        <fieldset class="sim__group">
+          <legend>Matériau</legend>
+          ${chips(
+            'material',
+            L.materials.map((m) => ({ value: m.id, label: `${m.label} · ${pairPrice(m)}` })),
+            L.materials[0].id
+          )}
+          ${L.materials.map((m) => `<p class="zone__note" data-material-note="${m.id}"${m.id === L.materials[0].id ? '' : ' hidden'}>${esc(m.text)}</p>`).join('')}
+        </fieldset>
         <fieldset class="sim__group">
           <legend>Feux à teinter</legend>
           <div class="zone" data-zone="rear">
@@ -184,14 +202,14 @@ export function simLights(ctx) {
             'on'
           )}
         </fieldset>
-        <div class="warning"><p><strong>Réglementation :</strong> les feux doivent rester visibles et conformes à leur homologation. Un film sur les feux, en particulier à l’avant, peut rendre le véhicule non conforme pour la circulation sur la voie publique. La pose est réalisée à la demande du client, sous sa responsabilité.</p></div>
+        <div class="warning"><p><strong>Réglementation :</strong> ${esc(lightsRule)}</p></div>
         ${total('Choisissez vos feux')}
-        <p class="price-note">De ${L.perPair.min} à ${L.perPair.max} € TTC la paire de feux, selon le véhicule.</p>
+        <p class="price-note">${L.materials.map((m) => `${esc(m.label)} : ${pairPrice(m)}${m.validated ? ' TTC la paire' : ''}`).join(' · ')}. Prix indicatifs selon le véhicule, confirmés par le devis.</p>
         ${actions('feux-arriere-teintes')}`;
   return shell({
     kind: 'lights',
     title: 'Simulez vos feux fumés',
-    intro: 'Feux avant, feux arrière, fumé 50 % ou 80 % : voyez le rendu sur le BMW X6 du studio, allumez les feux ou freinez pour juger la visibilité, et obtenez votre tarif : de 100 à 120 € TTC la paire.',
+    intro: `Covering ou PPF, feux avant ou arrière, fumé 50 % ou 80 % : voyez le rendu sur le BMW X6 du studio, allumez les feux ou freinez pour juger la visibilité, et obtenez votre tarif indicatif : covering ${pairPrice(L.materials[0])} TTC la paire.`,
     poster: 'tail',
     posterAlt: 'Feux arrière fumés sur le BMW X6 du studio',
     views: [
@@ -233,7 +251,7 @@ export function simHeadlights(ctx) {
   return shell({
     kind: 'headlights',
     title: 'Avant / après : la rénovation de vos phares',
-    intro: 'Faites glisser le curseur pour polir l’optique jaunie, allumez les phares pour comparer : rénovation des deux phares à 79 € TTC, traitement céramique en option (+30 €).',
+    intro: `Faites glisser le curseur pour polir l’optique jaunie, allumez les phares pour comparer : rénovation des deux phares à ${fmt(H.renovation)} TTC, traitement céramique en option (+${fmt(H.options[0].price)}). Simulation pédagogique : le résultat réel dépend de l’état de l’optique.`,
     poster: 'headlights',
     posterAlt: 'Phares du BMW X6 après rénovation',
     views: [

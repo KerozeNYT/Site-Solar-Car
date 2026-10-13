@@ -1,4 +1,5 @@
 import { tint, vehicleTypes } from '../../../content/pricing.js';
+import { roadStatus } from '../../../content/regulation.js';
 import { fmt, readForm, vehicleLabel, setQuote, easer, stateBadge } from './util.js';
 
 const CLEAR = 0.88; // untreated glass, for "avant / après"
@@ -8,13 +9,12 @@ export function setup({ section, form, view }) {
   const totalEl = section.querySelector('[data-total]');
   const detailEl = section.querySelector('[data-detail]');
   const warning = section.querySelector('[data-front-warning]');
-  const ack = section.querySelector('[data-ack]');
+  const roads = Object.fromEntries([...section.querySelectorAll('[data-road]')].map((el) => [el.dataset.road, el]));
   const quote = section.querySelector('[data-quote]');
   const compareBtn = section.querySelector('[data-compare]');
   const tag = section.querySelector('[data-model-tag]');
   const zones = Object.fromEntries([...section.querySelectorAll('[data-zone]')].map((z) => [z.dataset.zone, z]));
   const iriseBox = section.querySelector('[data-irise]');
-  const windNote = section.querySelector('[data-wind-note]');
   const W = tint.windshield;
   const windFilm = () => W.films.find((f) => f.id === s.windshieldFilm) || W.films[0];
   const windColor = () => W.colors.find((c) => c.id === s.iriseColor) || W.colors[0];
@@ -24,7 +24,7 @@ export function setup({ section, form, view }) {
   let compare = false;
   let shown = null; // vehicle on screen
   let s = readForm(form);
-  let state = { price: 0, illegal: false };
+  let state = { price: 0 };
 
   // touching a shade switches its zone on, and the camera turns to that zone
   form.addEventListener('change', (e) => {
@@ -43,17 +43,23 @@ export function setup({ section, form, view }) {
   });
 
   quote.addEventListener('click', (e) => {
-    if (!state.price) {
-      e.preventDefault();
-      detailEl.classList.add('is-flash');
-      setTimeout(() => detailEl.classList.remove('is-flash'), 900);
-    } else if (state.illegal && !ack.checked) {
-      e.preventDefault();
-      warning.classList.add('is-flash');
-      setTimeout(() => warning.classList.remove('is-flash'), 900);
-      ack.focus();
-    }
+    if (state.price) return;
+    e.preventDefault();
+    detailEl.classList.add('is-flash');
+    setTimeout(() => detailEl.classList.remove('is-flash'), 900);
   });
+
+  /** road status of each zone, shown under it (content/regulation.js) */
+  function showRoad(zone, vlt) {
+    const el = roads[zone];
+    const r = roadStatus(zone, vlt);
+    if (el) {
+      el.className = `road road--${r.id}`;
+      el.querySelector('strong').textContent = r.label;
+      el.querySelector('span').textContent = r.note;
+    }
+    return r;
+  }
 
   function targets() {
     if (compare) return { rear: CLEAR, front: CLEAR, wind: CLEAR, irid: 0 };
@@ -95,11 +101,12 @@ export function setup({ section, form, view }) {
     const wf = windFilm();
     const wc = windColor();
     iriseBox.hidden = !wf.iridescent;
-    windNote.hidden = wf.id !== 'athermique';
-    const illegalFront = !!s.front && frontShade < tint.legalFrontMin;
-    const illegalWind = !!s.windshield && !wf.legal && !wf.iridescent;
-    const illegal = illegalFront || illegalWind;
-    warning.hidden = !illegal;
+    showRoad('rear', rearShade);
+    const frontRoad = showRoad('front', frontShade);
+    const windRoad = showRoad('windshield', wf.vlt);
+    // the reminder shows as soon as the front or the windscreen is part of the choice
+    warning.hidden = !(s.front || s.windshield);
+    const roadNote = (r) => (r.id === 'no' ? 'visualisation esthétique, non autorisé sur route' : r.id === 'ok' ? '' : r.label.toLowerCase());
     const label = vehicleLabel(vehicleTypes, s.vehicle);
     const parts = [];
     let price = 0;
@@ -116,17 +123,17 @@ export function setup({ section, form, view }) {
       price += wf.price;
       parts.push(`pare-brise ${wf.iridescent ? `irisé ${wc.label.toLowerCase()}` : wf.label.toLowerCase()} : ${parts.length ? '+ ' : ''}${fmt(wf.price)}`);
     }
-    state = { price, illegal };
+    state = { price };
     totalEl.textContent = price ? fmt(price) : '—';
     detailEl.textContent = price ? `${label} — ${parts.join(' · ')}` : 'Cochez au moins une zone à teinter.';
-    quote.setAttribute('aria-disabled', String(!price || (illegal && !s.ack)));
+    quote.setAttribute('aria-disabled', String(!price));
     setQuote(section, {
       prestation: 'vitres-teintees',
       vehicle: label,
       config: price
-        ? `Vitres teintées — ${label} : ${parts.join(', ')} — total ${fmt(price)}` +
-          (illegalFront ? ` — teinte avant ${frontShade} % (< ${tint.legalFrontMin} %) demandée sous la responsabilité du client` : '') +
-          (illegalWind ? ` — pare-brise ${wf.vlt} % (< ${tint.legalFrontMin} %) demandé sous la responsabilité du client` : '')
+        ? `Vitres teintées — ${label} : ${parts.join(', ')} — total indicatif ${fmt(price)} TTC` +
+          (s.front ? ` — vitres avant ${frontShade} % : ${roadNote(frontRoad)}` : '') +
+          (s.windshield ? ` — pare-brise (film ${wf.vlt} %) : ${roadNote(windRoad)}` : '')
         : '',
     });
     badge(compare ? 'Sans film (avant)' : '');

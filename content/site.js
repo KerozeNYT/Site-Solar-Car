@@ -6,6 +6,9 @@
  * rely on them. Run `npm run check` to list what is still missing.
  */
 
+import { priceText as P } from './pricing.js';
+import { glazing as G } from './regulation.js';
+
 export const business = {
   name: 'SOLAR CAR 37',
   // Used for canonical URLs, sitemap and social cards. The domain comes back from local.fr at
@@ -83,7 +86,7 @@ export const home = {
   seo: {
     title: 'Vitres teintées & detailing à Vouvray, près de Tours | SOLAR CAR 37',
     description:
-      "Atelier SOLAR CAR 37 à Vouvray, près de Tours : vitres teintées dès 210 € TTC, feux fumés, phares 79 € la paire, detailing, céramique, ciel étoilé. Simulateurs 3D.",
+      `Atelier SOLAR CAR 37 à Vouvray, près de Tours : vitres teintées dès ${P.tintFrom} TTC, feux fumés, phares ${P.headlights} la paire, detailing, céramique, ciel étoilé. Simulateurs 3D.`,
   },
   tour: {
     label: 'Visite de l’atelier en vol continu',
@@ -103,7 +106,7 @@ export const home = {
       tint: {
         kicker: '01 — Vitres teintées',
         title: 'Des films solaires posés dans les règles',
-        text: 'Intimité, confort thermique et protection UV, de 70 % à 5 % de lumière transmise. À l’avant, la loi impose au moins 70 % : nous vous en informons avant toute pose plus foncée.',
+        text: 'Intimité, confort thermique et protection UV, de 70 % à 5 % de lumière transmise. À l’avant, la loi impose au moins 70 % de lumière, vitre et film compris : nous faisons le point avec vous, zone par zone.',
         readout: 'vlt',
         link: { label: 'Découvrir les vitres teintées', href: '/vitres-teintees/' },
         side: 'left',
@@ -163,17 +166,18 @@ export const home = {
   law: {
     title: 'Vitres teintées : ce que dit la loi',
     points: [
-      'Depuis le 1er janvier 2017, le pare-brise et les vitres latérales avant doivent laisser passer au moins 70 % de la lumière (décret n° 2016-448 du 13 avril 2016).',
-      'La lunette arrière et les vitres latérales arrière peuvent être teintées plus fortement.',
-      'En cas d’infraction : amende forfaitaire de 135 € et retrait de 3 points sur le permis.',
-      'Une dérogation existe pour raisons médicales, sur justificatif.',
+      `Depuis le ${G.since}, le pare-brise et les vitres latérales avant doivent laisser passer au moins ${G.frontMin} % de la lumière, mesurés sur la vitre et son film ensemble (${G.decree}).`,
+      'Une vitre d’origine ne laisse déjà pas passer toute la lumière : un film annoncé à 70 % fait en général descendre l’ensemble sous ce seuil.',
+      'La lunette arrière et les vitres latérales arrière peuvent être teintées plus fortement (véhicule équipé de deux rétroviseurs extérieurs).',
+      `En cas d’infraction : amende forfaitaire de ${G.fine} €, retrait de ${G.points} points et immobilisation possible du véhicule.`,
+      'Dérogations limitées : véhicules blindés homologués et transport d’une personne atteinte d’une affection listée par l’arrêté du 18 octobre 2016.',
     ],
-    note: 'Toutes les teintes sont disponibles. Pour les vitres avant, une teinte inférieure à 70 % n’est posée qu’à la demande expresse du client, informé de la réglementation : elle relève de sa seule responsabilité.',
+    note: 'Toutes les teintes sont disponibles pour l’arrière. Pour l’avant, l’accord du client ne remplace pas la règle des 70 % : nous vous conseillons une configuration adaptée à la route.',
   },
   faq: [
     {
       q: 'Peut-on teinter les vitres avant de sa voiture ?',
-      a: 'La réglementation impose depuis 2017 au moins 70 % de lumière transmise sur le pare-brise et les vitres avant, sauf dérogation médicale. Nous proposons toutes les teintes, y compris pour l’avant, mais une teinte plus foncée que 70 % y est posée à votre demande expresse et sous votre seule responsabilité : elle reste verbalisable sur la voie publique. Les vitres arrière et la lunette peuvent être teintées librement.',
+      a: `Depuis 2017, le pare-brise et les vitres avant doivent laisser passer au moins ${G.frontMin} % de la lumière, film compris : un film annoncé à 70 % fait en général passer l’ensemble sous ce seuil. Les vitres arrière et la lunette peuvent être teintées librement. L’accord du client ne remplace pas la règle : nous vous conseillons une configuration adaptée à la route.`,
     },
     {
       q: 'Combien de temps dure la pose de vitres teintées ?',
@@ -181,7 +185,7 @@ export const home = {
     },
     {
       q: 'Les feux arrière teintés sont-ils autorisés ?',
-      a: 'Les feux doivent rester visibles et conformes à leur homologation. Nous vous expliquons les implications avant la pose et vous conseillons l’intensité de teinte adaptée à votre usage.',
+      a: 'Les feux sont homologués : un film modifie la lumière qu’ils émettent et peut les rendre non conformes pour circuler sur la voie publique, surtout à l’avant. Nous vous expliquons le cadre avant la pose et vous conseillons une intensité adaptée à votre usage.',
     },
     {
       q: 'Qu’est-ce qu’une correction de peinture ?',
@@ -211,11 +215,11 @@ export const services = [
     chapter: 'tint',
     still: 'tint',
     name: 'Vitres teintées',
-    short: 'Films solaires homologués : intimité, confort thermique et protection UV, dans le respect de la loi.',
+    short: 'Films solaires posés sur mesure : intimité, confort thermique et protection UV, avec un conseil clair sur la réglementation.',
     seo: {
-      title: 'Vitres teintées à Vouvray (Tours) dès 210 € TTC | SOLAR CAR 37',
+      title: `Vitres teintées à Vouvray (Tours) dès ${P.tintFrom} TTC | SOLAR CAR 37`,
       description:
-        'Films solaires posés à Vouvray, près de Tours : 3/4 arrière dès 210 € TTC, teintes de 5 à 70 %, simulateur 3D avec prix en direct et conseil sur la loi.',
+        `Films solaires posés à Vouvray, près de Tours : 3/4 arrière dès ${P.tintFrom} TTC, teintes de 5 à 70 %, simulateur 3D avec prix en direct et conseil sur la loi.`,
     },
     h1: 'Vitres teintées et films solaires',
     intro:
@@ -227,16 +231,17 @@ export const services = [
       { title: 'Esthétique', text: 'Une ligne plus homogène, de la teinte légère au très sombre.' },
     ],
     steps: [
-      'Choix de la teinte et vérification de la conformité avec vous',
+      'Choix de la teinte et point sur la réglementation, zone par zone',
       'Nettoyage et préparation minutieuse des vitrages',
       'Découpe et mise en forme du film sur mesure',
       'Pose, marouflage et contrôle final',
       'Conseils pour les jours qui suivent la pose (séchage, nettoyage)',
     ],
     law: [
-      'Pare-brise et vitres latérales avant : 70 % de lumière transmise minimum depuis le 1er janvier 2017.',
+      `Pare-brise et vitres latérales avant : ${G.frontMin} % de lumière transmise minimum depuis le ${G.since}, mesurés sur la vitre et son film ensemble.`,
+      'Un film annoncé à 70 % ne suffit donc pas à rester conforme : posé sur une vitre d’origine, l’ensemble descend en général autour de 60 %.',
       'Vitres latérales arrière et lunette : teinte plus forte possible.',
-      'Sanction : 135 € d’amende et 3 points retirés ; dérogation possible pour raison médicale.',
+      `Sanction : ${G.fine} € d’amende, ${G.points} points retirés, immobilisation possible ; dérogations limitées (véhicules blindés homologués, affections listées par l’arrêté du 18 octobre 2016).`,
     ],
     faq: [
       {
@@ -245,11 +250,11 @@ export const services = [
       },
       {
         q: 'Un film clair à l’avant sert-il à quelque chose ?',
-        a: 'Oui : certains films clairs conformes (70 % et plus) filtrent une partie de la chaleur et des UV sans assombrir la vitre.',
+        a: `Un film très clair filtre une partie de la chaleur et des UV sans assombrir la vitre. À l’avant, c’est la transmission du vitrage complet (vitre + film) qui doit rester d’au moins ${G.frontMin} % : elle se vérifie sur le véhicule.`,
       },
       {
         q: 'Peut-on poser un film sur le pare-brise ?',
-        a: 'Oui. Le film athermique 70 % (290 € TTC) reste conforme : il bloque la chaleur et les UV sans assombrir la route. Un film plus foncé est possible mais n’est ni conseillé ni légal. Le film irisé (350 € TTC) donne un effet caméléon bleu-violet, jaune doré ou rouge selon l’angle ; sa transmission lumineuse est précisée sur le devis.',
+        a: `Techniquement oui (film athermique ${P.windshield('athermique')} TTC, film irisé ${P.windshield('irise')} TTC), mais le pare-brise doit laisser passer au moins ${G.frontMin} % de la lumière, film compris. Un film annoncé à 70 % posé sur un pare-brise d’origine donne en général moins que ce seuil : la conformité dépend du film et du vitrage, et ne peut pas être promise sans mesure. Un film plus foncé n’est pas autorisé sur route. Le film irisé (effet caméléon bleu-violet, jaune doré ou rouge) réduit lui aussi la transmission : sa référence et sa transmission figurent sur le devis.`,
       },
       {
         q: 'Puis-je baisser mes vitres juste après la pose ?',
@@ -264,9 +269,9 @@ export const services = [
     name: 'Feux arrière teintés',
     short: 'Film fumé sur mesure pour vos feux arrière, du voile léger au noir profond.',
     seo: {
-      title: 'Feux teintés à Vouvray (Tours) : 100 à 120 € la paire | SOLAR CAR 37',
+      title: `Feux teintés à Vouvray (Tours) : ${P.lightsPair} la paire | SOLAR CAR 37`,
       description:
-        'Film fumé 50 % ou 80 % sur feux avant ou arrière, posé à Vouvray près de Tours : de 100 à 120 € TTC la paire. Simulateur 3D feux allumés et au freinage.',
+        `Covering fumé 50 % ou 80 % ou PPF teinté sur vos feux, posé à Vouvray près de Tours : covering ${P.lightsPair} TTC la paire. Simulateur 3D feux allumés et au freinage.`,
     },
     h1: 'Feux arrière teintés',
     intro:
@@ -274,7 +279,7 @@ export const services = [
     benefits: [
       { title: 'Sur mesure', text: 'Découpe adaptée à la forme exacte de chaque optique.' },
       { title: 'Plusieurs intensités', text: 'Du voile léger qui harmonise au fumé profond.' },
-      { title: 'Protection', text: 'Le film protège aussi l’optique des petites projections.' },
+      { title: 'Deux matériaux', text: 'Covering vinyle fumé ou PPF teinté, plus épais : nous vous expliquons la différence.' },
       { title: 'Réversible', text: 'Un film se dépose proprement si vous changez d’avis.' },
     ],
     steps: [
@@ -284,8 +289,8 @@ export const services = [
       'Pose, finition des bords et contrôle de l’allumage',
     ],
     law: [
-      'Les feux doivent rester visibles et conformes à leur homologation : une teinte trop forte peut poser problème lors d’un contrôle.',
-      'Nous vous expliquons les implications avant la pose et vous aidons à choisir une intensité adaptée à votre usage.',
+      'Les feux sont des dispositifs homologués : un film modifie la lumière émise et peut les rendre non conformes pour circuler sur la voie publique, surtout à l’avant.',
+      'Un feu filmé peut être relevé au contrôle technique ou lors d’un contrôle routier. Nous vous expliquons ce cadre avant la pose ; la simulation 3D montre un rendu, elle ne prouve pas la conformité.',
     ],
     faq: [
       {
@@ -294,7 +299,7 @@ export const services = [
       },
       {
         q: 'Le film est-il réversible ?',
-        a: 'Oui, il se retire proprement sans abîmer l’optique.',
+        a: 'Un film de qualité se retire en principe sans abîmer l’optique ; nous vous indiquons les précautions selon le matériau posé.',
       },
     ],
   },
@@ -383,9 +388,9 @@ export const services = [
     name: 'Rénovation de phares',
     short: 'Phares jaunis ou ternes : ponçage, polissage et protection anti-UV.',
     seo: {
-      title: 'Rénovation de phares à Vouvray (Tours) : 79 € la paire | SOLAR CAR 37',
+      title: `Rénovation de phares à Vouvray (Tours) : ${P.headlights} la paire | SOLAR CAR 37`,
       description:
-        'Phares jaunis ou opaques : ponçage, polissage et protection à Vouvray (37), près de Tours. Rénovation des deux phares 79 € TTC, céramique +30 €. Avant/après en 3D.',
+        `Phares jaunis ou opaques : ponçage, polissage et protection à Vouvray (37), près de Tours. Rénovation des deux phares ${P.headlights} TTC, céramique ${P.headlightsCeramic}. Avant/après en 3D.`,
     },
     h1: 'Rénovation de phares',
     intro:
@@ -491,4 +496,10 @@ export const legalPage = {
   // change this if it moves to another host.
   host: { name: 'GitHub, Inc. (GitHub Pages)', address: '88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis', phone: null },
   publisher: 'Nicolas MALAGA', // directeur de la publication
+  // Consumer mediator (mandatory for services sold to private customers, Code de la consommation
+  // L612-1): { name, url, address }. Unknown for now: the page shows « à compléter ».
+  mediator: null,
+  // How long quote requests are kept, e.g. '3 ans après le dernier contact'. Until it is set,
+  // the page states the criterion (the time needed to answer and follow up the request).
+  retention: null,
 };

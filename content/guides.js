@@ -6,6 +6,9 @@
  * service (related service slug), still (image id in /stills), intro, sections [{ h2, p: [],
  * list?: [] }], faq [{ q, a }].
  */
+import { priceText as P } from './pricing.js';
+import { glazing as G } from './regulation.js';
+
 export const guidesPage = {
   seo: {
     title: 'Guides vitres teintées, feux, phares, detailing | SOLAR CAR 37',
@@ -43,26 +46,26 @@ export const guides = [
       {
         h2: 'À l’arrière, aucune limite',
         p: [
-          'Les vitres latérales arrière et la lunette arrière ne sont pas concernées par cette règle : vous pouvez choisir la teinte que vous voulez, jusqu’aux films les plus sombres (5 % de transmission).',
+          'Les vitres latérales arrière et la lunette arrière ne sont pas concernées par cette règle, à condition que le véhicule dispose de deux rétroviseurs extérieurs : vous pouvez choisir la teinte que vous voulez, jusqu’aux films les plus sombres (5 % de transmission).',
           'C’est la configuration la plus demandée : « 3/4 arrière » teinté pour l’intimité et le confort des passagers, vitres avant laissées claires.',
         ],
       },
       {
         h2: 'Les sanctions en cas de vitres avant trop sombres',
         p: ['Rouler avec des vitres avant ou un pare-brise sous le seuil des 70 % expose le conducteur à :'],
-        list: ['une amende forfaitaire de 135 € ;', 'un retrait de 3 points sur le permis de conduire ;', 'une possible immobilisation du véhicule.'],
+        list: [`une amende forfaitaire de ${G.fine} € ;`, `un retrait de ${G.points} points sur le permis de conduire ;`, 'une possible immobilisation du véhicule.'],
       },
       {
         h2: 'Les dérogations',
         p: [
-          'Une dérogation existe pour raisons médicales, sur présentation d’un certificat médical justifiant le besoin de se protéger de la lumière. Les véhicules blindés font également l’objet d’une exception.',
-          'En dehors de ces cas, une teinte plus sombre à l’avant reste possible techniquement : nous la posons uniquement à votre demande expresse, après vous avoir informé de la réglementation, et sous votre responsabilité.',
+          'Les dérogations sont limitées : elles concernent les véhicules blindés homologués, et les véhicules transportant une personne atteinte de l’une des affections listées par l’arrêté du 18 octobre 2016 (protoporphyrie érythropoïétique, porphyrie érythropoïétique congénitale, xeroderma pigmentosum). Une simple gêne à la lumière ne suffit pas.',
+          'En dehors de ces cas, une teinte plus sombre à l’avant n’est pas autorisée sur la voie publique, même si le client l’accepte : son accord ne remplace pas la règle. Nous vous conseillons une solution adaptée à un usage routier.',
         ],
       },
       {
         h2: 'Bien choisir sa teinte',
         list: [
-          '70 % : voile très léger, réservé à l’avant ;',
+          '70 % : voile très léger ; à l’avant, même ce film fait en général descendre l’ensemble vitre + film sous le seuil légal ;',
           '50 % à 35 % : teinte visible, confort thermique, la route reste très lisible ;',
           '25 % à 15 % : intimité nette, le choix le plus courant à l’arrière ;',
           '5 % : noir profond, intimité maximale.',
@@ -112,7 +115,7 @@ export const guides = [
       {
         h2: 'Contrôle technique et contrôles routiers',
         p: [
-          'Un feu dont la couleur ou l’intensité est altérée peut être relevé lors du contrôle technique ou d’un contrôle routier. Prévoyez la dépose du film avant le contrôle technique si besoin : un film de qualité s’enlève proprement.',
+          'Un feu dont la couleur ou l’intensité est altérée peut être relevé lors du contrôle technique ou d’un contrôle routier.',
         ],
       },
       {
@@ -120,15 +123,15 @@ export const guides = [
         list: [
           'privilégier un fumé 50 % plutôt qu’un 80 % si le véhicule circule beaucoup de nuit ;',
           'vérifier la visibilité feux allumés et au freinage avant de valider (notre simulateur 3D le montre) ;',
-          'garder en tête que la pose est faite à votre demande et sous votre responsabilité.',
+          'retenir qu’une simulation montre un rendu : elle ne prouve pas qu’un feu filmé reste conforme.',
         ],
-        p: ['À l’atelier, la pose est facturée de 100 à 120 € TTC la paire de feux selon le véhicule.'],
+        p: [`À l’atelier, le covering fumé est facturé ${P.lightsPair} TTC la paire de feux selon le véhicule ; le PPF teinté, plus épais, est chiffré sur devis.`],
       },
     ],
     faq: [
       {
         q: 'Le film fumé est-il réversible ?',
-        a: 'Oui : un film de qualité se dépose sans abîmer l’optique, par exemple avant un contrôle technique ou une revente.',
+        a: 'En principe oui : un film de qualité se dépose sans abîmer l’optique, par exemple avant une revente. Nous vous indiquons les précautions selon le matériau.',
       },
     ],
   },
@@ -136,9 +139,9 @@ export const guides = [
     slug: 'phares-jaunis-renovation',
     title: 'Phares jaunis ou opaques : pourquoi et comment les rénover',
     seo: {
-      title: 'Phares jaunis : causes et rénovation (79 € la paire) | SOLAR CAR 37',
+      title: `Phares jaunis : causes et rénovation (${P.headlights} la paire) | SOLAR CAR 37`,
       description:
-        'Pourquoi les optiques jaunissent, ce que change une rénovation (ponçage, polissage, protection) et quand remplacer le phare. Rénovation des deux phares 79 € TTC près de Tours.',
+        `Pourquoi les optiques jaunissent, ce que change une rénovation (ponçage, polissage, protection) et quand remplacer le phare. Rénovation des deux phares ${P.headlights} TTC près de Tours.`,
     },
     kicker: 'Entretien',
     updated: '2026-10-13',
@@ -171,7 +174,7 @@ export const guides = [
           'application d’une protection pour ralentir le retour du jaunissement.',
         ],
         p: [
-          'À l’atelier, la rénovation des deux phares est à 79 € TTC. Le traitement céramique en option (+30 €) renforce la protection de l’optique dans le temps.',
+          `À l’atelier, la rénovation des deux phares est à ${P.headlights} TTC. Le traitement céramique en option (${P.headlightsCeramic}) ajoute une couche de protection sur l’optique.`,
         ],
       },
       {

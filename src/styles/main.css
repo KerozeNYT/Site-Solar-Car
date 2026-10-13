@@ -1639,7 +1639,7 @@ p {
   margin-top: 6px;
 }
 .zone.is-off .chips {
-  opacity: 0.5;
+  opacity: 0.78;
 }
 .zone__more,
 .zone__note {
@@ -1662,6 +1662,37 @@ p {
 .zone.is-off .zone__more,
 .zone.is-off .zone__note {
   opacity: 0.55;
+}
+/* road status of a window zone (content/regulation.js): allowed, to check, preview only */
+.road {
+  grid-column: 1 / -1;
+  margin: 10px 0 0;
+  padding: 8px 10px 8px 12px;
+  border-left: 3px solid var(--road, #2e8b57);
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--road, #2e8b57) 9%, transparent);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.road strong {
+  display: block;
+  color: var(--road-ink, #1d6b41);
+}
+.road--check {
+  --road: #b7791f;
+  --road-ink: #8a5a12;
+}
+.road--risk {
+  --road: #c2410c;
+  --road-ink: #9a3412;
+}
+.road--no {
+  --road: #b42318;
+  --road-ink: #912018;
+}
+.zone.is-off .road {
+  display: none;
 }
 .sim__total {
   margin: 18px 0 6px;

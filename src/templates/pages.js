@@ -1,4 +1,5 @@
 import { simFor } from './sims.js';
+import { priceText } from '../../content/pricing.js';
 
 /**
  * Static HTML templates. Every page is rendered at build time from content/*.js so search
@@ -551,7 +552,7 @@ function offersFor(ctx, slug) {
   const ttc = { '@type': 'PriceSpecification', priceCurrency: 'EUR', valueAddedTaxIncluded: true };
   if (slug === 'feux-arriere-teintes')
     return {
-      offers: { '@type': 'AggregateOffer', priceCurrency: 'EUR', lowPrice: String(lights.perPair.min), highPrice: String(lights.perPair.max), offerCount: '2', description: 'Prix TTC par paire de feux, selon le véhicule' },
+      offers: { '@type': 'AggregateOffer', priceCurrency: 'EUR', lowPrice: String(lights.perPair.min), highPrice: String(lights.perPair.max), offerCount: '2', description: 'Covering fumé : prix TTC indicatif par paire de feux, selon le véhicule' },
     };
   if (slug === 'renovation-phares')
     return {
@@ -748,11 +749,19 @@ export function legalPage(ctx) {
       <h2>Propriété intellectuelle</h2>
       <p>Les textes, visuels et le logo de ${esc(b.name)} sont protégés. Les marques et modèles de véhicules apparaissant sur le site appartiennent à leurs propriétaires respectifs ; leur présence n’implique aucun partenariat.</p>
       ${(ctx.credits || []).length ? `<p>Modèles 3D utilisés sur le site :</p><ul>${ctx.credits.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
-      <h2 id="confidentialite">Confidentialité</h2>
-      <p>Les informations transmises via le formulaire de contact servent uniquement à répondre à votre demande (devis, prise de rendez-vous) et ne sont ni vendues ni cédées. Responsable du traitement : ${esc(b.owner || b.name)}.</p>
+      <h2>Tarifs</h2>
+      <p>Les prix affichés sur le site et dans les simulateurs sont indicatifs, toutes taxes comprises, et confirmés par un devis après examen du véhicule. Les rendus 3D sont des simulations : ils ne valent ni mesure ni garantie de résultat.</p>
+      <h2>Médiation de la consommation</h2>
+      <p>${l.mediator ? `En cas de litige non résolu avec l’atelier, vous pouvez recourir gratuitement au médiateur de la consommation : ${esc(l.mediator.name)}${l.mediator.url ? ` (<a href="${esc(l.mediator.url)}" rel="noopener">${esc(l.mediator.url.replace(/^https?:\/\//, ''))}</a>)` : ''}${l.mediator.address ? `, ${esc(l.mediator.address)}` : ''}.` : todo(null, 'Médiateur de la consommation')}</p>
+      <h2 id="confidentialite">Données personnelles</h2>
+      <p><strong>Responsable du traitement :</strong> ${esc(b.owner || b.name)}, ${esc(b.name)}${b.email ? `, ${esc(b.email)}` : ''}.</p>
+      <p><strong>Données et finalité :</strong> les informations saisies dans le formulaire (identité, coordonnées, véhicule, prestation, message et éventuelles photos) servent uniquement à répondre à votre demande de devis ou de rendez-vous et à son suivi. Elles ne sont ni vendues ni cédées. N’envoyez que les photos utiles à la demande (inutile, par exemple, de joindre une carte grise complète).</p>
+      <p><strong>Base légale :</strong> les mesures précontractuelles prises à votre demande (article 6.1.b du RGPD).</p>
+      <p><strong>Destinataires :</strong> l’atelier uniquement.${b.formEndpoint && /formsubmit\.co/.test(b.formEndpoint) ? ' Le formulaire est acheminé par le service FormSubmit (formsubmit.co), prestataire établi hors de l’Union européenne, qui transmet votre demande par e-mail à l’atelier sans la publier.' : ''}</p>
       ${b.google?.placeId && b.google?.mapsApiKey ? '<p>Les avis Google affichés sur le site sont chargés depuis Google Maps Platform (Google Ireland Ltd) au moment de la visite ; Google reçoit alors l’adresse IP du visiteur.</p>' : ''}
-      ${b.formEndpoint && /formsubmit\.co/.test(b.formEndpoint) ? '<p>Le formulaire est acheminé par le service FormSubmit (formsubmit.co), qui transmet votre demande par e-mail à l’atelier sans la publier. Elle est ensuite conservée dans notre messagerie le temps nécessaire au suivi de votre demande.</p>' : ''}
-      <p>Vous pouvez demander la consultation, la rectification ou la suppression de vos données en nous écrivant${b.email ? ` à ${esc(b.email)}` : ''}.</p>
+      ${b.instagramFeed?.feedUrl ? '<p>Les dernières publications Instagram sont chargées depuis le service de flux qui les met à disposition ; ce service reçoit alors l’adresse IP du visiteur.</p>' : ''}
+      <p><strong>Durée de conservation :</strong> ${l.retention ? esc(l.retention) : 'le temps nécessaire pour répondre à votre demande et en assurer le suivi'}.</p>
+      <p><strong>Vos droits :</strong> vous pouvez demander l’accès à vos données, leur rectification, leur effacement, la limitation du traitement, vous y opposer ou demander leur portabilité en écrivant${b.email ? ` à ${esc(b.email)}` : ' à l’atelier'}. Si vous estimez que vos droits ne sont pas respectés, vous pouvez adresser une réclamation à la CNIL (<a href="https://www.cnil.fr" rel="noopener">cnil.fr</a>).</p>
       <p>Ce site n’utilise pas de cookie publicitaire ni d’outil de mesure d’audience tiers. Les polices de caractères sont hébergées sur le site lui-même.</p>
     </div>
   </section>`;
@@ -962,7 +971,7 @@ export function zonePage(ctx, z) {
       <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li><a href="${zp.path}">Zones d’intervention</a></li><li aria-current="page">${esc(town)}</li></ol></nav>
       <p class="kicker">${esc(town)} · à ${kmFr(z.roadKm)} km de l’atelier</p>
       <h1>Vitres teintées, detailing et rénovation de phares près ${esc(from)}</h1>
-      <p class="lead">Vous êtes à ${esc(town)} ? L’atelier ${esc(b.name)} vous accueille à Vouvray, ${esc(dir)} ${esc(from)}, à ${kmFr(z.roadKm)} km par la route : films solaires homologués, feux teintés, rénovation de phares, ciel étoilé et detailing, sur rendez-vous.</p>
+      <p class="lead">Vous êtes à ${esc(town)} ? L’atelier ${esc(b.name)} vous accueille à Vouvray, ${esc(dir)} ${esc(from)}, à ${kmFr(z.roadKm)} km par la route : films solaires posés sur mesure, feux teintés, rénovation de phares, ciel étoilé et detailing, sur rendez-vous.</p>
       <div class="ctas"><a class="btn btn--primary" href="/contact/">Demander un devis</a><a class="btn btn--ghost" href="${esc(route)}" rel="noopener" target="_blank">${ICONS.route} Itinéraire depuis ${esc(town)}</a></div>
     </div>
   </section>
@@ -1004,7 +1013,7 @@ export function zonePage(ctx, z) {
     {
       // titles kept under ~65 characters, descriptions under ~160
       title: (`Vitres teintées & detailing près ${from} | SOLAR CAR 37`.length > 66 ? `Vitres teintées près ${from} | SOLAR CAR 37` : `Vitres teintées & detailing près ${from} | SOLAR CAR 37`),
-      description: [`${town} : atelier SOLAR CAR 37 à ${kmFr(z.roadKm)} km par la route (Vouvray).`, `Vitres teintées dès 210 € TTC, feux teintés, phares 79 €, detailing.`, 'Trajet et devis.']
+      description: [`${town} : atelier SOLAR CAR 37 à ${kmFr(z.roadKm)} km par la route (Vouvray).`, `Vitres teintées dès ${priceText.tintFrom} TTC, feux teintés, phares ${priceText.headlights}, detailing.`, 'Trajet et devis.']
         .reduce((acc, part) => ((acc + ' ' + part).trim().length <= 160 ? (acc + ' ' + part).trim() : acc), ''),
       path,
       image: '/stills/hero-1600.jpg',
