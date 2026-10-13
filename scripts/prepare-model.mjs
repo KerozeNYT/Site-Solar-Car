@@ -62,6 +62,46 @@ if (cfg.dropTwinFaces) {
   console.log('twin faces dropped', dropped);
 }
 
+// --- mirrored parts (e.g. the right-hand wheels) sometimes come out of a conversion with their
+// triangles wound against their normals: the renderer then culls the outside and shows the
+// inside. Rewind every primitive whose winding disagrees with its normals (on by default).
+if (cfg.fixWinding !== false) {
+  let fixed = 0;
+  for (const m of root.listMeshes()) {
+    for (const p of m.listPrimitives()) {
+      const P = p.getAttribute('POSITION');
+      const N = p.getAttribute('NORMAL');
+      if (!N || p.getMode() !== 4) continue;
+      const n = P.getCount();
+      const idx = p.getIndices()?.getArray() || Uint32Array.from({ length: n }, (_, i) => i);
+      const a = [0, 0, 0], b = [0, 0, 0], c = [0, 0, 0], na = [0, 0, 0], nb = [0, 0, 0], nc = [0, 0, 0];
+      let against = 0;
+      let total = 0;
+      for (let t = 0; t < idx.length; t += 3) {
+        P.getElement(idx[t], a);
+        P.getElement(idx[t + 1], b);
+        P.getElement(idx[t + 2], c);
+        N.getElement(idx[t], na);
+        N.getElement(idx[t + 1], nb);
+        N.getElement(idx[t + 2], nc);
+        const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        const v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        const f = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+        const d = f[0] * (na[0] + nb[0] + nc[0]) + f[1] * (na[1] + nb[1] + nc[1]) + f[2] * (na[2] + nb[2] + nc[2]);
+        if (d === 0) continue;
+        total++;
+        if (d < 0) against++;
+      }
+      if (!total || against / total <= 0.5) continue;
+      const out = idx.slice();
+      for (let t = 0; t < out.length; t += 3) [out[t + 1], out[t + 2]] = [out[t + 2], out[t + 1]];
+      p.setIndices(doc.createAccessor().setType('SCALAR').setArray(out).setBuffer(P.getBuffer()));
+      fixed++;
+    }
+  }
+  if (fixed) console.log('rewound', fixed, 'primitives');
+}
+
 // --- models exported without useful names: find parts by their look. A rule matches a
 // primitive's material by any of baseColor (rgba), metallic, roughness, emissive, alphaMode
 // (within `tol`), optionally only on nodes whose centre lies in `box` (world space).
