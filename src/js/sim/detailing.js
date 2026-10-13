@@ -3,49 +3,90 @@ import { readForm, vehicleLabel, setQuote, stateBadge, play } from './util.js';
 import { smoothstep } from '../tour/math.js';
 
 const IDS = detailing.steps.map((s) => s.id);
-const CAMERA = { wash: 'flanc', decon: 'flanc', polish: 'flanc', ceramic: 'dessus', finish: '34avant' };
-const DURATION = { wash: 5, decon: 4.5, polish: 5.5, ceramic: 4, finish: 3.5 };
+const CAMERA = { wash: 'flanc', decon: 'flanc', rinse: 'flanc', polish: 'flanc', ceramic: '34avant', finish: '34avant' };
+const DURATION = { wash: 6.5, decon: 5.5, rinse: 6.5, polish: 5.5, ceramic: 4.5, finish: 4 };
+const ROOF = 1.9; // above the roof: a "height" that covers the whole car
 
-/** Paint state once the given steps are done (the car arrives dirty and swirled). */
+/** State of the car once the given steps are done (it arrives dirty and swirled). */
 function stateAfter(done) {
+  const rinsed = done.has('rinse');
   return {
-    dirt: done.has('wash') ? 0 : 1,
-    foam: 0,
-    iron: 0,
+    dirt: rinsed ? 0 : done.has('wash') ? 0.35 : 1,
+    // after the pre-wash, foam is left low on the body (it ran down to the sills); once the
+    // iron remover is on, only traces remain
+    foam: rinsed || !done.has('wash') ? 0 : done.has('decon') ? 0.15 : 1,
+    foamTop: 0.32,
+    iron: !rinsed && done.has('decon') ? 1 : 0,
+    rinseY: 9,
+    wet: 0,
+    flow: 8,
+    floorFoam: !rinsed && done.has('wash') ? 1 : 0,
+    floorIron: !rinsed && done.has('decon') ? 1 : 0,
+    floorWet: rinsed && !done.has('polish') ? 1 : 0,
+    spray: 0,
+    sprayX: 0,
     polishX: done.has('polish') ? 10 : -10,
     ceramic: done.has('ceramic') ? 1 : 0,
-    beads: 0,
+    sweep: 0,
+    tyre: done.has('finish') ? 1 : 0,
     lights: done.has('finish') ? 1 : 0,
   };
 }
 
 /** The step's own animation, k = 0..1, layered on the state before it. */
 function animate(id, k, st) {
+  const t = k * DURATION[id];
   switch (id) {
     case 'wash':
-      st.foam = smoothstep(0, 0.3, k) * (1 - smoothstep(0.62, 0.95, k));
-      st.dirt = 1 - smoothstep(0.45, 0.9, k);
+      // the foam covers the car, dwells, then runs down the panels and onto the floor
+      st.flow = t;
+      st.foam = smoothstep(0, 0.2, k);
+      st.foamTop = ROOF - (ROOF - 0.32) * smoothstep(0.3, 0.95, k);
+      st.floorFoam = smoothstep(0.3, 0.9, k);
+      st.dirt = 1 - 0.65 * smoothstep(0.35, 0.95, k);
       break;
     case 'decon':
-      st.iron = smoothstep(0.05, 0.4, k) * (1 - smoothstep(0.7, 0.98, k));
+      // the last of the foam has run off; the iron remover goes on and bleeds purple
+      st.flow = 8 + t;
+      st.foam *= 1 - 0.85 * smoothstep(0, 0.3, k);
+      st.iron = smoothstep(0.08, 0.5, k);
+      st.floorIron = smoothstep(0.35, 0.95, k);
       break;
+    case 'rinse': {
+      // pressure washer from the roof down, rear to front; everything leaves with the water
+      st.flow = 14 + t;
+      const r = smoothstep(0.08, 0.88, k);
+      st.rinseY = ROOF - (ROOF + 0.35) * r;
+      st.wet = smoothstep(0.05, 0.25, k);
+      st.spray = smoothstep(0.02, 0.1, k) * (1 - smoothstep(0.9, 0.98, k));
+      st.sprayX = -2.1 + 4.2 * smoothstep(0.05, 0.9, k);
+      st.floorFoam *= 1 - smoothstep(0.35, 1, k);
+      st.floorIron *= 1 - smoothstep(0.35, 1, k);
+      st.floorWet = smoothstep(0.1, 0.6, k);
+      if (k >= 1) {
+        Object.assign(st, { dirt: 0, foam: 0, iron: 0, rinseY: 9, wet: 0, floorFoam: 0, floorIron: 0, spray: 0 });
+      }
+      break;
+    }
     case 'polish':
       st.polishX = -2.7 + 5.4 * smoothstep(0.08, 0.95, k);
+      st.floorWet *= 1 - smoothstep(0, 0.6, k);
       if (k >= 1) st.polishX = 10;
       break;
     case 'ceramic':
-      st.ceramic = smoothstep(0.1, 0.6, k);
-      // water test: the coated paint beads up
-      st.beads = smoothstep(0.45, 0.75, k);
+      // the coating goes on, then a band of light runs over the deeper gloss
+      st.ceramic = smoothstep(0.05, 0.45, k);
+      st.sweep = smoothstep(0.3, 0.98, k);
       break;
     case 'finish':
-      st.lights = smoothstep(0.2, 0.6, k);
+      st.tyre = smoothstep(0.1, 0.5, k);
+      st.lights = smoothstep(0.55, 0.9, k);
       break;
   }
   return st;
 }
 
-/** Detailing steps played on the studio Porsche; packages are priced on quote. */
+/** Detailing steps played on the studio Porsche (the car arrives dirty and swirled); packages are priced on quote. */
 export function setup({ section, form, view }) {
   const detailEl = section.querySelector('[data-detail]');
   const stepText = section.querySelector('[data-step-text]');
@@ -60,7 +101,7 @@ export function setup({ section, form, view }) {
   const apply = (st) => {
     const car = viewer?.car;
     if (!car) return;
-    car.setDetailing?.({ dirt: st.dirt, foam: st.foam, iron: st.iron, ceramic: st.ceramic, beads: st.beads, side: -5 });
+    car.setDetailing?.({ ...st, rims: st.tyre, side: -5 });
     car.setPolish(st.polishX, -1);
     car.setHeadlights(st.lights);
     viewer.invalidate();

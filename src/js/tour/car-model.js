@@ -96,6 +96,11 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     uIron: { value: 0 },
     uCeramic: { value: 0 },
     uBeads: { value: 0 },
+    uFlow: { value: 0 },
+    uFoamTop: { value: 9 },
+    uRinseY: { value: 9 },
+    uWet: { value: 0 },
+    uSweep: { value: 0 },
     uCarInv: { value: carInv },
   };
   const paintMats = new Set();
@@ -372,6 +377,20 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
   // ------------------------------------------------------------ contact shadow
   addContactShadow(group, box);
 
+  // ------------------------------------------------------------ detailing: floor run-off, rinse spray, tyres
+  const fx = buildDetailingFx(group, box);
+  const tyreMats = [...new Set(find(P.tyres || []).map((o) => (Array.isArray(o.material) ? o.material[0] : o.material)))].map((m) => ({
+    m,
+    rough: m.roughness,
+    color: m.color.clone(),
+    env: m.envMapIntensity ?? 1,
+  }));
+  const rimMats = [...new Set(find(P.rims || []).map((o) => (Array.isArray(o.material) ? o.material[0] : o.material)))].map((m) => ({
+    m,
+    rough: m.roughness,
+    env: m.envMapIntensity ?? 1,
+  }));
+
   // ------------------------------------------------------------ anchors for the flight path
   const anchors = computeAnchors({ box, find, P, headCenters, roofMeshes, group, starBox });
 
@@ -487,14 +506,33 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
       headMat.emissiveIntensity = (0.6 + headOn * 7) * (1 - 0.6 * v);
       headSmoke = v;
     },
-    /** detailing stages: 0..1 each */
-    setDetailing({ dirt = 0, foam = 0, iron = 0, ceramic = 0, beads = 0, side = 0.55 } = {}) {
-      polishU.uBeads.value = beads;
+    /**
+     * detailing stages: amounts 0..1. flow = seconds of run-off (streaks slide down), foamTop /
+     * rinseY = heights (m) of the foam blanket and of the clean line of the rinse, wet = water
+     * on the paint, sweep = ceramic light band 0..1, floor* = run-off around the car, spray =
+     * pressure washer on (sprayX = its position along the car), tyre / rims = finishing shine.
+     */
+    setDetailing({ dirt = 0, foam = 0, iron = 0, ceramic = 0, side = 0.55, flow = 0, foamTop = 9, rinseY = 9, wet = 0, sweep = 0, floorFoam = 0, floorIron = 0, floorWet = 0, spray = 0, sprayX = 0, tyre = 0, rims = 0 } = {}) {
       polishU.uDirt.value = dirt;
       polishU.uFoam.value = foam;
       polishU.uIron.value = iron;
       polishU.uCeramic.value = ceramic;
       polishU.uPolishSide.value = side;
+      polishU.uFlow.value = flow;
+      polishU.uFoamTop.value = foamTop;
+      polishU.uRinseY.value = rinseY;
+      polishU.uWet.value = wet;
+      polishU.uSweep.value = sweep;
+      fx.set({ floorFoam, floorIron, floorWet, spray, sprayX, flow });
+      for (const t of tyreMats) {
+        t.m.roughness = THREE.MathUtils.lerp(t.rough, 0.17, tyre);
+        t.m.color.copy(t.color).multiplyScalar(1 - 0.4 * tyre);
+        t.m.envMapIntensity = t.env * (1 + 2.0 * tyre);
+      }
+      for (const r of rimMats) {
+        r.m.roughness = r.rough * (1 - 0.55 * rims);
+        r.m.envMapIntensity = r.env * (1 + 0.9 * rims);
+      }
     },
     setHeadlightClear(v) {
       lens.userData.uniforms.uClear.value = v;
@@ -793,3 +831,135 @@ function computeAnchors({ box, find, P, headCenters, roofMeshes, group, starBox 
     rearGlass: center(rear, new THREE.Vector3(-L * 0.25, H * 0.85, 0)),
   };
 }
+
+/**
+ * Run-off and rinse effects of the detailing simulator, in car space: a puddle around the car
+ * (foam, purple iron remover, clear water) and a pressure-washer jet along the passenger side.
+ * Hidden until used; both are kept out of the floor mirror and of the car's bounds.
+ */
+function buildDetailingFx(group, box) {
+  const cx = (box.min.x + box.max.x) / 2;
+  const cz = (box.min.z + box.max.z) / 2;
+  const hx = (box.max.x - box.min.x) / 2;
+  const hz = (box.max.z - box.min.z) / 2;
+  const u = {
+    uFoam: { value: 0 },
+    uIron: { value: 0 },
+    uWet: { value: 0 },
+    uFlow: { value: 0 },
+    uHalf: { value: new THREE.Vector2(hx - 0.1, hz - 0.1) },
+  };
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(hx * 2 + 3.2, hz * 2 + 3.2),
+    new THREE.ShaderMaterial({
+      uniforms: u,
+      transparent: true,
+      depthWrite: false,
+      vertexShader: /* glsl */ `
+        varying vec2 vP;
+        void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: /* glsl */ `
+        uniform float uFoam; uniform float uIron; uniform float uWet; uniform float uFlow; uniform vec2 uHalf;
+        varying vec2 vP;
+        float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+        void main(){
+          // distance outside the car's footprint (rounded box)
+          vec2 q = abs(vP) - uHalf;
+          float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 0.25;
+          float edge = n2(vP * 3.0) * 0.35 + n2(vP * 11.0) * 0.12;
+          float spread = max(uFoam, max(uIron, uWet));
+          float pool = 1.0 - smoothstep(-0.05, 0.12, sd + edge - spread * 0.95);
+          // foam on the floor: soft clusters of suds, thick against the sills, thinning outwards
+          float suds = n2(vP * 9.0 + uFlow * 0.05) * 0.55 + n2(vP * 23.0) * 0.3 + n2(vP * 61.0) * 0.15;
+          float near = 1.0 - smoothstep(0.0, 0.25 + spread * 0.75, sd);
+          vec3 foamCol = mix(vec3(0.9, 0.92, 0.95), vec3(0.6, 0.3, 0.7), uIron * 0.6) * (0.86 + 0.14 * n2(vP * 90.0));
+          float foamA = smoothstep(0.42 - 0.25 * near, 0.7, suds) * max(uFoam, uIron * 0.5) * (0.35 + 0.65 * near);
+          // clear water: a dark glassy film with slow ripples catching the light
+          float rip = sin((vP.x + vP.y) * 18.0 + uFlow * 3.0 + n2(vP * 4.0) * 6.0);
+          vec3 col = mix(vec3(0.05, 0.06, 0.07) + vec3(0.35) * pow(max(rip, 0.0), 12.0), foamCol, foamA);
+          float a = pool * max(foamA * 0.92, uWet * 0.42 + uIron * 0.18);
+          gl_FragColor = vec4(col * a, a);
+          #include <colorspace_fragment>
+        }`,
+      blending: THREE.CustomBlending,
+      blendSrc: THREE.OneFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+    })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(cx, 0.006, cz);
+  floor.name = 'floorFx';
+  floor.renderOrder = 1;
+  floor.visible = false;
+  group.add(floor);
+
+  // pressure washer: a lance and a jet of droplets towards the passenger side
+  const N = 2600;
+  const seeds = new Float32Array(N * 3);
+  for (let i = 0; i < N * 3; i++) seeds[i] = Math.random();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+  g.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 3));
+  const su = { uTime: { value: 0 }, uNozzle: { value: new THREE.Vector3() }, uAim: { value: new THREE.Vector3() }, uSize: { value: 26 } };
+  const jet = new THREE.Points(
+    g,
+    new THREE.ShaderMaterial({
+      uniforms: su,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexShader: /* glsl */ `
+        attribute vec3 aSeed; uniform float uTime; uniform vec3 uNozzle; uniform vec3 uAim; uniform float uSize;
+        varying float vA;
+        void main(){
+          float t = fract(aSeed.x + uTime * 2.2);
+          vec3 d = uAim - uNozzle;
+          vec3 side = normalize(cross(d, vec3(0.0, 1.0, 0.0)));
+          vec3 up = normalize(cross(side, d));
+          // the jet fans out, then splashes back off the panel
+          float fan = 0.03 + 0.2 * t;
+          vec3 p = uNozzle + d * min(t, 0.92) + (side * (aSeed.y - 0.5) + up * (aSeed.z - 0.5)) * fan * 2.0;
+          float back = max(t - 0.92, 0.0) / 0.08;
+          p += normalize(-d + side * (aSeed.y - 0.5) * 2.5 + up * (aSeed.z - 0.2) * 2.0) * back * 0.35;
+          p.y -= 0.18 * t * t;
+          vA = (1.0 - t * 0.6) * smoothstep(0.0, 0.05, t);
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          gl_PointSize = uSize * (0.35 + 0.65 * aSeed.z) / -mv.z;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */ `
+        varying float vA;
+        void main(){
+          vec2 c = gl_PointCoord - 0.5;
+          float a = smoothstep(0.5, 0.1, length(c)) * vA * 0.7;
+          gl_FragColor = vec4(vec3(0.82, 0.9, 1.0) * a, a);
+        }`,
+    })
+  );
+  jet.frustumCulled = false;
+  const spray = new THREE.Group();
+  spray.name = 'spray';
+  spray.add(jet);
+  spray.visible = false;
+  group.add(spray);
+
+  return {
+    set({ floorFoam = 0, floorIron = 0, floorWet = 0, spray: on = 0, sprayX = 0, flow = 0 } = {}) {
+      u.uFoam.value = floorFoam;
+      u.uIron.value = floorIron;
+      u.uWet.value = floorWet;
+      u.uFlow.value = flow;
+      floor.visible = floorFoam + floorIron + floorWet > 0.001;
+      spray.visible = on > 0.01;
+      if (!spray.visible) return;
+      su.uTime.value = flow;
+      // the lance sweeps along the car, aiming up and down the panel
+      su.uNozzle.value.set(sprayX, 1.25, box.max.z + 1.05);
+      su.uAim.value.set(sprayX - 0.15, 0.62 + 0.28 * Math.sin(flow * 2.6), box.max.z - 0.05);
+      su.uSize.value = 34 * on;
+    },
+  };
+}
+

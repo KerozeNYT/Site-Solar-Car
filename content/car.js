@@ -48,6 +48,9 @@ export default {
     headLights: ['Object_128', 'Object_127', 'Object_92', 'Object_121', 'Object_122', 'Object_118', 'Object_119'],
     // outer headlight lenses (receive the renovation effect); rear triangles are left untouched
     headLens: ['Object_120'],
+    // tyres (tyre shine) and rims (finishing gloss) of the detailing simulator
+    tyres: ['Object_195', 'Object_200', 'Object_167', 'Object_173'],
+    rims: ['Object_196', 'Object_201', 'Object_166', 'Object_172'],
     // reflection overlays shipped with the glass; the site renders its own reflections
     hide: ['Object_188', 'Object_180', 'Object_185', 'Object_182', 'Object_186', 'Object_190'],
   },

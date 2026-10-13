@@ -43,7 +43,7 @@ export async function createStage(canvas, { quality = 'high', logoSvg = null, si
   const mirror = premises.reflect.clone(true);
   mirror.scale.y = -1;
   mirror.name = 'mirror';
-  const hiddenInMirror = new Set(['sky', 'beam', 'shadow', 'stars', 'starLiner']);
+  const hiddenInMirror = new Set(['sky', 'beam', 'shadow', 'stars', 'starLiner', 'floorFx', 'spray']);
   mirror.traverse((o) => {
     if (hiddenInMirror.has(o.name) || o.isSprite) o.visible = false;
   });

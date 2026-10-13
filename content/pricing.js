@@ -74,16 +74,17 @@ export const starlight = {
 export const detailing = {
   quote: true,
   steps: [
-    { id: 'wash', label: 'Lavage manuel & mousse active', text: 'Pré-lavage à la mousse active qui décolle la saleté sans frotter, puis lavage manuel aux deux seaux et rinçage.' },
-    { id: 'decon', label: 'Décontamination ferreuse & argile', text: 'Le décontaminant ferreux vire au violet au contact des particules métalliques incrustées ; la barre d’argile retire le reste.' },
+    { id: 'wash', label: 'Prélavage à la mousse active', text: 'La mousse active recouvre la carrosserie, puis coule le long des panneaux jusqu’au sol en emportant la saleté, sans frotter.' },
+    { id: 'decon', label: 'Décontamination chimique', text: 'Le décontaminant ferreux vire au violet au contact des particules métalliques incrustées et ruisselle sur la carrosserie ; la barre d’argile retire le reste.' },
+    { id: 'rinse', label: 'Rinçage à l’eau claire', text: 'Rinçage haute pression à l’eau claire, du toit vers le bas : mousse, décontaminant et saleté partent au sol, la carrosserie est nette.' },
     { id: 'polish', label: 'Polissage / correction de peinture', text: 'La polisseuse efface micro-rayures et hologrammes, panneau par panneau : la peinture retrouve profondeur et reflets.' },
-    { id: 'ceramic', label: 'Protection céramique', text: 'Le revêtement céramique protège le vernis et rend la surface hydrophobe : l’eau perle et glisse.' },
-    { id: 'finish', label: 'Finitions jantes, pneus & vitrages', text: 'Jantes, pneus, joints, vitrages et optiques : les détails qui font la différence à la livraison.' },
+    { id: 'ceramic', label: 'Protection céramique', text: 'Le revêtement céramique scelle le vernis : brillance profonde, effet miroir, surface protégée et facile à entretenir.' },
+    { id: 'finish', label: 'Finitions : jantes & brillant pneus', text: 'Jantes lustrées, brillant pneus, joints, vitrages et optiques : la touche finale qui fait la différence à la livraison.' },
   ],
   packages: [
-    { id: 'essentiel', label: 'Essentiel', steps: ['wash', 'decon', 'finish'], text: 'Remise en beauté complète, sans polissage.' },
-    { id: 'eclat', label: 'Éclat', steps: ['wash', 'decon', 'polish', 'finish'], text: 'Polissage en une étape : brillance et micro-rayures atténuées.' },
-    { id: 'signature', label: 'Signature céramique', steps: ['wash', 'decon', 'polish', 'ceramic', 'finish'], text: 'Correction approfondie et protection céramique longue durée.' },
+    { id: 'essentiel', label: 'Essentiel', steps: ['wash', 'decon', 'rinse', 'finish'], text: 'Remise en beauté complète, sans polissage.' },
+    { id: 'eclat', label: 'Éclat', steps: ['wash', 'decon', 'rinse', 'polish', 'finish'], text: 'Polissage en une étape : brillance et micro-rayures atténuées.' },
+    { id: 'signature', label: 'Signature céramique', steps: ['wash', 'decon', 'rinse', 'polish', 'ceramic', 'finish'], text: 'Correction approfondie et protection céramique longue durée.' },
   ],
 };
 

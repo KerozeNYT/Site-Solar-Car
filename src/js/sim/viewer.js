@@ -209,7 +209,7 @@ function studioParking(shown) {
 }
 
 /** bounds of the car body only: light beams, shadows, stars and glows would stretch the box */
-const NOT_BODY = new Set(['beam', 'shadow', 'stars', 'starExtras']);
+const NOT_BODY = new Set(['beam', 'shadow', 'stars', 'starExtras', 'floorFx', 'spray']);
 function bodyBox(group) {
   const box = new THREE.Box3();
   group.updateMatrixWorld(true);

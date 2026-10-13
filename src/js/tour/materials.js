@@ -114,6 +114,11 @@ export function injectPolish(m, uniforms) {
         uniform float uIron;
         uniform float uCeramic;
         uniform float uBeads;
+        uniform float uFlow;
+        uniform float uFoamTop;
+        uniform float uRinseY;
+        uniform float uWet;
+        uniform float uSweep;
         float h31(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
         float vnoise(vec3 p){
           vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -167,20 +172,35 @@ export function injectPolish(m, uniforms) {
         float n2 = vnoise(q * 38.0);
         float fb = n1 * 0.5 + vnoise(q * 15.0) * 0.3 + n2 * 0.2;
         float low = 1.0 - smoothstep(0.2, 1.0, vCarPos.y);
-        float grime = uDirt * clamp(0.3 + 0.8 * low + (n1 - 0.5) * 0.9, 0.0, 1.0);
+        // running liquids: vertical streak noise sliding down with time (uFlow)
+        float drip = vnoise(vec3(vCarPos.x * 46.0, vCarPos.y * 2.6 + uFlow * 0.9, vCarPos.z * 46.0));
+        float drip2 = vnoise(vec3(vCarPos.x * 31.0 + 7.0, vCarPos.y * 3.4 + uFlow * 1.3, vCarPos.z * 31.0));
+        // clear-water rinse: the clean line comes down from the roof
+        float rinsed = smoothstep(uRinseY - 0.05, uRinseY + 0.05 + 0.18 * drip2, vCarPos.y);
+        float grime = uDirt * clamp(0.3 + 0.8 * low + (n1 - 0.5) * 0.9, 0.0, 1.0) * (1.0 - rinsed);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.30, 0.27, 0.21), grime * 0.8);
         roughnessFactor = mix(roughnessFactor, 0.92, grime);
         metalnessFactor = mix(metalnessFactor, 0.0, grime);
-        // snow foam: a thick, almost continuous blanket with a bubbly texture
-        float foam = uFoam * smoothstep(0.26, 0.46, fb + 0.1 * low);
+        // snow foam: a thick blanket with a bubbly texture that slides down the panels: full
+        // below uFoamTop, only the trails it leaves above
+        float below = 1.0 - smoothstep(uFoamTop - 0.06, uFoamTop + 0.06 + 0.25 * drip, vCarPos.y);
+        float trails = smoothstep(0.6, 0.78, drip) * 0.8;
+        float foam = uFoam * smoothstep(0.26, 0.46, fb + 0.1 * low + 0.15 * (1.0 - below)) * max(below, trails) * (1.0 - rinsed);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.95, 0.97) * (0.8 + 0.2 * vnoise(q * 170.0)), foam);
         roughnessFactor = mix(roughnessFactor, 1.0, foam);
         metalnessFactor = mix(metalnessFactor, 0.0, foam);
         // iron remover turning purple and running down the panels, heavier low on the body
-        float runs = vnoise(vec3(vCarPos.x * 34.0, vCarPos.y * 4.0, vCarPos.z * 34.0));
-        float iron = uIron * smoothstep(0.5, 0.7, runs * 0.65 + n2 * 0.35) * (0.45 + 0.55 * low);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.40, 0.05, 0.50), iron * 0.88);
+        float runs = vnoise(vec3(vCarPos.x * 34.0, vCarPos.y * 4.0 + uFlow * 1.1, vCarPos.z * 34.0));
+        float iron = uIron * smoothstep(0.5, 0.7, runs * 0.65 + n2 * 0.35) * (0.45 + 0.55 * low) * (1.0 - rinsed);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.42, 0.06, 0.52), iron * 0.75);
         roughnessFactor = mix(roughnessFactor, 0.5, iron);
+        // wet paint where the rinse has passed: darker, glassy, with water sheets running off
+        float wet = uWet * rinsed;
+        float sheet = smoothstep(0.58, 0.86, vnoise(vec3(vCarPos.x * 70.0, vCarPos.y * 1.6 + uFlow * 2.4, vCarPos.z * 70.0)));
+        diffuseColor.rgb *= 1.0 - 0.14 * wet;
+        roughnessFactor = mix(roughnessFactor, 0.04, wet);
+        // ceramic: deeper colour under the gloss
+        diffuseColor.rgb *= 1.0 - 0.08 * uCeramic;
         float mud = grime + foam;`
       )
       .replace(
@@ -189,13 +209,16 @@ export function injectPolish(m, uniforms) {
         #ifdef USE_CLEARCOAT
           material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.1, dull);
           material.clearcoat *= 1.0 - clamp(mud, 0.0, 1.0);
-          material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.0525, uCeramic);
+          // ceramic: a glass-smooth top layer, mirror reflections
+          material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.004, uCeramic);
         #endif
+        material.roughness = mix(material.roughness, material.roughness * 0.55, uCeramic);
         totalEmissiveRadiance += vec3(1.0, 0.72, 0.38) * glint * 0.9;
-        // ceramic coating: tight water beads catching the light on upward faces
-        vec3 cell = fract(vCarPos * vec3(26.0, 26.0, 26.0)) - 0.5;
-        float bead = (1.0 - smoothstep(0.05, 0.12, length(cell.xz))) * step(0.55, h31(floor(vCarPos * 26.0)));
-        totalEmissiveRadiance += vec3(0.42) * bead * uBeads * smoothstep(0.4, 0.9, vCarNormal.y);`
+        // ceramic: a band of light sweeping across the coated paint
+        float band = exp(-pow((vCarPos.x - mix(-3.4, 3.4, uSweep) + vCarPos.y * 0.7) / 0.14, 2.0));
+        totalEmissiveRadiance += vec3(1.0, 0.95, 0.86) * band * uCeramic * 0.5 * step(0.001, uSweep) * (1.0 - step(0.999, uSweep));
+        // rinse water sheets catching the light
+        totalEmissiveRadiance += vec3(0.62, 0.7, 0.78) * sheet * wet * 0.22;`
       );
   };
   m.customProgramCacheKey = () => 'polish-' + m.name;
