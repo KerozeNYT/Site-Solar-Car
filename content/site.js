@@ -110,7 +110,7 @@ export const home = {
       },
       tint: {
         kicker: '01 — Vitres teintées',
-        title: 'Des films solaires posés dans les règles',
+        title: 'Des films solaires *posés dans les règles*',
         text: 'Intimité, confort thermique et protection UV, de 70 % à 5 % de lumière transmise. À l’avant, la loi impose au moins 70 % de lumière, vitre et film compris : nous faisons le point avec vous, zone par zone.',
         readout: 'vlt',
         link: { label: 'Découvrir les vitres teintées', href: '/vitres-teintees/' },
@@ -118,21 +118,21 @@ export const home = {
       },
       tail: {
         kicker: '02 — Feux arrière teintés',
-        title: 'Un regard plus sombre, des feux toujours lisibles',
+        title: 'Un regard plus sombre, des feux *toujours lisibles*',
         text: 'Film fumé découpé sur mesure, du voile léger au noir profond. Nous vous conseillons l’intensité adaptée et le cadre réglementaire avant toute pose.',
         link: { label: 'Découvrir les feux teintés', href: '/feux-arriere-teintes/' },
         side: 'right',
       },
       detailing: {
         kicker: '03 — Detailing carrosserie',
-        title: 'Le brillant d’origine, panneau par panneau',
+        title: 'Le brillant d’origine, *panneau par panneau*',
         text: 'Décontamination, polissage et correction des micro-rayures, puis protection : la ligne qui avance sépare la peinture terne de la peinture corrigée.',
         link: { label: 'Découvrir le detailing', href: '/detailing-carrosserie/' },
         side: 'left',
       },
       covering: {
         kicker: '04 — Covering & déchromage',
-        title: 'Une nouvelle couleur, sans toucher à la peinture',
+        title: 'Une nouvelle couleur, *sans toucher à la peinture*',
         text: 'Covering complet ou partiel, finitions brillantes, satinées ou mates, chromes passés au noir : changez de style sans repeindre, et revenez à la teinte d’origine quand vous le souhaitez.',
         link: { label: 'Découvrir le covering', href: '/covering-dechromage/' },
         linkHint: 'Offres · nuancier 3M™ · devis',
@@ -140,14 +140,14 @@ export const home = {
       },
       stars: {
         kicker: '05 — Ciel étoilé',
-        title: 'Une nuit étoilée au-dessus de vos têtes',
+        title: 'Une nuit étoilée *au-dessus de vos têtes*',
         text: 'Des centaines de points de fibre optique intégrés au pavillon, une lumière douce et réglable : l’habitacle devient une nuit d’été.',
         link: { label: 'Découvrir le ciel étoilé', href: '/ciel-etoile/' },
         side: 'left',
       },
       headlights: {
         kicker: '06 — Rénovation de phares',
-        title: 'Des optiques claires comme au premier jour',
+        title: 'Des optiques claires *comme au premier jour*',
         text: 'Ponçage, polissage et protection anti-UV : les phares jaunis retrouvent leur transparence et votre éclairage son efficacité.',
         readout: 'beforeAfter',
         link: { label: 'Découvrir la rénovation de phares', href: '/renovation-phares/' },
@@ -156,7 +156,7 @@ export const home = {
       },
       final: {
         kicker: 'SOLAR CAR 37',
-        title: 'Prenez rendez-vous à l’atelier',
+        title: 'Prenez rendez-vous *à l’atelier*',
         text: 'Décrivez votre véhicule et la prestation souhaitée : nous revenons vers vous avec un devis détaillé.',
         ctas: [{ label: 'Demander un devis', href: '/contact/', primary: true }],
         contact: true,
@@ -169,7 +169,7 @@ export const home = {
     text: 'SOLAR CAR 37 réunit sous un même toit la pose de films solaires, la teinte des feux, le detailing de carrosserie, le covering et le déchromage, l’installation de ciels étoilés et la rénovation d’optiques. Chaque véhicule est traité au cas par cas, avec un devis clair avant toute intervention.',
   },
   process: {
-    title: 'Comment se déroule une prestation',
+    title: 'Comment se déroule *une prestation*',
     steps: [
       { title: 'Votre demande', text: 'Formulaire, téléphone ou message : décrivez le véhicule et la prestation souhaitée.' },
       { title: 'Devis détaillé', text: 'Nous vous conseillons (teinte, finition, réglementation) et chiffrons précisément.' },
@@ -214,9 +214,9 @@ export const home = {
       a: 'Un phare opacifié diffuse moins de lumière : vous voyez moins bien et vous êtes moins bien vu. La rénovation retire la couche oxydée et protège l’optique contre les UV ; elle coûte bien moins qu’un remplacement.',
     },
   ],
-  servicesTitle: 'Nos prestations',
+  servicesTitle: 'Six savoir-faire, *un seul atelier*',
   ctaBand: {
-    title: 'Un projet pour votre véhicule ?',
+    title: 'Un projet pour *votre véhicule* ?',
     text: 'Dites-nous ce que vous souhaitez : nous vous répondons avec un devis détaillé.',
     cta: { label: 'Demander un devis', href: '/contact/' },
   },
@@ -238,7 +238,7 @@ export const services = [
       description:
         `Films solaires posés à Vouvray, près de Tours : 3/4 arrière dès ${P.tintFrom} TTC, teintes de 5 à 70 %, simulateur 3D avec prix en direct et conseil sur la loi.`,
     },
-    h1: 'Vitres teintées et films solaires',
+    h1: 'Vitres teintées *et films solaires*',
     intro:
       'Un film solaire de qualité change le quotidien à bord : moins de chaleur, moins d’éblouissement, des passagers et des objets à l’abri des regards, et une protection contre les UV. Chez SOLAR CAR 37, nous découpons et posons le film sur mesure, vitre par vitre, en respectant la réglementation française.',
     benefits: [
@@ -291,7 +291,7 @@ export const services = [
       description:
         `Covering fumé 50 % ou 80 % ou PPF teinté sur vos feux, posé à Vouvray près de Tours : covering ${P.lightsPair} TTC la paire. Simulateur 3D feux allumés et au freinage.`,
     },
-    h1: 'Feux arrière teintés',
+    h1: 'Feux arrière *teintés*',
     intro:
       'Un film fumé sur les feux arrière donne immédiatement plus de caractère à l’arrière d’une voiture. Nous choisissons avec vous l’intensité, découpons le film à la forme exacte de vos optiques et le posons sans bulles ni débords.',
     benefits: [
@@ -333,7 +333,7 @@ export const services = [
       description:
         'Detailing à Vouvray, près de Tours : lavage, décontamination, polissage anti micro-rayures et hologrammes, protection céramique. Forfaits sur devis.',
     },
-    h1: 'Detailing et correction de peinture',
+    h1: 'Detailing et *correction de peinture*',
     intro:
       'Avec le temps et les lavages, le vernis se couvre de micro-rayures et d’hologrammes qui ternissent la teinte. Le detailing consiste à nettoyer en profondeur, corriger ces défauts par polissage, puis protéger la peinture pour qu’elle garde sa profondeur.',
     benefits: [
@@ -373,7 +373,7 @@ export const services = [
       description:
         'Covering complet ou partiel (toit, capot, rétroviseurs) et déchromage à Vouvray, près de Tours : films 3M™ Série 2080 brillants, satinés ou mats, devis après étude.',
     },
-    h1: 'Covering et déchromage automobile près de Tours',
+    h1: 'Covering et déchromage *automobile près de Tours*',
     intro:
       'Changer la couleur ou la finition de votre véhicule sans le repeindre : un film adhésif posé sur la carrosserie, en totalité ou sur quelques éléments, et des chromes passés au noir. Choisissez votre teinte dans le nuancier 3M™ Série 2080, puis validez l’échantillon réel à l’atelier de Vouvray.',
     benefits: [
@@ -429,7 +429,7 @@ export const services = [
       description:
         'Ciel étoilé en fibre optique posé à Vouvray, près de Tours : densité, bicolore, scintillement, étoiles filantes, constellation. Configurateur 3D et devis.',
     },
-    h1: 'Ciel étoilé en fibre optique',
+    h1: 'Ciel étoilé *en fibre optique*',
     intro:
       'Popularisé par les berlines de prestige, le ciel étoilé transforme l’habitacle : des centaines de points lumineux dispersés dans le pavillon créent une ambiance de nuit d’été, douce et apaisante.',
     benefits: [
@@ -469,7 +469,7 @@ export const services = [
       description:
         `Phares jaunis ou opaques : ponçage, polissage et protection à Vouvray (37), près de Tours. Rénovation des deux phares ${P.headlights} TTC, option céramique ${P.headlightsCeramic}.`,
     },
-    h1: 'Rénovation de phares',
+    h1: 'Rénovation *de phares*',
     intro:
       'Les optiques en polycarbonate jaunissent et s’opacifient avec les UV et les années. Résultat : un éclairage moins efficace et une voiture qui paraît plus âgée qu’elle ne l’est. La rénovation retire la couche abîmée et protège l’optique.',
     benefits: [

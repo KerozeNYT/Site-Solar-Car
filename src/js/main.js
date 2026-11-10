@@ -1,7 +1,18 @@
 // Site-wide behaviour. Everything here is progressive enhancement: pages work without it.
+import { startAmbient } from './ambient.js';
 
 const html = document.documentElement;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ---------------------------------------------------------------- garage ambience (backdrop)
+startAmbient();
+{
+  // the backdrop rests while the 3D tour fills the screen (it is hidden behind it anyway)
+  const ambient = document.querySelector('[data-ambient]');
+  const stage = document.querySelector('[data-tour]');
+  if (ambient && stage && 'IntersectionObserver' in window)
+    new IntersectionObserver(([en]) => ambient.classList.toggle('is-paused', en.intersectionRatio > 0.6), { threshold: [0, 0.6, 1] }).observe(stage);
+}
 
 // ---------------------------------------------------------------- navigation
 const toggle = document.querySelector('[data-nav-toggle]');
@@ -203,7 +214,7 @@ if (!reduceMotion && 'IntersectionObserver' in window) {
     },
     { rootMargin: '0px 0px -8% 0px' }
   );
-  document.querySelectorAll('.service-card, .steps li, .benefits li, .faq__item, .checklist li, .reveal-up, .guide-card, .related__list li').forEach((el) => {
+  document.querySelectorAll('.service-card, .steps li, .benefits li, .faq__item, .checklist li, .reveal-up, .guide-card, .related__list li, .section-head, .cov-offer, .work, .price-table').forEach((el) => {
     el.classList.add('reveal');
     io.observe(el);
   });

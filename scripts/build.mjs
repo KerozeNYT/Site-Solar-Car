@@ -36,13 +36,16 @@ export function assetsFrom(meta, outdir = out) {
   const rel = (p) => '/' + path.relative(outdir, path.join(root, p)).split(path.sep).join('/');
   let js;
   let css;
-  let font;
+  // fonts used by the first screen, preloaded (text, italic serif of the titles, mono of the labels)
+  const FIRST = ['geist-latin-wght-normal', 'instrument-serif-latin-400-italic', 'geist-mono-latin-wght-normal'];
+  const fonts = [];
   for (const [file, info] of Object.entries(meta.outputs)) {
     if (info.entryPoint === 'src/js/main.js') js = rel(file);
     if (file.endsWith('.css') && info.entryPoint === 'src/styles/main.css') css = rel(file);
-    if (file.includes('archivo-latin-wdth-normal') && file.endsWith('.woff2')) font = rel(file);
+    const i = FIRST.findIndex((f) => file.includes(`/${f}-`) && file.endsWith('.woff2'));
+    if (i >= 0) fonts[i] = rel(file);
   }
-  return { js, css, font };
+  return { js, css, fonts: fonts.filter(Boolean), font: fonts[0] };
 }
 
 export function copyDir(src, dst) {
@@ -69,6 +72,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (base !== '/') console.log('base', base, rebase(out, base).files, 'files');
   if (process.env.PREVIEW) markPreview(out);
   const size = (f) => (fs.statSync(path.join(out, f)).size / 1024).toFixed(1) + ' KB';
-  console.log('assets', Object.fromEntries(Object.entries(assets).map(([k, v]) => [k, `${v} (${size(v)})`])));
+  const list = (v) => [].concat(v).map((f) => `${f} (${size(f)})`).join(', ');
+  console.log('assets', Object.fromEntries(Object.entries(assets).map(([k, v]) => [k, list(v)])));
   console.log('pages', pages.length, pages.join(', '));
 }

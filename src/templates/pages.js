@@ -10,6 +10,10 @@ import { films as coveringFilms, ranges as filmRanges } from '../../content/film
 
 export const esc = (s = '') =>
   String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+/** a title from the content: escaped, *mot* set in the italic serif (<em>) */
+export const rich = (s = '') => esc(s).replace(/\*([^*]+)\*/g, '<em>$1</em>');
+/** the same title as plain text (meta tags, labels) */
+export const plain = (s = '') => String(s).replace(/\*([^*]+)\*/g, '$1');
 
 const abs = (site, p) => site.siteUrl.replace(/\/$/, '') + p;
 const telHref = (phone) => 'tel:' + String(phone).replace(/[^\d+]/g, '').replace(/^0/, '+33');
@@ -191,7 +195,7 @@ ${noindex ? '<meta name="robots" content="noindex, follow">' : '<meta name="robo
 <link rel="icon" href="/favicon-48.png" sizes="48x48" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
-<link rel="preload" href="${ctx.assets.font}" as="font" type="font/woff2" crossorigin>
+${(ctx.assets.fonts || [ctx.assets.font]).map((f) => `<link rel="preload" href="${f}" as="font" type="font/woff2" crossorigin>`).join('\n')}
 ${preload}
 <link rel="stylesheet" href="${ctx.assets.css}">
 <script>(function(d){var c=d.documentElement.classList,n=navigator.connection;c.add('js');if(!matchMedia('(prefers-reduced-motion: reduce)').matches&&!(n&&(n.saveData||/2g|3g/.test(n.effectiveType||'')))&&!/[?&]static\\b/.test(location.search))c.add('tour-live')})(document)</script>
@@ -214,7 +218,7 @@ function header(ctx, current = '') {
     .join('');
   return `<a class="skip-link" href="#contenu">Aller au contenu</a>
 <header class="site-header" data-header>
-  <a class="site-header__logo" href="/" aria-label="${esc(ctx.business.name)} — accueil"><img src="/img/brand/logo-horizontal-200.webp" srcset="/img/brand/logo-horizontal-200.webp 200w, /img/brand/logo-horizontal-400.webp 400w" sizes="114px" width="114" height="44" alt="${esc(ctx.business.name)}"></a>
+  <a class="site-header__logo" href="/" aria-label="${esc(ctx.business.name)} — accueil"><img src="/img/brand/logo-horizontal-clair-200.webp" srcset="/img/brand/logo-horizontal-clair-200.webp 200w, /img/brand/logo-horizontal-clair-400.webp 400w" sizes="114px" width="114" height="44" alt="${esc(ctx.business.name)}"></a>
   <nav class="site-nav" aria-label="Navigation principale">
     <button class="site-nav__toggle" type="button" aria-expanded="false" aria-controls="menu-principal" data-nav-toggle>
       <span class="site-nav__bars" aria-hidden="true"></span><span class="visually-hidden">Menu</span>
@@ -247,7 +251,7 @@ function footer(ctx) {
   return `<footer class="site-footer">
   <div class="container site-footer__grid">
     <div>
-      <a class="site-footer__logo" href="/" aria-label="${esc(b.name)} — accueil"><img src="/img/brand/logo-officiel-240.webp" srcset="/img/brand/logo-officiel-240.webp 240w, /img/brand/logo-officiel-480.webp 480w" sizes="132px" width="132" height="142" alt="Logo ${esc(b.name)}" loading="lazy"></a>
+      <a class="site-footer__logo" href="/" aria-label="${esc(b.name)} — accueil"><img src="/img/brand/logo-officiel-clair-240.webp" srcset="/img/brand/logo-officiel-clair-240.webp 240w, /img/brand/logo-officiel-clair-480.webp 480w" sizes="132px" width="132" height="142" alt="Logo ${esc(b.name)}" loading="lazy"></a>
       <p class="site-footer__tag">${esc(b.tagline)} — ${esc(b.address?.city || b.department)}, près de Tours (${esc(b.departmentCode)}).</p>
       ${contactLines(b)}
       ${socialLinks(b, 'social social--footer')}
@@ -384,6 +388,7 @@ function instagramBlock(ctx) {
 function page(ctx, opts, body) {
   return `${head(ctx, opts)}
 <body class="${opts.bodyClass || ''}">
+<div class="ambient" data-ambient aria-hidden="true"><div class="ambient__ceiling"></div><div class="ambient__floor"></div><div class="ambient__haze" data-haze></div><div class="ambient__sweep"></div></div>
 ${header(ctx, opts.path)}
 <main id="contenu">
 ${body}
@@ -418,7 +423,7 @@ function ctaBand(ctx) {
   const c = ctx.home.ctaBand;
   return `<section class="cta-band">
   <div class="container cta-band__inner">
-    <div><h2>${esc(c.title)}</h2><p>${esc(c.text)}</p></div>
+    <div><h2>${rich(c.title)}</h2><p>${esc(c.text)}</p></div>
     <a class="btn btn--primary" href="${c.cta.href}">${esc(c.cta.label)}</a>
   </div>
 </section>`;
@@ -462,7 +467,7 @@ export function homePage(ctx) {
             ? `<p class="readout readout--ba" aria-live="off"><span class="readout__label">Optiques</span> <span class="readout__value" data-readout="beforeAfter">Avant</span></p>`
             : '';
       const contact = c.contact ? contactLines(b, { compact: true }) : '';
-      const heading = c.brand ? `<span class="chapter__brand">${esc(c.brand)}</span> <span class="chapter__line">${esc(c.title)}</span>` : esc(c.title);
+      const heading = c.brand ? `<span class="chapter__brand">${esc(c.brand)}</span> <span class="chapter__line">${esc(plain(c.title))}</span>` : rich(c.title);
       const quick = c.quick
         ? `<nav class="hero-quick" aria-label="Accès direct aux prestations"><span class="hero-quick__label">${esc(c.quick)}</span><ul>${services.map((s) => `<li><a href="/${s.slug}/">${esc(s.shortName || s.name)}</a></li>`).join('')}</ul></nav>`
         : '';
@@ -527,7 +532,7 @@ export function homePage(ctx) {
     <div class="container">
       <div class="section-head">
         <p class="kicker">${esc(b.name)}</p>
-        <h2 id="prestations-title">${esc(home.servicesTitle)}</h2>
+        <h2 id="prestations-title">${rich(home.servicesTitle)}</h2>
         <p class="lead">${esc(home.intro.text)}</p>
       </div>
       <ul class="service-grid">
@@ -538,7 +543,7 @@ export function homePage(ctx) {
 
   <section class="section section--paper process" aria-labelledby="process-title">
     <div class="container">
-      <h2 id="process-title">${esc(home.process.title)}</h2>
+      <h2 id="process-title">${rich(home.process.title)}</h2>
       <ol class="steps">${home.process.steps.map((s) => `<li><h3>${esc(s.title)}</h3><p>${esc(s.text)}</p></li>`).join('')}</ol>
     </div>
   </section>
@@ -637,7 +642,7 @@ export function servicePage(ctx, s) {
       <div class="container service-hero__copy">
         <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li aria-current="page">${esc(s.name)}</li></ol></nav>
         <p class="kicker">${esc(b.name)} · ${esc(placeLabel(b))}</p>
-        <h1>${esc(s.h1)}</h1>
+        <h1>${rich(s.h1)}</h1>
         <p class="lead">${esc(s.intro)}</p>
         <div class="ctas">${s.slug === 'renovation-phares' ? `<a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a><a class="btn btn--ghost" href="#tarifs" data-scroll>Voir les tarifs</a>` : `<a class="btn btn--primary" href="#simulateur" data-scroll>Simuler en 3D et voir le prix</a><a class="btn btn--ghost" href="/contact/?prestation=${s.slug}">Demander un devis</a>`}</div>
       </div>
@@ -748,7 +753,7 @@ function coveringServicePage(ctx, s) {
       <div class="container service-hero__copy">
         <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li aria-current="page">${esc(s.name)}</li></ol></nav>
         <p class="kicker">${esc(b.name)} · ${esc(placeLabel(b))}</p>
-        <h1>${esc(s.h1)}</h1>
+        <h1>${rich(s.h1)}</h1>
         <p class="lead">${esc(s.intro)}</p>
         <div class="ctas"><a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a><a class="btn btn--ghost" href="#offres-title" data-scroll>Voir les offres</a></div>
       </div>

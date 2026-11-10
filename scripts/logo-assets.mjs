@@ -26,11 +26,29 @@ async function save(buf, name, widths, { webp = true, png = true } = {}) {
   }
 }
 
+// `--only=reversed`: write only the versions for dark backgrounds (step 3b), without touching the rest
+const onlyReversed = process.argv.includes('--only=reversed');
+
+/** the same artwork with the navy wordmark turned ivory, for dark backgrounds (shield untouched) */
+async function reversed(buf) {
+  const { data, info } = await sharp(buf).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  for (let i = 0; i < data.length; i += 4) {
+    const [r, g, b] = [data[i], data[i + 1], data[i + 2]];
+    // the wordmark's navy (and its anti-aliased edge): dark and bluish, never the gold
+    if (r < 60 && g < 70 && b < 90 && b >= r) {
+      data[i] = 244;
+      data[i + 1] = 241;
+      data[i + 2] = 234;
+    }
+  }
+  return sharp(data, { raw: info }).png().toBuffer();
+}
+
 // 1. official stacked logo, trimmed
 const stacked = await sharp(src).trim().png().toBuffer();
-await save(stacked, 'logo-officiel', [240, 480, 960]);
+if (!onlyReversed) await save(stacked, 'logo-officiel', [240, 480, 960]);
 // 2. emblem (shield)
-await save(shield, 'embleme', [64, 128, 256, 512]);
+if (!onlyReversed) await save(shield, 'embleme', [64, 128, 256, 512]);
 // 3. horizontal lockup: shield + two-line wordmark, side by side
 const H = 400;
 const sh = await sharp(shield).resize({ height: H }).toBuffer();
@@ -47,6 +65,13 @@ const lockup = await sharp({ create: { width: lockW, height: H, channels: 4, bac
   ])
   .png()
   .toBuffer();
+// 3b. reversed versions (ivory wordmark) for the dark site: header and footer
+await save(await reversed(lockup), 'logo-horizontal-clair', [200, 400, 800], { png: false });
+await save(await reversed(stacked), 'logo-officiel-clair', [240, 480], { png: false });
+if (onlyReversed) {
+  console.log('reversed brand assets written');
+  process.exit(0);
+}
 fs.writeFileSync(path.join(out, 'solar-car-lockup-horizontal.png'), lockup);
 await save(lockup, 'logo-horizontal', [200, 400, 800]);
 console.log('lockup ratio', (lockW / H).toFixed(3));
