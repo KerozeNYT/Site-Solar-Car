@@ -11,7 +11,7 @@ import { glazing as G } from './regulation.js';
 
 export const guidesPage = {
   seo: {
-    title: 'Guides vitres teintées, feux, phares, detailing | SOLAR CAR 37',
+    title: 'Guides vitres teintées, feux, phares | SOLAR CAR 37',
     description:
       'Loi sur les vitres teintées, feux fumés, phares jaunis, ciel étoilé, polissage et céramique : les réponses claires de l’atelier SOLAR CAR 37, près de Tours.',
   },
@@ -139,9 +139,9 @@ export const guides = [
     slug: 'phares-jaunis-renovation',
     title: 'Phares jaunis ou opaques : pourquoi et comment les rénover',
     seo: {
-      title: `Phares jaunis : causes et rénovation (${P.headlights} la paire) | SOLAR CAR 37`,
+      title: `Phares jaunis : causes et rénovation à ${P.headlights} | SOLAR CAR 37`,
       description:
-        `Pourquoi les optiques jaunissent, ce que change une rénovation (ponçage, polissage, protection) et quand remplacer le phare. Rénovation des deux phares ${P.headlights} TTC près de Tours.`,
+        `Pourquoi les optiques jaunissent, ce que change une rénovation (ponçage, polissage, protection), quand remplacer le phare. Les deux phares : ${P.headlights} TTC.`,
     },
     kicker: 'Entretien',
     updated: '2026-10-13',
@@ -354,7 +354,7 @@ export const guides = [
     slug: 'choisir-teinte-vitres',
     title: 'Vitres teintées : 5 %, 15 %, 25 %, 35 % ou 50 %, quelle teinte choisir ?',
     seo: {
-      title: 'Teinte vitres : 5 %, 15 %, 25 %, 35 %, que choisir ? | SOLAR CAR 37',
+      title: 'Teinte de vitres : 5, 15, 25 ou 35 % ? | SOLAR CAR 37',
       description: 'Ce que veut dire le pourcentage d’un film teinté, le rendu de chaque teinte, la visibilité de nuit, la chaleur et la règle des 70 % à l’avant.',
     },
     kicker: 'Conseils',
@@ -409,7 +409,7 @@ export const guides = [
     slug: 'film-nano-ceramique',
     title: 'Film nano-céramique : comment il filtre la chaleur',
     seo: {
-      title: 'Film nano-céramique pour vitres : principe et intérêt | SOLAR CAR 37',
+      title: 'Film nano-céramique : principe et intérêt | SOLAR CAR 37',
       description: 'Film teinté, métallisé ou nano-céramique : comment chacun agit sur la lumière et la chaleur, et pourquoi le pourcentage de teinte ne dit pas tout.',
     },
     kicker: 'Technologie',

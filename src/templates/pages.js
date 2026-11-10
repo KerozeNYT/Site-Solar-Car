@@ -388,7 +388,7 @@ function instagramBlock(ctx) {
 function page(ctx, opts, body) {
   return `${head(ctx, opts)}
 <body class="${opts.bodyClass || ''}">
-<div class="ambient" data-ambient aria-hidden="true"><div class="ambient__ceiling"></div><div class="ambient__floor"></div><div class="ambient__haze" data-haze></div><div class="ambient__sweep"></div></div>
+<div class="ambient" data-ambient aria-hidden="true"><div class="ambient__haze" data-haze></div><div class="ambient__sweep"></div></div>
 ${header(ctx, opts.path)}
 <main id="contenu">
 ${body}
@@ -1287,7 +1287,7 @@ export function zonePage(ctx, z) {
     ctx,
     {
       // titles kept under ~65 characters, descriptions under ~160
-      title: (`Vitres teintées & detailing près ${from} | SOLAR CAR 37`.length > 66 ? `Vitres teintées près ${from} | SOLAR CAR 37` : `Vitres teintées & detailing près ${from} | SOLAR CAR 37`),
+      title: (`Vitres teintées & detailing près ${from} | SOLAR CAR 37`.length > 60 ? `Vitres teintées près ${from} | SOLAR CAR 37` : `Vitres teintées & detailing près ${from} | SOLAR CAR 37`),
       description: [`${town} : atelier SOLAR CAR 37 à ${kmFr(z.roadKm)} km par la route (Vouvray).`, `Vitres teintées dès ${priceText.tintFrom} TTC, feux teintés, phares ${priceText.headlights}, detailing.`, 'Trajet et devis.']
         .reduce((acc, part) => ((acc + ' ' + part).trim().length <= 160 ? (acc + ' ' + part).trim() : acc), ''),
       path,

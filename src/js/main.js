@@ -72,15 +72,20 @@ document.addEventListener('click', (e) => {
 });
 
 // ---------------------------------------------------------------- 3D tour
+/** can this device draw 3D? Asked once, and only when a 3D scene is about to start: creating a
+ *  test context is not free (seconds without a graphics card), so a page never pays it on load */
+let gl2;
 function webgl2() {
+  if (gl2 !== undefined) return gl2;
   try {
     const c = document.createElement('canvas');
     const gl = c.getContext('webgl2', { failIfMajorPerformanceCaveat: true });
     if (gl) gl.getExtension('WEBGL_lose_context')?.loseContext();
-    return !!gl;
+    gl2 = !!gl;
   } catch {
-    return false;
+    gl2 = false;
   }
+  return gl2;
 }
 const tour = document.querySelector('[data-tour]');
 if (tour) {
@@ -131,7 +136,7 @@ if (tour) {
 // `data-sim-lazy`: the simulator's code (and its catalogue) loads only when it nears the screen
 const sims = [...document.querySelectorAll('[data-sim]')];
 if (sims.length) {
-  const init = (el) => import('./sim/index.js').then((m) => m.initSimulator(el, { webgl: webgl2(), reduceMotion }));
+  const init = (el) => import('./sim/index.js').then((m) => m.initSimulator(el, { webgl: webgl2, reduceMotion }));
   const lazy = 'IntersectionObserver' in window ? sims.filter((el) => el.hasAttribute('data-sim-lazy')) : [];
   sims.filter((el) => !lazy.includes(el)).forEach(init);
   if (lazy.length) {
@@ -168,13 +173,37 @@ const startMap = (el) =>
   import('./map3d.js')
     .then((m) => m.initMap(el))
     .catch((err) => console.warn('[map] still image kept', err));
-// without WebGL the still image stays (no attempt, no console error)
-if (maps.length && 'IntersectionObserver' in window && webgl2()) {
+// without WebGL the still image stays (no attempt, no console error); support is checked when
+// the map nears the screen, not on load
+if (maps.length && 'IntersectionObserver' in window) {
   // a phone showing the 3D tour keeps a single 3D scene at a time: two would compete for its
   // graphics memory, and the browser may then take the tour's away. There the map waits for a tap.
   const oneScene = matchMedia('(max-width: 760px)').matches && html.classList.contains('tour-live') && document.querySelector('[data-tour]');
+  // the 3D map starts near the screen, once the visitor scrolls, touches or moves the mouse: the
+  // still map is there before, and a page just loading never computes a 3D scene
+  const engaged = new Promise((resolve) => {
+    const evs = ['scroll', 'pointermove', 'touchstart', 'keydown'];
+    const go = () => {
+      evs.forEach((ev) => removeEventListener(ev, go));
+      resolve();
+    };
+    evs.forEach((ev) => addEventListener(ev, go, { passive: true }));
+  });
+  const near = (fn) => {
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const en of entries) {
+          if (!en.isIntersecting) continue;
+          io.unobserve(en.target);
+          engaged.then(() => webgl2() && fn(en.target));
+        }
+      },
+      { rootMargin: '400px 0px' }
+    );
+    maps.forEach((m) => io.observe(m));
+  };
   if (oneScene) {
-    maps.forEach((el) => {
+    near((el) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'btn btn--sm visit__map-3d';
@@ -186,19 +215,7 @@ if (maps.length && 'IntersectionObserver' in window && webgl2()) {
       });
       el.append(b);
     });
-  } else {
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const en of entries) {
-          if (!en.isIntersecting) continue;
-          io.unobserve(en.target);
-          startMap(en.target);
-        }
-      },
-      { rootMargin: '400px 0px' }
-    );
-    maps.forEach((m) => io.observe(m));
-  }
+  } else near(startMap);
 }
 
 // ---------------------------------------------------------------- reveal on scroll

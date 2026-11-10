@@ -196,7 +196,7 @@ p {
   align-items: center;
   gap: 0.9em;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -285,7 +285,8 @@ p {
   font-weight: 600;
   font-size: 0.97rem;
   letter-spacing: -0.01em;
-  white-space: nowrap;
+  text-align: center;
+  text-wrap: balance;
   text-decoration: none;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
@@ -794,7 +795,7 @@ p {
   margin-top: 1.2em;
 }
 .hero-quick__label {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -1897,7 +1898,7 @@ p {
 .sim__label {
   font-family: var(--font-mono);
   font-weight: 500;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 10px;
@@ -2313,7 +2314,7 @@ p {
 }
 @media (max-width: 760px) {
   .sim__state {
-    font-size: 0.74rem;
+    font-size: 0.75rem;
   }
 }
 .sim:not(.is-ready) .sim__state {
@@ -2865,7 +2866,7 @@ p {
 }
 .visit .label {
   display: block;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--gold-300);
@@ -3010,7 +3011,7 @@ p {
   border-radius: 5px;
   background: #1f4fae;
   font-weight: 800;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   text-shadow: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
@@ -3019,7 +3020,7 @@ p {
   align-items: center;
   gap: 5px;
   font-weight: 600;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   color: #eef3f8;
 }
 .map3d__label--start {
@@ -3031,7 +3032,7 @@ p {
   border-radius: 999px;
   background: rgba(9, 10, 12, 0.74);
   font-weight: 700;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   text-shadow: none;
 }
 .map3d__dot {
@@ -3068,7 +3069,7 @@ p {
 }
 .map3d__pin-card small {
   display: block;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--on-dark-muted);
 }
 .map3d__pin-tip {
@@ -3142,7 +3143,7 @@ p {
   max-width: min(320px, 70%);
   pointer-events: auto;
   color: rgba(255, 255, 255, 0.82);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   text-align: right;
 }
 .map3d__credit summary {
@@ -3191,7 +3192,7 @@ p {
   .map3d__bar button {
     min-height: 34px;
     padding: 6px 11px;
-    font-size: 0.74rem;
+    font-size: 0.75rem;
   }
   .map3d__label--home {
     font-size: 1rem;
@@ -3473,7 +3474,7 @@ p {
   right: 8px;
   padding: 3px 9px;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   background: rgba(5, 6, 8, 0.62);
 }
@@ -3760,72 +3761,17 @@ p {
   contain: strict;
   background: radial-gradient(120% 60% at 50% -8%, rgba(150, 160, 180, 0.11), transparent 62%), radial-gradient(80% 50% at 50% 112%, rgba(227, 194, 122, 0.08), transparent 70%), var(--bg);
 }
-/* ceiling and wet floor: real horizontal planes seen in perspective (the eye at 38 % of the
-   screen height), tubes running away from the viewer, cut into segments, fading with distance */
-.ambient {
-  perspective: 55vh;
-  perspective-origin: 50% 38%;
-}
-.ambient__ceiling,
-.ambient__floor {
+/* ceiling tubes and wet floor: drawn once in perspective by src/js/ambient.js */
+.ambient__room {
   position: absolute;
-  left: -50%;
-  width: 200%;
-  height: 340vh;
-  /* one tube every 10 % of the plane (20 % of the screen), none on the axis of the page:
-     a soft halo around a bright core, no filter to compute */
-  background-image: repeating-linear-gradient(90deg, transparent 0 calc(5% - 26px), rgba(225, 233, 255, 0.07) calc(5% - 10px), rgba(240, 245, 255, 0.95) calc(5% - 2px) calc(5% + 2px), rgba(225, 233, 255, 0.07) calc(5% + 10px), transparent calc(5% + 26px) 10%);
-  --segments: repeating-linear-gradient(180deg, #000 0 210px, transparent 210px 300px);
-  will-change: opacity;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 1.6s ease;
 }
-.ambient__ceiling {
-  top: 0;
-  transform-origin: 50% 0;
-  transform: rotateX(-90deg);
-  -webkit-mask: var(--segments), linear-gradient(180deg, #000, rgba(0, 0, 0, 0.35) 22%, transparent 55%);
-  -webkit-mask-composite: source-in;
-  mask: var(--segments) intersect, linear-gradient(180deg, #000, rgba(0, 0, 0, 0.35) 22%, transparent 55%);
-  opacity: var(--tubes-on, 0.24);
-  animation: tubes-in 1.4s ease-out both;
-}
-/* wet floor: the same tubes mirrored, faint and smeared by the water */
-.ambient__floor {
-  bottom: 0;
-  transform-origin: 50% 100%;
-  transform: rotateX(90deg);
-  -webkit-mask: linear-gradient(0deg, #000, transparent 28%);
-  mask: linear-gradient(0deg, #000, transparent 28%);
-  opacity: 0.06;
-}
-/* first page of the visit: the tubes strike up one after another, like real ones */
-.ambient.is-first .ambient__ceiling {
-  animation: tubes-strike 2.6s steps(1, end) both;
-}
-@keyframes tubes-in {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes tubes-strike {
-  0% {
-    opacity: 0;
-  }
-  12% {
-    opacity: var(--tubes-on, 0.24);
-  }
-  16% {
-    opacity: 0.03;
-  }
-  24% {
-    opacity: var(--tubes-on, 0.24);
-  }
-  27% {
-    opacity: 0.08;
-  }
-  40%,
-  100% {
-    opacity: var(--tubes-on, 0.24);
-  }
+.ambient.is-on .ambient__room {
+  opacity: var(--tubes-on, 0.42);
 }
 /* smoke: two canvases drifting in opposite directions, stretched and smoothed */
 .ambient__haze {
@@ -3844,12 +3790,17 @@ p {
   width: 160%;
   height: 100%;
   opacity: 0.36;
-  animation: smoke-a 70s ease-in-out infinite alternate;
-  will-change: transform;
+  transform: translate3d(-7%, 3%, 0) scale(1.05);
 }
 .ambient__smoke--b {
   opacity: 0.26;
-  transform: scaleX(-1);
+  transform: scaleX(-1) translate3d(-6%, -2%, 0) scale(1.12);
+}
+/* motion once the visitor scrolls, touches or moves the mouse (a loading page stays still) */
+.ambient.is-live .ambient__smoke {
+  animation: smoke-a 70s ease-in-out infinite alternate;
+}
+.ambient.is-live .ambient__smoke--b {
   animation: smoke-b 95s ease-in-out infinite alternate;
 }
 @keyframes smoke-a {
@@ -3877,7 +3828,9 @@ p {
   width: 34vw;
   background: linear-gradient(90deg, transparent, rgba(255, 246, 225, 0.045) 45%, rgba(255, 246, 225, 0.06) 50%, rgba(255, 246, 225, 0.045) 55%, transparent);
   transform: translate3d(-45vw, 0, 0) skewX(-14deg);
-  animation: sweep 16s cubic-bezier(0.45, 0, 0.25, 1) 3s infinite;
+}
+.ambient.is-live .ambient__sweep {
+  animation: sweep 16s cubic-bezier(0.45, 0, 0.25, 1) 2s infinite;
 }
 @keyframes sweep {
   0% {
@@ -3904,7 +3857,7 @@ p {
 }
 /* scroll: the smoke rises a little, the ceiling recedes (where the browser supports it) */
 @supports (animation-timeline: scroll()) {
-  .ambient__haze {
+  .ambient.is-live .ambient__haze {
     animation: haze-scroll linear both;
     animation-timeline: scroll(root);
   }
@@ -3916,15 +3869,14 @@ p {
 }
 @media (max-width: 760px) {
   .ambient {
-    --tubes-on: 0.16;
+    --tubes-on: 0.32;
   }
   .ambient__sweep {
     width: 60vw;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ambient *,
-  .ambient.is-first .ambient__ceiling {
+  .ambient * {
     animation: none !important;
   }
   .ambient__sweep {
@@ -4138,7 +4090,7 @@ p {
   color: var(--text);
 }
 .site-footer__title {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--text-3);
 }
 /* forms: dark fields */

@@ -1,6 +1,6 @@
 # SOLAR CAR 37 — site vitrine
 
-Site statique optimisé SEO avec visite 3D pilotée au scroll (Three.js) : vitres teintées, feux teintés, detailing, covering et déchromage, ciel étoilé, rénovation de phares.
+Site statique optimisé SEO, thème sombre « garage de nuit », visite 3D pilotée au scroll (Three.js) : vitres teintées, feux teintés, detailing, covering et déchromage, ciel étoilé, rénovation de phares. Simulateurs 3D : vitres teintées, feux, detailing, ciel étoilé.
 
 ## Commandes
 
@@ -29,7 +29,9 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `content/covering.js` | Covering & déchromage : textes de la page, finitions et effets (rendu), films par défaut, mention « simulation indicative » |
 | `content/films/` | Nuancier : un fichier par marque et gamme (`3m-2080.js`), `index.js` liste les gammes intégrées |
 | `assets-src/models/*.prep.json` | Préparation de chaque modèle 3D (découpe des vitres, renommage, allègement) |
-| `design/logo/official/` | Logo officiel fourni ; `scripts/logo-assets.mjs` en dérive les versions web |
+| `design/logo/official/` | Logo officiel fourni ; `scripts/logo-assets.mjs` en dérive les versions web (dont `*-clair-*`, logotype ivoire pour le fond sombre : `node scripts/logo-assets.mjs --only=reversed`) |
+| `src/styles/main.css` | Charte V3 « garage de nuit » : jetons de couleur et polices en tête de fichier, fond animé dans la section « garage ambience » |
+| `src/js/ambient.js` | Fumée du fond animé (dessinée sur place, rien à télécharger) |
 
 ## Carte 3D de l’accès
 

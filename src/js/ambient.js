@@ -1,9 +1,61 @@
 /**
- * Garage ambience under every page: the ceiling tubes, the wet floor and the light sweep are pure
- * CSS (src/styles/main.css, "garage ambience"); the smoke is drawn here, once, into two small
- * canvases (nothing to download) that the CSS stretches and drifts slowly. Canvases are never a
- * page's "largest content", so the smoke cannot delay the first screen.
+ * Garage ambience under every page. Everything is drawn here once, at idle time, into canvases
+ * (never a page's "largest content", nothing to download): the ceiling tubes and their
+ * reflection on the wet floor, in perspective, and two smoke layers. The CSS (src/styles/main.css,
+ * "garage ambience") only fades them in and, once the visitor scrolls, touches or moves the
+ * mouse, drifts the smoke and sweeps a light across: a page that is just loading or left alone
+ * costs nothing more than one paint.
  */
+
+/** ceiling tubes in perspective, cut into segments, and their blurred reflection on the floor */
+function drawGarage(c) {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const W = innerWidth;
+  const H = innerHeight;
+  c.width = Math.round(W * dpr);
+  c.height = Math.round(H * dpr);
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+  // eye at 38 % of the height; the ceiling meets the top of the screen at depth z0
+  const vx = W / 2;
+  const vy = H * 0.38;
+  const f = Math.max(W, H * 1.2) * 0.62;
+  const ceil = 1;
+  const z0 = (f * ceil) / vy;
+  const px = (X, z) => vx + (f * X) / z;
+  const pyC = (z) => vy - (f * ceil) / z;
+  const pyF = (z) => vy + (f * ceil * 1.6) / z;
+  const quad = (x1a, x1b, y1, x2a, x2b, y2) => {
+    g.beginPath();
+    g.moveTo(x1a, y1);
+    g.lineTo(x1b, y1);
+    g.lineTo(x2b, y2);
+    g.lineTo(x2a, y2);
+    g.closePath();
+    g.fill();
+  };
+  const rows = [-4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5].map((r) => r * 0.62);
+  for (const X of rows) {
+    for (let z = z0 * 0.8; z < 16; z += 2.4) {
+      const z1 = z;
+      const z2 = z + 1.65;
+      const fade = Math.max(0, 1 - z / 15) ** 1.4;
+      for (const [hw, a] of [
+        [0.11, 0.05],
+        [0.045, 0.16],
+        [0.014, 0.9],
+      ]) {
+        // ceiling: a soft halo, then the bright core
+        g.fillStyle = `rgba(236, 242, 255, ${(a * fade).toFixed(3)})`;
+        quad(px(X - hw, z1), px(X + hw, z1), pyC(z1), px(X - hw, z2), px(X + hw, z2), pyC(z2));
+        // floor: the same tube, wider and fainter (wet surface)
+        g.fillStyle = `rgba(236, 242, 255, ${(a * fade * 0.16).toFixed(3)})`;
+        quad(px(X - hw * 2.2, z1), px(X + hw * 2.2, z1), pyF(z1), px(X - hw * 2.2, z2), px(X + hw * 2.2, z2), pyF(z2));
+      }
+    }
+  }
+}
 
 /** value noise on a lattice, smoothly interpolated (deterministic for a seed) */
 function noise2(seed) {
@@ -86,25 +138,34 @@ export function startAmbient() {
   const host = document.querySelector('[data-ambient]');
   if (!host || host.dataset.on) return;
   host.dataset.on = '1';
-  // the tubes flicker on at the first page of a visit only, then they are simply on
-  try {
-    if (!sessionStorage.getItem('ambient')) {
-      host.classList.add('is-first');
-      sessionStorage.setItem('ambient', '1');
-    }
-  } catch {
-    /* storage blocked: no flicker */
-  }
-  const haze = host.querySelector('[data-haze]');
-  const idle = (fn) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 400));
-  // one layer per idle slot: each takes a few milliseconds, never one long task
+  const idle = (fn) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 500));
+  // 1. the room: ceiling tubes and floor (redrawn when the window changes size)
   idle(() => {
-    haze.append(smoke(7));
+    const room = document.createElement('canvas');
+    room.className = 'ambient__room';
+    drawGarage(room);
+    host.prepend(room);
+    let t = 0;
+    addEventListener('resize', () => {
+      clearTimeout(t);
+      t = setTimeout(() => drawGarage(room), 250);
+    }, { passive: true });
     requestAnimationFrame(() => host.classList.add('is-on'));
+    // 2. smoke, one layer per idle slot (a few milliseconds each)
+    const haze = host.querySelector('[data-haze]');
     idle(() => {
-      const b = smoke(23);
-      b.classList.add('ambient__smoke--b');
-      haze.append(b);
+      haze.append(smoke(7));
+      idle(() => {
+        const b = smoke(23);
+        b.classList.add('ambient__smoke--b');
+        haze.append(b);
+      });
     });
   });
+  // 3. motion starts with the visitor: first scroll, touch, mouse move or key
+  const live = () => {
+    host.classList.add('is-live');
+    for (const ev of ['scroll', 'pointermove', 'touchstart', 'keydown']) removeEventListener(ev, live);
+  };
+  for (const ev of ['scroll', 'pointermove', 'touchstart', 'keydown']) addEventListener(ev, live, { passive: true });
 }

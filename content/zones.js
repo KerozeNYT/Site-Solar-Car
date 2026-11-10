@@ -11,7 +11,7 @@ export const zonesPage = {
   seo: {
     title: 'Zones d’intervention autour de Tours | SOLAR CAR 37, Vouvray',
     description:
-      'Tours, Joué-lès-Tours, Amboise, Montlouis, Saint-Cyr… : distance par la route et trajet jusqu’à l’atelier SOLAR CAR 37 de Vouvray (vitres teintées, detailing, phares).',
+      'Tours, Joué-lès-Tours, Amboise, Montlouis, Saint-Cyr… : distance et trajet jusqu’à l’atelier SOLAR CAR 37 de Vouvray (vitres teintées, detailing, phares).',
   },
   h1: 'Nos zones d’intervention',
   intro:

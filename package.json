@@ -10,7 +10,8 @@
     "preview": "node scripts/serve.mjs dist 4173",
     "stills": "node scripts/render-stills.mjs",
     "posters": "node scripts/render-sim-posters.mjs",
-    "model": "node scripts/prepare-model.mjs"
+    "model": "node scripts/prepare-model.mjs",
+    "check": "node scripts/check.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -84,9 +84,9 @@ export const nav = [
 /** Home page. The tour chapters are matched to content/flight.js by id. */
 export const home = {
   seo: {
-    title: 'Vitres teintées & detailing à Vouvray, près de Tours | SOLAR CAR 37',
+    title: 'Vitres teintées & detailing à Vouvray (Tours) | SOLAR CAR 37',
     description:
-      `Atelier SOLAR CAR 37 à Vouvray, près de Tours : vitres teintées dès ${P.tintFrom} TTC, feux fumés, phares ${P.headlights} la paire, detailing, céramique, ciel étoilé. Simulateurs 3D.`,
+      `Atelier à Vouvray, près de Tours : vitres teintées dès ${P.tintFrom} TTC, feux fumés, phares ${P.headlights} la paire, detailing, covering, ciel étoilé. Simulateurs 3D.`,
   },
   tour: {
     label: 'Visite de l’atelier en vol continu',
@@ -287,9 +287,9 @@ export const services = [
     name: 'Feux arrière teintés',
     short: 'Film fumé sur mesure pour vos feux arrière, du voile léger au noir profond.',
     seo: {
-      title: `Feux teintés à Vouvray (Tours) : ${P.lightsPair} la paire | SOLAR CAR 37`,
+      title: `Feux teintés à Vouvray (Tours) : ${P.lightsPair} | SOLAR CAR 37`,
       description:
-        `Covering fumé 50 % ou 80 % ou PPF teinté sur vos feux, posé à Vouvray près de Tours : covering ${P.lightsPair} TTC la paire. Simulateur 3D feux allumés et au freinage.`,
+        `Film fumé 50 % ou 80 % ou PPF teinté sur vos feux, posé à Vouvray près de Tours : ${P.lightsPair} TTC la paire. Simulateur 3D feux allumés et au freinage.`,
     },
     h1: 'Feux arrière *teintés*',
     intro:
@@ -329,7 +329,7 @@ export const services = [
     name: 'Detailing carrosserie',
     short: 'Décontamination, polissage, correction de peinture et protection : le brillant d’origine.',
     seo: {
-      title: 'Detailing, polissage, céramique à Vouvray (Tours) | SOLAR CAR 37',
+      title: 'Detailing et céramique à Vouvray (Tours) | SOLAR CAR 37',
       description:
         'Detailing à Vouvray, près de Tours : lavage, décontamination, polissage anti micro-rayures et hologrammes, protection céramique. Forfaits sur devis.',
     },
@@ -371,7 +371,7 @@ export const services = [
     seo: {
       title: 'Covering & déchromage à Vouvray, près de Tours | SOLAR CAR 37',
       description:
-        'Covering complet ou partiel (toit, capot, rétroviseurs) et déchromage à Vouvray, près de Tours : films 3M™ Série 2080 brillants, satinés ou mats, devis après étude.',
+        'Covering complet ou partiel (toit, capot, rétroviseurs) et déchromage à Vouvray, près de Tours : films 3M™ Série 2080 brillants, satinés ou mats. Sur devis.',
     },
     h1: 'Covering et déchromage *automobile près de Tours*',
     intro:
@@ -465,7 +465,7 @@ export const services = [
     name: 'Rénovation de phares',
     short: 'Phares jaunis ou ternes : ponçage, polissage et protection anti-UV.',
     seo: {
-      title: `Rénovation de phares à Vouvray (Tours) : ${P.headlights} la paire | SOLAR CAR 37`,
+      title: `Rénovation de phares à Vouvray (Tours) : ${P.headlights} | SOLAR CAR 37`,
       description:
         `Phares jaunis ou opaques : ponçage, polissage et protection à Vouvray (37), près de Tours. Rénovation des deux phares ${P.headlights} TTC, option céramique ${P.headlightsCeramic}.`,
     },
@@ -556,9 +556,9 @@ export const reviews = {
 
 export const contactPage = {
   seo: {
-    title: 'Contact et devis — atelier de Vouvray, près de Tours | SOLAR CAR 37',
+    title: 'Contact et devis — atelier de Vouvray (Tours) | SOLAR CAR 37',
     description:
-      'Devis vitres teintées, feux fumés, detailing, covering, ciel étoilé, phares : 06 12 04 57 00 ou contact@solarcar37.fr. Atelier au 395 rue des Entrepreneurs, Vouvray.',
+      'Devis vitres teintées, feux, detailing, covering, ciel étoilé, phares : 06 12 04 57 00 ou contact@solarcar37.fr. Atelier : 395 rue des Entrepreneurs, Vouvray.',
   },
   h1: 'Demander un devis',
   intro: 'Décrivez votre véhicule et la prestation souhaitée. Nous revenons vers vous avec un devis détaillé.',

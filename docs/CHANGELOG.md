@@ -2,6 +2,36 @@
 
 ## V3 — refonte (sombre, moderne, moins de simulateurs)
 
+### Design « garage de nuit »
+- Thème sombre sur tout le site (noir profond, cartes en verre fumé, or du blason pour les
+  accents), logo en version claire pour l'en-tête et le pied de page.
+- Polices : Geist (texte, titres serrés), Instrument Serif italique pour le mot fort des titres
+  (`*mot*` dans `content/site.js`), Geist Mono pour surtitres, chiffres et prix.
+- Fond animé commun (`src/js/ambient.js` + section « garage ambience » de `main.css`) : néons du
+  plafond en perspective, sol mouillé, fumée dessinée sur place, balayage de lumière, grain.
+  Pause pendant la visite 3D, immobile si l'utilisateur réduit les animations.
+
+### SEO et contrôles
+- Titres ramenés à 60 caractères et descriptions à 160 au plus (affichage complet dans Google),
+  pages de communes comprises.
+- Manifeste : l'icône `favicon.svg` (absente, erreur 404 dans la console) est retirée.
+- Carte 3D : libellés à 12 px minimum (lisibilité mobile) ; surtitres à 12 px.
+- Correctif : la carte de l'atelier débordait de l'écran sur ordinateur ; un bouton au libellé
+  long dépassait sur les écrans de 360 px (les boutons peuvent maintenant passer à la ligne).
+- Contrôle des 37 pages (animations figées) : aucune erreur, aucun lien cassé, aucune page
+  orpheline, aucune violation d'accessibilité (axe, WCAG 2.2 AA), aucun débordement mobile.
+  Lighthouse : SEO 100 et accessibilité 100 sur les pages mesurées.
+
+### Vitesse (mesures Lighthouse mobile, conteneur sans carte graphique)
+- Néons du plafond et reflets du sol dessinés une fois sur un canevas (au lieu de plans 3D en
+  CSS, coûteux à peindre) ; la fumée et le balayage de lumière ne bougent qu'après le premier
+  geste du visiteur (défilement, toucher, souris, clavier).
+- Test de prise en charge de la 3D (contexte WebGL) fait au moment de lancer une scène, plus au
+  chargement : plusieurs secondes gagnées sur les appareils sans carte graphique.
+- Simulateurs sur ordinateur : la 3D démarre quand la vue est vraiment à l'écran ; carte 3D :
+  près de l'écran et après un premier geste (image fixe avant).
+- Contact 38 → 77, vitres teintées 58 → 93, page Tours 62 → 95 (même machine de mesure).
+
 ### Moins de simulateurs
 - Simulateur covering retiré : la page `/covering-dechromage/` garde ses offres, le nuancier
   3M™ Série 2080 (tableau des références vérifiées), la préparation, la FAQ et le devis.

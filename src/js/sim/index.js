@@ -12,7 +12,7 @@ const loaders = {
 };
 
 /**
- * `webgl`: the device can draw 3D. `reduceMotion`: the visitor asked for less motion; the 3D is
+ * `webgl`: the device can draw 3D (or a function telling it, asked at start). `reduceMotion`: the visitor asked for less motion; the 3D is
  * then left out, except for simulators that run without animation (`reducedMotionOk`), which
  * wait for a tap and move the camera without transitions.
  */
@@ -54,12 +54,18 @@ export async function initSimulator(section, { webgl = true, reduceMotion = fals
   });
   if (restored) section.querySelector('[data-sim-restored]')?.removeAttribute('hidden');
 
-  if (!webgl || (reduceMotion && !sim.reducedMotionOk)) {
+  // `webgl`: a boolean or a function asked only when the 3D is about to start (testing support
+  // costs a context, i.e. seconds on a device without a graphics card: never on page load)
+  const canDraw = typeof webgl === 'function' ? webgl : () => webgl;
+  const noView = () => {
     startBtn.hidden = true;
     const p = document.createElement('p');
     p.className = 'sim__fallback';
     p.textContent = 'La vue 3D n’est pas disponible sur cet appareil : les réglages, le récapitulatif et la demande de devis restent utilisables.';
     viewEl.append(p);
+  };
+  if (reduceMotion && !sim.reducedMotionOk) {
+    noView();
     return;
   }
 
@@ -67,6 +73,11 @@ export async function initSimulator(section, { webgl = true, reduceMotion = fals
   const label = startBtn.textContent;
   function start() {
     if (starting) return starting;
+    if (!canDraw()) {
+      noView();
+      starting = Promise.resolve();
+      return starting;
+    }
     startBtn.disabled = true;
     startBtn.textContent = 'Chargement de la 3D…';
     const mobile = matchMedia('(max-width: 760px)').matches;
@@ -114,8 +125,9 @@ export async function initSimulator(section, { webgl = true, reduceMotion = fals
   startBtn.addEventListener('click', start);
   for (const b of viewBtns) b.addEventListener('click', () => view(b.dataset.view));
 
-  // computers: loads by itself when it nears the viewport. Phones and data savers: the preview
-  // image stays until the visitor asks for the 3D (several megabytes of models)
+  // computers: loads by itself once the view is really on screen (a fifth of it, not on page load
+  // when it sits just under the header). Phones and data savers: the preview image stays until the
+  // visitor asks for the 3D (several megabytes of models)
   const conn = navigator.connection;
   const lite = conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType || '');
   const phone = matchMedia('(max-width: 760px)').matches;
@@ -127,7 +139,7 @@ export async function initSimulator(section, { webgl = true, reduceMotion = fals
         io.disconnect();
         start();
       },
-      { rootMargin: '300px 0px' }
+      { threshold: 0.2 }
     );
     io.observe(viewEl);
   }
