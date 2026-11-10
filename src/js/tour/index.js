@@ -5,7 +5,6 @@ import { createStage } from './stage.js';
 import { createPath, createTimeline, createEffects } from './flight.js';
 import { clamp, smoothstep } from './math.js';
 import { createGovernor, BUDGET } from '../perf.js';
-import { createCoveringSpot } from './covering-spot.js';
 
 const FADE = 14; // vh used by a chapter to fade in / out (at the computer's pace)
 
@@ -67,21 +66,6 @@ export async function startTour(section) {
   const order = chapterEls.map((el) => el.dataset.chapter);
   const names = Object.fromEntries(chapterEls.map((el) => [el.dataset.chapter, el.querySelector('.kicker')?.textContent || '']));
   const sideOf = Object.fromEntries(chapterEls.map((el) => [el.dataset.chapter, el.classList.contains('chapter--right') ? -1 : 1]));
-  // covering chapter: the interactive spot on the door (src/js/tour/covering-spot.js)
-  const spotChapter = section.querySelector('[data-chapter="covering"]');
-  let spotFilm = null;
-  try {
-    spotFilm = JSON.parse(spotChapter?.querySelector('[data-spot]')?.dataset.film || 'null');
-  } catch {
-    /* no spot */
-  }
-  let spot = null;
-  try {
-    if (spotFilm) spot = createCoveringSpot({ chapter: spotChapter, stage: { car: stage.car, wake: () => start() }, film: spotFilm, reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches, signal });
-  } catch (err) {
-    console.warn('[tour] covering spot unavailable', err); // the chapter's own links remain
-  }
-
   let vhPx = stageEl.clientHeight || innerHeight;
   let sectionTop = 0;
   const measure = () => {
@@ -135,10 +119,6 @@ export async function startTour(section) {
 
     // copy
     const { weights, active } = chapterState(vh);
-    if (spot && !stillId) {
-      spot.step(weights.covering ?? 0, dt);
-      spot.camera(sample);
-    }
     let tx = 0;
     let ty = 0;
     for (const el of chapterEls) {
@@ -162,7 +142,6 @@ export async function startTour(section) {
     offX = clamp(offX + (targetX - offX) * k, -0.4, 0.4);
     offY = clamp(offY + (targetY - offY) * k, -0.4, 0.4);
     stage.setView({ pos: sample.pos, look: sample.look, fov: sample.fov, roll: sample.roll, offsetX: stillId ? 0 : offX, offsetY: stillId ? 0 : offY });
-    if (spot && (weights.covering ?? 0) > 0.01) spot.place(stage.camera, stageEl.clientWidth, stageEl.clientHeight);
 
     // HUD
     progressEl.style.transform = `scaleX(${clamp(vh / timeline.total).toFixed(4)})`;
@@ -183,7 +162,6 @@ export async function startTour(section) {
     document.documentElement.classList.add('is-still');
     await parking;
     measure();
-    if (stillId === 'covering') spot?.preview();
     apply(current, 0, 1);
     stage.render(3);
     stage.render(3);
@@ -239,7 +217,7 @@ export async function startTour(section) {
     // ease towards the scroll target; long jumps (links, keyboard) cut straight there
     if (Math.abs(target - current) > 9) current = target;
     else current += (target - current) * (1 - Math.exp(-dt * 6.5));
-    const settled = Math.abs(target - current) < 0.002 && vh === lastVh && !spot?.busy;
+    const settled = Math.abs(target - current) < 0.002 && vh === lastVh;
     lastVh = vh;
     idle = settled ? idle + 1 : 0;
     const e = apply(current, vh, dt);
@@ -314,7 +292,6 @@ export async function startTour(section) {
     ac.abort();
     io.disconnect();
     ro.disconnect();
-    spot?.reset();
     try {
       stage.renderer.dispose();
     } catch {
@@ -355,7 +332,7 @@ export function staticTour(section) {
   section.classList.add('is-static');
   section.querySelector('[data-loading]')?.setAttribute('hidden', '');
   for (const el of section.querySelectorAll('[data-chapter]')) {
-    el.classList.remove('is-visible', 'is-active', 'has-spot-open');
+    el.classList.remove('is-visible', 'is-active');
     el.removeAttribute('inert');
     el.style.removeProperty('--o');
     const copy = el.querySelector('.chapter__copy');

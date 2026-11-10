@@ -1,6 +1,6 @@
 /**
- * Covering & déchromage: page copy and simulator settings. The films themselves live in
- * content/films/ (official references only); the car's zones in content/cars/x6.js (`covering`).
+ * Covering & déchromage: page copy. The films themselves live in content/films/ (official
+ * references only), listed on the page as the workshop's colour chart.
  *
  * No price is shown for this service until the workshop validates one: everything reads
  * « Sur devis ». Nothing here may promise a certification, a warranty length or a lifespan.
@@ -33,23 +33,8 @@ export const FAMILIES = {
   or: 'Or',
 };
 
-/** simulator: default films (ids of content/films/) */
-export const simDefaults = {
-  body: '3m-2080-m21', // complete wrap (clearly different from the demo car's own blue)
-  zone: '3m-2080-g12', // partial wrap (roof, bonnet, mirrors…)
-  dechrome: '3m-2080-g12', // chrome delete
-  // the three blacks offered for chrome delete
-  dechromeFilms: ['3m-2080-g12', '3m-2080-s12', '3m-2080-m12'],
-};
-
-export const disclaimer =
-  'Simulation indicative : les couleurs et les finitions peuvent varier selon votre écran et l’éclairage. Le choix définitif se confirme sur nuancier à l’atelier.';
-
-/** home tour: the colour shown when the visitor opens the covering spot (a verified reference) */
-export const homeDemo = { id: '3m-2080-m21', code: '2080-M21', name: 'Matte Silver Metallic', color: '#a6a9ac', roughness: 0.62, metalness: 0.55, coat: 0.06, coatRough: 0.9 };
-
 export const coveringPage = {
-  heroAlt: 'Rendu 3D du simulateur : la voiture du studio habillée d’un film argent métallisé mat',
+  heroAlt: 'Rendu 3D : la voiture du studio habillée d’un film argent métallisé mat',
   offers: {
     title: 'Trois façons de transformer votre véhicule',
     items: [
@@ -81,8 +66,8 @@ export const coveringPage = {
       {
         title: 'Les films 3M™ Série 2080',
         text: [
-          'Nous commençons le nuancier en ligne par la gamme 3M™ Série 2080, un film coulé conçu pour l’habillage partiel ou complet des véhicules, qui épouse les courbes et les creux de la carrosserie.',
-          'Chaque référence du simulateur renvoie à sa fiche sur le site de 3M France. Les couleurs affichées sont des approximations : le choix se fait toujours sur l’échantillon réel, à l’atelier.',
+          'Notre nuancier en ligne commence par la gamme 3M™ Série 2080, un film coulé conçu pour l’habillage partiel ou complet des véhicules, qui épouse les courbes et les creux de la carrosserie.',
+          'Chaque référence du nuancier renvoie à sa fiche sur le site de 3M France. Les couleurs affichées sont des approximations : le choix se fait toujours sur l’échantillon réel, à l’atelier.',
         ],
       },
       {

@@ -135,14 +135,7 @@ export const home = {
         title: 'Une nouvelle couleur, sans toucher à la peinture',
         text: 'Covering complet ou partiel, finitions brillantes, satinées ou mates, chromes passés au noir : changez de style sans repeindre, et revenez à la teinte d’origine quand vous le souhaitez.',
         link: { label: 'Découvrir le covering', href: '/covering-dechromage/' },
-        linkHint: 'Simulateur 3D · nuancier 3M™ · devis',
-        // the interactive spot on the car (src/js/tour/covering-spot.js)
-        spot: {
-          label: 'Covering & déchromage',
-          text: 'Aperçu indicatif sur la carrosserie : film 3M™ 2080-M21 Matte Silver Metallic.',
-          discover: { label: 'Découvrir la prestation', href: '/covering-dechromage/' },
-          configure: { label: 'Configurer mon covering', href: '/covering-dechromage/#simulateur' },
-        },
+        linkHint: 'Offres · nuancier 3M™ · devis',
         side: 'left',
       },
       stars: {
@@ -158,6 +151,7 @@ export const home = {
         text: 'Ponçage, polissage et protection anti-UV : les phares jaunis retrouvent leur transparence et votre éclairage son efficacité.',
         readout: 'beforeAfter',
         link: { label: 'Découvrir la rénovation de phares', href: '/renovation-phares/' },
+        linkHint: 'Tarifs · déroulé · questions fréquentes',
         side: 'right',
       },
       final: {
@@ -373,15 +367,15 @@ export const services = [
     chapter: 'covering',
     still: 'covering',
     name: 'Covering & déchromage',
-    short: 'Covering complet ou partiel et déchromage : films 3M™ Série 2080, simulateur 3D avec nuancier.',
+    short: 'Covering complet ou partiel et déchromage : films 3M™ Série 2080, choix sur échantillon réel.',
     seo: {
       title: 'Covering & déchromage à Vouvray, près de Tours | SOLAR CAR 37',
       description:
-        'Covering complet ou partiel (toit, capot, rétroviseurs) et déchromage à Vouvray, près de Tours : films 3M™ Série 2080, simulateur 3D avec nuancier, devis.',
+        'Covering complet ou partiel (toit, capot, rétroviseurs) et déchromage à Vouvray, près de Tours : films 3M™ Série 2080 brillants, satinés ou mats, devis après étude.',
     },
     h1: 'Covering et déchromage automobile près de Tours',
     intro:
-      'Changer la couleur ou la finition de votre véhicule sans le repeindre : un film adhésif posé sur la carrosserie, en totalité ou sur quelques éléments, et des chromes passés au noir. Essayez les teintes sur la voiture 3D, puis venez valider l’échantillon à l’atelier de Vouvray.',
+      'Changer la couleur ou la finition de votre véhicule sans le repeindre : un film adhésif posé sur la carrosserie, en totalité ou sur quelques éléments, et des chromes passés au noir. Choisissez votre teinte dans le nuancier 3M™ Série 2080, puis validez l’échantillon réel à l’atelier de Vouvray.',
     benefits: [
       { title: 'Réversible', text: 'Le film se pose sur la peinture d’origine et se retire par un professionnel quand vous voulez changer.' },
       { title: 'Des finitions introuvables en peinture', text: 'Satiné, mat, métallisé, nacré, reflets changeants, carbone : le style que vous voulez.' },
@@ -419,7 +413,7 @@ export const services = [
       },
       {
         q: 'Comment obtenir un devis ?',
-        a: 'Configurez votre projet dans le simulateur et envoyez-le avec « Demander un devis pour cette configuration », ou décrivez-le dans le formulaire. Le prix dépend du véhicule, des surfaces, des démontages et du film : la faisabilité et le tarif sont confirmés après étude du véhicule.',
+        a: 'Décrivez votre projet dans le formulaire de devis (véhicule, zones, référence du nuancier si vous l’avez choisie) ou appelez l’atelier. Le prix dépend du véhicule, des surfaces, des démontages et du film : la faisabilité et le tarif sont confirmés après étude du véhicule.',
       },
     ],
   },
@@ -473,7 +467,7 @@ export const services = [
     seo: {
       title: `Rénovation de phares à Vouvray (Tours) : ${P.headlights} la paire | SOLAR CAR 37`,
       description:
-        `Phares jaunis ou opaques : ponçage, polissage et protection à Vouvray (37), près de Tours. Rénovation des deux phares ${P.headlights} TTC, céramique ${P.headlightsCeramic}. Avant/après en 3D.`,
+        `Phares jaunis ou opaques : ponçage, polissage et protection à Vouvray (37), près de Tours. Rénovation des deux phares ${P.headlights} TTC, option céramique ${P.headlightsCeramic}.`,
     },
     h1: 'Rénovation de phares',
     intro:

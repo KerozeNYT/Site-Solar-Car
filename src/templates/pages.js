@@ -1,6 +1,6 @@
 import { simFor } from './sims.js';
 import { priceText } from '../../content/pricing.js';
-import { homeDemo, coveringPage as CP, FINISHES, EFFECTS } from '../../content/covering.js';
+import { coveringPage as CP, FINISHES, EFFECTS } from '../../content/covering.js';
 import { films as coveringFilms, ranges as filmRanges } from '../../content/films/index.js';
 
 /**
@@ -158,6 +158,9 @@ const breadcrumbLd = (b, items) => ({
   '@type': 'BreadcrumbList',
   itemListElement: items.map((it, i) => ({ '@type': 'ListItem', position: i + 1, name: it.name, item: abs(b, it.path) })),
 });
+
+/** service pages that carry a 3D simulator (src/templates/sims.js) */
+const SIMS = new Set(['vitres-teintees', 'feux-arriere-teintes', 'detailing-carrosserie', 'ciel-etoile']);
 
 const ld = (obj) => `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, '\\u003c')}</script>`;
 
@@ -464,18 +467,6 @@ export function homePage(ctx) {
         ? `<nav class="hero-quick" aria-label="Accès direct aux prestations"><span class="hero-quick__label">${esc(c.quick)}</span><ul>${services.map((s) => `<li><a href="/${s.slug}/">${esc(s.shortName || s.name)}</a></li>`).join('')}</ul></nav>`
         : '';
       const hint = c.hint ? `<p class="hero-hint" aria-hidden="true"><span class="hero-hint__mouse"></span>${esc(c.hint)}</p>` : '';
-      // an interactive spot on the car (3D only): src/js/tour/covering-spot.js
-      const spot = c.spot
-        ? `<div class="spot-layer">
-          <button class="spot" type="button" data-spot data-film="${esc(JSON.stringify({ color: homeDemo.color, roughness: homeDemo.roughness, metalness: homeDemo.metalness, coat: homeDemo.coat, coatRough: homeDemo.coatRough }))}" aria-expanded="false" aria-controls="spot-${id}" hidden><span class="spot__dot" aria-hidden="true"></span><span class="spot__label">${esc(c.spot.label)}</span></button>
-          <div class="spot-card" id="spot-${id}" data-spot-card role="group" aria-labelledby="spot-${id}-title" hidden>
-            <p class="spot-card__title" id="spot-${id}-title">${esc(c.spot.label)}</p>
-            <p class="spot-card__text">${esc(c.spot.text)}</p>
-            <p class="spot-card__actions"><a class="btn btn--primary btn--sm" href="${c.spot.discover.href}">${esc(c.spot.discover.label)}</a><a class="btn btn--ghost btn--sm" href="${c.spot.configure.href}">${esc(c.spot.configure.label)}</a></p>
-            <button type="button" class="spot-card__close" data-spot-close><span aria-hidden="true">×</span><span class="visually-hidden">Fermer et revenir à la peinture d’origine</span></button>
-          </div>
-        </div>`
-        : '';
       return `<article class="chapter chapter--${c.side || 'left'}${i === 0 ? ' is-active' : ''}" data-chapter="${id}" id="chapitre-${id}">
         <div class="chapter__still">${still(id, altFor[id] || '', { eager: i === 0 })}</div>
         <div class="chapter__copy">
@@ -483,7 +474,7 @@ export function homePage(ctx) {
           <${H} class="chapter__title${c.brand ? ' chapter__title--brand' : ''}">${heading}</${H}>
           <p class="chapter__text">${esc(c.text)}</p>
           ${readout}${contact}${ctaLinks(c.ctas, ctx.flightAt)}${quick}${link}${hint}${i === 0 ? '<p class="tour__opt-in" data-tour-start hidden><button type="button" class="btn btn--ghost btn--sm">Lancer la visite 3D</button> <span>(données mobiles : quelques Mo)</span></p>' : ''}
-        </div>${spot}
+        </div>
       </article>`;
     })
     .join('\n      ');
@@ -648,7 +639,7 @@ export function servicePage(ctx, s) {
         <p class="kicker">${esc(b.name)} · ${esc(placeLabel(b))}</p>
         <h1>${esc(s.h1)}</h1>
         <p class="lead">${esc(s.intro)}</p>
-        <div class="ctas"><a class="btn btn--primary" href="#simulateur" data-scroll>Simuler en 3D et voir le prix</a><a class="btn btn--ghost" href="/contact/?prestation=${s.slug}">Demander un devis</a></div>
+        <div class="ctas">${s.slug === 'renovation-phares' ? `<a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a><a class="btn btn--ghost" href="#tarifs" data-scroll>Voir les tarifs</a>` : `<a class="btn btn--primary" href="#simulateur" data-scroll>Simuler en 3D et voir le prix</a><a class="btn btn--ghost" href="/contact/?prestation=${s.slug}">Demander un devis</a>`}</div>
       </div>
     </header>
     ${simFor(ctx, s.slug)}
@@ -717,14 +708,14 @@ function coveringServicePage(ctx, s) {
         <p>${esc(o.text)}</p>
         <ul class="checklist">${o.points.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
         <p class="cov-offer__price"><span>Tarif</span> <strong>${esc(CP.offers.price)}</strong></p>
-        <a class="btn btn--ghost btn--sm" href="#simulateur" data-scroll data-mode-link="${o.id}">Simuler : ${esc(o.title.toLowerCase())}</a>
+        <a class="btn btn--ghost btn--sm" href="/contact/?prestation=${s.slug}">Demander un devis</a>
       </li>`
     )
     .join('');
   const table = `<details class="cov-refs">
           <summary>Les ${coveringFilms.length} références du nuancier (${esc(range.label)})</summary>
           <div class="cov-refs__scroll"><table>
-            <caption>Références intégrées au simulateur, vérifiées sur le site de 3M France le ${esc(frDay(verified))}. Couleurs d’aperçu approximatives.</caption>
+            <caption>Références proposées à l’atelier, vérifiées sur le site de 3M France le ${esc(frDay(verified))}. Couleurs d’aperçu approximatives : le choix se fait sur l’échantillon réel.</caption>
             <thead><tr><th scope="col">Référence</th><th scope="col">Nom officiel</th><th scope="col">Teinte</th><th scope="col">Finition</th><th scope="col">Effet</th><th scope="col">Fiche</th></tr></thead>
             <tbody>${coveringFilms
               .map(
@@ -759,7 +750,7 @@ function coveringServicePage(ctx, s) {
         <p class="kicker">${esc(b.name)} · ${esc(placeLabel(b))}</p>
         <h1>${esc(s.h1)}</h1>
         <p class="lead">${esc(s.intro)}</p>
-        <div class="ctas"><a class="btn btn--primary" href="#simulateur" data-scroll>Simuler mon covering</a><a class="btn btn--ghost" href="/contact/?prestation=${s.slug}">Demander un devis</a></div>
+        <div class="ctas"><a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a><a class="btn btn--ghost" href="#offres-title" data-scroll>Voir les offres</a></div>
       </div>
     </header>
 
@@ -769,8 +760,6 @@ function coveringServicePage(ctx, s) {
         <ul class="cov-offers__list">${offers}</ul>
       </div>
     </section>
-
-    ${simFor(ctx, s.slug)}
 
     <section class="section section--paper cov-films" aria-labelledby="films-title">
       <div class="container">
@@ -804,7 +793,7 @@ function coveringServicePage(ctx, s) {
 
   <section class="cta-band">
     <div class="container cta-band__inner">
-      <div><h2>Un projet de covering ou de déchromage ?</h2><p>Envoyez votre configuration ou décrivez votre idée : nous étudions le véhicule et revenons vers vous avec un devis.</p></div>
+      <div><h2>Un projet de covering ou de déchromage ?</h2><p>Décrivez votre véhicule et votre idée : nous étudions le projet et revenons vers vous avec un devis.</p></div>
       <a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a>
     </div>
   </section>
@@ -1072,7 +1061,7 @@ export function guidePage(ctx, x) {
     <div class="section section--tight">
       <div class="container container--narrow prose">
         ${x.sections.map(section).join('\n        ')}
-        ${service ? `<div class="guide__cta"><p><strong>${esc(service.name)} à ${esc(b.address?.city || '')}, près de Tours.</strong> Essayez le simulateur 3D et obtenez votre tarif en direct.</p><div class="ctas"><a class="btn btn--primary" href="/${service.slug}/#simulateur">Ouvrir le simulateur</a><a class="btn btn--ghost" href="/contact/?prestation=${service.slug}">Demander un devis</a></div></div>` : ''}
+        ${service ? `<div class="guide__cta"><p><strong>${esc(service.name)} à ${esc(b.address?.city || '')}, près de Tours.</strong> ${SIMS.has(service.slug) ? 'Essayez le simulateur 3D et obtenez votre tarif en direct.' : 'Tarifs, déroulé et questions fréquentes sur la page de la prestation.'}</p><div class="ctas">${SIMS.has(service.slug) ? `<a class="btn btn--primary" href="/${service.slug}/#simulateur">Ouvrir le simulateur</a>` : `<a class="btn btn--primary" href="/${service.slug}/">Voir la prestation</a>`}<a class="btn btn--ghost" href="/contact/?prestation=${service.slug}">Demander un devis</a></div></div>` : ''}
       </div>
     </div>
     ${x.faq?.length ? faqBlock(x.faq) : ''}

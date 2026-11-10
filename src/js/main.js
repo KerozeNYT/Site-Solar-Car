@@ -80,7 +80,7 @@ if (tour) {
     tour.classList.remove('is-ready');
     tour.classList.add('is-static');
     tour.querySelectorAll('[data-chapter]').forEach((el) => {
-      el.classList.remove('is-visible', 'has-spot-open');
+      el.classList.remove('is-visible');
       el.removeAttribute('inert');
       el.querySelector('.chapter__copy')?.removeAttribute('style');
     });

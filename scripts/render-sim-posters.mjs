@@ -22,7 +22,6 @@ const POSTERS = {
       await p.evaluate(() => window.__sim.viewer.setView('34arriere', { instant: true }));
     },
   },
-  headlights: { slug: 'renovation-phares' },
   starlight: {
     slug: 'ciel-etoile',
     setup: async (p) => {
@@ -32,15 +31,6 @@ const POSTERS = {
   detailing: {
     slug: 'detailing-carrosserie',
     setup: async (p) => p.evaluate(() => window.__sim.sim.preview('polish', 0.55)),
-  },
-  // default complete wrap plus a chrome delete: both sides of the service in one picture
-  covering: {
-    slug: 'covering-dechromage',
-    setup: async (p) => {
-      await p.locator('input[name="dc-calandre"]').check({ force: true });
-      await p.locator('input[name="dc-ouies"]').check({ force: true });
-      await p.evaluate(() => window.__sim.viewer.setView('34avant', { instant: true }));
-    },
   },
 };
 

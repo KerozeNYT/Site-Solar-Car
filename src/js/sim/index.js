@@ -7,10 +7,8 @@ import { restoreForm, saveForm, forgetForm } from './util.js';
 const loaders = {
   tint: () => import('./tint.js'),
   lights: () => import('./lights.js'),
-  headlights: () => import('./headlights.js'),
   starlight: () => import('./starlight.js'),
   detailing: () => import('./detailing.js'),
-  covering: () => import('./covering.js'),
 };
 
 /**

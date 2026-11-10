@@ -1,5 +1,18 @@
 # Journal des changements
 
+## V3 — refonte (sombre, moderne, moins de simulateurs)
+
+### Moins de simulateurs
+- Simulateur covering retiré : la page `/covering-dechromage/` garde ses offres, le nuancier
+  3M™ Série 2080 (tableau des références vérifiées), la préparation, la FAQ et le devis.
+- Simulateur de rénovation de phares retiré : la page `/renovation-phares/` affiche un tableau de
+  tarifs (rénovation des deux phares, option céramique) et les limites de la rénovation.
+- Accueil : le point interactif covering de la visite 3D est retiré ; les chapitres covering et
+  phares n'annoncent plus de simulateur. Le guide « phares jaunis » renvoie vers la prestation.
+- Code et images supprimés : `src/js/sim/covering.js`, `src/js/sim/headlights.js`,
+  `src/js/tour/covering-spot.js`, aperçus `sim-covering-*` et `sim-headlights-*`, zones covering
+  du X6 et styles associés. Simulateurs conservés : vitres teintées, feux, detailing, ciel étoilé.
+
 ## V2 — en cours
 
 ### Phase 1 — Audit initial
