@@ -86,6 +86,9 @@ function studioReflections(renderer) {
   for (const z of [-1.5, 0, 1.5]) strip(7, 0.06, 0.16, 5, 0, 4.2, z);
   // side strips at waist height: the long lines along the flanks
   for (const z of [-6, 6]) strip(9, 0.12, 0.06, 3.2, 0, 1.6, z);
+  // behind the car: lines across the rear (tail lights chapter)
+  strip(0.06, 0.1, 6, 2.6, -8, 1.5, 0);
+  strip(0.06, 0.08, 4, 1.6, -8, 3.0, 0);
   // dim overhead diffuser
   strip(5, 0.05, 2.6, 0.35, 0, 4.4, 0);
   // small warm lamp
@@ -115,10 +118,11 @@ car.group.traverse((o) => {
 });
 
 // the roll cage behind the seats would bar the view of the starlit headliner from the back
-// of the cabin (test knob: hide=Object_x,... hides more meshes by name)
-const hideNames = ['Object_53', ...(q.get('hide') || '').split(',').filter(Boolean)];
+// of the cabin; the headlight beam cones glare when the camera looks along them (from the
+// cabin, past the mirror). Test knob: hide=name,... hides more objects by name.
+const hideNames = ['Object_53', 'beam', ...(q.get('hide') || '').split(',').filter(Boolean)];
 car.group.traverse((o) => {
-  if (o.isMesh && hideNames.includes(o.name)) o.visible = false;
+  if (hideNames.includes(o.name)) o.visible = false;
 });
 
 // ---------------------------------------------------------------- post: bloom, then grade
