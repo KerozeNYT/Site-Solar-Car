@@ -31,7 +31,8 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `assets-src/models/*.prep.json` | Préparation de chaque modèle 3D (découpe des vitres, renommage, allègement) |
 | `design/logo/official/` | Logo officiel fourni ; `scripts/logo-assets.mjs` en dérive les versions web (dont `*-clair-*`, logotype ivoire pour le fond sombre : `node scripts/logo-assets.mjs --only=reversed`) |
 | `src/styles/main.css` | Charte V3 « garage de nuit » : jetons de couleur et polices en tête de fichier, fond animé dans la section « garage ambience » |
-| `src/js/ambient.js` | Fumée du fond animé (dessinée sur place, rien à télécharger) |
+| `src/js/ambient.js` | Fond animé : néons, sol mouillé, fumée et poussière dessinés sur place (rien à télécharger) |
+| `content/film.js` | Vidéo d'accueil au défilement : fichiers, durée, moments de chaque prestation et onglets ; `node scripts/film-assets.mjs <vidéo>` pour en changer |
 
 ## Carte 3D de l’accès
 

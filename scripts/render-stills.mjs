@@ -1,4 +1,4 @@
-// Renders one still per tour chapter from the live 3D scene (posters, reduced-motion fallback,
+// Renders one still per tour chapter from the live 3D scene (/design/visite-3d/) (posters, reduced-motion fallback,
 // service cards, social images). Requires a build in dist/. Usage: npm run stills
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,7 +17,7 @@ for (const id of Object.keys(stills)) {
   if (only.length && !only.includes(id)) continue;
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
   page.on('pageerror', (e) => console.error(id, 'page error:', e.message));
-  await page.goto(`http://localhost:4610/?still=${id}&dpr=1`);
+  await page.goto(`http://localhost:4610/design/visite-3d/?still=${id}&dpr=1`);
   await page.waitForFunction(() => window.__stillReady, null, { timeout: 300000 });
   await page.waitForTimeout(400);
   const png = await page.screenshot({ type: 'png' });

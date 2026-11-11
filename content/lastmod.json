@@ -1,7 +1,7 @@
 {
  "/": {
-  "hash": "e5f15e3a6ed00868",
-  "date": "2026-11-10"
+  "hash": "a2ee67f22bc49739",
+  "date": "2026-11-11"
  },
  "/404.html": {
   "hash": "faae89d5f8097654",
@@ -30,6 +30,10 @@
  "/design/style-tile/": {
   "hash": "54dab516c9786ec9",
   "date": "2026-11-10"
+ },
+ "/design/visite-3d/": {
+  "hash": "70652fd331ffa9b0",
+  "date": "2026-11-11"
  },
  "/detailing-carrosserie/": {
   "hash": "67a56fb2f993495b",

@@ -1,10 +1,9 @@
 /**
  * Garage ambience under every page. Everything is drawn here once, at idle time, into canvases
  * (never a page's "largest content", nothing to download): the ceiling tubes and their
- * reflection on the wet floor, in perspective, and two smoke layers. The CSS (src/styles/main.css,
- * "garage ambience") only fades them in and, once the visitor scrolls, touches or moves the
- * mouse, drifts the smoke and sweeps a light across: a page that is just loading or left alone
- * costs nothing more than one paint.
+ * reflection on the wet floor, in perspective, two smoke layers and fine dust. The CSS
+ * (src/styles/main.css, "garage ambience") moves them once the page has loaded: the smoke drifts,
+ * the dust rises, the tubes breathe, a light sweeps the room. Transforms and opacity only.
  */
 
 /** ceiling tubes in perspective, cut into segments, and their blurred reflection on the floor */
@@ -134,6 +133,31 @@ function smoke(seed, w = 200, h = 112) {
   return c;
 }
 
+/** fine dust in the light: specks drawn twice (top and bottom halves) so the loop is seamless */
+function drawDust(c) {
+  const W = innerWidth;
+  const H = innerHeight;
+  c.width = W;
+  c.height = H * 2;
+  const g = c.getContext('2d');
+  let s = 11;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  const n = Math.round((W * H) / 7000);
+  for (let i = 0; i < n; i++) {
+    const x = rnd() * W;
+    const y = rnd() * H;
+    const r = 0.5 + rnd() * rnd() * 1.6;
+    const a = 0.08 + rnd() * 0.3;
+    for (const dy of [0, H]) {
+      const grad = g.createRadialGradient(x, y + dy, 0, x, y + dy, r * 2.4);
+      grad.addColorStop(0, `rgba(255, 244, 222, ${a.toFixed(3)})`);
+      grad.addColorStop(1, 'rgba(255, 244, 222, 0)');
+      g.fillStyle = grad;
+      g.fillRect(x - r * 2.4, y + dy - r * 2.4, r * 4.8, r * 4.8);
+    }
+  }
+}
+
 export function startAmbient() {
   const host = document.querySelector('[data-ambient]');
   if (!host || host.dataset.on) return;
@@ -162,10 +186,15 @@ export function startAmbient() {
       });
     });
   });
-  // 3. motion starts with the visitor: first scroll, touch, mouse move or key
-  const live = () => {
-    host.classList.add('is-live');
-    for (const ev of ['scroll', 'pointermove', 'touchstart', 'keydown']) removeEventListener(ev, live);
-  };
-  for (const ev of ['scroll', 'pointermove', 'touchstart', 'keydown']) addEventListener(ev, live, { passive: true });
+  // 3. dust, then the motion: it starts once the page has loaded (never during the first paint)
+  const go = () =>
+    idle(() => {
+      const dust = document.createElement('canvas');
+      dust.className = 'ambient__dust';
+      drawDust(dust);
+      host.querySelector('[data-haze]').after(dust);
+      host.classList.add('is-live');
+    });
+  if (document.readyState === 'complete') go();
+  else addEventListener('load', go, { once: true });
 }

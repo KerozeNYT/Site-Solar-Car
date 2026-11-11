@@ -1231,6 +1231,98 @@ p {
   }
 }
 
+/* ------------------------------------------------------------------ home film */
+/* The video moved by the scroll (src/js/film.js) reuses the tour's stage, chapters and copy. */
+.tour__video {
+  display: none;
+}
+.tour-live .film .tour__video {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.film.is-ready .tour__video {
+  opacity: 1;
+}
+/* until the video is there, each chapter shows its own image */
+.tour-live .film:not(.is-ready) .chapter.is-visible .chapter__still {
+  display: block;
+}
+.tour-live .film .chapter__still::after {
+  display: none;
+}
+/* the bar of tabs: one per service shown in the film, the current one in gold */
+.tour-live .film .film__hud {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.film__tabs ul {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: auto;
+}
+.film__tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(5, 6, 8, 0.72);
+  color: var(--text-2);
+  font: 500 0.75rem var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.25s ease, border-color 0.25s ease, background-color 0.25s ease, transform 0.25s var(--ease);
+}
+.film__tabs a:hover,
+.film__tabs a:focus-visible {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+.film__tabs a[aria-current] {
+  color: var(--on-accent);
+  background: var(--gold-metal);
+  border-color: transparent;
+}
+.film .tour__progress {
+  flex: none;
+}
+@media (max-width: 760px) {
+  .film__tabs ul {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(-1 * var(--gutter));
+    padding-inline: var(--gutter);
+  }
+  .film__tabs ul::-webkit-scrollbar {
+    display: none;
+  }
+  .film__tabs a {
+    min-height: 36px;
+    padding: 0 12px;
+  }
+  .tour-live .film .chapter__copy,
+  .tour-live .film .chapter--right .chapter__copy {
+    padding-bottom: 112px;
+  }
+}
+
 /* ------------------------------------------------------------------ services */
 .service-grid {
   list-style: none;
@@ -3796,27 +3888,65 @@ p {
   opacity: 0.26;
   transform: scaleX(-1) translate3d(-6%, -2%, 0) scale(1.12);
 }
-/* motion once the visitor scrolls, touches or moves the mouse (a loading page stays still) */
+/* motion once the page has loaded: the smoke drifts and swells, the tubes breathe */
 .ambient.is-live .ambient__smoke {
-  animation: smoke-a 70s ease-in-out infinite alternate;
+  animation: smoke-a 26s ease-in-out infinite alternate, smoke-breathe 9s ease-in-out infinite alternate;
 }
 .ambient.is-live .ambient__smoke--b {
-  animation: smoke-b 95s ease-in-out infinite alternate;
+  animation: smoke-b 34s ease-in-out infinite alternate, smoke-breathe 12s ease-in-out -4s infinite alternate;
+}
+.ambient.is-live .ambient__room {
+  animation: tubes-breathe 7s ease-in-out infinite alternate;
+}
+@keyframes smoke-breathe {
+  from {
+    opacity: 0.22;
+  }
+  to {
+    opacity: 0.44;
+  }
+}
+@keyframes tubes-breathe {
+  from {
+    opacity: calc(var(--tubes-on, 0.42) * 0.82);
+  }
+  to {
+    opacity: var(--tubes-on, 0.42);
+  }
+}
+/* dust in the light, rising slowly (a canvas twice the screen's height, looped) */
+.ambient__dust {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 200%;
+  opacity: 0;
+  transition: opacity 2s ease;
+}
+.ambient.is-live .ambient__dust {
+  opacity: 0.8;
+  animation: dust-rise 46s linear infinite;
+}
+@keyframes dust-rise {
+  to {
+    transform: translate3d(0, -50%, 0);
+  }
 }
 @keyframes smoke-a {
   from {
-    transform: translate3d(-7%, 3%, 0) scale(1.05);
+    transform: translate3d(-11%, 4%, 0) scale(1.05);
   }
   to {
-    transform: translate3d(7%, -2%, 0) scale(1.18);
+    transform: translate3d(11%, -4%, 0) scale(1.22);
   }
 }
 @keyframes smoke-b {
   from {
-    transform: scaleX(-1) translate3d(-6%, -2%, 0) scale(1.12);
+    transform: scaleX(-1) translate3d(-10%, -3%, 0) scale(1.16);
   }
   to {
-    transform: scaleX(-1) translate3d(8%, 4%, 0) scale(1.02);
+    transform: scaleX(-1) translate3d(12%, 5%, 0) scale(1.02);
   }
 }
 /* a soft band of light crosses the room every so often */
@@ -3826,17 +3956,17 @@ p {
   bottom: -20%;
   left: 0;
   width: 34vw;
-  background: linear-gradient(90deg, transparent, rgba(255, 246, 225, 0.045) 45%, rgba(255, 246, 225, 0.06) 50%, rgba(255, 246, 225, 0.045) 55%, transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 246, 225, 0.05) 42%, rgba(255, 246, 225, 0.085) 50%, rgba(255, 246, 225, 0.05) 58%, transparent);
   transform: translate3d(-45vw, 0, 0) skewX(-14deg);
 }
 .ambient.is-live .ambient__sweep {
-  animation: sweep 16s cubic-bezier(0.45, 0, 0.25, 1) 2s infinite;
+  animation: sweep 9s cubic-bezier(0.45, 0, 0.25, 1) 1s infinite;
 }
 @keyframes sweep {
   0% {
     transform: translate3d(-45vw, 0, 0) skewX(-14deg);
   }
-  45%,
+  60%,
   100% {
     transform: translate3d(125vw, 0, 0) skewX(-14deg);
   }

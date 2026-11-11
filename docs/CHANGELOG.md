@@ -2,6 +2,24 @@
 
 ## V3 — refonte (sombre, moderne, moins de simulateurs)
 
+### Vidéo d'accueil au défilement
+- La visite 3D de l'accueil est remplacée par une vidéo que le défilement fait avancer et
+  reculer (`src/js/film.js`, réglages dans `content/film.js`) : 1080p sur ordinateur, 720p sur
+  téléphone, téléchargée après l'affichage de la page puis gardée en mémoire (avance et retour
+  instantanés). Encodage dédié : image clé toutes les 12 images, sans images B.
+- Textes des prestations et barre d'onglets (Phares, Detailing, Vitres teintées, Feux teintés,
+  Covering, Ciel étoilé) calés sur la vidéo ; un onglet amène au bon moment du film.
+- Rythme : chaque prestation a la même longueur de défilement, les passages entre deux
+  prestations sont franchis vite (parcours total ≈ 5 écrans au lieu de 7,5).
+- Sans JavaScript, avec mouvements réduits ou économiseur de données : les chapitres l'un sous
+  l'autre sur leur image tirée de la vidéo (`public/img/film/`).
+- `node scripts/film-assets.mjs <vidéo-1080p> [vidéo-720p]` prépare une nouvelle vidéo.
+- La visite 3D reste disponible sur `/design/visite-3d/` (non indexée) ; `npm run stills` s'en sert.
+
+### Fond animé plus vivant
+- Le fond bouge dès que la page est chargée : fumée qui dérive et respire, poussière qui monte
+  dans la lumière, néons qui respirent, balayage de lumière toutes les 9 s.
+
 ### Design « garage de nuit »
 - Thème sombre sur tout le site (noir profond, cartes en verre fumé, or du blason pour les
   accents), logo en version claire pour l'en-tête et le pied de page.

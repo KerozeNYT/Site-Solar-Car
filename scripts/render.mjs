@@ -18,6 +18,7 @@ export async function renderSite(out, assets) {
   const T = await load('src/templates/pages.js');
   const styleTile = await load('src/templates/styletile.js');
   const flight = await load('content/flight.js');
+  const { film } = await load('content/film.js');
   const pricing = await load('content/pricing.js');
   const vehicles = (await load('content/vehicles.js')).default;
   const { guides, guidesPage } = await load('content/guides.js');
@@ -38,7 +39,7 @@ export async function renderSite(out, assets) {
   }, 0);
   // the gallery exists only with real jobs: then it gets its page, menu link and sitemap entry
   const nav = realisations.length ? [...site.nav.slice(0, 1), { label: 'Réalisations', href: '/realisations/' }, ...site.nav.slice(1)] : site.nav;
-  const ctx = { ...site, nav, car, assets, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, realisations, realisationsPage };
+  const ctx = { ...site, nav, car, assets, film, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, realisations, realisationsPage };
 
   const pages = [
     ['index.html', T.homePage(ctx)],
@@ -47,6 +48,7 @@ export async function renderSite(out, assets) {
     ['mentions-legales/index.html', T.legalPage(ctx)],
     ['404.html', T.notFoundPage(ctx)],
     ['design/style-tile/index.html', styleTile.styleTilePage(ctx)],
+    ['design/visite-3d/index.html', T.tourDemoPage(ctx)],
     ...site.services.map((s) => [`${s.slug}/index.html`, T.servicePage(ctx, s)]),
     ['atelier-vouvray/index.html', T.atelierPage(ctx)],
     ['guides/index.html', T.guidesIndexPage(ctx)],

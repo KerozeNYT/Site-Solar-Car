@@ -1,6 +1,7 @@
 import { simFor } from './sims.js';
 import { priceText } from '../../content/pricing.js';
 import { coveringPage as CP, FINISHES, EFFECTS } from '../../content/covering.js';
+import { filmTravel } from '../../content/film.js';
 import { films as coveringFilms, ranges as filmRanges } from '../../content/films/index.js';
 
 /**
@@ -401,12 +402,13 @@ ${actionBar(ctx)}
 `;
 }
 
-/** call-to-action links; `tour` = a chapter of the 3D tour to fly to (scroll position in vh) */
-const ctaLinks = (ctas = [], tourAt = {}) =>
+/** call-to-action links; `tour` = a chapter to jump to: `jump(id)` gives the attribute (the film's
+ *  second, data-film-at, or the 3D tour's scroll position, data-tour-at) */
+const ctaLinks = (ctas = [], jump = () => '') =>
   ctas.length
     ? `<div class="ctas">${ctas
         .map((c) => {
-          const at = c.tour && tourAt[c.tour] != null ? ` data-tour-at="${tourAt[c.tour] + 22}"` : '';
+          const at = c.tour ? jump(c.tour) : '';
           return `<a class="btn ${c.primary ? 'btn--primary' : 'btn--ghost'}" href="${c.href}"${c.href.startsWith('#') ? ' data-scroll' : ''}${at}>${esc(c.label)}${c.tour ? ' <span class="btn__arrow" aria-hidden="true">↓</span>' : ''}</a>`;
         })
         .join('')}</div>`
@@ -439,8 +441,57 @@ function faqBlock(faq, title = 'Questions fréquentes') {
 }
 
 // ------------------------------------------------------------------------- home
-export function homePage(ctx) {
+/** image of a film chapter (public/img/film/, extracted by scripts/film-assets.mjs) */
+const filmStill = (id, alt, { eager = false } = {}) =>
+  `<img src="/img/film/${id}-960.webp" srcset="/img/film/${id}-960.webp 960w, /img/film/${id}-1600.webp 1600w" sizes="100vw" width="1600" height="900" alt="${esc(alt)}" ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}>`;
+
+/**
+ * The chapters laid over the home film (or the 3D tour demo): kicker (numbered in the order
+ * shown), title (h1 for the first), text, links. `image(id, i)` gives the chapter's picture,
+ * `jump(id)` the attribute of the in-page links to a chapter, `attrs(id)` extra attributes.
+ */
+function chapterArticles(ctx, order, { image, jump, attrs = () => '', hint = null, tour = false }) {
   const { home, services, business: b } = ctx;
+  const ch = home.tour.chapters;
+  let n = 0;
+  return order
+    .map((id, i) => {
+      const c = ch[id];
+      const H = i === 0 ? 'h1' : 'h2';
+      const numbered = /^\d+\s*—\s*/.test(c.kicker);
+      const kicker = numbered ? `${String(++n).padStart(2, '0')} — ${c.kicker.replace(/^\d+\s*—\s*/, '')}` : c.kicker;
+      const link = c.link
+        ? `<p class="chapter__link"><a class="btn btn--primary chapter__cta" href="${c.link.href}">${esc(c.link.label)} <span class="chapter__arrow" aria-hidden="true">→</span></a><span class="chapter__hint">${esc(c.linkHint || 'Simulateur 3D · tarifs · questions fréquentes')}</span></p>`
+        : '';
+      const readout =
+        tour && c.readout === 'vlt'
+          ? `<p class="readout" aria-live="off"><span class="readout__label">Transmission lumineuse arrière</span> <span class="readout__value" data-readout="vlt">70</span><span class="readout__unit"> %</span></p>`
+          : tour && c.readout === 'beforeAfter'
+            ? `<p class="readout readout--ba" aria-live="off"><span class="readout__label">Optiques</span> <span class="readout__value" data-readout="beforeAfter">Avant</span></p>`
+            : '';
+      const contact = c.contact ? contactLines(b, { compact: true }) : '';
+      const heading = c.brand ? `<span class="chapter__brand">${esc(c.brand)}</span> <span class="chapter__line">${esc(plain(c.title))}</span>` : rich(c.title);
+      const quick = c.quick
+        ? `<nav class="hero-quick" aria-label="Accès direct aux prestations"><span class="hero-quick__label">${esc(c.quick)}</span><ul>${services.map((s) => `<li><a href="/${s.slug}/">${esc(s.shortName || s.name)}</a></li>`).join('')}</ul></nav>`
+        : '';
+      const hintText = c.hint ? hint || c.hint : '';
+      const hintHtml = hintText ? `<p class="hero-hint" aria-hidden="true"><span class="hero-hint__mouse"></span>${esc(hintText)}</p>` : '';
+      return `<article class="chapter chapter--${c.side || 'left'}${i === 0 ? ' is-active' : ''}" data-chapter="${id}" id="chapitre-${id}"${attrs(id)}>
+        <div class="chapter__still">${image(id, i)}</div>
+        <div class="chapter__copy">
+          <p class="kicker">${esc(kicker)}</p>
+          <${H} class="chapter__title${c.brand ? ' chapter__title--brand' : ''}">${heading}</${H}>
+          <p class="chapter__text">${esc(c.text)}</p>
+          ${readout}${contact}${ctaLinks(c.ctas, jump)}${quick}${link}${hintHtml}${i === 0 && tour ? '<p class="tour__opt-in" data-tour-start hidden><button type="button" class="btn btn--ghost btn--sm">Lancer la visite 3D</button> <span>(données mobiles : quelques Mo)</span></p>' : ''}
+        </div>
+      </article>`;
+    })
+    .join('\n      ');
+}
+
+/** The 3D tour (studio flight driven by the scroll): now on a demo page, it renders the stills. */
+function tourSection(ctx) {
+  const { home, business: b } = ctx;
   const ch = home.tour.chapters;
   const altFor = {
     hero: `Façade de l’atelier ${b.name} de nuit, porte ouverte sur le studio éclairé et la voiture`,
@@ -453,55 +504,9 @@ export function homePage(ctx) {
     final: `Vue aérienne de nuit de l’atelier ${b.name}, de ses abords et de la route`,
   };
   const order = Object.keys(ch);
-  const chapters = order
-    .map((id, i) => {
-      const c = ch[id];
-      const H = i === 0 ? 'h1' : 'h2';
-      const link = c.link
-        ? `<p class="chapter__link"><a class="btn btn--primary chapter__cta" href="${c.link.href}">${esc(c.link.label)} <span class="chapter__arrow" aria-hidden="true">→</span></a><span class="chapter__hint">${esc(c.linkHint || 'Simulateur 3D · tarifs · questions fréquentes')}</span></p>`
-        : '';
-      const readout =
-        c.readout === 'vlt'
-          ? `<p class="readout" aria-live="off"><span class="readout__label">Transmission lumineuse arrière</span> <span class="readout__value" data-readout="vlt">70</span><span class="readout__unit"> %</span></p>`
-          : c.readout === 'beforeAfter'
-            ? `<p class="readout readout--ba" aria-live="off"><span class="readout__label">Optiques</span> <span class="readout__value" data-readout="beforeAfter">Avant</span></p>`
-            : '';
-      const contact = c.contact ? contactLines(b, { compact: true }) : '';
-      const heading = c.brand ? `<span class="chapter__brand">${esc(c.brand)}</span> <span class="chapter__line">${esc(plain(c.title))}</span>` : rich(c.title);
-      const quick = c.quick
-        ? `<nav class="hero-quick" aria-label="Accès direct aux prestations"><span class="hero-quick__label">${esc(c.quick)}</span><ul>${services.map((s) => `<li><a href="/${s.slug}/">${esc(s.shortName || s.name)}</a></li>`).join('')}</ul></nav>`
-        : '';
-      const hint = c.hint ? `<p class="hero-hint" aria-hidden="true"><span class="hero-hint__mouse"></span>${esc(c.hint)}</p>` : '';
-      return `<article class="chapter chapter--${c.side || 'left'}${i === 0 ? ' is-active' : ''}" data-chapter="${id}" id="chapitre-${id}">
-        <div class="chapter__still">${still(id, altFor[id] || '', { eager: i === 0 })}</div>
-        <div class="chapter__copy">
-          <p class="kicker">${esc(c.kicker)}</p>
-          <${H} class="chapter__title${c.brand ? ' chapter__title--brand' : ''}">${heading}</${H}>
-          <p class="chapter__text">${esc(c.text)}</p>
-          ${readout}${contact}${ctaLinks(c.ctas, ctx.flightAt)}${quick}${link}${hint}${i === 0 ? '<p class="tour__opt-in" data-tour-start hidden><button type="button" class="btn btn--ghost btn--sm">Lancer la visite 3D</button> <span>(données mobiles : quelques Mo)</span></p>' : ''}
-        </div>
-      </article>`;
-    })
-    .join('\n      ');
-
-  const cards = services
-    .map(
-      (s, i) => `<li class="service-card">
-        <a href="/${s.slug}/" class="service-card__link">
-          <div class="service-card__media">${still(s.still, '', { sizes: '(min-width: 900px) 33vw, 100vw' })}</div>
-          <div class="service-card__body">
-            <p class="kicker">0${i + 1}</p>
-            <h3>${esc(s.name)}</h3>
-            <p>${esc(s.short)}</p>
-            <span class="service-card__more">Découvrir <span aria-hidden="true">→</span></span>
-          </div>
-        </a>
-      </li>`
-    )
-    .join('\n      ');
-
-  const body = `
-  <section class="tour" id="visite" aria-label="${esc(home.tour.label)}" style="--travel:${ctx.flightTotal}" data-tour>
+  const jump = (id) => (ctx.flightAt[id] != null ? ` data-tour-at="${ctx.flightAt[id] + 22}"` : '');
+  const chapters = chapterArticles(ctx, order, { image: (id, i) => still(id, altFor[id] || '', { eager: i === 0 }), jump, tour: true });
+  return `<section class="tour" id="visite" aria-label="${esc(home.tour.label)}" style="--travel:${ctx.flightTotal}" data-tour>
     <div class="tour__stage" data-stage>
       <canvas class="tour__canvas" aria-hidden="true" data-canvas></canvas>
       <div class="tour__chapters">
@@ -524,7 +529,74 @@ export function homePage(ctx) {
       <p class="tour__loading" data-loading hidden><span class="tour__spinner" aria-hidden="true"></span><span>${esc(home.tour.loading)}</span> <span data-loading-pct></span></p>
       <a class="tour__skip btn btn--ghost btn--sm" href="#prestations" data-scroll>${esc(home.tour.skip)} <span aria-hidden="true">↓</span></a>
     </div>
-  </section>
+  </section>`;
+}
+
+/**
+ * The home film (content/film.js): a video moved by the scroll (src/js/film.js), the service
+ * chapters over it at their moment, a bar of tabs to jump to each service. Without JavaScript
+ * or with reduced motion: the chapters one under the other over their images.
+ */
+function filmSection(ctx) {
+  const { home, film } = ctx;
+  const byId = Object.fromEntries(film.chapters.map((c) => [c.id, c]));
+  const order = film.chapters.map((c) => c.id).filter((id) => home.tour.chapters[id]);
+  const at = (id) => (byId[id] ? Math.max(film.start, byId[id].from + 0.45).toFixed(2) : null);
+  const jump = (id) => (at(id) ? ` data-film-at="${at(id)}"` : '');
+  const chapters = chapterArticles(ctx, order, {
+    image: (id, i) => filmStill(id, byId[id].alt || '', { eager: i === 0 }),
+    jump,
+    attrs: (id) => ` data-from="${byId[id].from}" data-to="${byId[id].to}"`,
+    hint: home.film.hint,
+  });
+  const tabs = film.chapters
+    .filter((c) => c.tab)
+    .map((c) => `<li><a href="#chapitre-${c.id}" data-film-at="${at(c.id)}" data-tab="${c.id}">${esc(c.tab)}</a></li>`)
+    .join('');
+  return `<section class="tour film" id="visite" aria-label="${esc(home.film.label)}" style="--travel:${Math.round(filmTravel(film) * 100)}" data-film data-duration="${film.duration}" data-start="${film.start}" data-pace="${esc(JSON.stringify(film.pace))}" data-src-desktop="${film.sources.desktop}" data-src-mobile="${film.sources.mobile}">
+    <div class="tour__stage" data-stage>
+      <video class="tour__video" muted playsinline preload="none" disablepictureinpicture aria-hidden="true" tabindex="-1" data-video></video>
+      <div class="tour__chapters">
+      ${chapters}
+      </div>
+      <div class="tour__hud film__hud">
+        <nav class="film__tabs" aria-label="Prestations présentées dans la vidéo"><ul>${tabs}</ul></nav>
+        <div class="tour__progress" aria-hidden="true"><span data-progress></span></div>
+      </div>
+      <p class="tour__loading" data-loading hidden><span class="tour__spinner" aria-hidden="true"></span><span>${esc(home.film.loading)}</span> <span data-loading-pct></span></p>
+      <a class="tour__skip btn btn--ghost btn--sm" href="#prestations" data-scroll>${esc(home.tour.skip)} <span aria-hidden="true">↓</span></a>
+    </div>
+  </section>`;
+}
+
+/** The 3D tour on its own page (noindex): a showcase, and the scene `npm run stills` films. */
+export function tourDemoPage(ctx) {
+  const body = `
+  ${tourSection(ctx)}
+  <section class="section" id="prestations"><div class="container"><p><a href="/">Retour à l’accueil</a></p></div></section>`;
+  return page(ctx, { title: `Visite 3D de l’atelier | ${ctx.business.name}`, description: ctx.home.seo.description, path: '/design/visite-3d/', noindex: true, bodyClass: 'page-home' }, body);
+}
+
+export function homePage(ctx) {
+  const { home, services, business: b } = ctx;
+  const cards = services
+    .map(
+      (s, i) => `<li class="service-card">
+        <a href="/${s.slug}/" class="service-card__link">
+          <div class="service-card__media">${still(s.still, '', { sizes: '(min-width: 900px) 33vw, 100vw' })}</div>
+          <div class="service-card__body">
+            <p class="kicker">0${i + 1}</p>
+            <h3>${esc(s.name)}</h3>
+            <p>${esc(s.short)}</p>
+            <span class="service-card__more">Découvrir <span aria-hidden="true">→</span></span>
+          </div>
+        </a>
+      </li>`
+    )
+    .join('\n      ');
+
+  const body = `
+  ${filmSection(ctx)}
 
   <div class="marquee" aria-hidden="true"><div class="marquee__track">${Array.from({ length: 2 }, () => services.map((s) => `<span>${esc(s.name)}</span>`).join('<i>◆</i>') + '<i>◆</i>').join('')}</div></div>
 
@@ -566,7 +638,7 @@ export function homePage(ctx) {
   ${faqBlock(home.faq)}
   ${ctaBand(ctx)}`;
 
-  const poster = `<link rel="preload" as="image" href="/stills/hero-1600.webp" imagesrcset="/stills/hero-960.webp 960w, /stills/hero-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`;
+  const poster = `<link rel="preload" as="image" href="/img/film/hero-1600.webp" imagesrcset="/img/film/hero-960.webp 960w, /img/film/hero-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`;
   return page(
     ctx,
     {

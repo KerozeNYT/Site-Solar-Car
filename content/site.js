@@ -88,6 +88,13 @@ export const home = {
     description:
       `Atelier à Vouvray, près de Tours : vitres teintées dès ${P.tintFrom} TTC, feux fumés, phares ${P.headlights} la paire, detailing, covering, ciel étoilé. Simulateurs 3D.`,
   },
+  // the film at the top of the page (timings and video files: content/film.js)
+  film: {
+    label: 'Film : nos prestations sur une Porsche 911 GT3 RS',
+    loading: 'Chargement de la vidéo',
+    hint: 'Faites défiler : la vidéo avance avec vous',
+  },
+  // chapters of the film (and of the 3D tour, kept on /design/visite-3d/)
   tour: {
     label: 'Visite de l’atelier en vol continu',
     skip: 'Aller aux prestations',
@@ -101,8 +108,8 @@ export const home = {
         text: 'Vitres teintées, feux fumés, detailing, covering et déchromage, ciel étoilé, rénovation de phares : un atelier dédié à Vouvray, près de Tours.',
         ctas: [
           { label: 'Demander un devis', href: '/contact/', primary: true },
-          // jumps into the tour, to the first service (the template adds the scroll position)
-          { label: 'Découvrir l’expérience', href: '#chapitre-tint', tour: 'tint' },
+          // jumps into the film, to the first service (the template adds its second)
+          { label: 'Découvrir l’expérience', href: '#chapitre-headlights', tour: 'headlights' },
         ],
         quick: 'Accès direct',
         hint: 'Faites défiler : la caméra entre dans l’atelier',

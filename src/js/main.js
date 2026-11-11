@@ -9,7 +9,7 @@ startAmbient();
 {
   // the backdrop rests while the 3D tour fills the screen (it is hidden behind it anyway)
   const ambient = document.querySelector('[data-ambient]');
-  const stage = document.querySelector('[data-tour]');
+  const stage = document.querySelector('[data-tour], [data-film]');
   if (ambient && stage && 'IntersectionObserver' in window)
     new IntersectionObserver(([en]) => ambient.classList.toggle('is-paused', en.intersectionRatio > 0.6), { threshold: [0, 0.6, 1] }).observe(stage);
 }
@@ -53,6 +53,8 @@ document.querySelectorAll('[data-submenu]').forEach((group) => {
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[data-scroll]');
   if (!a) return;
+  // into the home film: src/js/film.js turns the link into the film's moment
+  if (a.dataset.filmAt && document.querySelector('[data-film].is-live')) return;
   // into the 3D tour: its chapters are layered in one sticky stage, so scroll to the chapter's
   // position along the tour (in viewport heights) and let the camera fly there
   const tourEl = a.dataset.tourAt && html.classList.contains('tour-live') && document.querySelector('[data-tour]');
@@ -70,6 +72,19 @@ document.addEventListener('click', (e) => {
   target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
   history.replaceState(null, '', a.getAttribute('href'));
 });
+
+// ---------------------------------------------------------------- home film
+// the video moved by the scroll; without it (reduced motion, data saver, ?static) the chapters
+// stay one under the other over their images (CSS)
+const filmEl = document.querySelector('[data-film]');
+if (filmEl && html.classList.contains('tour-live')) {
+  import('./film.js')
+    .then((m) => m.startFilm(filmEl))
+    .catch((err) => {
+      console.warn('[film] static version', err);
+      html.classList.remove('tour-live');
+    });
+}
 
 // ---------------------------------------------------------------- 3D tour
 /** can this device draw 3D? Asked once, and only when a 3D scene is about to start: creating a
@@ -158,7 +173,7 @@ if (sims.length) {
 // tucked away while the 3D tour (it has its own calls to action) or the footer is on screen
 const bar = document.querySelector('.action-bar');
 if (bar && 'IntersectionObserver' in window) {
-  const hideOn = [...document.querySelectorAll('[data-tour], .site-footer')];
+  const hideOn = [...document.querySelectorAll('[data-tour], [data-film], .site-footer')];
   const seen = new Set();
   const io = new IntersectionObserver((entries) => {
     for (const en of entries) en.isIntersecting ? seen.add(en.target) : seen.delete(en.target);
