@@ -2,6 +2,18 @@
 
 ## V3 — refonte (sombre, moderne, moins de simulateurs)
 
+### Textes sans répétitions entre pages
+- Analyse de toutes les pages indexables (phrases de 8 mots ou plus présentes sur plusieurs
+  pages, similarité deux à deux) : 34 phrases répétées → 1 (un titre de guide repris dans ses
+  liens, normal).
+- Pages de communes : introduction et FAQ construites à partir du trajet réel de chaque commune,
+  liste des prestations resserrée ; similarité maximale entre deux communes 0,64 → 0,44 (ce
+  qui reste : la fin du trajet, commune à toutes, et les noms et prix des prestations).
+- Liens croisés entre prestations : une courte accroche par prestation (`tagline`) au lieu de la
+  même phrase partout ; appel à l'action des guides propre à chaque guide (`simPitch`).
+- Index des guides : le résumé de chaque guide, plus la copie de son introduction ; encart
+  « guide » des prestations sans recopie du texte du guide.
+
 ### Vidéo d'accueil au défilement
 - La visite 3D de l'accueil est remplacée par une vidéo que le défilement fait avancer et
   reculer (`src/js/film.js`, réglages dans `content/film.js`) : 1080p sur ordinateur, 720p sur

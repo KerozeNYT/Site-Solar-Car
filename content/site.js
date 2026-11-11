@@ -234,6 +234,15 @@ export const services = [
   {
     slug: 'vitres-teintees',
     shortName: 'Vitres teintées',
+    // a few words for the cross-links between pages (never the same sentence everywhere)
+    tagline: 'Intimité, fraîcheur, UV filtrés',
+    // several wordings: the four guides on window film each get their own
+    simPitch: [
+      'Comparez les teintes sur votre catégorie de véhicule et voyez le prix s’afficher.',
+      'Passez de 70 % à 5 % sur la voiture 3D : le rendu et le tarif changent en direct.',
+      'Choisissez vitres arrière, avant ou pare-brise : le simulateur affiche le prix TTC.',
+      'Voyez votre véhicule de l’extérieur et depuis l’habitacle, teinte par teinte.',
+    ],
     // header photo: a real job (content/realisations.js), used once its web version exists
     heroPhoto: 'audi-a5-coupe-34-arriere',
     chapter: 'tint',
@@ -289,6 +298,8 @@ export const services = [
   {
     slug: 'feux-arriere-teintes',
     shortName: 'Feux teintés',
+    tagline: 'Un regard plus sombre',
+    simPitch: 'Jugez le fumé 50 % ou 80 %, feux allumés et au freinage, avant de vous décider.',
     chapter: 'tail',
     still: 'tail',
     name: 'Feux arrière teintés',
@@ -331,6 +342,8 @@ export const services = [
   {
     slug: 'detailing-carrosserie',
     shortName: 'Detailing',
+    tagline: 'Le brillant d’origine',
+    simPitch: 'Suivez chaque étape du detailing sur la voiture 3D, du lavage à la céramique.',
     chapter: 'detailing',
     still: 'detailing',
     name: 'Detailing carrosserie',
@@ -371,6 +384,7 @@ export const services = [
   {
     slug: 'covering-dechromage',
     shortName: 'Covering',
+    tagline: 'Une couleur sans repeindre',
     chapter: 'covering',
     still: 'covering',
     name: 'Covering & déchromage',
@@ -427,6 +441,8 @@ export const services = [
   {
     slug: 'ciel-etoile',
     shortName: 'Ciel étoilé',
+    tagline: 'Une nuit étoilée à bord',
+    simPitch: 'Composez votre ciel : densité, deux couleurs, scintillement, étoiles filantes.',
     chapter: 'stars',
     still: 'stars',
     name: 'Ciel étoilé',
@@ -467,6 +483,7 @@ export const services = [
   {
     slug: 'renovation-phares',
     shortName: 'Phares',
+    tagline: 'Des optiques claires',
     chapter: 'headlights',
     still: 'headlights',
     name: 'Rénovation de phares',

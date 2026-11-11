@@ -745,7 +745,7 @@ export function servicePage(ctx, s) {
   <section class="section related" aria-labelledby="related-title">
     <div class="container">
       <h2 id="related-title">Nos autres prestations</h2>
-      <ul class="related__list">${others.map((o) => `<li><a href="/${o.slug}/"><strong>${esc(o.name)}</strong><span>${esc(o.short)}</span></a></li>`).join('')}</ul>
+      <ul class="related__list">${others.map((o) => `<li><a href="/${o.slug}/"><strong>${esc(o.name)}</strong><span>${esc(o.tagline || o.short)}</span></a></li>`).join('')}</ul>
     </div>
   </section>
   ${ctaBand(ctx)}`;
@@ -879,7 +879,7 @@ function coveringServicePage(ctx, s) {
   <section class="section related" aria-labelledby="related-title">
     <div class="container">
       <h2 id="related-title">Nos autres prestations</h2>
-      <ul class="related__list">${others.map((o) => `<li><a href="/${o.slug}/"><strong>${esc(o.name)}</strong><span>${esc(o.short)}</span></a></li>`).join('')}</ul>
+      <ul class="related__list">${others.map((o) => `<li><a href="/${o.slug}/"><strong>${esc(o.name)}</strong><span>${esc(o.tagline || o.short)}</span></a></li>`).join('')}</ul>
     </div>
   </section>`;
   return page(
@@ -908,7 +908,6 @@ function guideFor(ctx, slug) {
     <a class="guide-teaser__card reveal-up" href="/guides/${g.slug}/">
       <span class="kicker">Guide · ${esc(g.kicker)}</span>
       <strong>${esc(g.title)}</strong>
-      <span>${esc(g.intro)}</span>
       <span class="guide-teaser__more">Lire le guide <span aria-hidden="true">→</span></span>
     </a>
     ${more.length ? `<ul class="guide-teaser__list">${more.map((m) => `<li><a href="/guides/${m.slug}/">${esc(m.title)}</a></li>`).join('')}</ul>` : ''}
@@ -1044,7 +1043,7 @@ export function atelierPage(ctx) {
   <section class="section" aria-labelledby="atelier-services">
     <div class="container">
       <h2 id="atelier-services">Ce que nous faisons à l’atelier</h2>
-      <ul class="related__list">${services.map((s) => `<li><a href="/${s.slug}/"><strong>${esc(s.name)}</strong><span>${esc(s.short)}</span></a></li>`).join('')}</ul>
+      <ul class="related__list">${services.map((s) => `<li><a href="/${s.slug}/"><strong>${esc(s.name)}</strong><span>${esc(s.tagline || s.short)}</span></a></li>`).join('')}</ul>
     </div>
   </section>
   ${partnersBlock(ctx)}
@@ -1084,7 +1083,7 @@ export function guidesIndexPage(ctx) {
         .map(
           (x) => `<li class="guide-card reveal-up"><a href="/guides/${x.slug}/">
           <div class="guide-card__media">${still(x.still, '', { sizes: '(min-width: 900px) 33vw, 100vw' })}</div>
-          <div class="guide-card__body"><p class="kicker">${esc(x.kicker)}</p><h2>${esc(x.title)}</h2><p>${esc(x.intro)}</p><span class="service-card__more">Lire <span aria-hidden="true">→</span></span></div>
+          <div class="guide-card__body"><p class="kicker">${esc(x.kicker)}</p><h2>${esc(x.title)}</h2><p>${esc(x.summary || x.seo.description)}</p><span class="service-card__more">Lire <span aria-hidden="true">→</span></span></div>
         </a></li>`
         )
         .join('')}</ul>
@@ -1102,6 +1101,14 @@ export function guidesIndexPage(ctx) {
     },
     body
   );
+}
+
+/** the service's pitch under a guide; with several wordings, each guide of the service its own */
+function pitchFor(ctx, service, guide) {
+  const p = service.simPitch;
+  if (!Array.isArray(p)) return p;
+  const i = (ctx.guides || []).filter((g) => g.service === service.slug).findIndex((g) => g.slug === guide.slug);
+  return p[Math.max(0, i) % p.length];
 }
 
 export function guidePage(ctx, x) {
@@ -1138,7 +1145,7 @@ export function guidePage(ctx, x) {
     <div class="section section--tight">
       <div class="container container--narrow prose">
         ${x.sections.map(section).join('\n        ')}
-        ${service ? `<div class="guide__cta"><p><strong>${esc(service.name)} à ${esc(b.address?.city || '')}, près de Tours.</strong> ${SIMS.has(service.slug) ? 'Essayez le simulateur 3D et obtenez votre tarif en direct.' : 'Tarifs, déroulé et questions fréquentes sur la page de la prestation.'}</p><div class="ctas">${SIMS.has(service.slug) ? `<a class="btn btn--primary" href="/${service.slug}/#simulateur">Ouvrir le simulateur</a>` : `<a class="btn btn--primary" href="/${service.slug}/">Voir la prestation</a>`}<a class="btn btn--ghost" href="/contact/?prestation=${service.slug}">Demander un devis</a></div></div>` : ''}
+        ${service ? `<div class="guide__cta"><p><strong>${esc(service.name)} à ${esc(b.address?.city || '')}, près de Tours.</strong> ${SIMS.has(service.slug) ? esc(pitchFor(ctx, service, x) || 'Essayez le simulateur 3D et obtenez votre tarif en direct.') : esc(`${service.tagline || service.name} : tarifs, déroulé et questions fréquentes sur la page de la prestation.`)}</p><div class="ctas">${SIMS.has(service.slug) ? `<a class="btn btn--primary" href="/${service.slug}/#simulateur">Ouvrir le simulateur</a>` : `<a class="btn btn--primary" href="/${service.slug}/">Voir la prestation</a>`}<a class="btn btn--ghost" href="/contact/?prestation=${service.slug}">Demander un devis</a></div></div>` : ''}
       </div>
     </div>
     ${x.faq?.length ? faqBlock(x.faq) : ''}
@@ -1297,18 +1304,17 @@ export function zonePage(ctx, z) {
   const from = deTown(town);
   const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(`${town}, France`)}&destination=${encodeURIComponent(addressLine(b))}`;
   const roadName = (r) => (r.refs?.includes('A10') ? `l’A10 (${r.name})` : r.name);
+  // every answer comes from this town's own route (scripts/map/towns.py): no sentence shared by all
+  // the town pages
+  const steps = z.roads.map((r) => `${roadName(r)} (${kmFr(r.km)} km)`);
   const faq = [
     {
       q: `Quelle distance entre ${town} et l’atelier ?`,
       a: `Environ ${kmFr(z.roadKm)} km par la route depuis le centre ${from} (${kmFr(z.crowKm)} km à vol d’oiseau) : l’atelier est ${dir} ${from}, à Vouvray, ${b.address.street}.`,
     },
     {
-      q: 'Faut-il prendre rendez-vous ?',
-      a: `Oui, chaque prestation se fait sur rendez-vous, ${b.hoursText.charAt(0).toLowerCase() + b.hoursText.slice(1)}. Appelez le ${b.phone} ou envoyez votre demande de devis en ligne.`,
-    },
-    {
-      q: `Les tarifs sont-ils les mêmes pour un client ${from} ?`,
-      a: `Oui, les prix sont identiques pour tous et affichés TTC : vitres teintées ${priceHint(ctx, 'vitres-teintees')}, feux teintés ${priceHint(ctx, 'feux-arriere-teintes')}, rénovation de phares ${priceHint(ctx, 'renovation-phares')} ; ciel étoilé et detailing sur devis.`,
+      q: `Par où partir de ${town} ?`,
+      a: `Prenez ${steps[0]} ; le trajet compte ${z.roads.length} étape${z.roads.length > 1 ? 's' : ''} jusqu’à l’atelier, détaillées ci-dessus avec leur longueur.`,
     },
   ];
   const others = ctx.zones.filter((o) => o.slug !== z.slug).sort((a, c) => Math.abs(a.roadKm - z.roadKm) - Math.abs(c.roadKm - z.roadKm)).slice(0, 6);
@@ -1318,7 +1324,7 @@ export function zonePage(ctx, z) {
       <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li><a href="${zp.path}">Zones d’intervention</a></li><li aria-current="page">${esc(town)}</li></ol></nav>
       <p class="kicker">${esc(town)} · à ${kmFr(z.roadKm)} km de l’atelier</p>
       <h1>Vitres teintées, detailing et rénovation de phares près ${esc(from)}</h1>
-      <p class="lead">Vous êtes à ${esc(town)} ? L’atelier ${esc(b.name)} vous accueille à Vouvray, ${esc(dir)} ${esc(from)}, à ${kmFr(z.roadKm)} km par la route : films solaires posés sur mesure, feux teintés, rénovation de phares, ciel étoilé et detailing, sur rendez-vous.</p>
+      <p class="lead">Vous êtes à ${esc(town)} ? L’atelier ${esc(b.name)} est à ${kmFr(z.roadKm)} km par la route, ${esc(dir)} ${esc(from)} : on y arrive par ${esc(roadName(z.roads[0]))}${z.roads[1] ? `, puis ${esc(roadName(z.roads[1]))}` : ''}, jusqu’à la rue des Entrepreneurs à Vouvray.</p>
       <div class="ctas"><a class="btn btn--primary" href="/contact/">Demander un devis</a><a class="btn btn--ghost" href="${esc(route)}" rel="noopener" target="_blank">${ICONS.route} Itinéraire depuis ${esc(town)}</a></div>
     </div>
   </section>
@@ -1327,13 +1333,13 @@ export function zonePage(ctx, z) {
       <h2 id="trajet-title">Venir ${esc(from)} à l’atelier</h2>
       <p>Environ <strong>${kmFr(z.roadKm)} km</strong> par la route depuis le centre ${esc(from)}. Le trajet le plus direct :</p>
       <ol class="route-steps">${z.roads.map((r) => `<li><strong>${esc(roadName(r))}</strong><span>${kmFr(r.km)} km</span></li>`).join('')}<li><strong>${esc(b.address.street)}</strong><span>ZA de l’Étang Vignon, ${esc(b.address.postalCode)} Vouvray</span></li></ol>
-      <p class="price-note">Trajet indicatif calculé sur le réseau routier OpenStreetMap ; votre GPS peut proposer une autre route selon la circulation.</p>
+      <p class="price-note">Itinéraire indicatif (réseau routier OpenStreetMap).</p>
     </div>
   </section>
   <section class="section" aria-labelledby="zone-services">
     <div class="container">
       <h2 id="zone-services">Nos prestations pour les conducteurs ${esc(from)}</h2>
-      <ul class="related__list">${services.map((s) => `<li><a href="/${s.slug}/"><strong>${esc(s.name)}</strong><span>${esc(s.short)} <em class="zone-price">${esc(priceHint(ctx, s.slug))}</em></span></a></li>`).join('')}</ul>
+      <ul class="related__list">${services.map((s) => `<li><a href="/${s.slug}/"><strong>${esc(s.name)}</strong><span>${esc(s.tagline || s.short)} <em class="zone-price">${esc(priceHint(ctx, s.slug))}</em></span></a></li>`).join('')}</ul>
     </div>
   </section>
   ${faqBlock(faq, `Questions de nos clients ${from}`)}

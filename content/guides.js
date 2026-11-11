@@ -237,7 +237,7 @@ export const guides = [
       {
         h2: 'Le prix',
         p: [
-          'Le tarif dépend du véhicule, de la surface du pavillon et des options : il est établi sur devis. Configurez votre ciel dans le simulateur, puis envoyez-le : nous revenons vers vous avec un devis détaillé.',
+          'Le tarif dépend du véhicule, de la surface du pavillon et des options : il est établi sur devis. Configurez votre ciel dans le simulateur, puis envoyez-le : l’atelier vous répond avec un chiffrage précis.',
         ],
       },
     ],
