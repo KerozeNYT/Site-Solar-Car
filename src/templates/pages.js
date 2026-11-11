@@ -464,7 +464,7 @@ function faqBlock(faq, title = 'Questions fréquentes') {
 // ------------------------------------------------------------------------- home
 /** image of a film chapter (public/img/film/, extracted by scripts/film-assets.mjs) */
 const filmStill = (id, alt, { eager = false } = {}) =>
-  `<img src="/img/film/${id}-960.webp" srcset="/img/film/${id}-960.webp 960w, /img/film/${id}-1600.webp 1600w" sizes="100vw" width="1600" height="900" alt="${esc(alt)}" ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}>`;
+  `<picture><source media="(max-aspect-ratio: 1/1)" srcset="/img/film/${id}-portrait.webp" width="810" height="1080"><img src="/img/film/${id}-960.webp" srcset="/img/film/${id}-960.webp 960w, /img/film/${id}-1600.webp 1600w" sizes="100vw" width="1600" height="900" alt="${esc(alt)}" ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}></picture>`;
 
 /**
  * The chapters laid over the home film (or the 3D tour demo): kicker (numbered in the order
@@ -580,7 +580,7 @@ function filmSection(ctx) {
     .filter((c) => c.tab)
     .map((c) => `<li><a href="#chapitre-${c.id}" data-film-at="${at(c.id)}" data-tab="${c.id}">${esc(c.tab)}</a></li>`)
     .join('');
-  return `<section class="tour film" id="visite" aria-label="${esc(home.film.label)}" style="--travel:${Math.round(filmTravel(film) * 100)}" data-film data-duration="${film.duration}" data-start="${film.start}" data-pace="${esc(JSON.stringify(film.pace))}" data-src-preview="${film.sources.preview}" data-src-desktop="${film.sources.desktop}" data-src-mobile="${film.sources.mobile}">
+  return `<section class="tour film" id="visite" aria-label="${esc(home.film.label)}" style="--travel:${Math.round(filmTravel(film) * 100)}" data-film data-duration="${film.duration}" data-start="${film.start}" data-pace="${esc(JSON.stringify(film.pace))}" data-src-preview="${film.sources.preview}" data-src-desktop="${film.sources.desktop}" data-src-preview-portrait="${film.sources.previewPortrait}" data-src-portrait="${film.sources.portrait}">
     <div class="tour__stage" data-stage>
       <video class="tour__video" muted playsinline preload="none" disablepictureinpicture aria-hidden="true" tabindex="-1" data-video></video>
       <div class="tour__chapters">

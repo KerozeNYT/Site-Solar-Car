@@ -2,7 +2,7 @@
  * Home page film: a video that the scroll moves forward and back (src/js/film.js), with the
  * service chapters of content/site.js (`home.tour.chapters`) laid over it at the right moment.
  *
- * Replace the film: `node scripts/film-assets.mjs <video-1080p.mp4> [video-720p.mp4]` re-encodes
+ * Replace the film: `node scripts/film-assets.mjs <video-1080p.mp4>` re-encodes
  * it for scrolling (public/video/) and extracts the chapter images (public/img/film/) at the
  * `still` second of each chapter. Then set `duration` and the chapter times below (seconds of
  * the video), check them in the browser and rebuild.
@@ -15,12 +15,13 @@ export const film = {
   // length whatever its duration in the video, and the film speeds through the passages in
   // between (the page stays short)
   pace: { hold: 0.45, opening: 0.45, chapter: 0.55, closing: 0.5, gap: 0.08 },
-  // the light version answers the scroll within a second, the sharp one (phone or computer)
-  // takes over once downloaded
+  // the light version answers the scroll within a second, the sharp one takes over once
+  // downloaded; tall screens (phones, tablets upright) get the centre of the picture in 3:4
   sources: {
     preview: '/video/accueil-360p.mp4',
-    mobile: '/video/accueil-720p.mp4',
-    desktop: '/video/accueil-900p.mp4',
+    desktop: '/video/accueil-1080p.mp4',
+    previewPortrait: '/video/accueil-portrait-640.mp4',
+    portrait: '/video/accueil-portrait.mp4',
   },
   // chapters in the order they appear. from / to: when the copy is on screen (s); still: the
   // second used for the chapter's image (static page, posters), `alt` its description. `tab`: label of the tab

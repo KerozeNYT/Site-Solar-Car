@@ -704,6 +704,11 @@ p {
   position: absolute;
   inset: 0;
 }
+.chapter__still picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 .chapter__still img {
   width: 100%;
   height: 100%;

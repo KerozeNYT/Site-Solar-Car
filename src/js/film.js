@@ -1,8 +1,8 @@
 /**
  * Home film: the scroll moves the video forward and back (content/film.js, section [data-film]).
- * - Once the page has loaded, a light version (360p, about 1 MB) is downloaded and kept in
- *   memory: the film answers the scroll within a second; the sharp one (900p computers, 720p
- *   phones) follows in the background and takes over with a cross-fade. Seeking in memory is
+ * - Once the page has loaded, a light version (about 1 MB) is downloaded and kept in memory: the
+ *   film answers the scroll within a second; the sharp one (1080p, or its 3:4 centre on tall
+ *   screens) follows in the background and takes over with a cross-fade. Seeking in memory is
  *   instant; the encoding (scripts/film-assets.mjs) has short key-frame intervals, no B-frames.
  * - The video time follows the scroll with some easing; the chapters (copy, links) and the tabs
  *   follow the video time, so the words always match the picture.
@@ -41,9 +41,11 @@ export function startFilm(section) {
     }
     return keys[keys.length - 1][1];
   };
-  const phone = matchMedia('(max-width: 760px)').matches;
-  const sharp = phone ? section.dataset.srcMobile : section.dataset.srcDesktop;
-  const light = section.dataset.srcPreview || sharp;
+  // tall screens (phones, tablets upright) get the centre of the picture in 3:4: a 16:9 film
+  // stretched to their height would be enlarged and soft
+  const tall = matchMedia('(max-aspect-ratio: 1/1)').matches && section.dataset.srcPortrait;
+  const sharp = tall ? section.dataset.srcPortrait : section.dataset.srcDesktop;
+  const light = (tall ? section.dataset.srcPreviewPortrait : section.dataset.srcPreview) || sharp;
 
   // ------------------------------------------------------------- scroll <-> time
   // Scroll -> time is not linear: each chapter gets the same scroll length (pace.chapter screens,

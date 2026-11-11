@@ -43,7 +43,12 @@
 - Légendes chiffrées calées sur l'image : « Optique : avant / après », « Lumière transmise à
   l'arrière : 70 % → 5 % ». Onglets : Phares, Detailing, Vitres teintées, Feux teintés, Ciel
   étoilé (le covering, sans plan dans le film, reste dans les prestations et le menu).
-- Vidéos web : 0,9 Mo (version légère), 2,5 Mo (téléphone), 3,5 Mo (ordinateur).
+- Vidéos web : version légère 0,9 Mo puis 1080p 5,4 Mo sur écran large ; sur téléphone (écran
+  en hauteur), le centre de l'image en 3:4 (1,0 Mo puis 810×1080, 2,9 Mo) au lieu d'une vidéo
+  16:9 agrandie et floue ; images de chapitre en version portrait aussi.
+- Correctif du site d'aperçu : les adresses des vidéos n'avaient pas le préfixe
+  `/Site-Solar-Car/` (attributs `data-*` non réécrits par `scripts/rebase.mjs`), la vidéo ne se
+  chargeait pas et seules les images fixes des chapitres s'affichaient.
 
 ### Vidéo d'accueil au défilement
 - La visite 3D de l'accueil est remplacée par une vidéo que le défilement fait avancer et
