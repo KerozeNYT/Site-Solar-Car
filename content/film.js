@@ -9,7 +9,7 @@
  */
 export const film = {
   // length of the video (s) and second shown at the very top of the page (the first frames are dark)
-  duration: 30,
+  duration: 36,
   start: 1.6,
   // scroll pace, in screen heights: the opening holds a moment, each service gets the same
   // length whatever its duration in the video, and the film speeds through the passages in
@@ -24,16 +24,32 @@ export const film = {
   },
   // chapters in the order they appear. from / to: when the copy is on screen (s); still: the
   // second used for the chapter's image (static page, posters), `alt` its description. `tab`: label of the tab
-  // in the bar under the film (none for the opening and the closing copy).
+  // in the bar under the film (none for the opening and the closing copy). `readout`: a figure
+  // that follows the picture (keys [second, value]: numbers interpolated, words switched).
   chapters: [
-    { id: 'hero', from: 0, to: 3.0, still: 2.4, alt: 'Porsche 911 GT3 RS noire dans le studio sombre de SOLAR CAR 37, feux de jour allumés, entre fumée et néons' },
-    { id: 'headlights', tab: 'Phares', from: 3.3, to: 5.8, still: 4.2, alt: 'Face avant de la Porsche noire, phares et feux de jour allumés' },
-    { id: 'detailing', tab: 'Detailing', from: 6.0, to: 8.1, still: 7.4, alt: 'Trois-quarts avant de la Porsche noire : reflets des néons sur la peinture lustrée' },
-    { id: 'tint', tab: 'Vitres teintées', from: 8.4, to: 11.0, still: 9.6, alt: 'Profil de la Porsche noire aux vitres sombres, jantes cuivre et bande orange' },
-    { id: 'tail', tab: 'Feux teintés', from: 11.4, to: 15.3, still: 14.2, alt: 'Arrière de la Porsche avec son bandeau de feux rouges allumé' },
-    { id: 'covering', tab: 'Covering', from: 15.6, to: 17.6, still: 16.4, alt: 'Gros plan sur la carrosserie noire et la ligne de toit de la Porsche' },
-    { id: 'stars', tab: 'Ciel étoilé', from: 18.3, to: 23.6, still: 20.4, alt: 'Habitacle de la Porsche illuminé par un ciel étoilé en fibre optique' },
-    { id: 'final', from: 24.8, to: 30, still: 26.5, alt: 'Profil de la Porsche noire dans le studio, néons verticaux et fumée' },
+    { id: 'hero', from: 0, to: 4.4, still: 3.8, alt: 'Porsche 911 GT3 RS noire de face dans le studio sombre de SOLAR CAR 37, phares allumés' },
+    {
+      id: 'headlights',
+      tab: 'Phares',
+      from: 4.8,
+      to: 9.3,
+      still: 8.6,
+      alt: 'Gros plan sur le phare avant de la Porsche, optique redevenue claire après rénovation',
+      readout: { label: 'Optique', keys: [[6.7, 'Avant'], [8.0, 'Après']] },
+    },
+    { id: 'detailing', tab: 'Detailing', from: 9.8, to: 14.2, still: 12.5, alt: 'Flanc de la Porsche noire : une ligne de lumière sépare la peinture polie de la partie encore terne' },
+    {
+      id: 'tint',
+      tab: 'Vitres teintées',
+      from: 14.8,
+      to: 19.3,
+      still: 18.6,
+      alt: 'Profil de la Porsche 911 GT3 RS : vitres arrière teintées, vitre avant restée claire',
+      readout: { label: 'Lumière transmise à l’arrière', unit: '%', keys: [[15.9, 70], [17.9, 5]] },
+    },
+    { id: 'tail', tab: 'Feux teintés', from: 19.9, to: 24.2, still: 23.6, alt: 'Arrière de la Porsche, bandeau de feux fumé allumé' },
+    { id: 'stars', tab: 'Ciel étoilé', from: 25.2, to: 31.4, still: 28.8, alt: 'Habitacle de la Porsche sous un ciel étoilé en fibre optique, sièges baquets au premier plan' },
+    { id: 'final', from: 32.4, to: 36, still: 34.2, alt: 'Porsche 911 GT3 RS noire de trois quarts avant dans le studio, phares allumés' },
   ],
 };
 

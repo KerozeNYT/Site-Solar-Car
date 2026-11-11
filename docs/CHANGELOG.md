@@ -32,6 +32,19 @@
 - Index des guides : le résumé de chaque guide, plus la copie de son introduction ; encart
   « guide » des prestations sans recopie du texte du guide.
 
+### Film d'accueil V2 : un plan par prestation
+- Nouveau film de 36 s (Porsche 911 GT3 RS dans le studio), un plan par prestation :
+  phares jaunis qui redeviennent clairs, ligne de polissage sur le flanc, vitres arrière qui
+  foncent (l'avant reste clair), feux arrière allumés puis fumés, ciel étoilé.
+- Ciel étoilé : la vitre passager descend quand la caméra entre et remonte quand elle ressort
+  (un léger voile sur la vitre la rend visible pendant qu'elle bouge).
+- Feux arrière : bande lumineuse fine et nette, sans halo flottant à côté de la voiture ni
+  effet néon (moins de flou et d'éclat sur ce plan).
+- Légendes chiffrées calées sur l'image : « Optique : avant / après », « Lumière transmise à
+  l'arrière : 70 % → 5 % ». Onglets : Phares, Detailing, Vitres teintées, Feux teintés, Ciel
+  étoilé (le covering, sans plan dans le film, reste dans les prestations et le menu).
+- Vidéos web : 0,9 Mo (version légère), 2,5 Mo (téléphone), 3,5 Mo (ordinateur).
+
 ### Vidéo d'accueil au défilement
 - La visite 3D de l'accueil est remplacée par une vidéo que le défilement fait avancer et
   reculer (`src/js/film.js`, réglages dans `content/film.js`), gardée en mémoire après
