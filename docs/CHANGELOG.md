@@ -40,6 +40,29 @@
 - Index des guides : le résumé de chaque guide, plus la copie de son introduction ; encart
   « guide » des prestations sans recopie du texte du guide.
 
+### Film d'accueil en 4K, net sur tous les écrans
+- Film recalculé image par image en 3840×2160 (864 images, 24 images/s, anticrénelage
+  multi-échantillons), dans un studio noir : sol éclairé en cercle qui se fond dans le noir,
+  reflets en longues lignes sur le vernis, léger grain et vignettage. Scène, trajectoire et
+  rendu dans le dépôt (`scripts/film/`), pour pouvoir le refaire ou le modifier.
+- Caméra : entre par la vitre passager qui descend, passe entre les sièges sous le ciel étoilé
+  (arceau masqué pour le voir en entier) et ressort par la même vitre, sans traverser la
+  carrosserie ni le rétroviseur.
+- Corrigé : éclairs blancs sur certaines images (cônes de lumière des phares), tache beige sur
+  les vitres latérales (reflet d'une lampe du décor). Contrôle automatique image par image.
+- Une version par écran, choisie selon la largeur affichée × la densité de pixels : 1080p,
+  1440p ou 4K sur écran large ; sur téléphone et tablette en hauteur, le centre de l'image en
+  9:16 sur toute la hauteur (720×1280 ou 1214×2160) au lieu d'une vidéo agrandie et floue.
+  Une version légère répond au défilement en une seconde, la nette prend le relais en fondu ;
+  économiseur de données ou 2G : la version légère seule. Poids : légère 1,0 Mo, 1080p
+  14,5 Mo, 1440p 17,3 Mo, 4K 27,1 Mo ; téléphone 1,1 Mo puis 6,5 ou 13,4 Mo.
+- Si un appareil ne lit pas la version choisie (décodeur, mémoire), la version juste en
+  dessous prend le relais ; avec 2 Go de mémoire ou moins, jamais la plus lourde.
+- Vérifié dans le navigateur sur 10 écrans (ordinateur 1440 px à 4K, Mac Retina, iPhone,
+  Android, iPad debout, téléphone couché) : bonne version chargée, lecture, suivi du défilement.
+- Images de chapitre (avant chargement de la vidéo, sans JavaScript) jusqu'à 2560 px, et en
+  9:16 pour les téléphones.
+
 ### Film d'accueil V2 : un plan par prestation
 - Nouveau film de 36 s (Porsche 911 GT3 RS dans le studio), un plan par prestation :
   phares jaunis qui redeviennent clairs, ligne de polissage sur le flanc, vitres arrière qui

@@ -1,9 +1,10 @@
 /**
  * Home film: the scroll moves the video forward and back (content/film.js, section [data-film]).
  * - Once the page has loaded, a light version (about 1 MB) is downloaded and kept in memory: the
- *   film answers the scroll within a second; the sharp one (1080p, or its 3:4 centre on tall
- *   screens) follows in the background and takes over with a cross-fade. Seeking in memory is
- *   instant; the encoding (scripts/film-assets.mjs) has short key-frame intervals, no B-frames.
+ *   film answers the scroll within a second; the sharpest one the screen can show (1080p, 1440p
+ *   or 4K, or the 9:16 centre on tall screens) follows in the background and takes over with a
+ *   cross-fade. Seeking in memory is instant; the encoding (scripts/film-assets.mjs) has short
+ *   key-frame intervals, no B-frames.
  * - The video time follows the scroll with some easing; the chapters (copy, links) and the tabs
  *   follow the video time, so the words always match the picture.
  * - Before the video is there, each chapter shows its own image: the page reads the same.
@@ -41,11 +42,38 @@ export function startFilm(section) {
     }
     return keys[keys.length - 1][1];
   };
-  // tall screens (phones, tablets upright) get the centre of the picture in 3:4: a 16:9 film
-  // stretched to their height would be enlarged and soft
-  const tall = matchMedia('(max-aspect-ratio: 1/1)').matches && section.dataset.srcPortrait;
-  const sharp = tall ? section.dataset.srcPortrait : section.dataset.srcDesktop;
-  const light = (tall ? section.dataset.srcPreviewPortrait : section.dataset.srcPreview) || sharp;
+  // Which version: tall screens (phones, tablets upright) get the centre of the picture in 9:16
+  // over their whole height (a 16:9 film stretched to their height would be enlarged and soft);
+  // then the lightest version that still has a pixel for every pixel of the screen (width drawn,
+  // the video covering the stage, × pixel density): 1080p on most computers, 1440p or 4K on
+  // large and Retina screens. Data saver or a 2G link: the light version only.
+  const tall = matchMedia('(max-aspect-ratio: 2/3)').matches && !!section.dataset.tallSrcset;
+  const parse = (set = '') =>
+    set
+      .split(',')
+      .map((x) => x.trim().split(/\s+/))
+      .filter((x) => x[0])
+      .map(([src, w]) => ({ src, w: parseInt(w, 10) || 0 }))
+      .sort((a, b) => a.w - b.w);
+  // the chosen version first, then the smaller ones: tried in turn if a device cannot play it
+  const pickSharp = () => {
+    const list = parse(tall ? section.dataset.tallSrcset : section.dataset.wideSrcset);
+    if (!list.length) return [];
+    const r = stage.getBoundingClientRect();
+    const w = r.width || innerWidth;
+    const h = r.height || innerHeight;
+    const need = (tall ? Math.max(w, (h * 9) / 16) : Math.max(w, (h * 16) / 9)) * Math.min(devicePixelRatio || 1, 3);
+    // little memory (2 GB or less): never the largest version, the film is kept in memory
+    const top = navigator.deviceMemory && navigator.deviceMemory <= 2 && list.length > 1 ? list.length - 2 : list.length - 1;
+    let i = list.findIndex((t) => t.w >= need * 0.9);
+    i = i < 0 ? top : Math.min(i, top);
+    return list.slice(0, i + 1).reverse().map((t) => t.src);
+  };
+  const c = navigator.connection;
+  const frugal = !!c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''));
+  const preview = tall ? section.dataset.srcPreviewTall : section.dataset.srcPreview;
+  const sharps = frugal && preview ? [] : pickSharp();
+  const light = preview || sharps[sharps.length - 1];
 
   // ------------------------------------------------------------- scroll <-> time
   // Scroll -> time is not linear: each chapter gets the same scroll length (pace.chapter screens,
@@ -152,6 +180,13 @@ export function startFilm(section) {
     return URL.createObjectURL(new Blob(parts, { type: 'video/mp4' }));
   }
   const loaded = (v) => new Promise((resolve) => (v.readyState >= 2 ? resolve() : v.addEventListener('loadeddata', resolve, { once: true })));
+  /** true once the first picture is decoded, false if the browser gives up on the file */
+  const playable = (v) =>
+    new Promise((resolve) => {
+      if (v.readyState >= 2) return resolve(true);
+      v.addEventListener('loadeddata', () => resolve(true), { once: true });
+      v.addEventListener('error', () => resolve(false), { once: true });
+    });
   async function load() {
     let first;
     try {
@@ -164,21 +199,25 @@ export function startFilm(section) {
     video.load();
     await loaded(video);
     show();
-    if (sharp === light) return;
-    // the sharp version, quietly in the background
-    let hdUrl;
-    try {
-      hdUrl = await blobOf(sharp);
-    } catch {
-      return; // the light version stays: the film still works
+    // the sharp version, quietly in the background; if the device cannot play it (decoder,
+    // memory), the next smaller one; if none, the light version stays and the film still works
+    let hd = null;
+    for (const src of sharps) {
+      if (src === light) return;
+      const url = await blobOf(src).catch(() => null);
+      if (!url) return;
+      hd = video.cloneNode();
+      hd.removeAttribute('data-video');
+      hd.classList.add('tour__video--hd');
+      hd.src = url;
+      video.after(hd);
+      hd.load();
+      if (await playable(hd)) break;
+      hd.remove();
+      URL.revokeObjectURL(url);
+      hd = null;
     }
-    const hd = video.cloneNode();
-    hd.removeAttribute('data-video');
-    hd.classList.add('tour__video--hd');
-    hd.src = hdUrl;
-    video.after(hd);
-    hd.load();
-    await loaded(hd);
+    if (!hd) return;
     hd.currentTime = current;
     await new Promise((resolve) => hd.addEventListener('seeked', resolve, { once: true }));
     const old = video;

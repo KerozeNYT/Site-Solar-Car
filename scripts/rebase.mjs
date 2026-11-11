@@ -26,7 +26,8 @@ export function rebase(dir, base) {
       s = fs.readFileSync(file, 'utf8');
       s = s.replace(/\b(href|src|action)="\/(?!\/)/g, `$1="${base}`);
       // paths handed to the scripts in data attributes (the home film's video files)
-      s = s.replace(/\b(data-[\w-]+)="\/(?!\/)/g, `$1="${base}`);
+      // (lists of files, data-*-srcset, are handled with the srcset attributes below)
+      s = s.replace(/\b(data-(?![\w-]*srcset)[\w-]+)="\/(?!\/)/g, `$1="${base}`);
       s = s.replace(/url\((["']?)\/(?!\/)/g, `url($1${base}`); // inline styles (logo masks)
       s = s.replace(/\b((?:image)?srcset)="([^"]*)"/g, (m, a, v) => `${a}="${v.replace(/(^|,\s*)\/(?!\/)/g, `$1${base}`)}"`);
     } else if (ext === '.js') {

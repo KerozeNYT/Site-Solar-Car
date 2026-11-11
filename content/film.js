@@ -2,10 +2,11 @@
  * Home page film: a video that the scroll moves forward and back (src/js/film.js), with the
  * service chapters of content/site.js (`home.tour.chapters`) laid over it at the right moment.
  *
- * Replace the film: `node scripts/film-assets.mjs <video-1080p.mp4>` re-encodes
- * it for scrolling (public/video/) and extracts the chapter images (public/img/film/) at the
- * `still` second of each chapter. Then set `duration` and the chapter times below (seconds of
- * the video), check them in the browser and rebuild.
+ * Replace the film: render it (scripts/film/render.mjs, 3840×2160 frames) then
+ * `node scripts/film-assets.mjs '<frames>/f%04d.jpg'` encodes every version for scrolling
+ * (public/video/) and extracts the chapter images (public/img/film/) at the `still` second of
+ * each chapter. Chapter times below are seconds of the film (scripts/film/shots.js uses the
+ * same clock): move them together, check in the browser and rebuild.
  */
 export const film = {
   // length of the video (s) and second shown at the very top of the page (the first frames are dark)
@@ -15,13 +16,23 @@ export const film = {
   // length whatever its duration in the video, and the film speeds through the passages in
   // between (the page stays short)
   pace: { hold: 0.45, opening: 0.45, chapter: 0.55, closing: 0.5, gap: 0.08 },
-  // the light version answers the scroll within a second, the sharp one takes over once
-  // downloaded; tall screens (phones, tablets upright) get the centre of the picture in 3:4
+  // the light version answers the scroll within a second, then the sharpest version the screen
+  // can show takes over once downloaded (src/js/film.js picks it from the width drawn × pixel
+  // density): 1080p, 1440p or 4K on wide screens; tall screens (phones, tablets upright) get
+  // the centre of the picture in 9:16 over their whole height. `crf`: encoding quality used by
+  // scripts/film-assets.mjs (lower = sharper and heavier).
   sources: {
     preview: '/video/accueil-360p.mp4',
-    desktop: '/video/accueil-1080p.mp4',
-    previewPortrait: '/video/accueil-portrait-640.mp4',
-    portrait: '/video/accueil-portrait.mp4',
+    wide: [
+      { src: '/video/accueil-1080p.mp4', w: 1920, crf: 21 },
+      { src: '/video/accueil-1440p.mp4', w: 2560, crf: 23 },
+      { src: '/video/accueil-2160p.mp4', w: 3840, crf: 25 },
+    ],
+    previewTall: '/video/accueil-mobile-360.mp4',
+    tall: [
+      { src: '/video/accueil-mobile-720.mp4', w: 720, h: 1280, crf: 23 },
+      { src: '/video/accueil-mobile.mp4', w: 1214, h: 2160, crf: 24 },
+    ],
   },
   // chapters in the order they appear. from / to: when the copy is on screen (s); still: the
   // second used for the chapter's image (static page, posters), `alt` its description. `tab`: label of the tab

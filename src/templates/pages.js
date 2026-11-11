@@ -468,7 +468,7 @@ function faqBlock(faq, title = 'Questions fréquentes') {
 // ------------------------------------------------------------------------- home
 /** image of a film chapter (public/img/film/, extracted by scripts/film-assets.mjs) */
 const filmStill = (id, alt, { eager = false } = {}) =>
-  `<picture><source media="(max-aspect-ratio: 1/1)" srcset="/img/film/${id}-portrait.webp" width="810" height="1080"><img src="/img/film/${id}-960.webp" srcset="/img/film/${id}-960.webp 960w, /img/film/${id}-1600.webp 1600w" sizes="100vw" width="1600" height="900" alt="${esc(alt)}" ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}></picture>`;
+  `<picture><source media="(max-aspect-ratio: 2/3)" srcset="/img/film/${id}-tall-720.webp 720w, /img/film/${id}-tall-1080.webp 1080w" sizes="max(100vw, 56.25vh)" width="1080" height="1920"><img src="/img/film/${id}-960.webp" srcset="/img/film/${id}-960.webp 960w, /img/film/${id}-1600.webp 1600w, /img/film/${id}-2560.webp 2560w" sizes="max(100vw, 177.7vh)" width="1600" height="900" alt="${esc(alt)}" ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}></picture>`;
 
 /**
  * The chapters laid over the home film (or the 3D tour demo): kicker (numbered in the order
@@ -584,7 +584,7 @@ function filmSection(ctx) {
     .filter((c) => c.tab)
     .map((c) => `<li><a href="#chapitre-${c.id}" data-film-at="${at(c.id)}" data-tab="${c.id}">${esc(c.tab)}</a></li>`)
     .join('');
-  return `<section class="tour film" id="visite" aria-label="${esc(home.film.label)}" style="--travel:${Math.round(filmTravel(film) * 100)}" data-film data-duration="${film.duration}" data-start="${film.start}" data-pace="${esc(JSON.stringify(film.pace))}" data-src-preview="${film.sources.preview}" data-src-desktop="${film.sources.desktop}" data-src-preview-portrait="${film.sources.previewPortrait}" data-src-portrait="${film.sources.portrait}">
+  return `<section class="tour film" id="visite" aria-label="${esc(home.film.label)}" style="--travel:${Math.round(filmTravel(film) * 100)}" data-film data-duration="${film.duration}" data-start="${film.start}" data-pace="${esc(JSON.stringify(film.pace))}" data-src-preview="${film.sources.preview}" data-wide-srcset="${film.sources.wide.map((v) => `${v.src} ${v.w}w`).join(', ')}" data-src-preview-tall="${film.sources.previewTall}" data-tall-srcset="${film.sources.tall.map((v) => `${v.src} ${v.w}w`).join(', ')}">
     <div class="tour__stage" data-stage>
       <video class="tour__video" muted playsinline preload="none" disablepictureinpicture aria-hidden="true" tabindex="-1" data-video></video>
       <div class="tour__chapters">
@@ -669,7 +669,10 @@ export function homePage(ctx) {
   ${faqBlock(home.faq)}
   ${ctaBand(ctx)}`;
 
-  const poster = `<link rel="preload" as="image" href="/img/film/hero-1600.webp" imagesrcset="/img/film/hero-960.webp 960w, /img/film/hero-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`;
+  // the first image of the film, the one each screen shape will show (see filmStill)
+  const poster =
+    `<link rel="preload" as="image" href="/img/film/hero-1600.webp" imagesrcset="/img/film/hero-960.webp 960w, /img/film/hero-1600.webp 1600w, /img/film/hero-2560.webp 2560w" imagesizes="max(100vw, 177.7vh)" media="(min-aspect-ratio: 2/3)" fetchpriority="high">` +
+    `<link rel="preload" as="image" href="/img/film/hero-tall-720.webp" imagesrcset="/img/film/hero-tall-720.webp 720w, /img/film/hero-tall-1080.webp 1080w" imagesizes="max(100vw, 56.25vh)" media="(max-aspect-ratio: 2/3)" fetchpriority="high">`;
   return page(
     ctx,
     {

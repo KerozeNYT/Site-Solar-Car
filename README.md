@@ -32,7 +32,8 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `design/logo/official/` | Logo officiel fourni ; `scripts/logo-assets.mjs` en dérive les versions web (dont `*-clair-*`, logotype ivoire pour le fond sombre : `node scripts/logo-assets.mjs --only=reversed`) |
 | `src/styles/main.css` | Charte V3 « garage de nuit » : jetons de couleur et polices en tête de fichier, fond animé dans la section « garage ambience » |
 | `src/js/ambient.js` | Fond animé : néons, sol mouillé, fumée et poussière dessinés sur place (rien à télécharger) |
-| `content/film.js` | Vidéo d'accueil au défilement : fichiers, durée, moments de chaque prestation et onglets ; `node scripts/film-assets.mjs <vidéo>` pour en changer |
+| `content/film.js` | Vidéo d'accueil au défilement : versions (1080p, 1440p, 4K, téléphone 9:16), durée, moments de chaque prestation et onglets |
+| `scripts/film/` | Le film lui-même : décor, trajectoire de la caméra et effets (`shots.js`), rendu image par image en 4K (`node scripts/film/render.mjs <dossier> 3840 2160`), puis `node scripts/film-assets.mjs '<dossier>/f%04d.jpg'` pour fabriquer toutes les versions |
 
 ## Carte 3D de l’accès
 

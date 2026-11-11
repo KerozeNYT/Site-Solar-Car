@@ -1,16 +1,16 @@
-// Prepares the home page film (content/film.js) from a 1920×1080 master. Needs ffmpeg.
-//   node scripts/film-assets.mjs <video-1080p.mp4> [--denoise]
-// - public/video/: four H.264 versions made for scrolling (no B-frames, fast start, no sound,
-//   24 images/s), chosen by the shape of the screen:
-//   · wide screens:  accueil-360p.mp4 (~1 Mo, shown within a second, a key frame every 12
-//     images), then accueil-1080p.mp4 (full definition) downloaded behind it and swapped in;
-//   · tall screens (phones, tablets upright): the centre of the picture in 3:4, where a 16:9 film
-//     stretched to the screen's height would be enlarged and soft: accueil-portrait-640.mp4 first,
-//     then accueil-portrait.mp4 (810×1080, full definition);
-//   --denoise: light denoising for camera footage (grain costs weight for nothing); never needed
-//   for a 3D render.
-// - public/img/film/<chapter>-1600.webp, -960.webp, -1600.jpg and -portrait.webp (810×1080): one
-//   image per chapter (its `still` second) for the page before the video is loaded, without
+// Prepares the home page film (content/film.js) from its 4K frames or a 3840×2160 master.
+// Needs ffmpeg.
+//   node scripts/film-assets.mjs '<frames>/f%04d.jpg'      (scripts/film/render.mjs output, 24 fps)
+//   node scripts/film-assets.mjs <master-2160p.mp4>
+//   FAST=1 node scripts/film-assets.mjs ...                 (quick draft encodes, for tests)
+// - public/video/: H.264 versions made for scrolling (a key frame every 12 images, no B-frames,
+//   fast start, no sound, 24 images/s), all scaled down from the 4K picture (lanczos):
+//   · wide screens: accueil-360p.mp4 (light, answers the scroll within a second), then the
+//     sharpest of 1080p / 1440p / 2160p the screen can show (`sources.wide`);
+//   · tall screens (phones, tablets upright): the centre of the picture in 9:16 over the whole
+//     height: accueil-mobile-360.mp4 first, then 720×1280 or 1214×2160 (`sources.tall`).
+// - public/img/film/<chapter>-960|1600|2560.webp, -1600.jpg and -tall-720|1080.webp: one image
+//   per chapter (its `still` second) for the page before the video is loaded, without
 //   JavaScript and with reduced motion.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -20,39 +20,67 @@ import sharp from 'sharp';
 import { film } from '../content/film.js';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-const args = process.argv.slice(2);
-const src1080 = args.find((a) => !a.startsWith('--'));
-const denoise = args.includes('--denoise');
-if (!src1080) {
-  console.error('usage: node scripts/film-assets.mjs <video-1080p.mp4> [--denoise]');
+const src = process.argv[2];
+if (!src) {
+  console.error("usage: node scripts/film-assets.mjs '<frames>/f%04d.jpg' | <master-2160p.mp4>");
   process.exit(1);
 }
+const frames = src.includes('%');
+const input = frames ? ['-framerate', '24', '-start_number', '0', '-i', src] : ['-i', src];
 const run = (args) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args], { stdio: 'inherit' });
-const scroll = (gop) => ['-an', '-c:v', 'libx264', '-preset', 'slow', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-g', String(gop), '-keyint_min', String(gop), '-sc_threshold', '0', '-bf', '0', '-movflags', '+faststart'];
-// the centre of the 16:9 picture in 3:4 (what a tall screen shows of it)
-const PORTRAIT = 'crop=810:1080:(in_w-810)/2:0';
-const filter = (...steps) => ['-vf', [...(denoise ? ['hqdn3d=2:2:6:6'] : []), 'fps=24', ...steps].join(',')];
+const scroll = (crf) => [
+  '-an',
+  '-c:v', 'libx264',
+  '-preset', process.env.FAST ? 'ultrafast' : 'slow',
+  '-pix_fmt', 'yuv420p',
+  '-profile:v', 'high',
+  '-g', '12', '-keyint_min', '12', '-sc_threshold', '0', '-bf', '0',
+  // more bits in the dark, smooth areas of the picture (the studio), where banding would show
+  '-x264-params', 'aq-mode=3:aq-strength=0.9',
+  '-crf', String(crf),
+  '-movflags', '+faststart',
+];
+// the centre of the 16:9 picture in 9:16, full height (even width)
+const TALL = 'crop=trunc(ih*9/32)*2:ih:(iw-trunc(ih*9/32)*2)/2:0';
+const scale = (w, h) => `scale=${w}:${h}:flags=lanczos,setsar=1`; // square pixels (the 9:16 crop is 1214 wide)
+const vf = (...steps) => ['-vf', ['fps=24', ...steps].join(',')];
 
-const videoDir = path.join(root, 'public/video');
-fs.mkdirSync(videoDir, { recursive: true });
-const out = (k) => path.join(root, 'public', film.sources[k]);
-run(['-i', src1080, ...filter('scale=640:-2'), ...scroll(12), '-crf', '31', out('preview')]);
-run(['-i', src1080, ...filter(PORTRAIT, 'scale=480:640'), ...scroll(12), '-crf', '31', out('previewPortrait')]);
-run(['-i', src1080, ...filter(PORTRAIT), ...scroll(24), '-crf', '27', out('portrait')]);
-run(['-i', src1080, ...filter('scale=1920:-2'), ...scroll(24), '-crf', '27', out('desktop')]);
+const S = film.sources;
+const jobs = [
+  [S.preview, vf(scale(640, 360)), 30],
+  ...S.wide.map((t) => [t.src, vf(scale(t.w, Math.round((t.w * 9) / 16))), t.crf]),
+  [S.previewTall, vf(TALL, scale(360, 640)), 30],
+  ...S.tall.map((t) => [t.src, vf(TALL, scale(t.w, t.h)), t.crf]),
+];
+fs.mkdirSync(path.join(root, 'public/video'), { recursive: true });
+for (const [out, filter, crf] of jobs) {
+  const t0 = Date.now();
+  run([...input, ...filter, ...scroll(crf), path.join(root, 'public', out)]);
+  console.log(out, `${((Date.now() - t0) / 1000).toFixed(0)} s`);
+}
 
 const imgDir = path.join(root, 'public/img/film');
 fs.mkdirSync(imgDir, { recursive: true });
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'film-'));
 for (const c of film.chapters) {
-  const png = path.join(tmp, `${c.id}.png`);
-  run(['-ss', String(c.still), '-i', src1080, '-frames:v', '1', png]);
-  await sharp(png).resize(1600).webp({ quality: 80 }).toFile(path.join(imgDir, `${c.id}-1600.webp`));
-  await sharp(png).resize(960).webp({ quality: 76 }).toFile(path.join(imgDir, `${c.id}-960.webp`));
-  await sharp(png).resize(1600).jpeg({ quality: 82, mozjpeg: true }).toFile(path.join(imgDir, `${c.id}-1600.jpg`));
-  await sharp(png).extract({ left: 555, top: 0, width: 810, height: 1080 }).webp({ quality: 80 }).toFile(path.join(imgDir, `${c.id}-portrait.webp`));
+  let still;
+  if (frames) still = src.replace(/%0?(\d*)d/, (m, n) => String(Math.round(c.still * 24)).padStart(Number(n) || 0, '0'));
+  else {
+    still = path.join(tmp, `${c.id}.png`);
+    run(['-ss', String(c.still), '-i', src, '-frames:v', '1', still]);
+  }
+  const img = () => sharp(still);
+  const { width, height } = await img().metadata();
+  const tw = Math.round((height * 9) / 16 / 2) * 2;
+  const tall = { left: Math.round((width - tw) / 2), top: 0, width: tw, height };
+  await img().resize(2560).webp({ quality: 80, effort: 6 }).toFile(path.join(imgDir, `${c.id}-2560.webp`));
+  await img().resize(1600).webp({ quality: 80, effort: 6 }).toFile(path.join(imgDir, `${c.id}-1600.webp`));
+  await img().resize(960).webp({ quality: 76, effort: 6 }).toFile(path.join(imgDir, `${c.id}-960.webp`));
+  await img().resize(1600).jpeg({ quality: 82, mozjpeg: true }).toFile(path.join(imgDir, `${c.id}-1600.jpg`));
+  await img().extract(tall).resize(1080).webp({ quality: 80, effort: 6 }).toFile(path.join(imgDir, `${c.id}-tall-1080.webp`));
+  await img().extract(tall).resize(720).webp({ quality: 78, effort: 6 }).toFile(path.join(imgDir, `${c.id}-tall-720.webp`));
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 const size = (f) => (fs.statSync(path.join(root, 'public', f)).size / 1048576).toFixed(1) + ' Mo';
-console.log('vidéos :', Object.values(film.sources).map((f) => `${f} ${size(f)}`).join(' · '));
+console.log('vidéos :', jobs.map(([f]) => `${f} ${size(f)}`).join(' · '));
 console.log('images :', film.chapters.map((c) => c.id).join(', '));
