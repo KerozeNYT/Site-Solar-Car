@@ -517,6 +517,11 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
       const m = glass[side === 'L' ? 'frontL' : 'frontR'];
       m.userData.uniforms.uDrop.value = clamp(t) * dropMax;
     },
+    /** a front side window made to show (0 = as is): a soft grey sheen, as if the pane caught the
+     * room light, so a clear window moving up or down reads on screen (the film's starlight shot) */
+    setWindowSheen(side, v, level = 0.08) {
+      glass[side === 'L' ? 'frontL' : 'frontR'].emissive.setScalar(level * v);
+    },
     setDoorOpen(side, t) {
       const d = doors[side];
       if (!d) return;
