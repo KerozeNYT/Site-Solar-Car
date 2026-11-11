@@ -32,6 +32,7 @@ export const guides = [
     kicker: 'Réglementation',
     updated: '2026-10-13',
     service: 'vitres-teintees',
+    photo: { id: 'audi-a7-sportback-vitres-teintees', focus: '50% 60%', alt: 'Audi A7 Sportback grise aux vitres arrière teintées, devant l’atelier SOLAR CAR 37' },
     still: 'tint',
     intro:
       'Teinter ses vitres est légal, à condition de respecter une règle simple pour l’avant du véhicule. Voici ce que prévoit la réglementation française et comment choisir une teinte en connaissance de cause.',
@@ -95,6 +96,7 @@ export const guides = [
     kicker: 'Réglementation',
     updated: '2026-10-13',
     service: 'feux-arriere-teintes',
+    photo: { id: 'peugeot-206-feux-arriere-fonces', focus: '50% 50%', alt: 'Peugeot 206 blanche aux feux arrière foncés, vue de trois quarts arrière' },
     still: 'tail',
     intro:
       'Les feux fumés donnent un regard plus sombre et plus homogène à la voiture. Ils touchent pourtant à un élément de sécurité : voici les règles à connaître avant de vous décider.',
@@ -146,6 +148,7 @@ export const guides = [
     kicker: 'Entretien',
     updated: '2026-10-13',
     service: 'renovation-phares',
+    photo: { id: 'porsche-911-devant-atelier', focus: '45% 62%', alt: 'Porsche 911 orange de face devant l’atelier SOLAR CAR de Vouvray, optiques avant' },
     still: 'headlights',
     intro:
       'Avec les années, la plupart des optiques de phares en plastique jaunissent et se voilent. Bonne nouvelle : dans la majorité des cas, une rénovation leur rend leur transparence pour une fraction du prix d’un phare neuf.',
@@ -202,6 +205,7 @@ export const guides = [
     kicker: 'Personnalisation',
     updated: '2026-10-13',
     service: 'ciel-etoile',
+    photo: { id: 'audi-s1-ciel-etoile', focus: '50% 32%', alt: 'Ciel étoilé en fibre optique dans le pavillon d’une Audi S1, étoiles blanches, violettes et rouges' },
     still: 'stars',
     intro:
       'Popularisé par les voitures de grand luxe, le ciel étoilé transforme le pavillon en voûte céleste. Voici comment il est conçu et posé, et les options à choisir.',
@@ -259,6 +263,7 @@ export const guides = [
     kicker: 'Detailing',
     updated: '2026-10-13',
     service: 'detailing-carrosserie',
+    photo: { id: 'bmw-m2-detailing-lustrage-avant', focus: '50% 68%', alt: 'BMW M2 noire après detailing : reflets nets sur le capot et les ailes' },
     still: 'detailing',
     intro:
       'Une peinture qui a perdu son éclat n’est souvent pas « usée » : elle est couverte de micro-rayures. Polissage et protection sont deux étapes différentes, et complémentaires.',
@@ -312,6 +317,7 @@ export const guides = [
     kicker: 'Tarifs',
     updated: '2026-10-13',
     service: 'vitres-teintees',
+    photo: { id: 'porsche-cayenne-coupe-vitres-teintees-34', focus: '50% 64%', alt: 'Porsche Cayenne Coupé aux vitres arrière teintées devant la campagne tourangelle' },
     still: 'tint',
     intro:
       'Combien coûte la pose de vitres teintées ? À l’atelier, le prix dépend d’abord de la catégorie du véhicule et des vitres traitées, pas de la teinte. Voici nos tarifs indicatifs et ce qui peut les faire varier.',
@@ -360,6 +366,7 @@ export const guides = [
     kicker: 'Conseils',
     updated: '2026-10-13',
     service: 'vitres-teintees',
+    photo: { id: 'mercedes-c63-break-vitres-teintees', focus: '50% 62%', alt: 'Mercedes-AMG C 63 Break blanche aux vitres arrière noires : un contraste marqué' },
     still: 'tint',
     intro:
       'Le pourcentage d’un film teinté n’est pas une intensité de « noir » : c’est la part de lumière visible qui le traverse. Plus le chiffre est bas, plus la vitre est sombre. Voici comment choisir.',
@@ -415,6 +422,7 @@ export const guides = [
     kicker: 'Technologie',
     updated: '2026-10-13',
     service: 'vitres-teintees',
+    photo: { id: 'porsche-panamera-vitres-teintees-arriere', focus: '50% 68%', alt: 'Arrière d’une Porsche Panamera noire, lunette teintée' },
     still: 'tint',
     intro:
       'Tous les films solaires ne se valent pas. À teinte égale, un film nano-céramique et un film simplement teinté n’ont pas le même effet sur la chaleur. Voici les différences, sans jargon.',

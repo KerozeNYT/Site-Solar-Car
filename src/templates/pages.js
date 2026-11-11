@@ -439,6 +439,10 @@ const heroPreload = (p) =>
   p.wide
     ? `<link rel="preload" as="image" media="(min-width: 761px)" href="${RP}${p.id}-wide-1600.webp" imagesrcset="${RP}${p.id}-wide-960.webp 960w, ${RP}${p.id}-wide-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">\n<link rel="preload" as="image" media="(max-width: 760px)" href="${RP}${p.id}-phone.webp" fetchpriority="high">`
     : `<link rel="preload" as="image" href="${RP}${p.id}-1280.webp" imagesrcset="${RP}${p.id}-960.webp 960w, ${RP}${p.id}-1280.webp 1280w" imagesizes="100vw" fetchpriority="high">`;
+/** a real photo for a card or a page when its web version exists ({ id, focus, alt }), else the
+ * 3D still (`fallback`) */
+const realOr = (ctx, p, fallback, opts = {}) =>
+  p && ctx.photoIds?.has(p.id) ? photo({ ...p, alt: opts.alt ?? p.alt ?? '' }, opts) : fallback();
 /** share image (16:9 JPEG) of a header photo, else the 3D still */
 const shareImage = (hero, s) => (hero?.wide ? `${RP}${hero.id}-wide-1600.jpg` : `/stills/${s.still}-1600.jpg`);
 
@@ -610,7 +614,7 @@ export function homePage(ctx) {
     .map(
       (s, i) => `<li class="service-card">
         <a href="/${s.slug}/" class="service-card__link">
-          <div class="service-card__media">${still(s.still, '', { sizes: '(min-width: 900px) 33vw, 100vw' })}</div>
+          <div class="service-card__media">${realOr(ctx, s.cardPhoto, () => still(s.still, '', { sizes: '(min-width: 900px) 33vw, 100vw' }), { alt: '', sizes: '(min-width: 900px) 33vw, 100vw' })}</div>
           <div class="service-card__body">
             <p class="kicker">0${i + 1}</p>
             <h3>${esc(s.name)}</h3>
@@ -1141,7 +1145,7 @@ export function guidesIndexPage(ctx) {
       <ul class="guide-grid">${guides
         .map(
           (x) => `<li class="guide-card reveal-up"><a href="/guides/${x.slug}/">
-          <div class="guide-card__media">${still(x.still, '', { sizes: '(min-width: 900px) 33vw, 100vw' })}</div>
+          <div class="guide-card__media">${realOr(ctx, x.photo, () => still(x.still, '', { sizes: '(min-width: 900px) 33vw, 100vw' }), { alt: '', sizes: '(min-width: 900px) 33vw, 100vw' })}</div>
           <div class="guide-card__body"><p class="kicker">${esc(x.kicker)}</p><h2>${esc(x.title)}</h2><p>${esc(x.summary || x.seo.description)}</p><span class="service-card__more">Lire <span aria-hidden="true">→</span></span></div>
         </a></li>`
         )
@@ -1170,6 +1174,9 @@ function pitchFor(ctx, service, guide) {
   return p[Math.max(0, i) % p.length];
 }
 
+/** share image of a guide: its photo's share card, else the 3D still */
+const guideImage = (ctx, x) => (x.photo && ctx.ogIds?.has(x.photo.id) ? `${RP}${x.photo.id}-og.jpg` : `/stills/${x.still}-1600.jpg`);
+
 export function guidePage(ctx, x) {
   const { business: b, services, guides } = ctx;
   const service = services.find((s) => s.slug === x.service);
@@ -1181,7 +1188,7 @@ export function guidePage(ctx, x) {
     '@type': 'Article',
     headline: x.title,
     description: x.seo.description,
-    image: abs(b, `/stills/${x.still}-1600.jpg`),
+    image: abs(b, guideImage(ctx, x)),
     datePublished: x.updated,
     dateModified: x.updated,
     inLanguage: 'fr-FR',
@@ -1200,7 +1207,7 @@ export function guidePage(ctx, x) {
         <p class="lead">${esc(x.intro)}</p>
       </div>
     </header>
-    <div class="guide__media container">${still(x.still, x.title, { eager: true })}</div>
+    <div class="guide__media container">${realOr(ctx, x.photo, () => still(x.still, x.title, { eager: true }), { eager: true, sizes: '(min-width: 1200px) 1200px, 100vw' })}</div>
     <div class="section section--tight">
       <div class="container container--narrow prose">
         ${x.sections.map(section).join('\n        ')}
@@ -1222,7 +1229,7 @@ export function guidePage(ctx, x) {
       title: x.seo.title,
       description: x.seo.description,
       path: `/guides/${x.slug}/`,
-      image: `/stills/${x.still}-1600.jpg`,
+      image: guideImage(ctx, x),
       bodyClass: 'page-guide',
       extra: [
         ld(article),

@@ -18,6 +18,8 @@
 //                                                    left, top and width as fractions
 //       "wide": { "y": 0.2, "h": 0.6 },               or the band y…y+h placed on the right of a
 //                                                    16:9 frame, the left fading into dark
+//       "og": 0.6,                                    1200×630 share card <id>-og.jpg, centred at
+//                                                    that height (pages illustrated by the photo)
 //       "grade": false,                               keep the colours as they are (edited photos)
 //       "denoise": false }                            keep the fine detail (starlight: tiny points)
 //   Writes <id>-320|960|1280.webp and, with "wide", the page header versions: <id>-wide-960|1600.webp
@@ -197,6 +199,14 @@ for (const job of jobs) {
   // 320: thumbnails, 960: cards, 1280: full width on phones (enough for a 3x screen)
   for (const [w, q] of [[320, 68], [960, 70], [1280, 72]]) {
     await clean(sharp(composed).resize({ width: w, withoutEnlargement: true })).webp({ quality: q, effort: 6, smartSubsample: true }).toFile(path.join(outDir, `${job.id}-${w}.webp`));
+  }
+  // share card (1200×630) for a page illustrated by this photo: a band centred at "og" (fraction
+  // of the height)
+  if (job.og != null) {
+    const { width: W, height: H } = await sharp(composed).metadata();
+    const bh = Math.round((W * 630) / 1200);
+    const top = Math.round(Math.min(H - bh, Math.max(0, job.og * H - bh / 2)));
+    await sharp(composed).extract({ left: 0, top, width: W, height: bh }).resize(1200, 630).jpeg({ quality: 80, mozjpeg: true }).toFile(path.join(outDir, `${job.id}-og.jpg`));
   }
   if (job.wide) {
     const { width: W, height: H } = await sharp(composed).metadata();

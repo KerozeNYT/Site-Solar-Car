@@ -1,11 +1,11 @@
 [
   { "id": "porsche-panamera-vitres-teintees", "src": "panamera-1.jpg", "plate": [[0.1271, 0.5989], [0.2362, 0.6215], [0.2330, 0.6516], [0.1216, 0.6252]], "wide": { "y": 0.24, "h": 0.6 } },
-  { "id": "porsche-panamera-vitres-teintees-arriere", "src": "panamera-2.jpg", "plate": [[0.7417, 0.6259], [0.8630, 0.6016], [0.8668, 0.6263], [0.7450, 0.6547]] },
+  { "id": "porsche-panamera-vitres-teintees-arriere", "og": 0.66, "src": "panamera-2.jpg", "plate": [[0.7417, 0.6259], [0.8630, 0.6016], [0.8668, 0.6263], [0.7450, 0.6547]] },
   { "id": "porsche-cayenne-coupe-vitres-teintees", "src": "cayenne-coupe-1.jpg", "plate": [[0.7866, 0.6764], [0.9007, 0.6447], [0.9062, 0.6739], [0.7921, 0.7109]] },
-  { "id": "porsche-cayenne-coupe-vitres-teintees-34", "src": "cayenne-coupe-2.jpg", "plate": [[0.0706, 0.6099], [0.1150, 0.6343], [0.1156, 0.6556], [0.0698, 0.6296]] },
-  { "id": "audi-a7-sportback-vitres-teintees", "src": "a7-1.jpg", "plate": [[0.1190, 0.5462], [0.2342, 0.5664], [0.2320, 0.5976], [0.1157, 0.5738]] },
+  { "id": "porsche-cayenne-coupe-vitres-teintees-34", "og": 0.62, "src": "cayenne-coupe-2.jpg", "plate": [[0.0706, 0.6099], [0.1150, 0.6343], [0.1156, 0.6556], [0.0698, 0.6296]] },
+  { "id": "audi-a7-sportback-vitres-teintees", "og": 0.6, "src": "a7-1.jpg", "plate": [[0.1190, 0.5462], [0.2342, 0.5664], [0.2320, 0.5976], [0.1157, 0.5738]] },
   { "id": "audi-a7-sportback-vitres-teintees-profil", "src": "a7-2.jpg" },
-  { "id": "mercedes-c63-break-vitres-teintees", "src": "c63-1.jpg", "plate": [[0.1601, 0.5547], [0.2408, 0.5681], [0.2351, 0.5949], [0.1590, 0.5810]] },
+  { "id": "mercedes-c63-break-vitres-teintees", "og": 0.62, "src": "c63-1.jpg", "plate": [[0.1601, 0.5547], [0.2408, 0.5681], [0.2351, 0.5949], [0.1590, 0.5810]] },
   { "id": "mercedes-a45-vitres-teintees", "src": "a45-1.jpg" },
   { "id": "mclaren-720s-covering-noir-satine", "src": "720s-arriere.jpg", "plate": [[0.1678, 0.5374], [0.2553, 0.5374], [0.2553, 0.5683], [0.1678, 0.5683]], "fill": [[[1.0056, 0.3139], [1.0049, 0.3898], [0.3674, 0.4106], [0.3674, 0.3524]]], "wide": { "y": 0.22, "h": 0.58 } },
   { "id": "mclaren-720s-covering-noir-satine-avant", "src": "720s-avant.jpg", "plate": [[0.6988, 0.5115], [0.8374, 0.5108], [0.8344, 0.5342], [0.6970, 0.5349]], "fill": [[[-0.0055, 0.2898], [0.5496, 0.3263], [0.5524, 0.3793], [-0.0055, 0.3552]]] },
@@ -21,7 +21,7 @@
   { "id": "mercedes-classe-a-covering", "src": "classe-a-1.jpg", "plate": [[0.0691, 0.6959], [0.1656, 0.7314], [0.1676, 0.7671], [0.0695, 0.7230]] },
   { "id": "mercedes-classe-a-covering-34", "src": "classe-a-2.jpg", "plate": [[0.8651, 0.6574], [0.9402, 0.6454], [0.9407, 0.6742], [0.8658, 0.6900]] },
   { "id": "bmw-m2-detailing-lustrage", "src": "m2-noir-1.jpg", "plate": [[0.8071, 0.6433], [0.9096, 0.6332], [0.9096, 0.6660], [0.8088, 0.6799]], "wide": { "y": 0.25, "h": 0.56 }, "phoneX": 0.56 },
-  { "id": "bmw-m2-detailing-lustrage-avant", "src": "m2-noir-2.jpg", "plate": [[0.1236, 0.6693], [0.2480, 0.6882], [0.2463, 0.7273], [0.1229, 0.7037]] },
+  { "id": "bmw-m2-detailing-lustrage-avant", "og": 0.66, "src": "m2-noir-2.jpg", "plate": [[0.1236, 0.6693], [0.2480, 0.6882], [0.2463, 0.7273], [0.1229, 0.7037]] },
   { "id": "bmw-m2-detailing-lustrage-arriere", "src": "m2-noir-3.jpg", "plate": [[0.7180, 0.5899], [0.8469, 0.5811], [0.8469, 0.6111], [0.7203, 0.6181]] },
   { "id": "porsche-911-detailing", "src": "911-1.jpg" },
   { "id": "porsche-911-detailing-arriere", "src": "911-2.jpg" },
@@ -29,6 +29,9 @@
   { "id": "mazda-3-detailing-profil", "src": "mazda3-2.jpg" },
   { "id": "bmw-serie-2-ciel-etoile", "src": "serie2-1.jpg", "denoise": false, "wide": [0, 0.13, 1] },
   { "id": "bmw-serie-2-ciel-etoile-habitacle", "src": "serie2-2.jpg", "denoise": false },
-  { "id": "audi-s1-ciel-etoile", "src": "s1-1.png", "grade": false, "denoise": false },
-  { "id": "audi-s1-ciel-etoile-violet", "src": "s1-2.png", "grade": false, "denoise": false }
+  { "id": "audi-s1-ciel-etoile", "og": 0.38, "src": "s1-1.png", "grade": false, "denoise": false },
+  { "id": "audi-s1-ciel-etoile-violet", "src": "s1-2.png", "grade": false, "denoise": false },
+  { "id": "porsche-cayenne-feux-arriere-fonces", "src": "cayenne-feux.jpg", "plate": [[0.1600, 0.6040], [0.3220, 0.6240], [0.3190, 0.6670], [0.1530, 0.6450]], "og": 0.5 },
+  { "id": "peugeot-206-feux-arriere-fonces", "src": "206-feux.jpg", "plate": [[0.1210, 0.5400], [0.2820, 0.5650], [0.2800, 0.6100], [0.1190, 0.5820]], "og": 0.52 },
+  { "id": "porsche-911-devant-atelier", "src": "911-face.jpg", "og": 0.58 }
 ]

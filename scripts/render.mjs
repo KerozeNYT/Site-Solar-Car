@@ -43,7 +43,11 @@ export async function renderSite(out, assets) {
   }, 0);
   // the gallery exists only with real jobs: then it gets its page, menu link and sitemap entry
   const nav = realisations.length ? [...site.nav.slice(0, 1), { label: 'Réalisations', href: '/realisations/' }, ...site.nav.slice(1)] : site.nav;
-  const ctx = { ...site, nav, car, assets, film, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, realisations, realisationsPage };
+  // every photo with a web version (realisations and illustrations): pages use one only once it exists
+  const photoDir = path.join(root, 'public', 'img', 'realisations');
+  const photoIds = new Set(fs.existsSync(photoDir) ? fs.readdirSync(photoDir).filter((f) => f.endsWith('-1280.webp')).map((f) => f.slice(0, -'-1280.webp'.length)) : []);
+  const ogIds = new Set(fs.existsSync(photoDir) ? fs.readdirSync(photoDir).filter((f) => f.endsWith('-og.jpg')).map((f) => f.slice(0, -'-og.jpg'.length)) : []);
+  const ctx = { ...site, nav, photoIds, ogIds, car, assets, film, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, realisations, realisationsPage };
 
   const pages = [
     ['index.html', T.homePage(ctx)],

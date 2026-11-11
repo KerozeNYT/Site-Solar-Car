@@ -246,6 +246,8 @@ export const services = [
     // header photo: a real job (content/realisations.js), used once its web version exists
     heroPhoto: 'porsche-panamera-vitres-teintees',
     chapter: 'tint',
+    // photo of the card on the home page (« Un atelier, six savoir-faire »)
+    cardPhoto: { id: 'porsche-panamera-vitres-teintees', focus: '50% 62%' },
     still: 'tint',
     name: 'Vitres teintées',
     short: 'Films solaires posés sur mesure : intimité, confort thermique et protection UV, avec un conseil clair sur la réglementation.',
@@ -301,6 +303,8 @@ export const services = [
     tagline: 'Un regard plus sombre',
     simPitch: 'Jugez le fumé 50 % ou 80 %, feux allumés et au freinage, avant de vous décider.',
     chapter: 'tail',
+    // photo of the card on the home page (« Un atelier, six savoir-faire »)
+    cardPhoto: { id: 'porsche-cayenne-feux-arriere-fonces', focus: '50% 56%' },
     still: 'tail',
     name: 'Feux arrière teintés',
     short: 'Film fumé sur mesure pour vos feux arrière, du voile léger au noir profond.',
@@ -346,6 +350,8 @@ export const services = [
     simPitch: 'Suivez chaque étape du detailing sur la voiture 3D, du lavage à la céramique.',
     chapter: 'detailing',
     heroPhoto: 'bmw-m2-detailing-lustrage',
+    // photo of the card on the home page (« Un atelier, six savoir-faire »)
+    cardPhoto: { id: 'bmw-m2-detailing-lustrage', focus: '50% 66%' },
     still: 'detailing',
     name: 'Detailing carrosserie',
     short: 'Décontamination, polissage, correction de peinture et protection : le brillant d’origine.',
@@ -388,6 +394,8 @@ export const services = [
     tagline: 'Une couleur sans repeindre',
     chapter: 'covering',
     heroPhoto: 'mclaren-720s-covering-noir-satine',
+    // photo of the card on the home page (« Un atelier, six savoir-faire »)
+    cardPhoto: { id: 'mclaren-720s-covering-noir-satine-34', focus: '50% 50%' },
     still: 'covering',
     name: 'Covering & déchromage',
     short: 'Covering complet ou partiel et déchromage : films 3M™ Série 2080, choix sur échantillon réel.',
@@ -447,6 +455,8 @@ export const services = [
     simPitch: 'Composez votre ciel : densité, deux couleurs, scintillement, étoiles filantes.',
     chapter: 'stars',
     heroPhoto: 'bmw-serie-2-ciel-etoile',
+    // photo of the card on the home page (« Un atelier, six savoir-faire »)
+    cardPhoto: { id: 'bmw-serie-2-ciel-etoile', focus: '50% 22%' },
     still: 'stars',
     name: 'Ciel étoilé',
     short: 'Ciel de toit en fibre optique : une nuit étoilée au-dessus de vos têtes.',
@@ -488,6 +498,8 @@ export const services = [
     shortName: 'Phares',
     tagline: 'Des optiques claires',
     chapter: 'headlights',
+    // photo of the card on the home page (« Un atelier, six savoir-faire »)
+    cardPhoto: { id: 'porsche-911-devant-atelier', focus: '40% 66%' },
     still: 'headlights',
     name: 'Rénovation de phares',
     short: 'Phares jaunis ou ternes : ponçage, polissage et protection anti-UV.',

@@ -57,7 +57,7 @@ Le build d’aperçu utilise `SITE_BASE=/Site-Solar-Car/` (préfixe de toutes le
    - `wide` : version 16:9 pour l'en-tête d'une prestation (`{ "y", "h" }` place la voiture à droite, le titre se lit sur la gauche) ; une version téléphone est écrite en même temps ;
    - `grade: false` pour une photo déjà retouchée, `denoise: false` pour les photos de ciel étoilé (petits points lumineux).
 3. `node scripts/photos.mjs --debug` écrit les versions web sans métadonnées dans `public/img/realisations/` (320, 960 et 1280 px, en-têtes) et un contrôle des coins dans `.cache/photos/`.
-4. Déclarer la réalisation dans `content/realisations.js` : elle apparaît dans la galerie `/realisations/` (avec son petit texte), sur l'accueil (les trois premières) et sur la page de la prestation ; `heroPhoto` (dans `content/site.js`) choisit la photo d'en-tête d'une prestation, `feature` (dans `content/covering.js`) la réalisation racontée en détail sur la page covering.
+4. Déclarer la réalisation dans `content/realisations.js` : elle apparaît dans la galerie `/realisations/` (avec son petit texte), sur l'accueil (les trois premières) et sur la page de la prestation ; `heroPhoto` (dans `content/site.js`) choisit la photo d'en-tête d'une prestation, `cardPhoto` celle de sa carte sur l'accueil, `photo` (dans `content/guides.js`) celle d'un guide, `feature` (dans `content/covering.js`) la réalisation racontée en détail sur la page covering.
 
 Ne publier que des photos de véhicules dont le propriétaire est d'accord.
 

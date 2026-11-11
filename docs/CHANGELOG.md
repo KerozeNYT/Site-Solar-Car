@@ -2,6 +2,14 @@
 
 ## V3 — refonte (sombre, moderne, moins de simulateurs)
 
+### Vraies photos sur l'accueil et dans les guides
+- « Un atelier, six savoir-faire » : chaque carte montre une photo de l'atelier au lieu d'un
+  rendu 3D (Panamera, Cayenne aux feux foncés, BMW M2, McLaren 720S, BMW Série 2, Porsche 911).
+- Guides pratiques : une photo réelle par guide (liste et en-tête de chaque guide), toutes
+  différentes, avec une image de partage 1200×630 tirée de la photo.
+- Nouvelles photos préparées (plaques recouvertes) : Porsche Cayenne et Peugeot 206 aux feux
+  arrière foncés, Porsche 911 de face devant l'atelier.
+
 ### Photos de réalisations
 - 15 réalisations réelles et 32 photos, triées parmi plus de 80 envoyées (seulement les plus
   belles et les plus parlantes) : vitres teintées (Panamera 4, Cayenne Coupé, A7 Sportback,
