@@ -450,7 +450,7 @@ const filmStill = (id, alt, { eager = false } = {}) =>
  * shown), title (h1 for the first), text, links. `image(id, i)` gives the chapter's picture,
  * `jump(id)` the attribute of the in-page links to a chapter, `attrs(id)` extra attributes.
  */
-function chapterArticles(ctx, order, { image, jump, attrs = () => '', hint = null, tour = false }) {
+function chapterArticles(ctx, order, { image, jump, attrs = () => '', hint = null, tour = false, extra = () => '' }) {
   const { home, services, business: b } = ctx;
   const ch = home.tour.chapters;
   let n = 0;
@@ -482,7 +482,7 @@ function chapterArticles(ctx, order, { image, jump, attrs = () => '', hint = nul
           <p class="kicker">${esc(kicker)}</p>
           <${H} class="chapter__title${c.brand ? ' chapter__title--brand' : ''}">${heading}</${H}>
           <p class="chapter__text">${esc(c.text)}</p>
-          ${readout}${contact}${ctaLinks(c.ctas, jump)}${quick}${link}${hintHtml}${i === 0 && tour ? '<p class="tour__opt-in" data-tour-start hidden><button type="button" class="btn btn--ghost btn--sm">Lancer la visite 3D</button> <span>(données mobiles : quelques Mo)</span></p>' : ''}
+          ${readout}${extra(id)}${contact}${ctaLinks(c.ctas, jump)}${quick}${link}${hintHtml}${i === 0 && tour ? '<p class="tour__opt-in" data-tour-start hidden><button type="button" class="btn btn--ghost btn--sm">Lancer la visite 3D</button> <span>(données mobiles : quelques Mo)</span></p>' : ''}
         </div>
       </article>`;
     })
@@ -548,6 +548,12 @@ function filmSection(ctx) {
     jump,
     attrs: (id) => ` data-from="${byId[id].from}" data-to="${byId[id].to}"`,
     hint: home.film.hint,
+    // a figure that follows the picture (content/film.js `readout`: keys [second, value])
+    extra: (id) => {
+      const r = byId[id].readout;
+      if (!r) return '';
+      return `<p class="readout${typeof r.keys[0][1] === 'string' ? ' readout--ba' : ''}" aria-live="off"><span class="readout__label">${esc(r.label)}</span> <span class="readout__value" data-film-readout="${esc(JSON.stringify(r.keys))}">${esc(String(r.keys[0][1]))}</span>${r.unit ? `<span class="readout__unit"> ${esc(r.unit)}</span>` : ''}</p>`;
+    },
   });
   const tabs = film.chapters
     .filter((c) => c.tab)

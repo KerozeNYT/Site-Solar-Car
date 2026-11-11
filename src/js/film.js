@@ -29,6 +29,17 @@ export function startFilm(section) {
     first: i === 0,
     last: i === all.length - 1,
   }));
+  // figures that follow the picture: [second, value] keys, numbers interpolated, words switched
+  const readouts = [...section.querySelectorAll('[data-film-readout]')].map((el) => ({ el, keys: JSON.parse(el.dataset.filmReadout) }));
+  const readoutAt = (keys, t) => {
+    if (t <= keys[0][0]) return keys[0][1];
+    for (let i = 1; i < keys.length; i++) {
+      const [t0, v0] = keys[i - 1];
+      const [t1, v1] = keys[i];
+      if (t <= t1) return typeof v0 === 'number' ? Math.round(v0 + ((t - t0) / (t1 - t0)) * (v1 - v0)) : t - t0 < t1 - t - 0 ? v0 : v1;
+    }
+    return keys[keys.length - 1][1];
+  };
   const phone = matchMedia('(max-width: 760px)').matches;
   const src = phone ? section.dataset.srcMobile : section.dataset.srcDesktop;
 
@@ -91,6 +102,10 @@ export function startFilm(section) {
     }
     for (const c of chapters) c.el.classList.toggle('is-active', c.id === active);
     progressEl.style.transform = `scaleX(${clamp((t - start) / (end - start)).toFixed(4)})`;
+    for (const r of readouts) {
+      const v = String(readoutAt(r.keys, t));
+      if (r.el.textContent !== v) r.el.textContent = v;
+    }
     // the tab of the service on screen (none during the opening and the closing)
     const tab = tabs.find((a) => a.dataset.tab === active) || null;
     if (tab !== activeTab) {
