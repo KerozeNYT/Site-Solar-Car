@@ -2,6 +2,24 @@
 
 ## V3 — refonte (sombre, moderne, moins de simulateurs)
 
+### Photos de réalisations
+- 15 réalisations réelles et 32 photos, triées parmi plus de 80 envoyées (seulement les plus
+  belles et les plus parlantes) : vitres teintées (Panamera 4, Cayenne Coupé, A7 Sportback,
+  C 63 Break, A 45), covering (McLaren 720S, BMW M2 violette, BMW or chromé, A6 Allroad kaki,
+  Classe A), detailing (BMW M2, Porsche 911, Mazda 3), ciel étoilé (BMW Série 2, Audi S1).
+- Toutes les plaques recouvertes du cache-plaque SOLAR CAR 37 (en perspective), plaques
+  d'autres voitures pixelisées, enseignes et plaques « Even Parc » masquées (panneau repeint
+  de sa propre couleur sombre), lettrages d'arrière-plan floutés, métadonnées supprimées.
+- Légère retouche commune (contraste, couleurs, coins assombris) et débruitage : 7,9 Mo pour
+  toutes les versions web (vignettes 320 px, cartes 960 px, plein écran téléphone 1280 px).
+- En-têtes en vraies photos : Panamera (vitres teintées), BMW M2 (detailing), BMW Série 2
+  (ciel étoilé), McLaren 720S (covering), avec une version écran large (voiture à droite,
+  titre lisible à gauche) et une version téléphone ; la voiture est nommée dans la légende.
+- Page covering : la McLaren 720S racontée en détail (de l'orange d'origine au noir satiné,
+  photo pendant la pose), puis les autres réalisations covering.
+- Galerie `/realisations/` avec filtre par prestation ; ailleurs, les cartes restent courtes
+  (pas de texte répété d'une page à l'autre).
+
 ### Textes sans répétitions entre pages
 - Analyse de toutes les pages indexables (phrases de 8 mots ou plus présentes sur plusieurs
   pages, similarité deux à deux) : 34 phrases répétées → 1 (un titre de guide repris dans ses

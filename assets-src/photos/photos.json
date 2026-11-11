@@ -1,25 +1,34 @@
 [
-  {
-    "id": "audi-a5-coupe-34-arriere",
-    "src": "audi-a5-coupe-34-arriere.jpg",
-    "plate": [[0.8120, 0.5750], [0.8753, 0.5570], [0.8780, 0.5800], [0.8160, 0.5985]],
-    "tone": -0.04,
-    "hide": [[0.195, 0.440, 0.050, 0.020]]
-  },
-  {
-    "id": "audi-a5-coupe-atelier",
-    "src": "audi-a5-coupe-atelier.jpg",
-    "plate": [[0.1240, 0.6960], [0.2200, 0.7100], [0.2190, 0.7310], [0.1220, 0.7150]],
-    "tone": -0.02
-  },
-  {
-    "id": "audi-a5-coupe-profil",
-    "src": "audi-a5-coupe-profil.jpg"
-  },
-  {
-    "id": "volvo-v60-34-arriere",
-    "src": "volvo-v60-34-arriere.jpg",
-    "plate": [[0.1310, 0.5860], [0.2610, 0.6020], [0.2580, 0.6340], [0.1290, 0.6200]],
-    "tone": -0.03
-  }
+  { "id": "porsche-panamera-vitres-teintees", "src": "panamera-1.jpg", "plate": [[0.1271, 0.5989], [0.2362, 0.6215], [0.2330, 0.6516], [0.1216, 0.6252]], "wide": { "y": 0.24, "h": 0.6 } },
+  { "id": "porsche-panamera-vitres-teintees-arriere", "src": "panamera-2.jpg", "plate": [[0.7417, 0.6259], [0.8630, 0.6016], [0.8668, 0.6263], [0.7450, 0.6547]] },
+  { "id": "porsche-cayenne-coupe-vitres-teintees", "src": "cayenne-coupe-1.jpg", "plate": [[0.7866, 0.6764], [0.9007, 0.6447], [0.9062, 0.6739], [0.7921, 0.7109]] },
+  { "id": "porsche-cayenne-coupe-vitres-teintees-34", "src": "cayenne-coupe-2.jpg", "plate": [[0.0706, 0.6099], [0.1150, 0.6343], [0.1156, 0.6556], [0.0698, 0.6296]] },
+  { "id": "audi-a7-sportback-vitres-teintees", "src": "a7-1.jpg", "plate": [[0.1190, 0.5462], [0.2342, 0.5664], [0.2320, 0.5976], [0.1157, 0.5738]] },
+  { "id": "audi-a7-sportback-vitres-teintees-profil", "src": "a7-2.jpg" },
+  { "id": "mercedes-c63-break-vitres-teintees", "src": "c63-1.jpg", "plate": [[0.1601, 0.5547], [0.2408, 0.5681], [0.2351, 0.5949], [0.1590, 0.5810]] },
+  { "id": "mercedes-a45-vitres-teintees", "src": "a45-1.jpg" },
+  { "id": "mclaren-720s-covering-noir-satine", "src": "720s-arriere.jpg", "plate": [[0.1678, 0.5374], [0.2553, 0.5374], [0.2553, 0.5683], [0.1678, 0.5683]], "fill": [[[1.0056, 0.3139], [1.0049, 0.3898], [0.3674, 0.4106], [0.3674, 0.3524]]], "wide": { "y": 0.22, "h": 0.58 } },
+  { "id": "mclaren-720s-covering-noir-satine-avant", "src": "720s-avant.jpg", "plate": [[0.6988, 0.5115], [0.8374, 0.5108], [0.8344, 0.5342], [0.6970, 0.5349]], "fill": [[[-0.0055, 0.2898], [0.5496, 0.3263], [0.5524, 0.3793], [-0.0055, 0.3552]]] },
+  { "id": "mclaren-720s-covering-noir-satine-34", "src": "720s-34.jpg", "plate": [[0.0825, 0.5184], [0.2000, 0.5180], [0.2006, 0.5400], [0.0830, 0.5410]], "fill": [[[1.0041, 0.2951], [1.0034, 0.3628], [0.5194, 0.3973], [0.5173, 0.3450]]] },
+  { "id": "mclaren-720s-covering-carre", "src": "720s-carre.jpg", "plate": [[0.9035, 0.6023], [0.9481, 0.5873], [0.9350, 0.6263], [0.8953, 0.6379]], "fill": [[[-0.0037, 0.1853], [0.3776, 0.2713], [0.3784, 0.3505], [-0.0037, 0.2970]]], "blur": [[0.765, 0.19, 0.235, 0.315]] },
+  { "id": "mclaren-720s-covering-pose", "src": "720s-pose.jpg", "blur": [[0.105, 0.105, 0.11, 0.05], [0.10, 0.205, 0.19, 0.05]] },
+  { "id": "bmw-m2-covering-violet", "src": "m2-violet-1.jpg", "plate": [[0.4115, 0.7743], [0.5601, 0.7743], [0.5601, 0.8229], [0.4133, 0.8175]] },
+  { "id": "bmw-m2-covering-violet-34", "src": "m2-violet-2.jpg", "plate": [[0.1243, 0.7503], [0.1902, 0.7604], [0.1929, 0.8008], [0.1243, 0.7867]] },
+  { "id": "bmw-m2-covering-violet-profil", "src": "m2-violet-3.jpg", "plate": [[0.8820, 0.6860], [0.9682, 0.6641], [0.9653, 0.7074], [0.8730, 0.7393]], "hide": [[0.935, 0.470, 0.036, 0.019]] },
+  { "id": "bmw-covering-or-chrome", "src": "bmw-or.jpg" },
+  { "id": "audi-a6-allroad-covering-kaki", "src": "a6-1.jpg", "plate": [[0.0939, 0.6191], [0.2030, 0.6444], [0.2030, 0.6785], [0.0933, 0.6509]] },
+  { "id": "audi-a6-allroad-covering-kaki-arriere", "src": "a6-2.jpg" },
+  { "id": "mercedes-classe-a-covering", "src": "classe-a-1.jpg", "plate": [[0.0691, 0.6959], [0.1656, 0.7314], [0.1676, 0.7671], [0.0695, 0.7230]] },
+  { "id": "mercedes-classe-a-covering-34", "src": "classe-a-2.jpg", "plate": [[0.8651, 0.6574], [0.9402, 0.6454], [0.9407, 0.6742], [0.8658, 0.6900]] },
+  { "id": "bmw-m2-detailing-lustrage", "src": "m2-noir-1.jpg", "plate": [[0.8071, 0.6433], [0.9096, 0.6332], [0.9096, 0.6660], [0.8088, 0.6799]], "wide": { "y": 0.25, "h": 0.56 }, "phoneX": 0.56 },
+  { "id": "bmw-m2-detailing-lustrage-avant", "src": "m2-noir-2.jpg", "plate": [[0.1236, 0.6693], [0.2480, 0.6882], [0.2463, 0.7273], [0.1229, 0.7037]] },
+  { "id": "bmw-m2-detailing-lustrage-arriere", "src": "m2-noir-3.jpg", "plate": [[0.7180, 0.5899], [0.8469, 0.5811], [0.8469, 0.6111], [0.7203, 0.6181]] },
+  { "id": "porsche-911-detailing", "src": "911-1.jpg" },
+  { "id": "porsche-911-detailing-arriere", "src": "911-2.jpg" },
+  { "id": "mazda-3-detailing", "src": "mazda3-1.jpg", "plate": [[0.0608, 0.6709], [0.1091, 0.6860], [0.1102, 0.7071], [0.0602, 0.6895]] },
+  { "id": "mazda-3-detailing-profil", "src": "mazda3-2.jpg" },
+  { "id": "bmw-serie-2-ciel-etoile", "src": "serie2-1.jpg", "denoise": false, "wide": [0, 0.13, 1] },
+  { "id": "bmw-serie-2-ciel-etoile-habitacle", "src": "serie2-2.jpg", "denoise": false },
+  { "id": "audi-s1-ciel-etoile", "src": "s1-1.png", "grade": false, "denoise": false },
+  { "id": "audi-s1-ciel-etoile-violet", "src": "s1-2.png", "grade": false, "denoise": false }
 ]

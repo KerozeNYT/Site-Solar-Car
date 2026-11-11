@@ -92,6 +92,27 @@ export const coveringPage = {
       },
     ],
   },
+  // the job told in full under the header (content/realisations.js), with photos from its list
+  feature: {
+    job: 'mclaren-720s',
+    kicker: 'Réalisation à la une',
+    title: 'McLaren 720S : de l’orange au *noir satiné*',
+    text: [
+      'Cette supercar est arrivée dans sa teinte orange d’origine. Elle est repartie habillée d’un film noir satiné, plus discret, qui souligne chaque arête de sa carrosserie.',
+      'Pour une pose propre, le pare-chocs avant a été déposé : le film se replie sur les bords des éléments au lieu de s’arrêter en surface.',
+    ],
+    facts: [
+      ['Teinte d’origine', 'Orange'],
+      ['Finition posée', 'Noir satiné'],
+      ['Préparation', 'Pare-chocs déposé'],
+    ],
+    main: 'mclaren-720s-covering-noir-satine-34',
+    strip: [
+      { id: 'mclaren-720s-covering-pose', caption: 'Pendant la pose : l’orange d’origine encore visible sous le film noir.' },
+      { id: 'mclaren-720s-covering-noir-satine-avant', caption: 'Après : la face avant en noir satiné.' },
+    ],
+    cta: 'Parler de votre projet',
+  },
   works: {
     title: 'Nos réalisations covering',
     empty: 'Les photos de nos premiers véhicules habillés seront publiées ici. En attendant, suivez les sorties d’atelier sur Instagram.',

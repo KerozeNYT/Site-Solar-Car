@@ -311,7 +311,7 @@ document.addEventListener('click', (e) => {
   const img = box.querySelector('.work__img');
   const id = a.dataset.workPhoto;
   img.src = `${a.getAttribute('href').replace(/[^/]*$/, '')}${id}-960.webp`;
-  img.srcset = `${img.src} 960w, ${a.getAttribute('href')} 1600w`;
+  img.srcset = `${img.src} 960w, ${a.getAttribute('href')} 1280w`;
   img.alt = a.dataset.alt;
   img.style.objectPosition = a.dataset.focus || '';
   box.querySelectorAll('[data-work-photo]').forEach((t) => t.toggleAttribute('aria-current', t === a));

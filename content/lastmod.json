@@ -1,6 +1,6 @@
 {
  "/": {
-  "hash": "7405024466dcf0d0",
+  "hash": "bf2f6fb0e5902437",
   "date": "2026-11-11"
  },
  "/404.html": {
@@ -12,7 +12,7 @@
   "date": "2026-11-11"
  },
  "/ciel-etoile/": {
-  "hash": "9cd5b6906acdeb03",
+  "hash": "5a411c3dfed7107e",
   "date": "2026-11-11"
  },
  "/contact/": {
@@ -24,7 +24,7 @@
   "date": "2026-10-13"
  },
  "/covering-dechromage/": {
-  "hash": "f4038e2169f9a450",
+  "hash": "d263ebc6e6a1c7a6",
   "date": "2026-11-11"
  },
  "/design/style-tile/": {
@@ -36,7 +36,7 @@
   "date": "2026-11-11"
  },
  "/detailing-carrosserie/": {
-  "hash": "051e159612983eba",
+  "hash": "ed981af2f66c6e07",
   "date": "2026-11-11"
  },
  "/feux-arriere-teintes/": {
@@ -82,6 +82,10 @@
  "/mentions-legales/": {
   "hash": "6bc26d9f9e80ed5f",
   "date": "2026-10-13"
+ },
+ "/realisations/": {
+  "hash": "0d21e15594caa74f",
+  "date": "2026-11-11"
  },
  "/renovation-phares/": {
   "hash": "b8e5e38381c02862",
@@ -144,7 +148,7 @@
   "date": "2026-11-11"
  },
  "/vitres-teintees/": {
-  "hash": "1a815d7e5cfb84d4",
+  "hash": "36227a276e457651",
   "date": "2026-11-11"
  },
  "/zones-intervention/": {

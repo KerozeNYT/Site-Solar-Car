@@ -47,12 +47,17 @@ La carte (« Venir à l’atelier ») est une scène 3D servie par le site lui-m
 
 Le build d’aperçu utilise `SITE_BASE=/Site-Solar-Car/` (préfixe de toutes les adresses) et `PREVIEW=1` (pages en `noindex`, `robots.txt` fermé). Pour la mise en ligne sur le vrai domaine, construire sans ces variables (`npm run build`) et renseigner `siteUrl` dans `content/site.js`.
 
-## Photos de réalisations (galerie, page vitres teintées)
+## Photos de réalisations (galerie, en-têtes des prestations)
 
 1. Déposer les photos d'origine dans `assets-src/photos/originals/` (dossier hors dépôt : plaques et position GPS).
-2. Décrire chaque photo dans `assets-src/photos/photos.json` : coins de la plaque (fractions de la largeur et de la hauteur, dans l'ordre haut-gauche, haut-droite, bas-droite, bas-gauche) pour y poser le cache-plaque SOLAR CAR 37, zones à pixeliser (plaques d'autres véhicules).
-3. `node scripts/photos.mjs --debug` écrit les versions web sans métadonnées dans `public/img/realisations/` (et un contrôle des coins dans `.cache/photos/`).
-4. Déclarer la réalisation dans `content/realisations.js` : elle apparaît dans la galerie `/realisations/`, sur l'accueil et sur la page de la prestation ; `heroPhoto` (dans `content/site.js`) choisit la photo d'en-tête d'une prestation.
+2. Décrire chaque photo dans `assets-src/photos/photos.json` (détail des options en tête de `scripts/photos.mjs`) :
+   - `plate` : coins de la plaque (fractions de la largeur et de la hauteur, dans l'ordre haut-gauche, haut-droite, bas-droite, bas-gauche), recouverte par le cache-plaque SOLAR CAR 37 ;
+   - `hide` : plaques d'autres véhicules à pixeliser ; `blur` : lettrages en arrière-plan à flouter ;
+   - `fill` : enseigne d'une autre entreprise à masquer (le panneau est repeint de sa propre couleur sombre) ;
+   - `wide` : version 16:9 pour l'en-tête d'une prestation (`{ "y", "h" }` place la voiture à droite, le titre se lit sur la gauche) ; une version téléphone est écrite en même temps ;
+   - `grade: false` pour une photo déjà retouchée, `denoise: false` pour les photos de ciel étoilé (petits points lumineux).
+3. `node scripts/photos.mjs --debug` écrit les versions web sans métadonnées dans `public/img/realisations/` (320, 960 et 1280 px, en-têtes) et un contrôle des coins dans `.cache/photos/`.
+4. Déclarer la réalisation dans `content/realisations.js` : elle apparaît dans la galerie `/realisations/` (avec son petit texte), sur l'accueil (les trois premières) et sur la page de la prestation ; `heroPhoto` (dans `content/site.js`) choisit la photo d'en-tête d'une prestation, `feature` (dans `content/covering.js`) la réalisation racontée en détail sur la page covering.
 
 Ne publier que des photos de véhicules dont le propriétaire est d'accord.
 

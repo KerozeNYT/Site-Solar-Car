@@ -1,6 +1,7 @@
 // Prepares real job photos for the site: SOLAR CAR plate cover laid over the car's plate (in
-// perspective), other cars' plates pixelated, metadata stripped (iPhone photos carry the GPS
-// position), web sizes written to public/img/realisations/.
+// perspective), other cars' plates pixelated, other businesses' signs blanked, a light common
+// grade, metadata stripped (iPhone photos carry the GPS position), web sizes written to
+// public/img/realisations/.
 //
 // Usage: node scripts/photos.mjs [id …] [--debug]
 //   assets-src/photos/originals/   the untouched photos (kept out of the repository)
@@ -9,7 +10,19 @@
 //       "plate": [[x, y], [x, y], [x, y], [x, y]],   corners top-left, top-right, bottom-right,
 //                                                    bottom-left, as fractions of width / height
 //       "tone": -0.1,                                 darken (< 0) or lighten (> 0) the cover
-//       "hide": [[x, y, w, h]] }                      areas to pixelate (fractions)
+//       "hide": [[x, y, w, h]],                       areas to pixelate (fractions): other plates
+//       "blur": [[x, y, w, h]],                       areas to blur: background lettering
+//       "fill": [[[x, y], …]],                        polygons filled with their own dark colour:
+//                                                    another business's sign panel
+//       "wide": [x, y, w],                            16:9 crop for wide screens (page headers):
+//                                                    left, top and width as fractions
+//       "wide": { "y": 0.2, "h": 0.6 },               or the band y…y+h placed on the right of a
+//                                                    16:9 frame, the left fading into dark
+//       "grade": false,                               keep the colours as they are (edited photos)
+//       "denoise": false }                            keep the fine detail (starlight: tiny points)
+//   Writes <id>-320|960|1280.webp and, with "wide", the page header versions: <id>-wide-960|1600.webp
+//   (wide screens), <id>-phone.webp (phones, 10:16 around "phoneX" / "phoneY", default the centre)
+//   and <id>-wide-1600.jpg (social cards).
 //   --debug  also writes .cache/photos/<id>-debug.jpg with the plate corners marked
 import fs from 'node:fs';
 import path from 'node:path';
@@ -55,7 +68,7 @@ function tri(g, img, s, d) {
   g.drawImage(img, 0, 0);
   g.restore();
 }
-window.compose = async ({ src, plate, tone = 0, hide = [], debug = false }) => {
+window.compose = async ({ src, plate, tone = 0, hide = [], blur = [], fill = [], debug = false }) => {
   await document.fonts.load('800 96px Archivo');
   const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
   const W = img.naturalWidth, H = img.naturalHeight;
@@ -63,6 +76,55 @@ window.compose = async ({ src, plate, tone = 0, hide = [], debug = false }) => {
   cv.width = W; cv.height = H;
   const g = cv.getContext('2d');
   g.drawImage(img, 0, 0);
+  // background lettering: blurred in place
+  for (const [x, y, w, h] of blur) {
+    const px = Math.round(x * W), py = Math.round(y * H), pw = Math.round(w * W), ph = Math.round(h * H);
+    const m = 40;
+    const t = document.createElement('canvas');
+    t.width = pw + 2 * m; t.height = ph + 2 * m;
+    const tg = t.getContext('2d');
+    tg.filter = 'blur(' + Math.max(6, Math.round(Math.min(pw, ph) / 6)) + 'px)';
+    tg.drawImage(cv, px - m, py - m, t.width, t.height, 0, 0, t.width, t.height);
+    g.drawImage(t, m, m, pw, ph, px, py, pw, ph);
+  }
+  // another business's sign: the panel filled with its own dark colour, sampled slice by slice
+  // across it (the light falls off along the wall), with a fine grain like the rest of the photo
+  for (const poly of fill) {
+    const P = poly.map(([x, y]) => [x * W, y * H]);
+    const path = new Path2D();
+    P.forEach(([x, y], i) => (i ? path.lineTo(x, y) : path.moveTo(x, y)));
+    path.closePath();
+    const xs = P.map((p) => p[0]), ys = P.map((p) => p[1]);
+    const bx = Math.max(0, Math.floor(Math.min(...xs))), by = Math.max(0, Math.floor(Math.min(...ys)));
+    const bw = Math.min(W, Math.ceil(Math.max(...xs))) - bx, bh = Math.min(H, Math.ceil(Math.max(...ys))) - by;
+    const src = g.getImageData(bx, by, bw, bh).data;
+    const N = 10;
+    const grad = g.createLinearGradient(bx, 0, bx + bw, 0);
+    for (let k = 0; k < N; k++) {
+      const px = [];
+      for (let yy = 0; yy < bh; yy += 2) for (let xx = Math.floor((k * bw) / N); xx < Math.floor(((k + 1) * bw) / N); xx += 2) {
+        if (!g.isPointInPath(path, bx + xx, by + yy)) continue;
+        const i = (yy * bw + xx) * 4;
+        px.push([src[i], src[i + 1], src[i + 2], src[i] * 0.3 + src[i + 1] * 0.59 + src[i + 2] * 0.11]);
+      }
+      if (!px.length) continue;
+      px.sort((a, b) => a[3] - b[3]);
+      const a0 = Math.floor(px.length * 0.2);
+      const sel = px.slice(a0, Math.max(a0 + 1, Math.floor(px.length * 0.55)));
+      const avg = [0, 1, 2].map((c) => Math.round(sel.reduce((s, p) => s + p[c], 0) / sel.length));
+      grad.addColorStop((k + 0.5) / N, 'rgb(' + avg.join(',') + ')');
+    }
+    g.fillStyle = grad;
+    g.fill(path);
+    const out = g.getImageData(bx, by, bw, bh);
+    const d = out.data;
+    for (let yy = 0; yy < bh; yy++) for (let xx = 0; xx < bw; xx++) {
+      if (!g.isPointInPath(path, bx + xx, by + yy)) continue;
+      const i = (yy * bw + xx) * 4, n = (Math.random() - 0.5) * 7;
+      d[i] += n; d[i + 1] += n; d[i + 2] += n;
+    }
+    g.putImageData(out, bx, by);
+  }
   // other plates: pixelated
   for (const [x, y, w, h] of hide) {
     const px = Math.round(x * W), py = Math.round(y * H), pw = Math.max(1, Math.round(w * W)), ph = Math.max(1, Math.round(h * H));
@@ -105,6 +167,15 @@ window.ready = true;
 </script>`
 );
 
+/** the common grade: a touch of contrast and colour, the corners slightly darker (dark site) */
+async function grade(buf) {
+  const { width: w, height: h } = await sharp(buf).metadata();
+  const vignette = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><defs><radialGradient id="v" cx="50%" cy="48%" r="72%"><stop offset="55%" stop-color="#fff"/><stop offset="100%" stop-color="#b4b4b4"/></radialGradient></defs><rect width="100%" height="100%" fill="url(#v)"/></svg>`
+  );
+  return sharp(buf).linear(1.06, -6).modulate({ saturation: 1.05 }).composite([{ input: vignette, blend: 'multiply' }]).png().toBuffer();
+}
+
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const server = await serve(root, 4612);
 const browser = await chromium.launch();
@@ -117,17 +188,56 @@ for (const job of jobs) {
   const upright = path.join(work, `${job.id}-upright.png`);
   await sharp(path.isAbsolute(job.src) ? job.src : path.join(dir, 'originals', job.src)).rotate().png().toFile(upright);
   const b64 = await page.evaluate((j) => window.compose(j), { ...job, src: `/.cache/photos/${job.id}-upright.png`, debug: false });
-  const composed = Buffer.from(b64, 'base64');
-  for (const w of [960, 1600]) {
-    await sharp(composed).resize({ width: w, withoutEnlargement: true }).webp({ quality: 80 }).toFile(path.join(outDir, `${job.id}-${w}.webp`));
+  const raw = Buffer.from(b64, 'base64');
+  const composed = job.grade === false ? raw : await grade(raw);
+  // once resized, a light median removes the phone's fine noise (gravel, grass): files about half
+  // as heavy for no visible loss; never on starlight photos (it would erase the small points of light)
+  const clean = (img) => (job.denoise === false ? img : img.median(3));
+  fs.writeFileSync(path.join(work, `${job.id}-final.png`), composed);
+  // 320: thumbnails, 960: cards, 1280: full width on phones (enough for a 3x screen)
+  for (const [w, q] of [[320, 68], [960, 70], [1280, 72]]) {
+    await clean(sharp(composed).resize({ width: w, withoutEnlargement: true })).webp({ quality: q, effort: 6, smartSubsample: true }).toFile(path.join(outDir, `${job.id}-${w}.webp`));
   }
-  // JPEG for social cards and the image sitemap
-  await sharp(composed).resize({ width: 1600, withoutEnlargement: true }).jpeg({ quality: 82, mozjpeg: true }).toFile(path.join(outDir, `${job.id}-1600.jpg`));
+  if (job.wide) {
+    const { width: W, height: H } = await sharp(composed).metadata();
+    let wide;
+    if (Array.isArray(job.wide)) {
+      // a plain 16:9 crop
+      const [x, y, w] = job.wide;
+      const cw = Math.round(w * W);
+      const box = { left: Math.round(x * W), top: Math.round(y * H), width: cw, height: Math.min(Math.round((cw * 9) / 16), H - Math.round(y * H)) };
+      wide = await sharp(composed).extract(box).toBuffer();
+    } else {
+      // the car on the right of a 16:9 frame: a full-width band of the photo, its left edge
+      // fading into a blurred, darkened extension of itself (room for the page title)
+      const band = await sharp(composed).extract({ left: 0, top: Math.round(job.wide.y * H), width: W, height: Math.round(job.wide.h * H) }).toBuffer();
+      const fg = await sharp(band).resize({ height: 900 }).toBuffer();
+      const fw = (await sharp(fg).metadata()).width;
+      const fade = Math.round(fw * 0.32);
+      const mask = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${fw}" height="900"><defs><linearGradient id="m" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="${(fade / fw).toFixed(3)}" stop-color="#fff" stop-opacity="1"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#m)"/></svg>`);
+      const fgFaded = await sharp(fg).ensureAlpha().composite([{ input: mask, blend: 'dest-in' }]).png().toBuffer();
+      const bg = await sharp(band).resize(1600, 900, { fit: 'cover' }).blur(90).modulate({ brightness: 0.2, saturation: 0.35 }).toBuffer();
+      wide = await sharp(bg).composite([{ input: fgFaded, left: 1600 - fw, top: 0 }]).png().toBuffer();
+    }
+    for (const [w2, q] of [[960, 76], [1600, 78]]) {
+      await sharp(wide).resize({ width: w2, height: Math.round((w2 * 9) / 16), fit: 'cover' }).webp({ quality: q, effort: 6, smartSubsample: true }).toFile(path.join(outDir, `${job.id}-wide-${w2}.webp`));
+    }
+    // page header on phones: the photo cut to the screen's proportions (10:16), centred on the car
+    const ph = Math.min(H, Math.round((W * 16) / 10));
+    const pw = Math.round((ph * 10) / 16);
+    const fx = job.phoneX ?? 0.5;
+    const fy = job.phoneY ?? 0.5;
+    await clean(sharp(composed).extract({ left: Math.round(Math.min(W - pw, Math.max(0, fx * W - pw / 2))), top: Math.round(Math.min(H - ph, Math.max(0, fy * H - ph / 2))), width: pw, height: ph }).resize({ width: 750 }))
+      .webp({ quality: 66, effort: 6, smartSubsample: true })
+      .toFile(path.join(outDir, `${job.id}-phone.webp`));
+    // JPEG for social cards and the structured data
+    await sharp(wide).resize({ width: 1600, height: 900, fit: 'cover' }).jpeg({ quality: 82, mozjpeg: true }).toFile(path.join(outDir, `${job.id}-wide-1600.jpg`));
+  }
   if (debug) {
     const dbg = Buffer.from(await page.evaluate((j) => window.compose(j), { ...job, src: `/.cache/photos/${job.id}-upright.png`, debug: true }), 'base64');
     await sharp(dbg).resize({ width: 1200 }).jpeg({ quality: 85 }).toFile(path.join(work, `${job.id}-debug.jpg`));
   }
-  const meta = await sharp(path.join(outDir, `${job.id}-1600.webp`)).metadata();
+  const meta = await sharp(path.join(outDir, `${job.id}-1280.webp`)).metadata();
   console.log(`${job.id}: ${meta.width}×${meta.height}, EXIF ${meta.exif ? 'PRESENT' : 'none'}`);
 }
 await browser.close();

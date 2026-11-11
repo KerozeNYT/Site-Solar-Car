@@ -417,9 +417,30 @@ const ctaLinks = (ctas = [], jump = () => '') =>
 const still = (id, alt, { sizes = '100vw', eager = false, cls = '' } = {}) =>
   `<img class="${cls}" src="/stills/${id}-960.webp" srcset="/stills/${id}-960.webp 960w, /stills/${id}-1600.webp 1600w" sizes="${sizes}" width="1600" height="900" alt="${esc(alt)}" ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}>`;
 
-/** a real photo prepared by scripts/photos.mjs (public/img/realisations/<id>-960|1600.webp) */
+/** a real photo prepared by scripts/photos.mjs (public/img/realisations/<id>-320|960|1280.webp) */
+const RP = '/img/realisations/';
 const photo = (p, { sizes = '100vw', eager = false, cls = '' } = {}) =>
-  `<img class="${cls}" src="/img/realisations/${p.id}-960.webp" srcset="/img/realisations/${p.id}-960.webp 960w, /img/realisations/${p.id}-1600.webp 1600w" sizes="${sizes}" width="1200" height="1600" alt="${esc(p.alt || '')}"${p.focus ? ` style="object-position:${esc(p.focus)}"` : ''} ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}>`;
+  `<img class="${cls}" src="${RP}${p.id}-960.webp" srcset="${RP}${p.id}-960.webp 960w, ${RP}${p.id}-1280.webp 1280w" sizes="${sizes}" width="1200" height="1600" alt="${esc(p.alt || '')}"${p.focus ? ` style="object-position:${esc(p.focus)}"` : ''} ${eager ? 'fetchpriority="high" decoding="async"' : 'loading="lazy" decoding="async"'}>`;
+
+/** the job (content/realisations.js) a published photo belongs to, with the photo itself */
+const jobOf = (ctx, photoId) => {
+  for (const r of ctx.realisations || []) {
+    const p = (r.photos || []).find((x) => x.id === photoId);
+    if (p) return { job: r, photo: p };
+  }
+  return null;
+};
+/** page header photo: its 16:9 crop on wide screens, the full photo on phones */
+const heroPicture = (p) =>
+  p.wide
+    ? `<picture><source media="(min-width: 761px)" srcset="${RP}${p.id}-wide-960.webp 960w, ${RP}${p.id}-wide-1600.webp 1600w" sizes="100vw" width="1600" height="900"><source media="(max-width: 760px)" srcset="${RP}${p.id}-phone.webp" width="750" height="1200">${photo(p, { eager: true })}</picture>`
+    : photo(p, { eager: true });
+const heroPreload = (p) =>
+  p.wide
+    ? `<link rel="preload" as="image" media="(min-width: 761px)" href="${RP}${p.id}-wide-1600.webp" imagesrcset="${RP}${p.id}-wide-960.webp 960w, ${RP}${p.id}-wide-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">\n<link rel="preload" as="image" media="(max-width: 760px)" href="${RP}${p.id}-phone.webp" fetchpriority="high">`
+    : `<link rel="preload" as="image" href="${RP}${p.id}-1280.webp" imagesrcset="${RP}${p.id}-960.webp 960w, ${RP}${p.id}-1280.webp 1280w" imagesizes="100vw" fetchpriority="high">`;
+/** share image (16:9 JPEG) of a header photo, else the 3D still */
+const shareImage = (hero, s) => (hero?.wide ? `${RP}${hero.id}-wide-1600.jpg` : `/stills/${s.still}-1600.jpg`);
 
 function ctaBand(ctx) {
   const c = ctx.home.ctaBand;
@@ -692,7 +713,8 @@ function offersFor(ctx, slug) {
 export function servicePage(ctx, s) {
   if (s.slug === 'covering-dechromage') return coveringServicePage(ctx, s);
   // a real job photo for the header when one is published (content/realisations.js), else the 3D still
-  const hero = s.heroPhoto ? (ctx.realisations || []).flatMap((r) => r.photos || []).find((p) => p.id === s.heroPhoto) : null;
+  const heroJob = s.heroPhoto ? jobOf(ctx, s.heroPhoto) : null;
+  const hero = heroJob?.photo || null;
   const b = ctx.business;
   const others = ctx.services.filter((o) => o.slug !== s.slug);
   const law = s.law
@@ -710,13 +732,13 @@ export function servicePage(ctx, s) {
     provider: { '@id': abs(b, '/#entreprise') },
     areaServed: [{ '@type': 'City', name: b.address?.city }, { '@type': 'City', name: 'Tours' }, { '@type': 'AdministrativeArea', name: `${b.department} (${b.departmentCode})` }],
     url: abs(b, `/${s.slug}/`),
-    image: abs(b, hero ? `/img/realisations/${hero.id}-1600.jpg` : `/stills/${s.still}-1600.jpg`),
+    image: abs(b, shareImage(hero, s)),
     ...offersFor(ctx, s.slug),
   };
   const body = `
   <article class="service">
     <header class="service-hero">
-      <div class="service-hero__media">${hero ? `${photo(hero, { eager: true })}<p class="service-hero__credit">Réalisation de l’atelier ${esc(b.name)}</p>` : still(s.still, `${s.name} — ${b.name}`, { eager: true })}</div>
+      <div class="service-hero__media">${hero ? `${heroPicture(hero)}<p class="service-hero__credit">${esc(heroJob.job.vehicle)} · réalisation ${esc(b.name)}</p>` : still(s.still, `${s.name} — ${b.name}`, { eager: true })}</div>
       <div class="container service-hero__copy">
         <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li aria-current="page">${esc(s.name)}</li></ol></nav>
         <p class="kicker">${esc(b.name)} · ${esc(placeLabel(b))}</p>
@@ -741,7 +763,7 @@ export function servicePage(ctx, s) {
       </div>
     </section>
     ${law}
-    ${realisationsBlock(ctx, { service: s.slug, title: `${s.name} : nos réalisations` })}
+    ${realisationsBlock(ctx, { service: s.slug, title: `${s.name} : nos réalisations`, exclude: heroJob?.job.id })}
     ${faqBlock(s.faq)}
   </article>
 
@@ -762,11 +784,11 @@ export function servicePage(ctx, s) {
       title,
       description: s.seo.description,
       path: `/${s.slug}/`,
-      image: hero ? `/img/realisations/${hero.id}-1600.jpg` : `/stills/${s.still}-1600.jpg`,
+      image: shareImage(hero, s),
       bodyClass: 'page-service',
       extra: [ld(serviceLd), ld(faqLd(s.faq)), ld(breadcrumbLd(b, [{ name: 'Accueil', path: '/' }, { name: s.name, path: `/${s.slug}/` }]))].join('\n'),
       preload: hero
-        ? `<link rel="preload" as="image" href="/img/realisations/${hero.id}-1600.webp" imagesrcset="/img/realisations/${hero.id}-960.webp 960w, /img/realisations/${hero.id}-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`
+        ? heroPreload(hero)
         : `<link rel="preload" as="image" href="/stills/${s.still}-1600.webp" imagesrcset="/stills/${s.still}-960.webp 960w, /stills/${s.still}-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`,
     },
     body
@@ -779,6 +801,34 @@ const frDay = (d) => new Date(d + 'T12:00:00Z').toLocaleDateString('fr-FR', { da
 
 function coveringServicePage(ctx, s) {
   const b = ctx.business;
+  const heroJob = s.heroPhoto ? jobOf(ctx, s.heroPhoto) : null;
+  const hero = heroJob?.photo || null;
+  // the job shown in full under the header (content/covering.js, feature)
+  const F = CP.feature;
+  const fJob = F && (ctx.realisations || []).find((r) => r.id === F.job);
+  const fPhoto = (id) => fJob?.photos.find((p) => p.id === id);
+  const fMain = fJob && fPhoto(F.main);
+  const feature = fMain
+    ? `<section class="section cov-feature" aria-labelledby="feature-title">
+      <div class="container">
+        <div class="cov-feature__grid">
+          <figure class="cov-feature__main">${photo(fMain, { sizes: '(min-width: 900px) 56vw, 100vw' })}</figure>
+          <div class="cov-feature__copy">
+            <p class="kicker">${esc(F.kicker)}</p>
+            <h2 id="feature-title">${rich(F.title)}</h2>
+            ${F.text.map((t) => `<p>${esc(t)}</p>`).join('')}
+            <dl class="cov-feature__facts">${F.facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+            <a class="btn btn--primary" href="/contact/?prestation=${s.slug}">${esc(F.cta)}</a>
+          </div>
+        </div>
+        <ul class="cov-feature__strip">${F.strip
+          .map((x) => ({ ...x, p: fPhoto(x.id) }))
+          .filter((x) => x.p)
+          .map((x) => `<li><figure>${photo(x.p, { sizes: '(min-width: 900px) 45vw, 100vw' })}<figcaption>${esc(x.caption)}</figcaption></figure></li>`)
+          .join('')}</ul>
+      </div>
+    </section>`
+    : '';
   const others = ctx.services.filter((o) => o.slug !== s.slug);
   const works = (ctx.realisations || []).filter((r) => r.service === s.slug);
   const insta = b.social?.instagram;
@@ -817,7 +867,7 @@ function coveringServicePage(ctx, s) {
     provider: { '@id': abs(b, '/#entreprise') },
     areaServed: [{ '@type': 'City', name: b.address?.city }, { '@type': 'City', name: 'Tours' }, { '@type': 'AdministrativeArea', name: `${b.department} (${b.departmentCode})` }],
     url: abs(b, `/${s.slug}/`),
-    image: abs(b, `/stills/${s.still}-1600.jpg`),
+    image: abs(b, shareImage(hero, s)),
     hasOfferCatalog: {
       '@type': 'OfferCatalog',
       name: 'Covering et déchromage',
@@ -827,7 +877,7 @@ function coveringServicePage(ctx, s) {
   const body = `
   <article class="service service--covering">
     <header class="service-hero service-hero--light">
-      <div class="service-hero__media">${still(s.still, CP.heroAlt, { eager: true })}<p class="service-hero__credit">Rendu 3D indicatif</p></div>
+      <div class="service-hero__media">${hero ? `${heroPicture(hero)}<p class="service-hero__credit">${esc(heroJob.job.vehicle)} · réalisation ${esc(b.name)}</p>` : `${still(s.still, CP.heroAlt, { eager: true })}<p class="service-hero__credit">Rendu 3D indicatif</p>`}</div>
       <div class="container service-hero__copy">
         <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li aria-current="page">${esc(s.name)}</li></ol></nav>
         <p class="kicker">${esc(b.name)} · ${esc(placeLabel(b))}</p>
@@ -836,6 +886,7 @@ function coveringServicePage(ctx, s) {
         <div class="ctas"><a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a><a class="btn btn--ghost" href="#offres-title" data-scroll>Voir les offres</a></div>
       </div>
     </header>
+    ${feature}
 
     <section class="section cov-offers" aria-labelledby="offres-title">
       <div class="container">
@@ -868,7 +919,7 @@ function coveringServicePage(ctx, s) {
 
     ${
       works.length
-        ? realisationsBlock(ctx, { service: s.slug, title: CP.works.title })
+        ? realisationsBlock(ctx, { service: s.slug, title: CP.works.title, exclude: fMain ? F.job : null })
         : `<section class="section section--tight" aria-labelledby="works-cov"><div class="container container--narrow"><h2 id="works-cov">${esc(CP.works.title)}</h2><p>${esc(CP.works.empty)}</p>${insta ? `<p><a class="btn btn--ghost" href="${esc(insta)}" rel="noopener" target="_blank">Voir l’atelier sur Instagram</a></p>` : ''}</div></section>`
     }
     ${faqBlock(s.faq)}
@@ -894,10 +945,12 @@ function coveringServicePage(ctx, s) {
       title: s.seo.title,
       description: s.seo.description,
       path: `/${s.slug}/`,
-      image: `/stills/${s.still}-1600.jpg`,
+      image: shareImage(hero, s),
       bodyClass: 'page-service page-covering',
       extra: [ld(serviceLd), ld(faqLd(s.faq)), ld(breadcrumbLd(b, [{ name: 'Accueil', path: '/' }, { name: s.name, path: `/${s.slug}/` }]))].join('\n'),
-      preload: `<link rel="preload" as="image" href="/stills/${s.still}-1600.webp" imagesrcset="/stills/${s.still}-960.webp 960w, /stills/${s.still}-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`,
+      preload: hero
+        ? heroPreload(hero)
+        : `<link rel="preload" as="image" href="/stills/${s.still}-1600.webp" imagesrcset="/stills/${s.still}-960.webp 960w, /stills/${s.still}-1600.webp 1600w" imagesizes="100vw" fetchpriority="high">`,
     },
     body
   );
@@ -1196,8 +1249,9 @@ function beforeAfter(ba, caption = '') {
     </figure>`;
 }
 
-/** one job: photos or a before / after, the car, the work, a link to ask for the same */
-function realisationCard(ctx, r) {
+/** one job: photos or a before / after, the car, the work, a link to ask for the same. The short
+ * story (`text`) is only told on /realisations/: elsewhere the card stays short (no repeated copy) */
+function realisationCard(ctx, r, { story = true } = {}) {
   const s = ctx.services.find((x) => x.slug === r.service);
   const shots = r.photos || [];
   const media = r.beforeAfter
@@ -1208,7 +1262,7 @@ function realisationCard(ctx, r) {
             ? `<div class="work__thumbs" role="group" aria-label="Autres photos">${shots
                 .map(
                   (p, i) =>
-                    `<a href="/img/realisations/${p.id}-1600.webp" data-work-photo="${p.id}" data-alt="${esc(p.alt || r.vehicle)}" data-focus="${esc(p.focus || '')}"${i === 0 ? ' aria-current="true"' : ''}><img src="/img/realisations/${p.id}-960.webp" alt="" width="96" height="128" loading="lazy" decoding="async"${p.focus ? ` style="object-position:${esc(p.focus)}"` : ''}><span class="visually-hidden">Photo ${i + 1}</span></a>`
+                    `<a href="${RP}${p.id}-1280.webp" data-work-photo="${p.id}" data-alt="${esc(p.alt || r.vehicle)}" data-focus="${esc(p.focus || '')}"${i === 0 ? ' aria-current="true"' : ''}><img src="${RP}${p.id}-320.webp" alt="" width="96" height="128" loading="lazy" decoding="async"${p.focus ? ` style="object-position:${esc(p.focus)}"` : ''}><span class="visually-hidden">Photo ${i + 1}</span></a>`
                 )
                 .join('')}</div>`
             : ''
@@ -1220,20 +1274,20 @@ function realisationCard(ctx, r) {
         <p class="kicker">${esc(s?.shortName || s?.name || '')}${r.date ? ` · ${esc(r.date)}` : ''}</p>
         <h3>${esc(r.vehicle)}</h3>
         ${r.finish ? `<p class="work__finish">${esc(r.finish)}</p>` : ''}
-        ${r.text ? `<p>${esc(r.text)}</p>` : ''}
+        ${story && r.text ? `<p>${esc(r.text)}</p>` : ''}
         <a class="work__cta" href="/contact/?prestation=${esc(r.service)}">Demander une prestation similaire <span aria-hidden="true">→</span></a>
       </div>
     </li>`;
 }
 
 /** latest jobs (all, or one service); nothing at all while there is none */
-function realisationsBlock(ctx, { service = null, limit = 3, title = 'Nos dernières réalisations' } = {}) {
-  const list = (ctx.realisations || []).filter((r) => !service || r.service === service).slice(0, limit);
+function realisationsBlock(ctx, { service = null, limit = 3, title = 'Nos dernières réalisations', exclude = null } = {}) {
+  const list = (ctx.realisations || []).filter((r) => (!service || r.service === service) && r.id !== exclude).slice(0, limit);
   if (!list.length) return '';
   return `<section class="section works-block" aria-labelledby="works-${service || 'all'}">
   <div class="container">
     <div class="section-head"><h2 id="works-${service || 'all'}">${esc(title)}</h2></div>
-    <ul class="works">${list.map((r) => realisationCard(ctx, r)).join('')}</ul>
+    <ul class="works">${list.map((r) => realisationCard(ctx, r, { story: false })).join('')}</ul>
     <p><a class="btn btn--ghost" href="/realisations/">Voir toutes les réalisations</a></p>
   </div>
 </section>`;
@@ -1250,6 +1304,7 @@ export function realisationsPage(ctx) {
       <h1>${esc(p.h1)}</h1>
       <p class="lead">${esc(p.intro)}</p>
       ${used.length > 1 ? `<div class="works-filter" role="group" aria-label="Filtrer par prestation" data-works-filter><button type="button" aria-pressed="true" data-filter="">Toutes</button>${used.map((s) => `<button type="button" aria-pressed="false" data-filter="${s.slug}">${esc(s.shortName || s.name)}</button>`).join('')}</div>` : ''}
+      <h2 class="visually-hidden">Véhicules passés par l’atelier</h2>
       <ul class="works" data-works>${ctx.realisations.map((r) => realisationCard(ctx, r)).join('')}</ul>
     </div>
   </section>
