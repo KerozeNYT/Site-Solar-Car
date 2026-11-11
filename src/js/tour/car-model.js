@@ -253,9 +253,13 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     tailMeshes.forEach((m) => tb.expandByObject(m, true));
     if (!tb.isEmpty()) {
       const n = 7;
+      // within the body's width: some light meshes reach past it, and an end sprite then
+      // floated in the air beside the car
+      const z0 = Math.max(tb.min.z, box.min.z + 0.1) + 0.08;
+      const z1 = Math.min(tb.max.z, box.max.z - 0.1) - 0.08;
       for (let i = 0; i < n; i++) {
         const sp = makeGlow(0xff2a1a, 0.34);
-        sp.position.set(tb.min.x - 0.03, (tb.min.y + tb.max.y) / 2, THREE.MathUtils.lerp(tb.min.z + 0.08, tb.max.z - 0.08, i / (n - 1)));
+        sp.position.set(tb.min.x - 0.03, (tb.min.y + tb.max.y) / 2, THREE.MathUtils.lerp(z0, z1, i / (n - 1)));
         group.add(sp);
         tailGlows.push(sp);
       }
