@@ -39,6 +39,9 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x030405);
 scene.fog = new THREE.FogExp2(0x040506, FOG);
 scene.environment = studioReflections(renderer);
+// the windows reflect the same room without the warm lamp: flat glass shows it at its true size,
+// a ragged beige disc, where the curved paint turns it into a fine amber glint
+const glassReflections = studioReflections(renderer, { warm: false });
 
 // ---------------------------------------------------------------- studio: floor, lights
 // the floor is lit in a soft pool around the car and fades to black with distance
@@ -70,7 +73,7 @@ scene.add(top, top.target);
 
 /** reflections: a black room with long strip lights (crisp lines on the clearcoat), a dim
  * overhead diffuser and one small warm lamp (the amber glints) */
-function studioReflections(renderer) {
+function studioReflections(renderer, { warm = true } = {}) {
   const env = new THREE.Scene();
   env.add(new THREE.Mesh(new THREE.BoxGeometry(24, 9, 18), new THREE.MeshBasicMaterial({ color: 0x050506, side: THREE.BackSide })));
   const floorEnv = new THREE.Mesh(new THREE.PlaneGeometry(24, 18), new THREE.MeshBasicMaterial({ color: 0x0e0f11 }));
@@ -92,9 +95,9 @@ function studioReflections(renderer) {
   // dim overhead diffuser
   strip(5, 0.05, 2.6, 0.35, 0, 4.4, 0);
   // small warm lamp
-  const warm = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.55, 0.2).multiplyScalar(14) }));
-  warm.position.set(3.5, 3.6, 2.5);
-  env.add(warm);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.55, 0.2).multiplyScalar(14) }));
+  lamp.position.set(3.5, 3.6, 2.5);
+  if (warm) env.add(lamp);
   const pmrem = new THREE.PMREMGenerator(renderer);
   const rt = pmrem.fromScene(env, 0.0, 0.1, 60, { size: 512, position: new THREE.Vector3(0, 0.9, 0) });
   pmrem.dispose();
@@ -109,6 +112,7 @@ const car = await loadCarModel({ ...carConfig, model: '/public' + carConfig.mode
 scene.add(car.group);
 car.setFrontVLT(0.75);
 car.setStarlight({ count: 1100, twinkle: true });
+for (const m of Object.values(car.materials.glass)) m.envMap = glassReflections;
 // the red halo sprites beside the tail lights float off the body at this resolution
 const halos = [];
 car.group.traverse((o) => {
