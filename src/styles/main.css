@@ -1250,6 +1250,13 @@ p {
 .film.is-ready .tour__video {
   opacity: 1;
 }
+/* the sharp version arrives over the light one with a cross-fade */
+.film.is-ready .tour__video--hd {
+  opacity: 0;
+}
+.film.is-ready .tour__video--hd.is-on {
+  opacity: 1;
+}
 /* until the video is there, each chapter shows its own image */
 .tour-live .film:not(.is-ready) .chapter.is-visible .chapter__still {
   display: block;

@@ -16,9 +16,11 @@
 
 ### Vidéo d'accueil au défilement
 - La visite 3D de l'accueil est remplacée par une vidéo que le défilement fait avancer et
-  reculer (`src/js/film.js`, réglages dans `content/film.js`) : 1080p sur ordinateur, 720p sur
-  téléphone, téléchargée après l'affichage de la page puis gardée en mémoire (avance et retour
-  instantanés). Encodage dédié : image clé toutes les 12 images, sans images B.
+  reculer (`src/js/film.js`, réglages dans `content/film.js`), gardée en mémoire après
+  l'affichage de la page (avance et retour instantanés). Encodage dédié, sans images B.
+- Chargement rapide : une version légère (360p, 0,9 Mo) répond au défilement en 1 à 2 s, la
+  version nette (900p ordinateur 4,5 Mo, 720p téléphone 3,1 Mo, au lieu de 1080p 12 Mo) se
+  télécharge derrière et prend le relais en fondu, au même instant du film.
 - Textes des prestations et barre d'onglets (Phares, Detailing, Vitres teintées, Feux teintés,
   Covering, Ciel étoilé) calés sur la vidéo ; un onglet amène au bon moment du film.
 - Rythme : chaque prestation a la même longueur de défilement, les passages entre deux

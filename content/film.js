@@ -15,9 +15,12 @@ export const film = {
   // length whatever its duration in the video, and the film speeds through the passages in
   // between (the page stays short)
   pace: { hold: 0.45, opening: 0.45, chapter: 0.55, closing: 0.5, gap: 0.08 },
+  // the light version answers the scroll within a second, the sharp one (phone or computer)
+  // takes over once downloaded
   sources: {
-    desktop: '/video/accueil-1080p.mp4',
+    preview: '/video/accueil-360p.mp4',
     mobile: '/video/accueil-720p.mp4',
+    desktop: '/video/accueil-900p.mp4',
   },
   // chapters in the order they appear. from / to: when the copy is on screen (s); still: the
   // second used for the chapter's image (static page, posters), `alt` its description. `tab`: label of the tab

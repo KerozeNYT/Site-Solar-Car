@@ -1,8 +1,9 @@
 /**
  * Home film: the scroll moves the video forward and back (content/film.js, section [data-film]).
- * - The whole video is downloaded once the page has loaded (1080p on computers, 720p on phones),
- *   kept in memory: seeking is then instant, without a network request at each frame. The
- *   encoding (scripts/film-assets.mjs) has a key frame every 12 images and no B-frames.
+ * - Once the page has loaded, a light version (360p, about 1 MB) is downloaded and kept in
+ *   memory: the film answers the scroll within a second; the sharp one (900p computers, 720p
+ *   phones) follows in the background and takes over with a cross-fade. Seeking in memory is
+ *   instant; the encoding (scripts/film-assets.mjs) has short key-frame intervals, no B-frames.
  * - The video time follows the scroll with some easing; the chapters (copy, links) and the tabs
  *   follow the video time, so the words always match the picture.
  * - Before the video is there, each chapter shows its own image: the page reads the same.
@@ -10,7 +11,7 @@
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
 export function startFilm(section) {
-  const video = section.querySelector('[data-video]');
+  let video = section.querySelector('[data-video]');
   const stage = section.querySelector('[data-stage]');
   const progressEl = section.querySelector('[data-progress]');
   const loading = section.querySelector('[data-loading]');
@@ -41,7 +42,8 @@ export function startFilm(section) {
     return keys[keys.length - 1][1];
   };
   const phone = matchMedia('(max-width: 760px)').matches;
-  const src = phone ? section.dataset.srcMobile : section.dataset.srcDesktop;
+  const sharp = phone ? section.dataset.srcMobile : section.dataset.srcDesktop;
+  const light = section.dataset.srcPreview || sharp;
 
   // ------------------------------------------------------------- scroll <-> time
   // Scroll -> time is not linear: each chapter gets the same scroll length (pace.chapter screens,
@@ -120,6 +122,8 @@ export function startFilm(section) {
   }
 
   // ------------------------------------------------------------- the video
+  // 1. the light version (about 1 MB) answers the scroll within a second; 2. the sharp one
+  // (phone or computer) downloads behind it and takes over with a cross-fade, at the same moment
   let ready = false;
   const show = () => {
     if (ready) return;
@@ -128,28 +132,60 @@ export function startFilm(section) {
     loading.hidden = true;
     seek(true);
   };
+  /** the whole file in memory (seeking is then instant), with its progress */
+  async function blobOf(url, onProgress) {
+    const res = await fetch(url);
+    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    const total = Number(res.headers.get('content-length')) || 0;
+    const reader = res.body.getReader();
+    const parts = [];
+    let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      parts.push(value);
+      got += value.length;
+      if (total) onProgress?.(got / total);
+    }
+    return URL.createObjectURL(new Blob(parts, { type: 'video/mp4' }));
+  }
+  const loaded = (v) => new Promise((resolve) => (v.readyState >= 2 ? resolve() : v.addEventListener('loadeddata', resolve, { once: true })));
   async function load() {
+    let first;
     try {
-      const res = await fetch(src);
-      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
-      const total = Number(res.headers.get('content-length')) || 0;
-      const reader = res.body.getReader();
-      const parts = [];
-      let got = 0;
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        parts.push(value);
-        got += value.length;
-        if (total && pct) pct.textContent = `${Math.round((got / total) * 100)} %`;
-      }
-      video.src = URL.createObjectURL(new Blob(parts, { type: 'video/mp4' }));
+      first = await blobOf(light, (k) => pct && (pct.textContent = `${Math.round(k * 100)} %`));
     } catch (err) {
       console.warn('[film] direct playback', err);
-      video.src = src; // played from the network (seeking a little slower)
+      first = light; // played from the network (seeking a little slower)
     }
-    video.addEventListener('loadeddata', show, { once: true });
+    video.src = first;
     video.load();
+    await loaded(video);
+    show();
+    if (sharp === light) return;
+    // the sharp version, quietly in the background
+    let hdUrl;
+    try {
+      hdUrl = await blobOf(sharp);
+    } catch {
+      return; // the light version stays: the film still works
+    }
+    const hd = video.cloneNode();
+    hd.removeAttribute('data-video');
+    hd.classList.add('tour__video--hd');
+    hd.src = hdUrl;
+    video.after(hd);
+    hd.load();
+    await loaded(hd);
+    hd.currentTime = current;
+    await new Promise((resolve) => hd.addEventListener('seeked', resolve, { once: true }));
+    const old = video;
+    video = hd;
+    hd.classList.add('is-on');
+    setTimeout(() => {
+      old.remove();
+      if (first.startsWith('blob:')) URL.revokeObjectURL(first);
+    }, 900);
   }
   // the download waits for the page itself (text, images): never in the way of the first screen
   const idle = (fn) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 300));
