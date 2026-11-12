@@ -11,6 +11,9 @@ import { glazing as G } from './regulation.js';
 // long-form sections and extra FAQ of the service pages (one file per page)
 import * as detailingMore from './sections/detailing-carrosserie.js';
 import * as starsMore from './sections/ciel-etoile.js';
+import * as coveringMore from './sections/covering-dechromage.js';
+import * as tintMore from './sections/vitres-teintees.js';
+import * as dechromage from './sections/dechromage.js';
 
 export const business = {
   name: 'SOLAR CAR 37',
@@ -547,13 +550,23 @@ export const services = [
 ];
 
 // the long-form sections of each service page, and their questions added to its FAQ
-const more = { 'detailing-carrosserie': detailingMore, 'ciel-etoile': starsMore };
+const more = { 'detailing-carrosserie': detailingMore, 'ciel-etoile': starsMore, 'covering-dechromage': coveringMore, 'vitres-teintees': tintMore };
 for (const s of services) {
   const x = more[s.slug];
   if (!x) continue;
   s.sections = x.sections;
   s.faq = [...s.faq, ...(x.faq || [])];
 }
+// Déchromage: its own page, part of the covering savoir-faire (`sub`: not a card of its own on
+// the home page, listed everywhere else: menu, footer, related links, quote form)
+services.splice(services.findIndex((s) => s.slug === 'covering-dechromage') + 1, 0, {
+  ...dechromage.page,
+  sub: 'covering-dechromage',
+  still: 'covering',
+  heroCta: { label: 'Voir les finitions', href: '#finitions-dechromage' },
+  sections: dechromage.sections,
+  law: null,
+});
 
 /** Local page: where the workshop is, how to get there, opening hours. */
 export const atelierPage = {

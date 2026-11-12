@@ -611,6 +611,7 @@ export function tourDemoPage(ctx) {
 export function homePage(ctx) {
   const { home, services, business: b } = ctx;
   const cards = services
+    .filter((s) => !s.sub)
     .map(
       (s, i) => `<li class="service-card">
         <a href="/${s.slug}/" class="service-card__link">
@@ -629,7 +630,7 @@ export function homePage(ctx) {
   const body = `
   ${filmSection(ctx)}
 
-  <div class="marquee" aria-hidden="true"><div class="marquee__track">${Array.from({ length: 2 }, () => services.map((s) => `<span>${esc(s.name)}</span>`).join('<i>◆</i>') + '<i>◆</i>').join('')}</div></div>
+  <div class="marquee" aria-hidden="true"><div class="marquee__track">${Array.from({ length: 2 }, () => services.filter((s) => !s.sub).map((s) => `<span>${esc(s.name)}</span>`).join('<i>◆</i>') + '<i>◆</i>').join('')}</div></div>
 
   <section class="section intro" id="prestations" aria-labelledby="prestations-title">
     <div class="container">
@@ -974,6 +975,8 @@ function coveringServicePage(ctx, s) {
         ${table}
       </div>
     </section>
+
+    ${richSections(ctx, s)}
 
     <section class="section" aria-labelledby="benefits-${s.slug}">
       <div class="container">

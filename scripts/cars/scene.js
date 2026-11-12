@@ -135,7 +135,7 @@ const REGIONS = /* glsl */ `
       vec2 a = v[i];
       vec2 b = v[(i + 1 == n) ? 0 : i + 1];
       vec2 e = normalize(b - a);
-      d = smin(d, e.x * (p.y - a.y) - e.y * (p.x - a.x), 0.025);
+      d = smin(d, e.y * (p.x - a.x) - e.x * (p.y - a.y), 0.025); // outlines run clockwise
     }
     return d;
   }
@@ -196,8 +196,8 @@ function bodyMaterial(type, kind) {
     const lower = /* glsl */ `
       float trimDist;
       vec3 nn = normalize(vN);
-      float rough = roughnessFactor;
-      float metal = metalnessFactor;
+      float rough = roughness;
+      float metal = metalness;
       vec3 emit = vec3(0.0);
       float coat = 1.0;
       ${
@@ -276,7 +276,7 @@ function uniformsFor(type) {
     data[i * 4 + 1] = Math.max(belt(x), roof(x));
   }
   const tex = new THREE.DataTexture(data, N, 1, THREE.RGBAFormat, THREE.FloatType);
-  tex.minFilter = tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = tex.magFilter = THREE.NearestFilter; // float textures are not filterable everywhere
   tex.needsUpdate = true;
   const pad = (pts) => [...pts.map(([x, y]) => new THREE.Vector2(x, y)), ...Array.from({ length: 6 - pts.length }, () => new THREE.Vector2())];
   const split = [...(type.split || []), 99, 99, 99].slice(0, 3);

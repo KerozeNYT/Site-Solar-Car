@@ -309,7 +309,7 @@ export function simStarlight(ctx) {
 export function simFor(ctx, slug) {
   switch (slug) {
     case 'vitres-teintees':
-      return simTint(ctx) + tintPriceTable(ctx);
+      return simTint(ctx); // the price grid of every category is a section of the page (content/sections/vitres-teintees.js)
     case 'feux-arriere-teintes':
       return simLights(ctx);
     case 'renovation-phares':

@@ -1,6 +1,6 @@
 {
  "/": {
-  "hash": "52437e1538b32b77",
+  "hash": "f352867a6be81e9c",
   "date": "2026-11-12"
  },
  "/404.html": {
@@ -8,15 +8,15 @@
   "date": "2026-10-13"
  },
  "/atelier-vouvray/": {
-  "hash": "233298fd34641fbd",
-  "date": "2026-11-11"
+  "hash": "075911f1792ad896",
+  "date": "2026-11-12"
  },
  "/ciel-etoile/": {
-  "hash": "0b480686488dd153",
+  "hash": "f5a41f9086bedf9f",
   "date": "2026-11-12"
  },
  "/contact/": {
-  "hash": "dce03819adc918c1",
+  "hash": "fcf5aaa2da237d74",
   "date": "2026-11-12"
  },
  "/contact/merci/": {
@@ -24,7 +24,11 @@
   "date": "2026-10-13"
  },
  "/covering-dechromage/": {
-  "hash": "66b62e63beaa0df3",
+  "hash": "ee528f41c4a58f5e",
+  "date": "2026-11-12"
+ },
+ "/dechromage/": {
+  "hash": "2c42e809169ea65a",
   "date": "2026-11-12"
  },
  "/design/style-tile/": {
@@ -32,15 +36,15 @@
   "date": "2026-11-10"
  },
  "/design/visite-3d/": {
-  "hash": "d59900efa77fac4e",
+  "hash": "4be247e9aa6ec3f4",
   "date": "2026-11-12"
  },
  "/detailing-carrosserie/": {
-  "hash": "da4c982274b10e77",
+  "hash": "3816437daad6c7c8",
   "date": "2026-11-12"
  },
  "/feux-arriere-teintes/": {
-  "hash": "30c14ffbd578e4d1",
+  "hash": "b8579181ca34cd24",
   "date": "2026-11-12"
  },
  "/guides/": {
@@ -88,67 +92,67 @@
   "date": "2026-11-11"
  },
  "/renovation-phares/": {
-  "hash": "b504faa3403f99ae",
+  "hash": "7e125c48f9fae9dc",
   "date": "2026-11-12"
  },
  "/vitres-teintees-amboise/": {
-  "hash": "b346fcfb66f1c91c",
-  "date": "2026-11-11"
+  "hash": "ef5fe703d6764e62",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-chambray-les-tours/": {
-  "hash": "a4476875e0af9cd9",
-  "date": "2026-11-11"
+  "hash": "a8e19c405e7ae03e",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-fondettes/": {
-  "hash": "0da6498cb492f719",
-  "date": "2026-11-11"
+  "hash": "9e7b0fcd0d0fcfdb",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-joue-les-tours/": {
-  "hash": "ed55b14fff19e1a4",
-  "date": "2026-11-11"
+  "hash": "048552455d899439",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-la-riche/": {
-  "hash": "0c57c0dbd7f685ed",
-  "date": "2026-11-11"
+  "hash": "ac7272765c079c4c",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-monnaie/": {
-  "hash": "37cb9a8e3bb52c0a",
-  "date": "2026-11-11"
+  "hash": "f641e71333cf6ff0",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-montlouis-sur-loire/": {
-  "hash": "751543d2c6d4a1a5",
-  "date": "2026-11-11"
+  "hash": "2323f9bbed6aa014",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-parcay-meslay/": {
-  "hash": "61dcedf41a1b37b9",
-  "date": "2026-11-11"
+  "hash": "b6057ba134ab189a",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-rochecorbon/": {
-  "hash": "d89e3a9bd4a3d79a",
-  "date": "2026-11-11"
+  "hash": "8a900ff58f732d2b",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-saint-avertin/": {
-  "hash": "f119c235cd898818",
-  "date": "2026-11-11"
+  "hash": "1f91e392314810a9",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-saint-cyr-sur-loire/": {
-  "hash": "e29f239cadcbd1ca",
-  "date": "2026-11-11"
+  "hash": "7c34e74159cf25c0",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-saint-pierre-des-corps/": {
-  "hash": "4b0836b575c82528",
-  "date": "2026-11-11"
+  "hash": "282f511612accd09",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-tours/": {
-  "hash": "f76e5fc737a699bd",
-  "date": "2026-11-11"
+  "hash": "3efb95faa356cf8b",
+  "date": "2026-11-12"
  },
  "/vitres-teintees-vernou-sur-brenne/": {
-  "hash": "ce8d9f442dec86b5",
-  "date": "2026-11-11"
+  "hash": "3d96a5bea0320810",
+  "date": "2026-11-12"
  },
  "/vitres-teintees/": {
-  "hash": "a336a2f76b8dead9",
+  "hash": "1bd44499289baadb",
   "date": "2026-11-12"
  },
  "/zones-intervention/": {
