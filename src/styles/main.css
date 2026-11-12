@@ -4827,3 +4827,17 @@ p {
     width: 62vmin;
   }
 }
+
+/* online booking (business.bookingUrl): the booking page embedded on the contact page */
+.booking__frame {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.booking__frame iframe {
+  display: block;
+  width: 100%;
+  height: min(820px, 92vh);
+  border: 0;
+}

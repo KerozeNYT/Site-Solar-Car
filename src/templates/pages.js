@@ -1127,6 +1127,17 @@ export function contactPage(ctx) {
       </div>
     </div>
   </section>
+  ${
+    b.bookingUrl
+      ? `<section class="section section--paper booking" id="rendez-vous" aria-labelledby="booking-title">
+    <div class="container">
+      <div class="section-head"><h2 id="booking-title">Réserver un créneau</h2><p class="lead">Choisissez directement un créneau libre de l’atelier : seuls les moments réellement disponibles sont proposés. Vous recevez une confirmation par e-mail.</p></div>
+      <div class="booking__frame"><iframe src="${esc(b.bookingUrl)}${b.bookingUrl.includes('?') ? '&' : '?'}embed=true&amp;theme=dark" title="Réservation d’un créneau à l’atelier" loading="lazy" allow="clipboard-write"></iframe></div>
+      <p class="price-note">Un créneau réservé n’engage ni prix ni prestation : nous confirmons le détail avec vous. Un empêchement ? Le lien de la confirmation permet de déplacer ou d’annuler.</p>
+    </div>
+  </section>`
+      : ''
+  }
   ${visitBlock(ctx, { title: 'Venir à l’atelier' })}`;
   return page(ctx, { title: c.seo.title, description: c.seo.description, path: '/contact/', bodyClass: 'page-contact', extra: ld(localBusiness(ctx)) }, body);
 }
