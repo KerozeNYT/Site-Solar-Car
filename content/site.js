@@ -604,20 +604,21 @@ export const atelierPage = {
 /** Google reviews: links only — no rating or review is ever displayed without coming from Google. */
 // Partner brands (as given by SOLAR CAR 37). Shown as wordmarks in the site's style; a `logo`
 // (single-colour SVG or PNG on a transparent background, in public/img/partners/) is shown
-// instead, painted in the site's gold. 3M: logo from the Simple Icons set (CC0 drawing).
+// instead, painted in the site's gold. Official logos taken from each brand's own website
+// (assets-src/partners/, `node scripts/partner-logos.mjs`); 3M: Simple Icons drawing (CC0).
 export const partners = {
   title: 'Nos marques partenaires',
   text: 'Films, outillage et produits professionnels : nous travaillons avec des marques reconnues, choisies pour leur qualité et leur tenue dans le temps.',
   brands: [
-    { name: 'Milwaukee', logo: null },
-    { name: 'TeckWrap', logo: null },
-    { name: 'RUPES', logo: null },
-    { name: '3M', logo: '/img/partners/3m.svg' },
-    { name: 'Solar Screen', logo: null },
-    { name: 'Tego', logo: null },
-    { name: 'Coverstyl’', logo: null },
-    { name: 'STEK', logo: null },
-    { name: 'Protector', logo: null },
+    { name: 'Milwaukee', logo: '/img/partners/milwaukee.png' },
+    { name: 'TeckWrap', logo: '/img/partners/teckwrap.png' },
+    { name: 'RUPES', logo: '/img/partners/rupes.png' },
+    { name: '3M', logo: '/img/partners/3m.png' },
+    { name: 'Solar Screen', logo: '/img/partners/solar-screen.png' },
+    { name: 'Tego', logo: '/img/partners/tego.png' },
+    { name: 'Coverstyl’', logo: '/img/partners/coverstyl.png' },
+    { name: 'STEK', logo: '/img/partners/stek.png' },
+    { name: 'Protector', logo: '/img/partners/protector.png' },
   ],
 };
 

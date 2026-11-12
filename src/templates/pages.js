@@ -1,8 +1,12 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { simFor } from './sims.js';
 import { priceText } from '../../content/pricing.js';
 import { coveringPage as CP, FINISHES, EFFECTS } from '../../content/covering.js';
 import { filmTravel } from '../../content/film.js';
 import { films as coveringFilms, ranges as filmRanges } from '../../content/films/index.js';
+
+const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 
 /**
  * Static HTML templates. Every page is rendered at build time from content/*.js so search
@@ -316,13 +320,35 @@ export function visitBlock(ctx, { title = 'L’atelier', id = 'atelier', heading
 </section>`;
 }
 
+/**
+ * Width / height of a partner logo (public/img/partners/, made by scripts/partner-logos.mjs),
+ * read from the PNG header or the SVG viewBox; null when unknown.
+ */
+function logoRatio(logo) {
+  try {
+    const buf = fs.readFileSync(path.join(ROOT, 'public', logo));
+    if (/\.png$/i.test(logo)) return buf.readUInt32BE(16) / buf.readUInt32BE(20);
+    const vb = /viewBox="\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/.exec(buf.toString('utf8'));
+    return vb ? Number(vb[1]) / Number(vb[2]) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Partner brands: an accessible list, doubled into a slow scrolling band (logos when supplied). */
 function partnersBlock(ctx) {
   const p = ctx.partners;
   if (!p?.brands?.length) return '';
-  // logos are painted in gold through a CSS mask (any single-colour SVG / transparent PNG)
+  // logos are painted in gold through a CSS mask (any single-colour SVG / transparent PNG), all
+  // with about the same area so that a long thin wordmark and a compact one weigh the same
+  const size = (logo) => {
+    const r = logoRatio(logo);
+    if (!r) return '';
+    const w = Math.min(170, Math.sqrt(3300 * r), 58 * r);
+    return `;--w:${Math.round(w)}px;--h:${Math.round(w / r)}px`;
+  };
   const item = (x) =>
-    `<li class="brands__item">${x.logo ? `<i class="brands__logo" style="--logo:url(${esc(x.logo)})" role="img" aria-label="${esc(x.name)}"></i>` : `<span>${esc(x.name)}</span>`}</li>`;
+    `<li class="brands__item">${x.logo ? `<i class="brands__logo" style="--logo:url(${esc(x.logo)})${size(x.logo)}" role="img" aria-label="${esc(x.name)}"></i>` : `<span>${esc(x.name)}</span>`}</li>`;
   const list = p.brands.map(item).join('');
   return `<section class="section brands" aria-labelledby="marques-title">
   <div class="container brands__head reveal-up">
@@ -1161,7 +1187,7 @@ export function legalPage(ctx) {
       <h2>Hébergement</h2>
       <p>${todo(l.host?.name, 'Hébergeur')}<br>${todo(l.host?.address, 'Adresse de l’hébergeur')}</p>
       <h2>Propriété intellectuelle</h2>
-      <p>Les textes, visuels et le logo de ${esc(b.name)} sont protégés. Les marques et modèles de véhicules apparaissant sur le site appartiennent à leurs propriétaires respectifs ; leur présence n’implique aucun partenariat.</p>
+      <p>Les textes, visuels et le logo de ${esc(b.name)} sont protégés. Les marques et logos des fabricants cités (films, outillage, produits) ainsi que les marques et modèles de véhicules apparaissant sur le site appartiennent à leurs propriétaires respectifs ; la présence d’un véhicule n’implique aucun partenariat avec son constructeur.</p>
       ${(ctx.credits || []).length ? `<p>Modèles 3D utilisés sur le site :</p><ul>${ctx.credits.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
       <h2>Tarifs</h2>
       <p>Les prix affichés sur le site et dans les simulateurs sont indicatifs, toutes taxes comprises, et confirmés par un devis après examen du véhicule. Les rendus 3D sont des simulations : ils ne valent ni mesure ni garantie de résultat.</p>

@@ -2,13 +2,15 @@
 //   assets-src/partners/<slug>.<svg|png|jpg|webp>  ->  public/img/partners/<slug>.png
 // The page paints each logo in gold through a CSS mask, which only reads the alpha channel:
 // this script turns any official logo (colours, white or coloured background) into a white
-// silhouette on a transparent background, trimmed, at 3× the size shown on the page.
+// silhouette on a transparent background, trimmed, at 3× the size shown on the page (the page
+// gives each logo about the same area, src/templates/pages.js partnersBlock).
 //   node scripts/partner-logos.mjs
 //
-// How the ink is found, per logo (MODES below, `auto` by default):
+// How the ink is found, per logo (`OPTIONS[slug].mode`, `auto` by default):
 //   auto   transparent logo: its own alpha; opaque logo: distance to the colour of the corners
 //   dark   the dark parts are the logo (black on white)
 //   light  the light parts are the logo (white version, for dark backgrounds)
+// A small raster logo is enlarged first, so its edges stay smooth once traced.
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
@@ -16,14 +18,14 @@ import sharp from 'sharp';
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const src = path.join(root, 'assets-src/partners');
 const out = path.join(root, 'public/img/partners');
-const MODES = {};
-// box of the logo on the page (.brands__logo, 120 × 58 px), ×3 for sharp screens
-const BOX = { w: 360, h: 174 };
+const OPTIONS = {};
+// largest box of a logo on the page (.brands__logo, at most 170 × 58 px), ×3 for sharp screens
+const BOX = { w: 510, h: 174 };
 
 const files = fs.existsSync(src) ? fs.readdirSync(src).filter((f) => /\.(svg|png|jpe?g|webp)$/i.test(f)) : [];
 fs.mkdirSync(out, { recursive: true });
 
-async function silhouette(file, mode) {
+async function silhouette(file, { mode = 'auto' } = {}) {
   const input = path.join(src, file);
   const svg = /\.svg$/i.test(file);
   // vector logos drawn large enough for a clean edge, whatever their own size
@@ -32,7 +34,13 @@ async function silhouette(file, mode) {
     const m = await sharp(input).metadata();
     density = Math.min(2400, Math.ceil(72 * 2 * Math.max(BOX.w / m.width, BOX.h / m.height, 1)));
   }
-  const img = sharp(input, svg ? { density } : {}).rotate().ensureAlpha();
+  let img = sharp(input, svg ? { density } : {}).rotate();
+  if (!svg) {
+    const m = await img.metadata();
+    const k = Math.ceil((BOX.w * 1.5) / m.width);
+    if (k > 1) img = sharp(await img.resize({ width: m.width * k, kernel: 'lanczos3' }).png().toBuffer());
+  }
+  img = img.ensureAlpha();
   const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
   const { width: w, height: h } = info;
   const px = (i) => [data[i], data[i + 1], data[i + 2], data[i + 3]];
@@ -66,7 +74,7 @@ async function silhouette(file, mode) {
 let done = 0;
 for (const file of files) {
   const slug = file.replace(/\.[^.]+$/, '');
-  const mask = await silhouette(file, MODES[slug] || 'auto');
+  const mask = await silhouette(file, OPTIONS[slug]);
   await sharp(await sharp(mask).trim({ threshold: 1 }).toBuffer())
     .resize({ width: BOX.w, height: BOX.h, fit: 'inside', withoutEnlargement: true })
     .png({ compressionLevel: 9, palette: true, colours: 64 })

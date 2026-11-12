@@ -2992,8 +2992,9 @@ p {
 }
 .brands__logo {
   display: block;
-  width: 120px;
-  height: 58px;
+  /* set per logo from its proportions (src/templates/pages.js partnersBlock) */
+  width: var(--w, 120px);
+  height: var(--h, 58px);
   background: var(--gold-metal);
   background-size: 200% 100%;
   -webkit-mask: var(--logo) center / contain no-repeat;
