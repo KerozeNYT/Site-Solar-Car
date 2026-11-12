@@ -7,8 +7,8 @@ ci-dessous se fait sur décision de SOLAR CAR 37.
 
 | Étape | Détail | Qui |
 |---|---|---|
-| Inventaire des anciennes URL | Exporter la liste des pages du site local.fr (plan du site, Search Console « Pages », ou un crawl). L'environnement de travail n'a pas pu y accéder | SOLAR CAR 37 |
-| Correspondances | Remplir le tableau du §3 : chaque ancienne URL vers la nouvelle page la plus proche | à faire ensemble |
+| Inventaire des anciennes URL | Fait le 12 novembre 2026 : le plan du site de www.solarcar37.fr (local.fr) liste 10 pages, les mêmes que les liens de son accueil | fait |
+| Correspondances | Tableau du §3, dans `content/redirects.js` | fait, à valider |
 | Hébergeur | Choisir l'hébergement de production (GitHub Pages avec domaine personnalisé, Netlify, Cloudflare Pages, OVH…) : il conditionne les redirections et les en-têtes de sécurité | SOLAR CAR 37 |
 | E-mail | **Ne pas casser contact@solarcar37.fr** : relever les enregistrements MX, SPF, DKIM, DMARC actuels avant tout changement de DNS et les recopier à l'identique | SOLAR CAR 37 |
 | Informations légales | Hébergeur réel, médiateur de la consommation, mention TVA, crédits des modèles 3D (voir `docs/V2-ROADMAP.md`) | SOLAR CAR 37 |
@@ -26,11 +26,25 @@ npm run build          # sans SITE_BASE ni PREVIEW : pages indexables, robots.tx
 
 ## 3. Redirections 301 (à compléter)
 
+Liste unique : `content/redirects.js`. Le build de production (`npm run build`, sans `PREVIEW`)
+écrit `_redirects` (Netlify, Cloudflare Pages), `.htaccess` (Apache, OVH : HTTPS, `www`, puis ces
+pages) et, pour un hébergeur sans règles (GitHub Pages), une page relais à chaque ancienne adresse
+(redirection immédiate + canonical).
+
 | Ancienne URL (local.fr) | Nouvelle URL |
 |---|---|
-| … | `/` |
-| … | `/vitres-teintees/` |
-| … | `/contact/` |
+| `/` | `/` |
+| `/renovation-des-optiques-de-phares` | `/renovation-phares/` |
+| `/feux-teintes` | `/feux-arriere-teintes/` |
+| `/detailing` | `/detailing-carrosserie/` |
+| `/nettoyage-automobile-` | `/detailing-carrosserie/` (le forfait Essentiel) |
+| `/covering-stickage-publicitaire-et-dechromage` | `/covering-dechromage/` |
+| `/eclairage-d-ambiance-interieur-` | `/ciel-etoile/` (prestation la plus proche) |
+| `/vitres-teintees`, `/contact`, `/mentions-legales` | les mêmes pages, avec la barre finale |
+
+Le nettoyage automobile, le stickage publicitaire et l'éclairage d'ambiance intérieur n'ont pas de
+page à eux sur le nouveau site : si ces prestations sont toujours proposées, une page dédiée
+garderait mieux leur référencement qu'une redirection vers une page voisine.
 
 Nouvelles URL indexables (sitemap) : `/`, `/vitres-teintees/`, `/feux-arriere-teintes/`,
 `/detailing-carrosserie/`, `/covering-dechromage/`, `/ciel-etoile/`, `/renovation-phares/`, `/atelier-vouvray/`, `/contact/`,
