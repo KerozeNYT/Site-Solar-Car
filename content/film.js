@@ -26,18 +26,19 @@ export const film = {
   // can show takes over once downloaded (src/js/film.js picks it from the width drawn × pixel
   // density): 1080p, 1440p or 4K on wide screens; tall screens (phones, tablets upright) get
   // the centre of the picture in 9:16 over their whole height. `crf`: encoding quality used by
-  // scripts/film-assets.mjs (lower = sharper and heavier).
+  // scripts/film-assets.mjs (lower = sharper and heavier; the film grain and the twinkling stars
+  // cost bits that the eye does not miss: +2 is 20 % lighter for the same picture).
   sources: {
     preview: '/video/accueil-360p.mp4',
     wide: [
-      { src: '/video/accueil-1080p.mp4', w: 1920, crf: 23 },
-      { src: '/video/accueil-1440p.mp4', w: 2560, crf: 25 },
-      { src: '/video/accueil-2160p.mp4', w: 3840, crf: 27 },
+      { src: '/video/accueil-1080p.mp4', w: 1920, crf: 25 },
+      { src: '/video/accueil-1440p.mp4', w: 2560, crf: 27 },
+      { src: '/video/accueil-2160p.mp4', w: 3840, crf: 29 },
     ],
     previewTall: '/video/accueil-mobile-360.mp4',
     tall: [
-      { src: '/video/accueil-mobile-720.mp4', w: 720, h: 1280, crf: 25 },
-      { src: '/video/accueil-mobile.mp4', w: 1214, h: 2160, crf: 26 },
+      { src: '/video/accueil-mobile-720.mp4', w: 720, h: 1280, crf: 26 },
+      { src: '/video/accueil-mobile.mp4', w: 1214, h: 2160, crf: 27 },
     ],
   },
   // chapters in the order they appear. from / to: when the copy is on screen (s); still: the

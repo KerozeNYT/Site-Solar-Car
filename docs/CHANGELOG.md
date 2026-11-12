@@ -69,6 +69,27 @@
 - Index des guides : le résumé de chaque guide, plus la copie de son introduction ; encart
   « guide » des prestations sans recopie du texte du guide.
 
+### Film d'accueil V4 : garage sombre premium
+- Nouveau décor : un garage de 2,50 m sous plafond, sol en dalles PVC noires avec un cadre de
+  dalles jaunes centré sur la voiture, murs gris anthracite, réglettes LED au mur et en
+  corniche qui se reflètent sur la carrosserie, plafond entièrement étoilé (fibres qui
+  scintillent). Plus lisible que le studio noir de la V3, tout en restant sombre.
+- Porsche gris anthracite métallisé, qui se détache du fond ; bandeau de feux arrière allumé
+  d'un bout à l'autre pendant tout le film.
+- Detailing : le flanc est d'abord terne, avec de fines micro-rayures circulaires visibles
+  dans les reflets ; derrière la ligne de polissage, la peinture devient brillante.
+- Covering : le film carbone ne se pose que sur le capot (la pièce du modèle 3D), plus sur les
+  ailes ni le pare-chocs.
+- Rendu (`scripts/film/garage.js`, `scripts/film/scene.js`) : contours lissés en fin d'image
+  (FXAA) en 4K au lieu du multi-échantillonnage, 11 s par image au lieu de 19 ; sol, murs et
+  plafond découpés en carreaux de 0,8 m (une image au sol noir en 4K) ; à 16 s, la caméra
+  tournait de 0,8° sur deux images en ralentissant : l'inclinaison s'estompe maintenant en
+  douceur (aussi dans la visite 3D) ; sept reflets de LED présents sur une seule image
+  remplacés par le mélange des images voisines.
+- Même durée (47 s, 48 images/s) et mêmes chapitres. Encodage un cran plus compressé : le
+  grain et les étoiles qui scintillent coûtent des octets sans gain visible. 1080p 25 Mo,
+  1440p 31 Mo, 4K 47 Mo, mobile 21 Mo (V3 : 23, 28, 44 et 21 Mo).
+
 ### Logos officiels des partenaires, en doré
 - Bandeau « Nos marques partenaires » : les logos officiels de Milwaukee, TeckWrap, RUPES,
   Solar Screen, TEGO, STEK, Protector, Koch-Chemie, Polytop, Avery Dennison, APA et Ravoony,
