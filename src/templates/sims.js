@@ -153,38 +153,38 @@ export function simTint(ctx, { hidden = false } = {}) {
 
 // ------------------------------------------------------------------------- tint, simple mode
 /**
- * The photos of the simple mode and the outline of their windows (content/tint-photos.js, made
- * into web files and a manifest by scripts/tint-photos.mjs). Shown only when every vehicle has
- * its two pictures.
+ * The visuals of the simple mode (content/tint-photos.js: 60 pictures, the chosen windows
+ * already outlined in gold; made into web files and a manifest by scripts/tint-photos.mjs).
  */
 function tintPictures() {
   const file = path.join(ROOT, 'public/img/vitres/manifest.json');
   if (!fs.existsSync(file)) return null;
-  const m = JSON.parse(fs.readFileSync(file, 'utf8'));
-  return m;
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
+const WINDOW_FILES = { rear: 'arriere', front: 'avant', all: 'complet' };
 
-/** Simple mode: a real car per category, the chosen windows outlined in gold, the price at once */
+/** Simple mode: a car of the chosen category, the chosen windows in gold, the price at once */
 export function simTintSimple(ctx, pictures) {
   const { tint, tintVehicles } = ctx.pricing;
-  const cars = tintVehicles.filter((v) => pictures[v.id]);
+  const cars = tintVehicles.filter((v) => pictures.cars[v.id]);
   const price = (v) => (v.quote ? null : { rear: tint.rearPackage[v.cat], front: tint.frontOnly, all: tint.rearPackage[v.cat] + tint.frontWithRear });
-  const data = cars.map((v) => ({ id: v.id, label: v.label, example: v.example, price: price(v), credit: pictures[v.id].credit || '', views: pictures[v.id].views }));
-  const v0 = pictures[cars[0].id].views['34'];
-  const pathOf = (polys) => polys.map((p) => 'M' + p.map(([x, y]) => `${x} ${y}`).join('L') + 'Z').join('');
+  const data = cars.map((v) => ({ id: v.id, label: v.label, example: v.example, price: price(v), ...pictures.cars[v.id] }));
   const first = cars[0];
-  const img = (id, view, size) => `/img/vitres/${id}-${view}-${size}.webp`;
+  const size0 = pictures.cars[first.id];
+  const img = (id, angle, win, w) => `/img/vitres/${id}-${angle}-${WINDOW_FILES[win]}-${w}.webp`;
   const zones = [
     { value: 'rear', label: 'Vitres arrière', hint: 'latérales arrière + lunette' },
     { value: 'front', label: 'Vitres avant', hint: 'conducteur + passager' },
     { value: 'all', label: 'Toutes les vitres', hint: 'hors pare-brise' },
   ];
+  const picture = (cls, extra = '') =>
+    `<img class="tsim__img ${cls}" src="${img(first.id, '34', 'rear', 960)}" srcset="${img(first.id, '34', 'rear', 960)} 960w, ${img(first.id, '34', 'rear', 1600)} 1600w" sizes="(min-width: 960px) 58vw, 100vw" width="${size0.w}" height="${size0.h}" alt="${esc(`${first.label} (${first.example}) vue de trois quarts arrière, vitres arrière en surbrillance`)}" decoding="async"${extra}>`;
   return `<section class="sim tsim" id="simulateur" data-tint-simple aria-labelledby="tsim-title" data-cars="${esc(JSON.stringify(data))}">
   <div class="container">
     <div class="sim__head">
       <p class="kicker" style="color:var(--gold-300)">Simulateur · prix immédiat</p>
       <h2 id="tsim-title">Votre prix en trois clics</h2>
-      <p>Choisissez votre type de véhicule et les vitres à teinter : elles s’allument en doré sur la photo et le prix s’affiche aussitôt. Envie de tourner autour de la voiture ? Passez au simulateur 3D.</p>
+      <p>Choisissez votre type de véhicule, les vitres à teinter et la teinte : les vitres choisies s’entourent d’or et foncent sur la photo, le prix s’affiche aussitôt. Envie de tourner autour de la voiture ? Passez au simulateur 3D.</p>
     </div>
     <div class="tsim__modes" role="group" aria-label="Mode du simulateur">
       <button type="button" class="tsim__mode" aria-pressed="true" data-mode="simple">Simulateur photo</button>
@@ -192,18 +192,17 @@ export function simTintSimple(ctx, pictures) {
     </div>
     <div class="tsim__layout">
       <div class="tsim__stage">
-        <figure class="tsim__photo" data-photo>
-          <img src="${img(first.id, '34', 960)}" srcset="${img(first.id, '34', 960)} 960w, ${img(first.id, '34', 1600)} 1600w" sizes="(min-width: 960px) 58vw, 100vw" width="${v0.w}" height="${v0.h}" alt="${esc(`${first.label} (${first.example}) vue de trois quarts arrière`)}" loading="lazy" decoding="async" data-photo-img>
-          <svg class="tsim__svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            <defs><filter id="tsim-glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="0.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="tsim-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e3a6"/><stop offset="0.5" stop-color="#dcb15a"/><stop offset="1" stop-color="#f1dca2"/></linearGradient></defs>
-            ${['rear', 'front'].map((g) => `<g class="tsim__zone" data-zone="${g}"><path class="tsim__tint" d="${pathOf(v0[g])}"/><path class="tsim__gold" d="${pathOf(v0[g])}" filter="url(#tsim-glow)"/></g>`).join('')}
-          </svg>
+        <figure class="tsim__photo" data-photo style="--ar:${size0.w} / ${size0.h}">
+          ${picture('is-shown', ' data-photo-a')}
+          ${picture('', ' data-photo-b aria-hidden="true"')}
+          <span class="tsim__glass" data-glass="rear" aria-hidden="true"><i></i></span>
+          <span class="tsim__glass tsim__glass--front" data-glass="front" aria-hidden="true"><i></i></span>
         </figure>
         <div class="tsim__views" role="group" aria-label="Point de vue">
           <button type="button" aria-pressed="true" data-view="34">3/4 arrière</button>
-          <button type="button" aria-pressed="false" data-view="side">Profil</button>
+          <button type="button" aria-pressed="false" data-view="profil">Profil</button>
         </div>
-        <p class="tsim__credit" data-credit>${esc(pictures[first.id].credit || '')}</p>
+        <p class="tsim__credit">${esc(pictures.credit || '')}</p>
       </div>
       <form class="tsim__panel" data-tsim-form>
         <fieldset class="sim__group">
@@ -219,7 +218,7 @@ export function simTintSimple(ctx, pictures) {
         <fieldset class="sim__group">
           <legend>3. Quelle teinte à l’arrière ?</legend>
           <div class="chips">${tint.shades.map((v) => `<label class="chip"><input type="radio" name="shade" value="${v}"${v === 15 ? ' checked' : ''}><span><i class="swatch" style="background:rgba(10,14,20,${((1 - v / 100) * 0.95 + 0.04).toFixed(2)})"></i>${v} %</span></label>`).join('')}</div>
-          <p class="zone__note">Pourcentage de lumière qui traverse le film : 5 % est le plus foncé. Toutes les teintes sont au même prix.</p>
+          <p class="zone__note">Part de lumière qui traverse le film : 5 % est le plus foncé. Toutes les teintes sont au même prix.</p>
         </fieldset>
         <div class="tsim__price" aria-live="polite">
           <span>Prix TTC, pose comprise</span>
@@ -231,7 +230,7 @@ export function simTintSimple(ctx, pictures) {
           <a class="btn btn--primary" href="/contact/?prestation=vitres-teintees" data-quote>Demander ce devis</a>
           <button type="button" class="btn btn--ghost" data-mode="3d">Voir en 3D</button>
         </div>
-        <p class="price-note">Prix TTC indicatifs, confirmés par le devis après vérification du véhicule. Photos de modèles représentatifs de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle exact.</p>
+        <p class="price-note">Prix TTC indicatifs, confirmés par le devis après vérification du véhicule. Visuels de véhicules représentatifs de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle exact.</p>
       </form>
     </div>
   </div>
@@ -241,7 +240,7 @@ export function simTintSimple(ctx, pictures) {
 /** the tint simulators of the page: the simple mode first when its pictures exist, the 3D one behind a switch */
 export function tintSims(ctx) {
   const pictures = tintPictures();
-  const ok = pictures && ctx.pricing.tintVehicles.every((v) => pictures[v.id]);
+  const ok = pictures && ctx.pricing.tintVehicles.every((v) => pictures.cars?.[v.id]);
   if (!ok) return simTint(ctx);
   return simTintSimple(ctx, pictures) + simTint(ctx, { hidden: true });
 }

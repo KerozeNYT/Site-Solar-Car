@@ -4602,60 +4602,25 @@ p {
 }
 .tsim__photo {
   position: relative;
+  aspect-ratio: var(--ar, 3 / 2);
   margin: 0;
   border-radius: calc(var(--radius) + 4px);
   overflow: hidden;
   border: 1px solid var(--line);
   background: radial-gradient(ellipse at 50% 62%, #24262c 0%, #121317 55%, #08090b 100%);
 }
-.tsim__photo img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-.tsim__svg {
+
+.tsim__photo .tsim__img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
-}
-.tsim__zone {
+  object-fit: cover;
   opacity: 0;
-  transition: opacity 0.35s ease;
+  transition: opacity 0.45s ease;
 }
-.tsim__zone.is-on {
+.tsim__photo .tsim__img.is-shown {
   opacity: 1;
-}
-.tsim__tint {
-  fill: #050608;
-  fill-opacity: var(--tint, 0.6);
-  transition: fill-opacity 0.35s ease;
-}
-/* the gold outline of the chosen windows, with a soft glow and a slow shine */
-.tsim__gold {
-  fill: rgba(227, 194, 122, 0.16);
-  stroke: url(#tsim-gold);
-  stroke-width: 2.4px;
-  vector-effect: non-scaling-stroke;
-  stroke-linejoin: round;
-  animation: tsim-shine 3.6s ease-in-out infinite;
-}
-@keyframes tsim-shine {
-  0%,
-  100% {
-    stroke-opacity: 1;
-    fill-opacity: 0.6;
-  }
-  50% {
-    stroke-opacity: 0.7;
-    fill-opacity: 1;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tsim__gold {
-    animation: none;
-  }
 }
 .tsim__views {
   display: flex;
@@ -4840,4 +4805,25 @@ p {
   width: 100%;
   height: min(820px, 92vh);
   border: 0;
+}
+
+/* the chosen shade on the gold windows (masks found in the visuals), a gold glow around them */
+.tsim__glass {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 0.8px #f6e3a6) drop-shadow(0 0 5px rgba(227, 194, 122, 0.75));
+}
+.tsim__glass i {
+  position: absolute;
+  inset: 0;
+  background: #050608;
+  opacity: var(--tint, 0.75);
+  -webkit-mask: var(--mask) center / 100% 100% no-repeat;
+  mask: var(--mask) center / 100% 100% no-repeat;
+  transition: opacity 0.35s ease;
+}
+/* front windows: a clear film only (70 % of the light at least, glass included) */
+.tsim__glass--front i {
+  opacity: 0.16;
 }

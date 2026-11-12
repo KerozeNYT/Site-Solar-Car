@@ -1,66 +1,82 @@
 /**
  * Window tint simulator, simple mode (/vitres-teintees/, src/templates/sims.js simTintSimple):
- * a photo of a car of the chosen category, the chosen windows darkened and outlined in gold
- * (their outlines: content/tint-photos.js), the price at once. The 3D
- * simulator stays one click away (section #simulateur-3d, loaded only when shown).
+ * a visual of a car of the chosen category with the chosen windows in gold (60 pictures,
+ * content/tint-photos.js), cross-faded on every change; the chosen shade darkens those windows
+ * (their masks are found in the pictures by scripts/tint-photos.mjs; at the front, a clear film
+ * only, as the law asks), a gold glow around them; the price at once. The
+ * 3D simulator stays one click away (section #simulateur-3d, loaded only when shown).
  */
 const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 const ZONES = {
-  rear: { label: 'Vitres arrière', detail: 'vitres latérales arrière et lunette' },
-  front: { label: 'Vitres avant', detail: 'vitres conducteur et passager' },
-  all: { label: 'Toutes les vitres', detail: 'vitres latérales et lunette, hors pare-brise' },
+  rear: { label: 'Vitres arrière', detail: 'vitres latérales arrière et lunette', file: 'arriere' },
+  front: { label: 'Vitres avant', detail: 'vitres conducteur et passager', file: 'avant' },
+  all: { label: 'Toutes les vitres', detail: 'vitres latérales et lunette, hors pare-brise', file: 'complet' },
 };
-const VIEWS = { 34: 'vue de trois quarts arrière', side: 'vue de profil' };
+const VIEWS = { 34: 'vue de trois quarts arrière', profil: 'vue de profil' };
 
 export function startTintSimple(section) {
   const cars = JSON.parse(section.dataset.cars || '[]');
   const form = section.querySelector('[data-tsim-form]');
-  const img = section.querySelector('[data-photo-img]');
-  const zones = Object.fromEntries([...section.querySelectorAll('[data-zone]')].map((el) => [el.dataset.zone, el]));
+  const layers = [section.querySelector('[data-photo-a]'), section.querySelector('[data-photo-b]')];
+  const glass = { rear: section.querySelector('[data-glass="rear"]'), front: section.querySelector('[data-glass="front"]') };
   const priceEl = section.querySelector('[data-price]');
   const noteEl = section.querySelector('[data-price-note]');
   const law = section.querySelector('[data-law]');
   const quote = section.querySelector('[data-quote]');
-  const credit = section.querySelector('[data-credit]');
   const layout = section.querySelector('.tsim__layout');
   const three = document.getElementById('simulateur-3d');
   // the site may live in a sub-folder: take the prefix from the first picture
-  const src0 = img.getAttribute('src');
+  const src0 = layers[0].getAttribute('src');
   const prefix = src0.slice(0, src0.indexOf('img/vitres/'));
-  const file = (id, view, part) => `${prefix}img/vitres/${id}-${view}-${part}.webp`;
+  const file = (car, view, zone, w) => `${prefix}img/vitres/${car}-${view}-${ZONES[zone].file}-${w}.webp`;
   let view = '34';
+  let shown = 0;
+  let wanted = '';
+
+  const mask = (car, zone, part) => `url("${prefix}img/vitres/${car}-${view}-${ZONES[zone].file}-${part}.webp")`;
+  /** the windows to darken in this picture: the rear ones with the chosen shade, the front ones
+   * with a clear film (the legal minimum at the front) */
+  function windows(car, zone) {
+    glass.rear.hidden = zone === 'front';
+    glass.front.hidden = zone === 'rear';
+    if (zone !== 'front') glass.rear.style.setProperty('--mask', mask(car.id, zone, 'fill'));
+    if (zone === 'front') glass.front.style.setProperty('--mask', mask(car.id, zone, 'fill'));
+    if (zone === 'all') glass.front.style.setProperty('--mask', mask(car.id, zone, 'front'));
+  }
+  /** the new picture on the hidden layer, then a cross-fade once it is decoded */
+  function picture(car, zone) {
+    const src = file(car.id, view, zone, 960);
+    if (src === wanted) return;
+    wanted = src;
+    const next = layers[1 - shown];
+    next.src = src;
+    next.srcset = `${src} 960w, ${file(car.id, view, zone, 1600)} 1600w`;
+    next.alt = `${car.label} (${car.example}) ${VIEWS[view]}, ${ZONES[zone].label.toLowerCase()} en surbrillance`;
+    const swap = () => {
+      if (wanted !== src) return;
+      windows(car, zone);
+      next.classList.add('is-shown');
+      next.removeAttribute('aria-hidden');
+      layers[shown].classList.remove('is-shown');
+      layers[shown].setAttribute('aria-hidden', 'true');
+      shown = 1 - shown;
+    };
+    (next.decode ? next.decode() : Promise.resolve()).then(swap, swap);
+  }
 
   function update() {
     const car = cars.find((c) => c.id === form.elements.car.value) || cars[0];
     const zone = form.elements.zone.value;
     const shade = Number(form.elements.shade.value);
-    // the picture and its window masks
-    const src = file(car.id, view, 960);
-    if (img.getAttribute('src') !== src) {
-      img.src = src;
-      img.srcset = `${src} 960w, ${file(car.id, view, 1600)} 1600w`;
-      img.alt = `${car.label} (${car.example}) ${VIEWS[view]}`;
-    }
-    const v = car.views[view];
-    img.width = v.w;
-    img.height = v.h;
-    const d = (polys) => polys.map((p) => 'M' + p.map(([x, y]) => `${x} ${y}`).join('L') + 'Z').join('');
-    for (const [g, el] of Object.entries(zones)) {
-      for (const path of el.querySelectorAll('path')) path.setAttribute('d', d(v[g] || []));
-      el.classList.toggle('is-on', zone === 'all' || zone === g);
-    }
-    // darkness: the chosen shade at the rear; at the front a clear film (the law)
-    zones.rear.style.setProperty('--tint', ((1 - shade / 100) * 0.88).toFixed(2));
-    zones.front.style.setProperty('--tint', '0.16');
-    // price
+    glass.rear.style.setProperty('--tint', ((1 - shade / 100) * 0.9).toFixed(2));
+    picture(car, zone);
     const p = car.price ? car.price[zone] : null;
     priceEl.textContent = p == null ? 'Sur devis' : fmt(p);
     noteEl.textContent = car.price
       ? `${ZONES[zone].label} : ${ZONES[zone].detail}.`
       : `${car.label} : forfait spécifique, nous vous répondons avec un devis détaillé.`;
     law.hidden = zone === 'rear';
-    credit.textContent = car.credit || '';
-    const config = `Vitres teintées — ${ZONES[zone].label} (${ZONES[zone].detail}) — teinte arrière ${shade} % — ${car.label} (${car.example})${p == null ? ' — sur devis' : ` — ${fmt(p)} TTC indicatif`}`;
+    const config = `Vitres teintées — ${ZONES[zone].label} (${ZONES[zone].detail})${zone === 'front' ? '' : ` — teinte arrière ${shade} %`} — ${car.label} (${car.example})${p == null ? ' — sur devis' : ` — ${fmt(p)} TTC indicatif`}`;
     const url = new URL(quote.getAttribute('href'), location.href);
     url.searchParams.set('prestation', 'vitres-teintees');
     url.searchParams.set('vehicule', `${car.label} (${car.example})`);
@@ -88,7 +104,11 @@ export function startTintSimple(section) {
   for (const b of modeBtns) b.addEventListener('click', () => mode(b.dataset.mode));
   if (location.hash === '#simulateur-3d') mode('3d');
   update();
-  // the other pictures of this category, ready when the visitor switches the view
-  const warm = () => cars.forEach((c) => ['34', 'side'].forEach((v) => (new Image().src = file(c.id, v, 960))));
-  'requestIdleCallback' in window ? requestIdleCallback(warm, { timeout: 4000 }) : setTimeout(warm, 2000);
+  // the other visuals of the chosen car, ready before the visitor asks for them
+  const warm = () => {
+    const car = form.elements.car.value;
+    for (const v of Object.keys(VIEWS)) for (const z of Object.keys(ZONES)) new Image().src = file(car, v, z, 960);
+  };
+  form.addEventListener('change', () => ('requestIdleCallback' in window ? requestIdleCallback(warm) : setTimeout(warm, 300)));
+  'requestIdleCallback' in window ? requestIdleCallback(warm, { timeout: 3000 }) : setTimeout(warm, 1500);
 }
