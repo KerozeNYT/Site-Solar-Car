@@ -67,8 +67,9 @@ export const effects = {
   // black (scripts/film/scene.js)
   backlight: [[0, 0], [14.9, 0], [15.5, 1], [18.9, 1], [19.5, 0]],
   frontVLT: [[0, 0.75]],
-  tailSmoke: [[0, 0.85]],
-  tailOn: [[0, 0], [20.2, 0], [20.8, 0.6]],
+  // the light bar across the rear lit all along, under a light smoked film: a crisp red line
+  tailSmoke: [[0, 0.45]],
+  tailOn: [[0, 1]],
   // right-hand window down to let the camera in, up again on the way out
   windowR: [[0, 0], [25.3, 0], [26.5, 1], [36.2, 1], [37.5, 0]],
   // the moving pane catches a little light so it reads on screen

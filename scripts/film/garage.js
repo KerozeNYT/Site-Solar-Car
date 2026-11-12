@@ -1,25 +1,24 @@
 /**
  * The garage of the home film (scripts/film/scene.js): a dark detailing bay, premium and quiet.
  * Black PVC floor tiles with a row of yellow tiles framing the car, charcoal walls with a few
- * vertical LED strips and a cove line, a honeycomb of LED tubes on the ceiling above the car.
- * The same room, unlit, is baked into the reflections of the paint and the glass, so the tubes
- * draw their lines on the bodywork.
+ * vertical LED strips and a cove line under a 2.5 m ceiling covered with fibre-optic stars.
+ * The same room, unlit, is baked into the reflections of the paint and the glass, so the
+ * strips draw their lines on the bodywork and the stars dot the roof and the bonnet.
  *
  * Car space: metres, the car at the origin, nose towards +x, right-hand side towards +z.
  */
 import * as THREE from 'three';
-import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 
 // the room: walls on the tile grid (0.4 m), the car's bay framed by yellow tiles
 const TILE = 0.4;
-const ROOM = { x: [-8.4, 12.8], z: [-6.4, 8.0], h: 4.0 };
+const ROOM = { x: [-8.4, 12.8], z: [-6.4, 8.0], h: 2.5 };
 const BAY = { x: [-3.2, 3.2], z: [-2.0, 2.0] }; // inside the yellow frame (one tile wide)
 const COLORS = {
   tile: [12, 12, 14],
   yellow: [168, 120, 8],
   seam: [5, 5, 6],
-  wall: 0x15161a,
-  ceiling: 0x0c0d0f,
+  wall: 0x2b2d31,
+  ceiling: 0x070709,
 };
 
 /** a seeded random, so every frame of the film draws the same floor */
@@ -80,35 +79,13 @@ function floorMaps(renderer) {
   const tex = (canvas, srgb) => {
     const t = new THREE.CanvasTexture(canvas);
     if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    // a little anisotropy keeps the far tiles crisp; more costs a lot in software rendering
+    t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
     t.generateMipmaps = true;
     t.minFilter = THREE.LinearMipmapLinearFilter;
     return t;
   };
   return { map: tex(color, true), roughnessMap: tex(rough, false) };
-}
-
-/** the honeycomb of LED tubes above the car: one segment per hexagon side, shared sides once */
-function honeycomb({ radius = 0.46, cols = 9, rows = 5, y = ROOM.h - 0.35 } = {}) {
-  const segs = new Map();
-  const w = Math.sqrt(3) * radius;
-  const pts = [];
-  for (let q = 0; q < cols; q++)
-    for (let r = 0; r < rows; r++) {
-      // flat-topped layout along x (the car's length)
-      const cx = (q - (cols - 1) / 2) * radius * 1.5;
-      const cz = (r - (rows - 1) / 2) * w + (q % 2 ? w / 2 : 0) - w / 4;
-      for (let k = 0; k < 6; k++) {
-        const a0 = (Math.PI / 3) * k;
-        const a1 = (Math.PI / 3) * (k + 1);
-        const p0 = [cx + radius * Math.cos(a0), cz + radius * Math.sin(a0)];
-        const p1 = [cx + radius * Math.cos(a1), cz + radius * Math.sin(a1)];
-        const key = [((p0[0] + p1[0]) / 2).toFixed(3), ((p0[1] + p1[1]) / 2).toFixed(3)].join(',');
-        if (!segs.has(key)) segs.set(key, [p0, p1]);
-      }
-      pts.push([cx, cz]);
-    }
-  return { segs: [...segs.values()], y, radius };
 }
 
 /** bars (LED tubes) as one instanced mesh: [x0, z0, x1, z1] at height y, or vertical [x, z, y0, y1] */
@@ -137,30 +114,89 @@ function bars(list, { thick = 0.045, material }) {
   return mesh;
 }
 
-/** every LED of the room, as bar lists (shared by the lit room and its reflection) */
+/** every LED strip of the room, as bar lists (shared by the lit room and its reflection) */
 function leds() {
-  const hex = honeycomb();
-  const ceiling = hex.segs.map(([a, b]) => ({ x0: a[0], z0: a[1], x1: b[0], z1: b[1], y: hex.y }));
-  // a rectangle around the honeycomb
-  const fx = 3.75;
-  const fz = 1.75;
-  const y = hex.y;
-  ceiling.push({ x0: -fx, z0: -fz, x1: fx, z1: -fz, y }, { x0: -fx, z0: fz, x1: fx, z1: fz, y });
-  ceiling.push({ x0: -fx, z0: -fz, x1: -fx, z1: fz, y }, { x0: fx, z0: -fz, x1: fx, z1: fz, y });
-  // walls: a few vertical strips, and a cove line under the ceiling on the long walls
+  // walls: a few vertical strips, and a cove line under the ceiling
   const walls = [];
   const inset = 0.03;
-  for (const z of [-4.4, -1.6, 1.6, 4.4]) walls.push({ vertical: true, x: ROOM.x[0] + inset, z, y0: 0.35, y1: 3.1, dx: 0.02, dz: 0.05 });
+  const y0 = 0.3;
+  const y1 = 2.05;
+  for (const z of [-4.4, -1.6, 1.6, 4.4]) walls.push({ vertical: true, x: ROOM.x[0] + inset, z, y0, y1, dx: 0.02, dz: 0.05 });
   for (const x of [-5.6, -2.0, 1.6, 5.2, 8.8]) {
-    walls.push({ vertical: true, x, z: ROOM.z[0] + inset, y0: 0.35, y1: 3.1, dx: 0.05, dz: 0.02 });
-    walls.push({ vertical: true, x, z: ROOM.z[1] - inset, y0: 0.35, y1: 3.1, dx: 0.05, dz: 0.02 });
+    walls.push({ vertical: true, x, z: ROOM.z[0] + inset, y0, y1, dx: 0.05, dz: 0.02 });
+    walls.push({ vertical: true, x, z: ROOM.z[1] - inset, y0, y1, dx: 0.05, dz: 0.02 });
   }
+  const y = ROOM.h - 0.12;
   const cove = [
-    { x0: ROOM.x[0] + 0.3, z0: ROOM.z[0] + inset, x1: ROOM.x[1] - 0.3, z1: ROOM.z[0] + inset, y: 3.45 },
-    { x0: ROOM.x[0] + 0.3, z0: ROOM.z[1] - inset, x1: ROOM.x[1] - 0.3, z1: ROOM.z[1] - inset, y: 3.45 },
-    { x0: ROOM.x[0] + inset, z0: ROOM.z[0] + 0.3, x1: ROOM.x[0] + inset, z1: ROOM.z[1] - 0.3, y: 3.45 },
+    { x0: ROOM.x[0] + 0.3, z0: ROOM.z[0] + inset, x1: ROOM.x[1] - 0.3, z1: ROOM.z[0] + inset, y },
+    { x0: ROOM.x[0] + 0.3, z0: ROOM.z[1] - inset, x1: ROOM.x[1] - 0.3, z1: ROOM.z[1] - inset, y },
+    { x0: ROOM.x[0] + inset, z0: ROOM.z[0] + 0.3, x1: ROOM.x[0] + inset, z1: ROOM.z[1] - 0.3, y },
   ];
-  return { ceiling, walls, cove };
+  return { walls, cove };
+}
+
+/** a round soft dot, the picture of one fibre end */
+function dotTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const g = c.getContext('2d');
+  const r = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  r.addColorStop(0, 'rgba(255,255,255,1)');
+  r.addColorStop(0.35, 'rgba(255,255,255,0.85)');
+  r.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = r;
+  g.fillRect(0, 0, 32, 32);
+  return new THREE.CanvasTexture(c);
+}
+
+/**
+ * The starry ceiling: fibre ends spread over the whole ceiling, three fibre sizes, a few warm
+ * ones; each group breathes slowly with its own phase (update(t)) for a gentle twinkle.
+ * `px`: size of the largest fibre on screen, in pixels.
+ */
+function starCeiling({ px, count = 9000, seed = 11, level = 1 }) {
+  const rand = rng(seed);
+  const map = dotTexture();
+  const group = new THREE.Group();
+  const sizes = [0.45, 0.7, 1];
+  const shares = [0.6, 0.3, 0.1];
+  const mats = [];
+  for (let k = 0; k < sizes.length; k++)
+    for (let phase = 0; phase < 2; phase++) {
+      const n = Math.round((count * shares[k]) / 2);
+      const pos = new Float32Array(n * 3);
+      const col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        pos[i * 3] = ROOM.x[0] + 0.15 + rand() * (ROOM.x[1] - ROOM.x[0] - 0.3);
+        pos[i * 3 + 1] = ROOM.h - 0.004;
+        pos[i * 3 + 2] = ROOM.z[0] + 0.15 + rand() * (ROOM.z[1] - ROOM.z[0] - 0.3);
+        const warm = rand() < 0.12;
+        const b = 0.55 + 0.45 * rand();
+        col[i * 3] = b;
+        col[i * 3 + 1] = b * (warm ? 0.86 : 0.97);
+        col[i * 3 + 2] = b * (warm ? 0.62 : 1.0);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      const m = new THREE.PointsMaterial({
+        size: Math.max(1, px * sizes[k]),
+        sizeAttenuation: false,
+        map,
+        vertexColors: true,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        fog: false,
+      });
+      m.color.setScalar(level);
+      mats.push({ m, phase: phase * Math.PI + k * 1.3, base: level });
+      group.add(new THREE.Points(g, m));
+    }
+  group.update = (t) => {
+    for (const { m, phase, base } of mats) m.color.setScalar(base * (0.82 + 0.18 * Math.sin(t * 0.9 + phase)));
+  };
+  return group;
 }
 
 /** the shell: floor, walls, ceiling (lit materials for the room, flat colours for reflections) */
@@ -213,10 +249,9 @@ function contactShadow() {
 
 /**
  * Builds the garage into `scene` and returns the reflections for the car:
- * { envMap, glassEnvMap, lights }.
+ * { envMap, glassEnvMap, update(t) }. `px`: the size of a fibre end on screen (pixels).
  */
-export function buildGarage(scene, renderer, { ledLevel = 4.2 } = {}) {
-  RectAreaLightUniformsLib.init();
+export function buildGarage(scene, renderer, { ledLevel = 4.2, px = 3, starLevel = 2.2 } = {}) {
   const room = new THREE.Group();
   const { map, roughnessMap } = floorMaps(renderer);
   // canvas columns run along +x, rows along +z (the floor plane, laid flat, puts the top of the
@@ -228,48 +263,43 @@ export function buildGarage(scene, renderer, { ledLevel = 4.2 } = {}) {
   });
   room.add(contactShadow());
   const L = leds();
-  const tube = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.99, 0.97).multiplyScalar(ledLevel), toneMapped: true });
-  room.add(bars(L.ceiling, { material: tube }), bars(L.walls, { material: tube }), bars(L.cove, { thick: 0.03, material: tube }));
+  const tube = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.99, 0.97).multiplyScalar(ledLevel) });
+  room.add(bars(L.walls, { material: tube }), bars(L.cove, { thick: 0.03, material: tube }));
+  const stars = starCeiling({ px, level: starLevel });
+  room.add(stars);
   scene.add(room);
 
-  // light: the honeycomb as a soft area light from above, a dim fill from the walls
+  // light: soft and cheap (no area lights, which cost a lot in software rendering): the sky of
+  // the hemisphere, and lamps hidden at the strips' height, two on each long side, one behind
   const lights = new THREE.Group();
-  const panel = new THREE.RectAreaLight(0xfff8f0, 1.8, 7.4, 3.4);
-  panel.position.set(0, ROOM.h - 0.36, 0);
-  panel.lookAt(0, 0, 0);
-  lights.add(panel);
-  for (const z of [ROOM.z[0] + 0.1, ROOM.z[1] - 0.1]) {
-    const strip = new THREE.RectAreaLight(0xf4f6ff, 0.35, 14, 2.6);
-    strip.position.set(1.6, 1.75, z);
-    strip.lookAt(1.6, 1.0, 0);
-    lights.add(strip);
-  }
-  const back = new THREE.RectAreaLight(0xf4f6ff, 0.35, 9, 2.6);
-  back.position.set(ROOM.x[0] + 0.1, 1.75, 0);
-  back.lookAt(0, 1.0, 0);
-  lights.add(back);
-  lights.add(new THREE.HemisphereLight(0xd8e0ff, 0x101012, 0.12));
+  lights.add(new THREE.HemisphereLight(0xc8d2ff, 0x121214, 0.9));
+  const lamp = (x, y, z, k) => {
+    const l = new THREE.PointLight(0xf6f7ff, k, 0, 2);
+    l.position.set(x, y, z);
+    lights.add(l);
+  };
+  for (const z of [ROOM.z[0] + 0.6, ROOM.z[1] - 0.6]) for (const x of [-2.6, 3.4]) lamp(x, 1.9, z, 12);
+  lamp(ROOM.x[0] + 0.6, 1.9, 0, 12);
   scene.add(lights);
 
-  // reflections: the same room, flat colours, the tubes much brighter (they are the light)
+  // reflections: the same room, flat colours, the strips much brighter (they are the light)
   const env = new THREE.Scene();
   const flat = (c) => new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide });
   const envRoom = new THREE.Group();
   shell(envRoom, {
     floorMat: new THREE.MeshBasicMaterial({ map, side: THREE.DoubleSide, color: new THREE.Color(0.35, 0.35, 0.35) }),
-    wallMat: flat(new THREE.Color(0x08090b)),
-    ceilingMat: flat(new THREE.Color(0x050506)),
+    wallMat: flat(new THREE.Color(0x111214)),
+    ceilingMat: flat(new THREE.Color(0x040405)),
   });
-  // the honeycomb a little dimmer than the walls: the bonnet and the roof face it whole
   const bright = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.99, 0.97).multiplyScalar(3.2) });
-  const brightTop = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.99, 0.97).multiplyScalar(2.0) });
-  envRoom.add(bars(L.ceiling, { material: brightTop, thick: 0.03 }), bars(L.walls, { material: bright, thick: 0.05 }), bars(L.cove, { material: bright, thick: 0.035 }));
+  envRoom.add(bars(L.walls, { material: bright, thick: 0.05 }), bars(L.cove, { material: bright, thick: 0.035 }));
+  // the stars as seen from the car: a little larger, so they survive in the sharpest reflection
+  envRoom.add(starCeiling({ px: 2.2, count: 5000, level: 3 }));
   env.add(envRoom);
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envMap = pmrem.fromScene(env, 0.0, 0.05, 40, { size: 1024, position: new THREE.Vector3(0, 0.9, 0) }).texture;
   bright.color.multiplyScalar(0.6);
-  brightTop.color.multiplyScalar(0.6);
   const glassEnvMap = pmrem.fromScene(env, 0.0, 0.05, 40, { size: 512, position: new THREE.Vector3(0, 1.0, 0) }).texture;
   pmrem.dispose();
-  return { envMap, glassEnvMap, lights, room };
+  return { envMap, glassEnvMap, update: (t) => stars.update(t) };
 }

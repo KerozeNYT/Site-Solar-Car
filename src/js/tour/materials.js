@@ -145,7 +145,7 @@ export function injectPolish(m, uniforms) {
         // rotary machine. Returns a small tilt (2D, in the plane of p) for the clearcoat normal;
         // scratches thinner than a pixel fade out instead of shimmering.
         vec2 swirlTilt(vec2 p){
-          const float CELL = 0.22;
+          const float CELL = 0.16;
           vec2 acc = vec2(0.0);
           vec2 cell = floor(p / CELL);
           for (int i = -1; i <= 1; i++) {
@@ -155,14 +155,15 @@ export function injectPolish(m, uniforms) {
               vec2 d = p - (c + h.xy) * CELL;
               float r = length(d);
               if (r < 0.004 || r > 0.3) continue;
-              // one ring every ~1.6 cm: each stands for a bundle of finer scratches, so the
-              // marks stay readable at screen scale instead of vanishing below a pixel
-              float ring = r * 62.0 + h.z * 13.0;
+              // one ring every ~6 mm: each stands for a bundle of finer scratches, dense enough
+              // to read as the halo of fine circles a rotary machine leaves around each light
+              float ring = r * 160.0 + h.z * 13.0;
               float id = floor(ring);
-              float keep = step(0.62, h31(vec3(c * 3.1, id)));
+              float keep = step(0.55, h31(vec3(c * 3.1, id)));
               float a = atan(d.y, d.x);
               float arc = smoothstep(0.35, 0.7, sin(a * (1.0 + floor(h.z * 3.0)) + id * 2.3 + h.x * 6.28));
-              float line = exp(-pow((fract(ring) - 0.5) / 0.2, 2.0));
+              float lf = (fract(ring) - 0.5) / 0.2;
+              float line = exp(-lf * lf);
               float aa = 1.0 - smoothstep(0.35, 0.9, fwidth(ring));
               acc += (d / r) * keep * arc * line * aa * (1.0 - r / 0.3);
             }
@@ -177,10 +178,16 @@ export function injectPolish(m, uniforms) {
         // before polishing the paint stays glossy but micro-scratched: swirl marks in the
         // clearcoat (see below) and the faint milky veil they cast on a dark colour
         float dull = (1.0 - polished) * smoothstep(uPolishSide - 0.06, uPolishSide + 0.06, vCarPos.z);
-        diffuseColor.rgb += vec3(0.016, 0.018, 0.022) * dull;
+        diffuseColor.rgb += vec3(0.04, 0.042, 0.046) * dull;
+        roughnessFactor = mix(roughnessFactor, 0.55, dull);
         // the polishing pass: a warm glint travelling with the boundary
         float sideMask = smoothstep(uPolishSide - 0.06, uPolishSide + 0.06, vCarPos.z);
         float glint = (1.0 - smoothstep(0.0, 0.035, abs(vCarPos.x - uPolishX))) * sideMask * step(abs(uPolishX), 3.0);
+        // just polished (while the pass is on): a slightly deeper colour, finer flakes, a mirror
+        // varnish (below), the colour kept so the panel reads glossy rather than black
+        float fresh = polished * sideMask * step(abs(uPolishX), 3.0);
+        diffuseColor.rgb *= 1.0 - 0.08 * fresh;
+        roughnessFactor = mix(roughnessFactor, roughnessFactor * 0.85, fresh);
         // detailing stages (grime, foam, iron remover, rinse water): only computed while one of
         // them is on, so the paint costs nothing extra the rest of the time
         float mud = 0.0;
@@ -258,21 +265,40 @@ export function injectPolish(m, uniforms) {
         float twAA = 1.0 - smoothstep(0.25, 0.8, length(fwidth(tw)));
         float sheenC = mix(0.5, warp, twAA);
         float fibre = mix(0.5, 0.5 + 0.5 * sin(along * 6.2832 * 3.0 + across * 1.7), twAA * 0.35);
-        vec3 carbonCol = vec3(0.012, 0.013, 0.015) + vec3(0.11, 0.112, 0.12) * sheenC * mix(0.6, tow, twAA) * (0.75 + 0.5 * fibre);
+        vec3 carbonCol = vec3(0.012, 0.013, 0.015) + vec3(0.21, 0.214, 0.226) * sheenC * mix(0.6, tow, twAA) * (0.75 + 0.5 * fibre);
         diffuseColor.rgb = mix(diffuseColor.rgb, carbonCol, carbon);
         roughnessFactor = mix(roughnessFactor, mix(0.42, 0.24, sheenC), carbon);
         metalnessFactor = mix(metalnessFactor, mix(0.2, 0.75, sheenC), carbon);`
       )
       .replace(
+        '#include <clearcoat_normal_fragment_maps>',
+        `#include <clearcoat_normal_fragment_maps>
+        #ifdef USE_CLEARCOAT
+          if (dull > 0.001) {
+            // swirl marks: the varnish normal tilted along the scratches (projected on the plane
+            // facing the panel, back to view space), so every light draws rings around itself
+            vec3 an = abs(vCarNormal);
+            vec3 U = an.y > max(an.x, an.z) ? vec3(1.0, 0.0, 0.0) : an.z > an.x ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 0.0, 1.0);
+            vec3 V = an.y > max(an.x, an.z) ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
+            vec2 st = swirlTilt(vec2(dot(vCarPos, U), dot(vCarPos, V)));
+            vec3 tCar = (U * st.x + V * st.y) * 0.18 * dull;
+            clearcoatNormal = normalize(clearcoatNormal + mat3(viewMatrix) * (transpose(mat3(uCarInv)) * tCar));
+          }
+        #endif`
+      )
+      .replace(
         '#include <lights_physical_fragment>',
         `#include <lights_physical_fragment>
         #ifdef USE_CLEARCOAT
-          material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.1, dull);
+          material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.2, dull);
+          material.clearcoat = mix(material.clearcoat, 1.0, fresh);
           material.clearcoat *= 1.0 - clamp(mud, 0.0, 1.0);
           // ceramic: a glass-smooth top layer, mirror reflections
           material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.004, uCeramic);
           material.clearcoat = mix(material.clearcoat, uWrapMat.z, wrapped);
           material.clearcoatRoughness = mix(material.clearcoatRoughness, uWrapMat.w, wrapped);
+          // never below three.js's own floor: a zero roughness divides by zero in the GGX term
+          material.clearcoatRoughness = max(material.clearcoatRoughness, 0.0525);
         #endif
         material.roughness = mix(material.roughness, material.roughness * 0.55, uCeramic);
         totalEmissiveRadiance += vec3(1.0, 0.72, 0.38) * glint * 0.9;
@@ -280,7 +306,8 @@ export function injectPolish(m, uniforms) {
         totalEmissiveRadiance += vec3(1.0, 0.82, 0.5) * wrapEdge * 0.35;
         totalEmissiveRadiance += vec3(1.0, 0.86, 0.62) * carbonEdge * 0.5;
         // ceramic: a band of light sweeping across the coated paint
-        float band = exp(-pow((vCarPos.x - mix(-3.4, 3.4, uSweep) + vCarPos.y * 0.7) / 0.14, 2.0));
+        float bandX = (vCarPos.x - mix(-3.4, 3.4, uSweep) + vCarPos.y * 0.7) / 0.14;
+        float band = exp(-bandX * bandX);
         totalEmissiveRadiance += vec3(1.0, 0.95, 0.86) * band * uCeramic * 0.5 * step(0.001, uSweep) * (1.0 - step(0.999, uSweep));
         // rinse water sheets catching the light
         totalEmissiveRadiance += vec3(0.62, 0.7, 0.78) * sheet * wet * 0.22;`

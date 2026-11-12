@@ -2,7 +2,7 @@
  * Home page film, rendered frame by frame in a headless browser (scripts/film/render.mjs).
  * Same car, materials and service effects as the site's 3D scene (src/js/tour/), in a dark
  * detailing garage (scripts/film/garage.js): black PVC tiles framed in yellow around the car,
- * LED tubes on the ceiling and the walls reflected in the paint. Exposes window.renderFrame(t)
+ * LED strips on the walls reflected in the paint, a starry ceiling. Exposes window.renderFrame(t)
  * and window.frameData(type, quality); window.ready once the car is loaded.
  *
  * URL knobs: w, h (pixels), msaa (samples), exp (exposure), fog (depth haze), led (tube
@@ -44,7 +44,8 @@ scene.background = new THREE.Color(0x0b0c0e);
 // a faint depth haze only: the far walls settle back, no smoke
 if (FOG > 0) scene.fog = new THREE.FogExp2(0x0b0c0e, FOG);
 // ---------------------------------------------------------------- the garage (scripts/film/garage.js)
-const garage = buildGarage(scene, renderer, { ledLevel: LED });
+// fibre ends of the starry ceiling: about 3 px at most in 4K
+const garage = buildGarage(scene, renderer, { ledLevel: LED, px: Math.max(1.2, (3 * W) / 3840) });
 scene.environment = garage.envMap;
 const glassReflections = garage.glassEnvMap;
 
@@ -52,7 +53,7 @@ const camera = new THREE.PerspectiveCamera(30, W / H, 0.02, 200);
 scene.add(camera);
 
 // ---------------------------------------------------------------- car
-const car = await loadCarModel({ ...carConfig, model: '/public' + carConfig.model, paint: { ...carConfig.paint, color: '#050506' } }, { quality: 'high' });
+const car = await loadCarModel({ ...carConfig, model: '/public' + carConfig.model, paint: { ...carConfig.paint, color: '#383e42' } }, { quality: 'high' });
 scene.add(car.group);
 car.setFrontVLT(0.75);
 // test knob: paint=rrggbb repaints the body (to see the carbon bonnet's outline)
@@ -75,21 +76,20 @@ car.group.traverse((o) => {
   if (hideNames.includes(o.name)) o.visible = false;
 });
 
-// anthracite grey: a dielectric base under the mirror clearcoat, so the light of the ceiling
-// gives the paint a soft grey sheen (it stands out against the dark garage) and the varnish
-// keeps the sharp lines of the tubes
+// anthracite grey metallic (RAL 7016) under the mirror clearcoat: it stands out against the
+// dark garage
 car.group.traverse((o) => {
   if (!o.isMesh) return;
   for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
     if (m?.userData?.uniforms?.uCarbonX) {
-      m.metalness = 0.12;
-      m.roughness = 0.38;
+      m.metalness = 0.45;
+      m.roughness = 0.34;
     }
   }
 });
 
 // the cabin under its roof: the area light of the ceiling casts no shadow and would light the
-// seats through the roof; what sits inside the cabin keeps 40 % of its colour (a material also
+// seats through the roof; what sits inside the cabin keeps 25 % of its colour (a material also
 // used outside the cabin is copied for the inside)
 {
   const cabin = new THREE.Box3(new THREE.Vector3(-1.3, 0.45, -0.78), new THREE.Vector3(0.95, 1.3, 0.78));
@@ -110,7 +110,7 @@ car.group.traverse((o) => {
     if (!m || m.transparent || !m.color || Object.prototype.hasOwnProperty.call(m, 'onBeforeCompile')) return m;
     if (!dimmed.has(m)) {
       const d = outsideMats.has(m) ? m.clone() : m;
-      d.color.multiplyScalar(0.4);
+      d.color.multiplyScalar(0.25);
       dimmed.set(m, d);
     }
     return dimmed.get(m);
@@ -209,6 +209,7 @@ window.renderFrame = (t) => {
   bloom.strength = e.bloom;
   finish.uniforms.uFade.value = e.fade;
   finish.uniforms.uSeed.value = (t * 24.0) % 97.0;
+  garage.update(t);
   car.update(t, H, camera.fov);
   composer.render();
 };

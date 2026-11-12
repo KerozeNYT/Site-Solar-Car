@@ -46,7 +46,7 @@ export const film = {
   // in the bar under the film (none for the opening and the closing copy). `readout`: a figure
   // that follows the picture (keys [second, value]: numbers interpolated, words switched).
   chapters: [
-    { id: 'hero', from: 0, to: 4.4, still: 3.8, alt: 'Porsche 911 GT3 RS noire de face dans le studio sombre de SOLAR CAR 37, phares allumés' },
+    { id: 'hero', from: 0, to: 4.4, still: 3.8, alt: 'Porsche 911 GT3 RS gris anthracite de face dans le garage de SOLAR CAR 37, dalles noires encadrées de jaune, phares allumés' },
     {
       id: 'headlights',
       tab: 'Phares',
@@ -56,14 +56,14 @@ export const film = {
       alt: 'Gros plan sur le phare avant de la Porsche, optique redevenue claire après rénovation',
       readout: { label: 'Optique', keys: [[6.7, 'Avant'], [8.0, 'Après']] },
     },
-    { id: 'detailing', tab: 'Detailing', from: 9.8, to: 14.2, still: 12.5, alt: 'Flanc de la Porsche noire : une ligne de lumière sépare la peinture polie de la partie encore terne' },
+    { id: 'detailing', tab: 'Detailing', from: 9.8, to: 14.2, still: 12.5, alt: 'Flanc de la Porsche : une ligne de lumière sépare la peinture polie, brillante, de la partie encore terne et micro-rayée' },
     {
       id: 'tint',
       tab: 'Vitres teintées',
       from: 14.8,
       to: 19.3,
       still: 18.6,
-      alt: 'Profil de la Porsche 911 GT3 RS devant une lumière douce : la vitre arrière est devenue noire, la vitre avant reste claire',
+      alt: 'Profil de la Porsche 911 GT3 RS dans le garage : la vitre arrière est devenue noire, la vitre avant reste claire',
       readout: { label: 'Lumière transmise à l’arrière', unit: '%', keys: [[15.9, 70], [17.9, 5]] },
     },
     { id: 'tail', tab: 'Feux teintés', from: 19.9, to: 24.2, still: 23.6, alt: 'Arrière de la Porsche, bandeau de feux fumé allumé' },
@@ -78,7 +78,7 @@ export const film = {
       alt: 'Capot de la Porsche 911 GT3 RS recouvert d’un film effet carbone, phares allumés',
       readout: { label: 'Capot', keys: [[39.2, 'Peinture'], [41.4, 'Carbone']] },
     },
-    { id: 'final', from: 43.6, to: 47, still: 45.6, alt: 'Porsche 911 GT3 RS noire de trois quarts avant dans le studio, phares allumés, capot carbone' },
+    { id: 'final', from: 43.6, to: 47, still: 45.6, alt: 'Porsche 911 GT3 RS gris anthracite de trois quarts avant dans le garage au plafond étoilé, phares allumés, capot carbone' },
   ],
 };
 
