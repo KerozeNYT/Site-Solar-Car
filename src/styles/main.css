@@ -4612,52 +4612,44 @@ p {
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 16 / 10;
 }
-.tsim__zone {
+.tsim__svg {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
+}
+.tsim__zone {
   opacity: 0;
   transition: opacity 0.35s ease;
 }
 .tsim__zone.is-on {
   opacity: 1;
 }
-.tsim__tint,
-.tsim__gold {
-  position: absolute;
-  inset: 0;
-  -webkit-mask-image: var(--mask);
-  mask-image: var(--mask);
-  -webkit-mask-size: 100% 100%;
-  mask-size: 100% 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-}
 .tsim__tint {
-  background: #050608;
-  opacity: var(--tint, 0.6);
-  transition: opacity 0.35s ease;
+  fill: #050608;
+  fill-opacity: var(--tint, 0.6);
+  transition: fill-opacity 0.35s ease;
 }
-/* the gold outline: a glow drawn around the window shapes */
-.tsim__glow {
-  position: absolute;
-  inset: 0;
-  filter: drop-shadow(0 0 1.5px #f6e3a6) drop-shadow(0 0 9px rgba(227, 194, 122, 0.85));
-}
+/* the gold outline of the chosen windows, with a soft glow and a slow shine */
 .tsim__gold {
-  background: linear-gradient(115deg, rgba(241, 220, 162, 0.42), rgba(220, 177, 90, 0.18) 38%, rgba(255, 240, 200, 0.5) 52%, rgba(201, 162, 83, 0.2) 68%, rgba(241, 220, 162, 0.38));
-  background-size: 220% 100%;
-  animation: tsim-shine 4.5s ease-in-out infinite;
+  fill: rgba(227, 194, 122, 0.16);
+  stroke: url(#tsim-gold);
+  stroke-width: 2.4px;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+  animation: tsim-shine 3.6s ease-in-out infinite;
 }
 @keyframes tsim-shine {
   0%,
   100% {
-    background-position: 0% 0;
+    stroke-opacity: 1;
+    fill-opacity: 0.6;
   }
   50% {
-    background-position: 100% 0;
+    stroke-opacity: 0.7;
+    fill-opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {

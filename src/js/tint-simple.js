@@ -1,7 +1,7 @@
 /**
  * Window tint simulator, simple mode (/vitres-teintees/, src/templates/sims.js simTintSimple):
  * a photo of a car of the chosen category, the chosen windows darkened and outlined in gold
- * (masks rendered with the pictures, scripts/cars/render.mjs), the price at once. The 3D
+ * (their outlines: content/tint-photos.js), the price at once. The 3D
  * simulator stays one click away (section #simulateur-3d, loaded only when shown).
  */
 const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
@@ -41,8 +41,12 @@ export function startTintSimple(section) {
       img.srcset = `${src} 960w, ${file(car.id, view, 1600)} 1600w`;
       img.alt = `${car.label} (${car.example}) ${VIEWS[view]}`;
     }
+    const v = car.views[view];
+    img.width = v.w;
+    img.height = v.h;
+    const d = (polys) => polys.map((p) => 'M' + p.map(([x, y]) => `${x} ${y}`).join('L') + 'Z').join('');
     for (const [g, el] of Object.entries(zones)) {
-      el.style.setProperty('--mask', `url("${file(car.id, view, g)}")`);
+      for (const path of el.querySelectorAll('path')) path.setAttribute('d', d(v[g] || []));
       el.classList.toggle('is-on', zone === 'all' || zone === g);
     }
     // darkness: the chosen shade at the rear; at the front a clear film (the law)

@@ -1,0 +1,1 @@
+Photos du simulateur de vitres teintées (mode simple) : voir content/tint-photos.js.

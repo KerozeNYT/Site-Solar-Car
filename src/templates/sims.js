@@ -153,8 +153,9 @@ export function simTint(ctx, { hidden = false } = {}) {
 
 // ------------------------------------------------------------------------- tint, simple mode
 /**
- * The pictures of the simple mode (scripts/cars/render.mjs writes them with a manifest:
- * { <vehicle id>: { credit } }). The simple mode shows only when every vehicle has its pictures.
+ * The photos of the simple mode and the outline of their windows (content/tint-photos.js, made
+ * into web files and a manifest by scripts/tint-photos.mjs). Shown only when every vehicle has
+ * its two pictures.
  */
 function tintPictures() {
   const file = path.join(ROOT, 'public/img/vitres/manifest.json');
@@ -168,7 +169,9 @@ export function simTintSimple(ctx, pictures) {
   const { tint, tintVehicles } = ctx.pricing;
   const cars = tintVehicles.filter((v) => pictures[v.id]);
   const price = (v) => (v.quote ? null : { rear: tint.rearPackage[v.cat], front: tint.frontOnly, all: tint.rearPackage[v.cat] + tint.frontWithRear });
-  const data = cars.map((v) => ({ id: v.id, label: v.label, example: v.example, price: price(v), credit: pictures[v.id].credit || '' }));
+  const data = cars.map((v) => ({ id: v.id, label: v.label, example: v.example, price: price(v), credit: pictures[v.id].credit || '', views: pictures[v.id].views }));
+  const v0 = pictures[cars[0].id].views['34'];
+  const pathOf = (polys) => polys.map((p) => 'M' + p.map(([x, y]) => `${x} ${y}`).join('L') + 'Z').join('');
   const first = cars[0];
   const img = (id, view, size) => `/img/vitres/${id}-${view}-${size}.webp`;
   const zones = [
@@ -190,8 +193,11 @@ export function simTintSimple(ctx, pictures) {
     <div class="tsim__layout">
       <div class="tsim__stage">
         <figure class="tsim__photo" data-photo>
-          <img src="${img(first.id, '34', 960)}" srcset="${img(first.id, '34', 960)} 960w, ${img(first.id, '34', 1600)} 1600w" sizes="(min-width: 960px) 58vw, 100vw" width="1600" height="1000" alt="${esc(`${first.label} (${first.example}) vue de trois quarts arrière`)}" loading="lazy" decoding="async" data-photo-img>
-          ${['rear', 'front'].map((g) => `<div class="tsim__zone tsim__zone--${g}" data-zone="${g}" aria-hidden="true"><span class="tsim__tint"></span><span class="tsim__glow"><span class="tsim__gold"></span></span></div>`).join('')}
+          <img src="${img(first.id, '34', 960)}" srcset="${img(first.id, '34', 960)} 960w, ${img(first.id, '34', 1600)} 1600w" sizes="(min-width: 960px) 58vw, 100vw" width="${v0.w}" height="${v0.h}" alt="${esc(`${first.label} (${first.example}) vue de trois quarts arrière`)}" loading="lazy" decoding="async" data-photo-img>
+          <svg class="tsim__svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <defs><filter id="tsim-glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="0.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="tsim-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e3a6"/><stop offset="0.5" stop-color="#dcb15a"/><stop offset="1" stop-color="#f1dca2"/></linearGradient></defs>
+            ${['rear', 'front'].map((g) => `<g class="tsim__zone" data-zone="${g}"><path class="tsim__tint" d="${pathOf(v0[g])}"/><path class="tsim__gold" d="${pathOf(v0[g])}" filter="url(#tsim-glow)"/></g>`).join('')}
+          </svg>
         </figure>
         <div class="tsim__views" role="group" aria-label="Point de vue">
           <button type="button" aria-pressed="true" data-view="34">3/4 arrière</button>
