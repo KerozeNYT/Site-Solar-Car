@@ -5,8 +5,8 @@
  * LED strips on the walls reflected in the paint, a starry ceiling. Exposes window.renderFrame(t)
  * and window.frameData(type, quality); window.ready once the car is loaded.
  *
- * URL knobs: w, h (pixels), msaa (samples), exp (exposure), fog (depth haze), led (tube
- * brightness), grain, vig.
+ * URL knobs: w, h (pixels), msaa (samples), fxaa (0/1), exp (exposure), fog (depth haze), led
+ * (tube brightness), grain, vig.
  */
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -14,6 +14,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { loadCarModel } from '../../src/js/tour/car-model.js';
 import { createPath, createEffects } from '../../src/js/tour/flight.js';
 import carConfig from '../../content/car.js';
@@ -23,7 +24,10 @@ import { buildGarage } from './garage.js';
 const q = new URLSearchParams(location.search);
 const W = Number(q.get('w') || 1920);
 const H = Number(q.get('h') || 1080);
-const MSAA = q.get('msaa') != null ? Number(q.get('msaa')) : W >= 3000 ? 2 : 4;
+// 4K: edge smoothing in post (FXAA) instead of multisampling, which doubles the time of a frame
+// in software rendering; the smaller versions are scaled down from 4K anyway
+const MSAA = q.get('msaa') != null ? Number(q.get('msaa')) : W >= 3000 ? 0 : 4;
+const FXAA = q.get('fxaa') != null ? q.get('fxaa') === '1' : MSAA === 0;
 const EXPOSURE = Number(q.get('exp') || 1.18);
 const FOG = Number(q.get('fog') ?? 0.012);
 const LED = Number(q.get('led') || 4.2);
@@ -147,6 +151,11 @@ composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.2, 0.4, 0.95);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
+if (FXAA) {
+  const fxaa = new ShaderPass(FXAAShader);
+  fxaa.uniforms.resolution.value.set(1 / W, 1 / H);
+  composer.addPass(fxaa);
+}
 const finish = new ShaderPass({
   uniforms: { tDiffuse: { value: null }, uFade: { value: 1 }, uSeed: { value: 0 }, uAspect: { value: W / H } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
