@@ -68,7 +68,8 @@ export function startTintSimple(section) {
     const car = cars.find((c) => c.id === form.elements.car.value) || cars[0];
     const zone = form.elements.zone.value;
     const shade = Number(form.elements.shade.value);
-    glass.rear.style.setProperty('--tint', ((1 - shade / 100) * 0.9).toFixed(2));
+    // 5 % is nearly black, 70 % a light smoke
+    glass.rear.style.setProperty('--tint', Math.min(0.97, 1.02 * (1 - shade / 100)).toFixed(2));
     picture(car, zone);
     const p = car.price ? car.price[zone] : null;
     priceEl.textContent = p == null ? 'Sur devis' : fmt(p);
