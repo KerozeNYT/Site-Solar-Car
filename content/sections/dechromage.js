@@ -130,23 +130,6 @@ export const sections = [
     ],
   },
   {
-    type: 'compare',
-    id: 'film-peinture-pieces',
-    title: 'Film, peinture ou pièces noires : *trois façons de déchromer*',
-    lead: 'Le film n’est pas la seule manière de supprimer les chromes. Voici comment il se situe face à la peinture des pièces et à leur remplacement par des pièces noires.',
-    caption: 'Comparaison qualitative : le coût et la durée exacts dépendent du véhicule et des pièces concernées.',
-    head: ['', 'Film (déchromage)', 'Peinture du chrome', 'Remplacement des pièces'],
-    rows: [
-      ['Réversible', true, false, 'Oui, si vous gardez les pièces d’origine'],
-      ['Pièce d’origine', 'Conservée, intacte sous le film', 'Conservée, mais modifiée pour de bon', 'Déposée, à garder de côté'],
-      ['Prix relatif', 'Modéré, sur devis', 'Variable : le chrome exige une préparation spécifique', 'Souvent le plus élevé : pièces neuves et montage'],
-      ['Immobilisation', 'Courte à moyenne, selon le nombre de pièces', 'Plus longue : démontage, préparation, apprêt, séchage', 'Selon la disponibilité des pièces et le montage'],
-      ['Principal risque', 'Bords qui se soulèvent si la pose ou l’entretien sont négligés', 'Adhérence difficile sur le chrome, écaillage', 'Clips et fixations fragilisés au démontage'],
-      ['Finitions possibles', 'Noir brillant, satiné, mat, carbone, couleurs', 'Toutes les teintes de peinture', 'Celles proposées pour le modèle'],
-    ],
-    note: 'Peindre un chrome suppose un apprêt d’accroche adapté : sans lui, la peinture tient mal sur une surface aussi lisse. Le film, lui, se retire et rend la pièce telle qu’elle était, ce qui compte à la revente ou en fin de location.',
-  },
-  {
     type: 'blocks',
     id: 'finitions-dechromage',
     title: 'Noir brillant, satiné, mat ou carbone : *quelle finition choisir*',

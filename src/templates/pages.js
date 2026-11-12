@@ -388,11 +388,16 @@ function instagramBlock(ctx) {
 
 /** the workshop's crest in the backdrop: the official emblem stacked into a thin gold coin that
  * turns slowly, a light sweeping its face, a few sparks (CSS only, src/styles/main.css "crest") */
-const CREST_LAYERS = 9;
-const CREST = `<div class="crest-wrap" style="--emblem:url(/img/brand/embleme-256.webp)"><div class="crest">${Array.from({ length: CREST_LAYERS }, (_, i) => {
-  const role = i === 0 ? ' crest__face' : i === CREST_LAYERS - 1 ? ' crest__back' : '';
-  return `<img class="crest__layer${role}" src="/img/brand/embleme-256.webp" alt="" width="256" height="280" loading="lazy" decoding="async" draggable="false" style="--i:${i}">`;
-}).join('')}<i class="crest__shine"></i></div><i class="crest__sparks"></i></div>`;
+const CREST_LAYERS = 19;
+// a thick gold coin: the faces bright, the edge layers lit like a bevel (brighter near each face,
+// darker in the middle of the edge)
+const CREST = `<div class="crest-wrap" style="--emblem:url(/img/brand/embleme-256.webp)"><i class="crest__halo"></i><div class="crest">${Array.from({ length: CREST_LAYERS }, (_, i) => {
+  const last = CREST_LAYERS - 1;
+  const role = i === 0 ? ' crest__face' : i === last ? ' crest__back' : '';
+  const edge = Math.abs(i - last / 2) / (last / 2); // 0 in the middle of the edge, 1 at a face
+  const b = (0.42 + 0.5 * edge * edge).toFixed(2);
+  return `<img class="crest__layer${role}" src="/img/brand/embleme-256.webp" alt="" width="256" height="280" loading="lazy" decoding="async" draggable="false" style="--z:${(last / 2 - i) * 1.7}px;--b:${b}">`;
+}).join('')}<i class="crest__shine"></i><i class="crest__shine crest__shine--back"></i></div><i class="crest__sparks"></i><i class="crest__sparks crest__sparks--b"></i></div>`;
 
 function page(ctx, opts, body) {
   return `${head(ctx, opts)}

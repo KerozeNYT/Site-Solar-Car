@@ -100,6 +100,40 @@ export const sections = [
   },
   {
     type: 'blocks',
+    id: 'notre-film-nano-ceramique',
+    kicker: 'Notre film',
+    title: 'Un film *nano-céramique*, garanti à vie',
+    lead: 'À l’atelier, nous ne posons qu’un seul type de film : le nano-céramique. Beaucoup de centres posent encore des films métallisés, moins chers à l’achat ; nous avons fait le choix inverse, pour le confort à l’usage et pour la tenue dans le temps. [Comprendre le film nano-céramique](/guides/film-nano-ceramique/).',
+    items: [
+      {
+        title: 'Aucun métal dans le film',
+        text: [
+          'Un film métallisé contient de fines particules de métal : il renvoie la chaleur, mais il peut aussi gêner les ondes qui traversent la vitre, comme le GPS, le téléphone, le badge de télépéage ou certaines clés mains libres, et donne un reflet miroir.',
+          'Le nano-céramique filtre la chaleur avec des particules céramiques : pas de reflet miroir, pas de gêne pour vos appareils.',
+        ],
+      },
+      {
+        title: 'La chaleur filtrée, pas seulement la lumière',
+        text: [
+          'Le nano-céramique agit sur l’infrarouge, la part du rayonnement solaire qui chauffe l’habitacle. À teinte égale, l’habitacle chauffe moins qu’avec un film simplement teinté, et même une teinte claire apporte du confort.',
+        ],
+      },
+      {
+        title: 'Une teinte qui ne vire pas',
+        text: [
+          'Avec les années, certains films bas de gamme se décolorent et tirent vers le violet. Le nano-céramique garde sa teinte neutre : vos vitres restent nettes, sans voile ni changement de couleur.',
+        ],
+      },
+      {
+        title: 'Garanti à vie',
+        text: [
+          'Notre film nano-céramique posé à l’atelier est garanti à vie. Les conditions de la garantie vous sont remises avec votre facture ; en cas de souci, vous revenez simplement à l’atelier de Vouvray.',
+        ],
+      },
+    ],
+  },
+  {
+    type: 'blocks',
     id: 'vitres-concernees',
     title: 'Arrière, avant, pare-brise : *ce que couvre chaque option*',
     lead: 'Trois zones, trois cadres différents : les vitres traitées dans chaque option, et ce que la réglementation permet pour chacune.',
@@ -158,61 +192,6 @@ export const sections = [
     note: 'Textes, dérogations et cas particuliers sont détaillés dans [le guide de la loi](/guides/vitres-teintees-loi/).',
   },
   {
-    type: 'compare',
-    id: 'calcul-vitre-film',
-    title: 'Vitre × film : *le calcul qui compte*',
-    lead: `Exemple sur une vitre d’origine claire qui transmet environ ${G.typicalGlass} % de la lumière : le vitrage complet est toujours plus sombre que le film seul.`,
-    caption: 'Ordre de grandeur calculé (vitre × film), jamais une mesure : seule la mesure sur votre véhicule fait foi.',
-    head: ['Film posé', 'Vitrage complet (environ)', 'Pare-brise et vitres avant', 'Vitres arrière et lunette'],
-    rows: shades.map((v) => [`${v} %`, `${onTypicalGlass(v)} %`, frontVerdict(v), true]),
-    note: `✓ : autorisé à l’arrière avec deux rétroviseurs extérieurs. À l’avant, le seuil est de ${G.frontMin} % pour le vitrage complet, hors dérogations. Un verre d’origine plus teinté que la moyenne donne un résultat encore plus sombre.`,
-  },
-  {
-    type: 'blocks',
-    id: 'types-de-films',
-    kicker: 'Technologies',
-    title: 'Teinté, métallisé, carbone, céramique : *quel film solaire* ?',
-    lead: 'À teinte égale, deux films peuvent réagir très différemment à la chaleur, au temps et aux ondes. Le pourcentage décrit ce que voit l’œil ; la technologie décide du reste.',
-    items: [
-      {
-        title: 'Film teinté dans la masse',
-        text: [
-          'Un colorant incorporé au film absorbe une partie de la lumière. C’est la technologie la plus simple et la plus abordable, avec un rendu mat, sans reflet.',
-          '*Limites :* la chaleur absorbée par le film est en partie restituée vers l’habitacle, et selon la qualité, la couleur peut évoluer après quelques années de soleil.',
-        ],
-      },
-      {
-        title: 'Film métallisé',
-        text: [
-          'De très fines couches métalliques renvoient une part de l’énergie solaire vers l’extérieur : le gain sur la chaleur est réel, avec un aspect légèrement brillant.',
-          '*Limites :* le métal peut perturber certaines ondes (réseau mobile, GPS, badge de télépéage), et l’effet miroir ne plaît pas à tout le monde.',
-        ],
-      },
-      {
-        title: 'Film carbone',
-        text: [
-          'Des particules de carbone donnent un noir mat et profond, réputé stable dans le temps. Sans métal, il laisse passer les ondes des appareils du bord.',
-          '*Limites :* il filtre mieux la chaleur qu’un film simplement teinté, mais en général moins qu’un film nano-céramique.',
-        ],
-      },
-      {
-        title: 'Film nano-céramique',
-        text: [
-          'Des particules céramiques filtrent une partie des infrarouges, qui portent une large part de la sensation de chaleur, tout en laissant passer la lumière voulue. Même clair, il peut améliorer le confort.',
-          '*Limites :* c’est souvent la technologie la plus coûteuse, et ses performances varient d’une référence à l’autre. Pour comprendre le principe : [film nano-céramique](/guides/film-nano-ceramique/).',
-        ],
-      },
-      {
-        title: 'Film athermique (clair)',
-        text: [
-          'Conçu pour limiter la chaleur et les UV tout en restant clair, c’est le type de film proposé pour le pare-brise.',
-          `*Limites :* « clair » ne veut pas dire « conforme ». Un athermique annoncé à ${athermique.vlt} % donne en général environ ${onTypicalGlass(athermique.vlt)} % une fois posé, alors que l’avant exige ${G.frontMin} % pour le vitrage équipé : seule une mesure permet de conclure.`,
-        ],
-      },
-    ],
-    note: 'La fiche technique du film proposé (transmission lumineuse, énergie solaire rejetée, filtrage des UV) figure sur votre devis : vous comparez sur des données.',
-  },
-  {
     type: 'blocks',
     id: 'avantages-film-solaire',
     kicker: 'Au quotidien',
@@ -258,7 +237,7 @@ export const sections = [
     items: [
       {
         title: 'Conseil et devis',
-        text: 'Nous choisissons ensemble les vitres à traiter, la teinte et le type de film, en vérifiant ce que la loi autorise pour chaque vitre. Le devis indique le prix, la référence proposée et la durée d’immobilisation du véhicule.',
+        text: 'Nous choisissons ensemble les vitres à traiter et la teinte de notre film nano-céramique, en vérifiant ce que la loi autorise pour chaque vitre. Le devis indique le prix, la référence proposée et la durée d’immobilisation du véhicule.',
       },
       {
         title: 'Dépose d’un ancien film, si besoin',
@@ -315,6 +294,14 @@ export const sections = [
 
 // ------------------------------------------------------------------------- extra FAQ
 export const faq = [
+  {
+    q: 'Quel film posez-vous sur les vitres ?',
+    a: 'Uniquement un film nano-céramique, garanti à vie. Contrairement aux films métallisés que posent encore certains centres, il ne contient pas de métal : pas de reflet miroir, pas de gêne pour le GPS, le téléphone ou le télépéage, et une teinte qui ne vire pas au violet avec le temps.',
+  },
+  {
+    q: 'Quelle garantie sur vos vitres teintées ?',
+    a: 'Le film nano-céramique posé à l’atelier est garanti à vie. Les conditions de la garantie vous sont remises avec votre facture ; en cas de souci, il suffit de revenir à l’atelier de Vouvray.',
+  },
   {
     q: 'Combien coûte une voiture entièrement teintée ?',
     a: tint.validated

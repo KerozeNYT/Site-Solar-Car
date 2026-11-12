@@ -4694,59 +4694,75 @@ p {
   width: min(44vmin, 420px);
   aspect-ratio: 256 / 280;
   translate: -50% -50%;
-  perspective: 1400px;
+  perspective: 1200px;
   opacity: 0;
   transition: opacity 2.4s ease;
 }
 .ambient.is-live .crest-wrap {
-  opacity: var(--crest-on, 0.13);
+  opacity: var(--crest-on, 0.17);
 }
 .crest {
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  animation: crest-spin 26s linear infinite, crest-float 9s ease-in-out infinite;
+  animation: crest-spin 24s linear infinite, crest-float 9s ease-in-out infinite;
 }
+/* a thick coin (about 30 px at full size): the layers in between are the gold edge, lit like a
+   bevel (brighter near the faces) */
 .crest__layer {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  /* a coin a few pixels thick: the layers between the faces are the gold edge, darker */
-  transform: translateZ(calc((var(--i) - 4) * 1.4px));
-  filter: brightness(0.5) saturate(1.2);
+  transform: translateZ(var(--z));
+  filter: brightness(var(--b)) saturate(1.25);
   user-select: none;
 }
 .crest__face,
 .crest__back {
-  filter: none;
+  filter: brightness(1.08) saturate(1.1);
   backface-visibility: hidden;
 }
 .crest__back {
-  transform: translateZ(-5.6px) rotateY(180deg);
+  transform: translateZ(var(--z)) rotateY(180deg);
 }
-.crest__face {
-  transform: translateZ(5.6px);
-}
-/* a light sweeping the face, cut to the emblem's shape */
+/* light sweeping each face, cut to the emblem's shape */
 .crest__shine {
   position: absolute;
   inset: 0;
-  transform: translateZ(5.8px);
+  transform: translateZ(15.6px);
   backface-visibility: hidden;
-  background: linear-gradient(115deg, transparent 35%, rgba(255, 246, 214, 0.75) 48%, transparent 60%);
-  background-size: 260% 100%;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 246, 214, 0.15) 40%, rgba(255, 250, 230, 0.95) 48%, rgba(255, 246, 214, 0.15) 56%, transparent 66%);
+  background-size: 280% 100%;
   -webkit-mask: var(--emblem) center / 100% 100% no-repeat;
   mask: var(--emblem) center / 100% 100% no-repeat;
   mix-blend-mode: screen;
-  animation: crest-shine 7s ease-in-out infinite;
+  animation: crest-shine 6s ease-in-out infinite;
 }
-/* a few sparks drifting around it */
+.crest__shine--back {
+  transform: translateZ(-15.6px) rotateY(180deg);
+  animation-delay: -3s;
+}
+/* a warm halo breathing behind it */
+.crest__halo {
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(233, 197, 108, 0.55), rgba(220, 177, 90, 0.18) 45%, transparent 72%);
+  filter: blur(6px);
+  animation: crest-halo 6.5s ease-in-out infinite;
+}
+/* sparks drifting around it, two layers out of step */
 .crest__sparks {
   position: absolute;
-  inset: -18%;
-  background: radial-gradient(2px 2px at 12% 30%, #f6e3a6, transparent 60%), radial-gradient(1.5px 1.5px at 86% 22%, #f1dca2, transparent 60%), radial-gradient(2px 2px at 78% 74%, #e9cd82, transparent 60%), radial-gradient(1.5px 1.5px at 20% 80%, #f6e3a6, transparent 60%), radial-gradient(1px 1px at 52% 6%, #fff4d2, transparent 60%), radial-gradient(1.5px 1.5px at 95% 52%, #e9cd82, transparent 60%);
-  animation: crest-sparks 5.5s ease-in-out infinite;
+  inset: -20%;
+  background: radial-gradient(2.4px 2.4px at 12% 30%, #fff1c4, transparent 60%), radial-gradient(1.6px 1.6px at 86% 22%, #f1dca2, transparent 60%), radial-gradient(2.4px 2.4px at 78% 74%, #f6e3a6, transparent 60%), radial-gradient(1.8px 1.8px at 20% 80%, #fff1c4, transparent 60%), radial-gradient(1.2px 1.2px at 52% 6%, #fff4d2, transparent 60%), radial-gradient(1.8px 1.8px at 95% 52%, #e9cd82, transparent 60%), radial-gradient(1.4px 1.4px at 4% 58%, #f6e3a6, transparent 60%), radial-gradient(2px 2px at 64% 94%, #fff1c4, transparent 60%);
+  animation: crest-sparks 5s ease-in-out infinite, crest-drift 30s linear infinite;
+}
+.crest__sparks--b {
+  inset: -32%;
+  background: radial-gradient(1.6px 1.6px at 30% 12%, #fff1c4, transparent 60%), radial-gradient(2.2px 2.2px at 70% 8%, #f6e3a6, transparent 60%), radial-gradient(1.4px 1.4px at 92% 38%, #fff4d2, transparent 60%), radial-gradient(2px 2px at 8% 40%, #e9cd82, transparent 60%), radial-gradient(1.6px 1.6px at 40% 96%, #fff1c4, transparent 60%), radial-gradient(1.8px 1.8px at 88% 86%, #f1dca2, transparent 60%);
+  animation: crest-sparks 7s ease-in-out -2.5s infinite, crest-drift 46s linear reverse infinite;
 }
 @keyframes crest-spin {
   to {
@@ -4759,28 +4775,42 @@ p {
     translate: 0 0;
   }
   50% {
-    translate: 0 -2.5%;
+    translate: 0 -3%;
   }
 }
 @keyframes crest-shine {
   0%,
-  35% {
+  30% {
     background-position: 100% 0;
   }
-  65%,
+  62%,
   100% {
     background-position: 0% 0;
+  }
+}
+@keyframes crest-halo {
+  0%,
+  100% {
+    opacity: 0.45;
+    scale: 0.94;
+  }
+  50% {
+    opacity: 0.9;
+    scale: 1.04;
   }
 }
 @keyframes crest-sparks {
   0%,
   100% {
-    opacity: 0.25;
-    transform: scale(0.98);
+    opacity: 0.2;
   }
   50% {
     opacity: 1;
-    transform: scale(1.02);
+  }
+}
+@keyframes crest-drift {
+  to {
+    rotate: 360deg;
   }
 }
 @media (max-width: 760px) {
@@ -4807,23 +4837,3 @@ p {
   border: 0;
 }
 
-/* the chosen shade on the gold windows (masks found in the visuals), a gold glow around them */
-.tsim__glass {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  filter: drop-shadow(0 0 0.8px #f6e3a6) drop-shadow(0 0 5px rgba(227, 194, 122, 0.75));
-}
-.tsim__glass i {
-  position: absolute;
-  inset: 0;
-  background: #050608;
-  opacity: var(--tint, 0.75);
-  -webkit-mask: var(--mask) center / 100% 100% no-repeat;
-  mask: var(--mask) center / 100% 100% no-repeat;
-  transition: opacity 0.35s ease;
-}
-/* front windows: a clear film only (70 % of the light at least, glass included) */
-.tsim__glass--front i {
-  opacity: 0.16;
-}

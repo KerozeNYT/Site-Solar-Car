@@ -1,9 +1,7 @@
 /**
  * Window tint simulator, simple mode (/vitres-teintees/, src/templates/sims.js simTintSimple):
  * a visual of a car of the chosen category with the chosen windows in gold (60 pictures,
- * content/tint-photos.js), cross-faded on every change; the chosen shade darkens those windows
- * (their masks are found in the pictures by scripts/tint-photos.mjs; at the front, a clear film
- * only, as the law asks), a gold glow around them; the price at once. The
+ * content/tint-photos.js), cross-faded on every change, and the price at once. The
  * 3D simulator stays one click away (section #simulateur-3d, loaded only when shown).
  */
 const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
@@ -18,7 +16,6 @@ export function startTintSimple(section) {
   const cars = JSON.parse(section.dataset.cars || '[]');
   const form = section.querySelector('[data-tsim-form]');
   const layers = [section.querySelector('[data-photo-a]'), section.querySelector('[data-photo-b]')];
-  const glass = { rear: section.querySelector('[data-glass="rear"]'), front: section.querySelector('[data-glass="front"]') };
   const priceEl = section.querySelector('[data-price]');
   const noteEl = section.querySelector('[data-price-note]');
   const law = section.querySelector('[data-law]');
@@ -33,16 +30,6 @@ export function startTintSimple(section) {
   let shown = 0;
   let wanted = '';
 
-  const mask = (car, zone, part) => `url("${prefix}img/vitres/${car}-${view}-${ZONES[zone].file}-${part}.webp")`;
-  /** the windows to darken in this picture: the rear ones with the chosen shade, the front ones
-   * with a clear film (the legal minimum at the front) */
-  function windows(car, zone) {
-    glass.rear.hidden = zone === 'front';
-    glass.front.hidden = zone === 'rear';
-    if (zone !== 'front') glass.rear.style.setProperty('--mask', mask(car.id, zone, 'fill'));
-    if (zone === 'front') glass.front.style.setProperty('--mask', mask(car.id, zone, 'fill'));
-    if (zone === 'all') glass.front.style.setProperty('--mask', mask(car.id, zone, 'front'));
-  }
   /** the new picture on the hidden layer, then a cross-fade once it is decoded */
   function picture(car, zone) {
     const src = file(car.id, view, zone, 960);
@@ -54,7 +41,6 @@ export function startTintSimple(section) {
     next.alt = `${car.label} (${car.example}) ${VIEWS[view]}, ${ZONES[zone].label.toLowerCase()} en surbrillance`;
     const swap = () => {
       if (wanted !== src) return;
-      windows(car, zone);
       next.classList.add('is-shown');
       next.removeAttribute('aria-hidden');
       layers[shown].classList.remove('is-shown');
@@ -67,9 +53,6 @@ export function startTintSimple(section) {
   function update() {
     const car = cars.find((c) => c.id === form.elements.car.value) || cars[0];
     const zone = form.elements.zone.value;
-    const shade = Number(form.elements.shade.value);
-    // 5 % is nearly black, 70 % a light smoke
-    glass.rear.style.setProperty('--tint', Math.min(0.97, 1.02 * (1 - shade / 100)).toFixed(2));
     picture(car, zone);
     const p = car.price ? car.price[zone] : null;
     priceEl.textContent = p == null ? 'Sur devis' : fmt(p);
@@ -77,7 +60,7 @@ export function startTintSimple(section) {
       ? `${ZONES[zone].label} : ${ZONES[zone].detail}.`
       : `${car.label} : forfait spécifique, nous vous répondons avec un devis détaillé.`;
     law.hidden = zone === 'rear';
-    const config = `Vitres teintées — ${ZONES[zone].label} (${ZONES[zone].detail})${zone === 'front' ? '' : ` — teinte arrière ${shade} %`} — ${car.label} (${car.example})${p == null ? ' — sur devis' : ` — ${fmt(p)} TTC indicatif`}`;
+    const config = `Vitres teintées — ${ZONES[zone].label} (${ZONES[zone].detail}) — ${car.label} (${car.example})${p == null ? ' — sur devis' : ` — ${fmt(p)} TTC indicatif`}`;
     const url = new URL(quote.getAttribute('href'), location.href);
     url.searchParams.set('prestation', 'vitres-teintees');
     url.searchParams.set('vehicule', `${car.label} (${car.example})`);

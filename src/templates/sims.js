@@ -183,8 +183,8 @@ export function simTintSimple(ctx, pictures) {
   <div class="container">
     <div class="sim__head">
       <p class="kicker" style="color:var(--gold-300)">Simulateur · prix immédiat</p>
-      <h2 id="tsim-title">Votre prix en trois clics</h2>
-      <p>Choisissez votre type de véhicule, les vitres à teinter et la teinte : les vitres choisies s’entourent d’or et foncent sur la photo, le prix s’affiche aussitôt. Envie de tourner autour de la voiture ? Passez au simulateur 3D.</p>
+      <h2 id="tsim-title">Votre prix en deux clics</h2>
+      <p>Choisissez votre type de véhicule et les vitres à teinter : elles apparaissent en doré sur la photo et le prix s’affiche aussitôt. Envie de tourner autour de la voiture et d’essayer les teintes ? Passez au simulateur 3D.</p>
     </div>
     <div class="tsim__modes" role="group" aria-label="Mode du simulateur">
       <button type="button" class="tsim__mode" aria-pressed="true" data-mode="simple">Simulateur photo</button>
@@ -195,8 +195,6 @@ export function simTintSimple(ctx, pictures) {
         <figure class="tsim__photo" data-photo style="--ar:${size0.w} / ${size0.h}">
           ${picture('is-shown', ' data-photo-a')}
           ${picture('', ' data-photo-b aria-hidden="true"')}
-          <span class="tsim__glass" data-glass="rear" aria-hidden="true"><i></i></span>
-          <span class="tsim__glass tsim__glass--front" data-glass="front" aria-hidden="true"><i></i></span>
         </figure>
         <div class="tsim__views" role="group" aria-label="Point de vue">
           <button type="button" aria-pressed="true" data-view="34">3/4 arrière</button>
@@ -215,17 +213,12 @@ export function simTintSimple(ctx, pictures) {
           <legend>2. Quelles vitres voulez-vous teinter ?</legend>
           <div class="chips">${zones.map((z, i) => `<label class="chip"><input type="radio" name="zone" value="${z.value}"${i === 0 ? ' checked' : ''}><span>${esc(z.label)}<small>${esc(z.hint)}</small></span></label>`).join('')}</div>
         </fieldset>
-        <fieldset class="sim__group">
-          <legend>3. Quelle teinte à l’arrière ?</legend>
-          <div class="chips">${tint.shades.map((v) => `<label class="chip"><input type="radio" name="shade" value="${v}"${v === 15 ? ' checked' : ''}><span><i class="swatch" style="background:rgba(10,14,20,${((1 - v / 100) * 0.95 + 0.04).toFixed(2)})"></i>${v} %</span></label>`).join('')}</div>
-          <p class="zone__note">Part de lumière qui traverse le film : 5 % est le plus foncé. Toutes les teintes sont au même prix.</p>
-        </fieldset>
         <div class="tsim__price" aria-live="polite">
           <span>Prix TTC, pose comprise</span>
           <strong data-price>—</strong>
           <small data-price-note></small>
         </div>
-        <p class="tsim__law" data-law hidden>À l’avant, la loi impose au moins ${glazing.frontMin} % de lumière, vitre et film compris : seul un film très clair convient, contrôlé sur votre véhicule. Les vitres arrière et la lunette peuvent être aussi foncées que vous le souhaitez.</p>
+        <p class="tsim__law" data-law hidden>À l’avant, la loi impose au moins ${glazing.frontMin} % de lumière, vitre et film compris : seul un film très clair convient, contrôlé sur votre véhicule. Les vitres arrière et la lunette peuvent être aussi foncées que vous le souhaitez (${tint.shades.join(', ')} %, toutes au même prix).</p>
         <div class="ctas">
           <a class="btn btn--primary" href="/contact/?prestation=vitres-teintees" data-quote>Demander ce devis</a>
           <button type="button" class="btn btn--ghost" data-mode="3d">Voir en 3D</button>
