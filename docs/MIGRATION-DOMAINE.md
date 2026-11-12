@@ -42,9 +42,8 @@ pages) et, pour un hébergeur sans règles (GitHub Pages), une page relais à ch
 | `/eclairage-d-ambiance-interieur-` | `/ciel-etoile/` (prestation la plus proche) |
 | `/vitres-teintees`, `/contact`, `/mentions-legales` | les mêmes pages, avec la barre finale |
 
-Le nettoyage automobile, le stickage publicitaire et l'éclairage d'ambiance intérieur n'ont pas de
-page à eux sur le nouveau site : si ces prestations sont toujours proposées, une page dédiée
-garderait mieux leur référencement qu'une redirection vers une page voisine.
+Le nettoyage automobile, le stickage publicitaire et l'éclairage d'ambiance intérieur ne sont plus
+proposés (confirmé par SOLAR CAR 37) : leurs anciennes adresses renvoient vers la page voisine.
 
 Nouvelles URL indexables (sitemap) : `/`, `/vitres-teintees/`, `/feux-arriere-teintes/`,
 `/detailing-carrosserie/`, `/covering-dechromage/`, `/ciel-etoile/`, `/renovation-phares/`, `/atelier-vouvray/`, `/contact/`,
