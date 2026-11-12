@@ -4720,3 +4720,110 @@ p {
   font-size: 0.88rem;
   color: var(--text-2);
 }
+
+/* ------------------------------------------------------------------ crest: the emblem turning in the backdrop */
+.crest-wrap {
+  position: absolute;
+  left: 74%;
+  top: 52%;
+  width: min(44vmin, 420px);
+  aspect-ratio: 256 / 280;
+  translate: -50% -50%;
+  perspective: 1400px;
+  opacity: 0;
+  transition: opacity 2.4s ease;
+}
+.ambient.is-live .crest-wrap {
+  opacity: var(--crest-on, 0.13);
+}
+.crest {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: crest-spin 26s linear infinite, crest-float 9s ease-in-out infinite;
+}
+.crest__layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* a coin a few pixels thick: the layers between the faces are the gold edge, darker */
+  transform: translateZ(calc((var(--i) - 4) * 1.4px));
+  filter: brightness(0.5) saturate(1.2);
+  user-select: none;
+}
+.crest__face,
+.crest__back {
+  filter: none;
+  backface-visibility: hidden;
+}
+.crest__back {
+  transform: translateZ(-5.6px) rotateY(180deg);
+}
+.crest__face {
+  transform: translateZ(5.6px);
+}
+/* a light sweeping the face, cut to the emblem's shape */
+.crest__shine {
+  position: absolute;
+  inset: 0;
+  transform: translateZ(5.8px);
+  backface-visibility: hidden;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 246, 214, 0.75) 48%, transparent 60%);
+  background-size: 260% 100%;
+  -webkit-mask: var(--emblem) center / 100% 100% no-repeat;
+  mask: var(--emblem) center / 100% 100% no-repeat;
+  mix-blend-mode: screen;
+  animation: crest-shine 7s ease-in-out infinite;
+}
+/* a few sparks drifting around it */
+.crest__sparks {
+  position: absolute;
+  inset: -18%;
+  background: radial-gradient(2px 2px at 12% 30%, #f6e3a6, transparent 60%), radial-gradient(1.5px 1.5px at 86% 22%, #f1dca2, transparent 60%), radial-gradient(2px 2px at 78% 74%, #e9cd82, transparent 60%), radial-gradient(1.5px 1.5px at 20% 80%, #f6e3a6, transparent 60%), radial-gradient(1px 1px at 52% 6%, #fff4d2, transparent 60%), radial-gradient(1.5px 1.5px at 95% 52%, #e9cd82, transparent 60%);
+  animation: crest-sparks 5.5s ease-in-out infinite;
+}
+@keyframes crest-spin {
+  to {
+    rotate: y 360deg;
+  }
+}
+@keyframes crest-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -2.5%;
+  }
+}
+@keyframes crest-shine {
+  0%,
+  35% {
+    background-position: 100% 0;
+  }
+  65%,
+  100% {
+    background-position: 0% 0;
+  }
+}
+@keyframes crest-sparks {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+@media (max-width: 760px) {
+  .ambient {
+    --crest-on: 0.08;
+  }
+  .crest-wrap {
+    left: 50%;
+    width: 62vmin;
+  }
+}

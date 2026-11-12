@@ -386,10 +386,18 @@ function instagramBlock(ctx) {
 </section>`;
 }
 
+/** the workshop's crest in the backdrop: the official emblem stacked into a thin gold coin that
+ * turns slowly, a light sweeping its face, a few sparks (CSS only, src/styles/main.css "crest") */
+const CREST_LAYERS = 9;
+const CREST = `<div class="crest-wrap" style="--emblem:url(/img/brand/embleme-256.webp)"><div class="crest">${Array.from({ length: CREST_LAYERS }, (_, i) => {
+  const role = i === 0 ? ' crest__face' : i === CREST_LAYERS - 1 ? ' crest__back' : '';
+  return `<img class="crest__layer${role}" src="/img/brand/embleme-256.webp" alt="" width="256" height="280" loading="lazy" decoding="async" draggable="false" style="--i:${i}">`;
+}).join('')}<i class="crest__shine"></i></div><i class="crest__sparks"></i></div>`;
+
 function page(ctx, opts, body) {
   return `${head(ctx, opts)}
 <body class="${opts.bodyClass || ''}">
-<div class="ambient" data-ambient aria-hidden="true"><div class="ambient__haze" data-haze></div><div class="ambient__sweep"></div></div>
+<div class="ambient" data-ambient aria-hidden="true"><div class="ambient__haze" data-haze></div><div class="ambient__sweep"></div>${CREST}</div>
 ${header(ctx, opts.path)}
 <main id="contenu">
 ${body}
