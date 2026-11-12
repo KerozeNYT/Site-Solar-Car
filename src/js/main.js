@@ -148,6 +148,10 @@ if (tour) {
 }
 
 // ---------------------------------------------------------------- simulators
+// window tint simulator, simple mode (photos): no 3D, started at once
+const tintSimple = document.querySelector('[data-tint-simple]');
+if (tintSimple) import('./tint-simple.js').then((m) => m.startTintSimple(tintSimple));
+
 // `data-sim-lazy`: the simulator's code (and its catalogue) loads only when it nears the screen
 const sims = [...document.querySelectorAll('[data-sim]')];
 if (sims.length) {

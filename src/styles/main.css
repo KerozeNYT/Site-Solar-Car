@@ -4561,3 +4561,170 @@ p {
 .packages-list {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
 }
+
+/* ------------------------------------------------------------------ window tint simulator, simple mode */
+.tsim__modes {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 0 0 22px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.tsim__mode {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 18px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tsim__mode[aria-pressed='true'] {
+  background: var(--gold-soft);
+  color: #17140c;
+}
+.tsim__layout {
+  display: grid;
+  gap: clamp(18px, 3vw, 36px);
+  align-items: start;
+}
+@media (min-width: 960px) {
+  .tsim__layout {
+    grid-template-columns: 1.35fr 1fr;
+  }
+  .tsim__stage {
+    position: sticky;
+    top: calc(var(--header-h, 70px) + 16px);
+  }
+}
+.tsim__photo {
+  position: relative;
+  margin: 0;
+  border-radius: calc(var(--radius) + 4px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: radial-gradient(ellipse at 50% 62%, #24262c 0%, #121317 55%, #08090b 100%);
+}
+.tsim__photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+}
+.tsim__zone {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.tsim__zone.is-on {
+  opacity: 1;
+}
+.tsim__tint,
+.tsim__gold {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: var(--mask);
+  mask-image: var(--mask);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+.tsim__tint {
+  background: #050608;
+  opacity: var(--tint, 0.6);
+  transition: opacity 0.35s ease;
+}
+/* the gold outline: a glow drawn around the window shapes */
+.tsim__glow {
+  position: absolute;
+  inset: 0;
+  filter: drop-shadow(0 0 1.5px #f6e3a6) drop-shadow(0 0 9px rgba(227, 194, 122, 0.85));
+}
+.tsim__gold {
+  background: linear-gradient(115deg, rgba(241, 220, 162, 0.42), rgba(220, 177, 90, 0.18) 38%, rgba(255, 240, 200, 0.5) 52%, rgba(201, 162, 83, 0.2) 68%, rgba(241, 220, 162, 0.38));
+  background-size: 220% 100%;
+  animation: tsim-shine 4.5s ease-in-out infinite;
+}
+@keyframes tsim-shine {
+  0%,
+  100% {
+    background-position: 0% 0;
+  }
+  50% {
+    background-position: 100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tsim__gold {
+    animation: none;
+  }
+}
+.tsim__views {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.tsim__views button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.tsim__views button[aria-pressed='true'] {
+  border-color: var(--gold-400);
+  color: var(--accent-strong);
+}
+.tsim__credit {
+  margin: 8px 0 0;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.tsim__cars .chip small,
+.tsim .chip small {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--muted);
+}
+.tsim__price {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 14px;
+  padding: 16px 18px;
+  border: 1px solid rgba(227, 194, 122, 0.35);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(227, 194, 122, 0.1), rgba(227, 194, 122, 0.02));
+}
+.tsim__price span {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.tsim__price strong {
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  line-height: 1.1;
+  color: var(--text);
+}
+.tsim__price small {
+  color: var(--text-2);
+}
+.tsim__law {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--gold-400);
+  background: rgba(227, 194, 122, 0.06);
+  font-size: 0.88rem;
+  color: var(--text-2);
+}

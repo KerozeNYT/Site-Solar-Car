@@ -5,15 +5,19 @@
 import { esc } from './pages.js';
 import { glazing, glazingReminder, lightsRule, roadStatus } from '../../content/regulation.js';
 import vehicles from '../../content/vehicles.js';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 
 const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
-function shell({ kind, title, intro, poster, posterAlt, views, panel, tag = '', kicker = 'Simulateur 3D en temps réel', startLabel = 'Lancer la vue 3D', viewExtra = '', cls = '', attrs = '' }) {
-  return `<section class="sim${cls ? ' ' + cls : ''}" data-sim="${kind}" id="simulateur" aria-labelledby="sim-title"${attrs}>
+function shell({ kind, title, intro, poster, posterAlt, views, panel, tag = '', kicker = 'Simulateur 3D en temps réel', startLabel = 'Lancer la vue 3D', viewExtra = '', cls = '', attrs = '', id = 'simulateur' }) {
+  return `<section class="sim${cls ? ' ' + cls : ''}" data-sim="${kind}" id="${id}" aria-labelledby="${id}-title"${attrs}>
   <div class="container">
     <div class="sim__head">
       <p class="kicker" style="color:var(--gold-300)">${esc(kicker)}</p>
-      <h2 id="sim-title">${esc(title)}</h2>
+      <h2 id="${id}-title">${esc(title)}</h2>
       <p>${esc(intro)}</p>
     </div>
     <div class="sim__layout">
@@ -73,7 +77,7 @@ const actions = (slug, extra = '') => `<div class="sim__actions">
         </div>`;
 
 // ------------------------------------------------------------------------- window tint
-export function simTint(ctx) {
+export function simTint(ctx, { hidden = false } = {}) {
   const { tint, vehicleTypes } = ctx.pricing;
   const shadeItems = tint.shades.map((v) => ({ value: String(v), label: `${v} %`, swatch: `rgba(10,14,20,${(1 - v / 100) * 0.95 + 0.04})` }));
   const panel = `
@@ -142,8 +146,100 @@ export function simTint(ctx) {
     ],
     tag: '<span class="badge-demo" data-model-tag hidden>Silhouette provisoire</span>',
     panel,
+    // behind the simple mode: hidden, its 3D loads only once shown
+    ...(hidden ? { id: 'simulateur-3d', attrs: ' hidden data-sim-lazy', kicker: 'Simulateur 3D en temps réel' } : {}),
   });
 }
+
+// ------------------------------------------------------------------------- tint, simple mode
+/**
+ * The pictures of the simple mode (scripts/cars/render.mjs writes them with a manifest:
+ * { <vehicle id>: { credit } }). The simple mode shows only when every vehicle has its pictures.
+ */
+function tintPictures() {
+  const file = path.join(ROOT, 'public/img/vitres/manifest.json');
+  if (!fs.existsSync(file)) return null;
+  const m = JSON.parse(fs.readFileSync(file, 'utf8'));
+  return m;
+}
+
+/** Simple mode: a real car per category, the chosen windows outlined in gold, the price at once */
+export function simTintSimple(ctx, pictures) {
+  const { tint, tintVehicles } = ctx.pricing;
+  const cars = tintVehicles.filter((v) => pictures[v.id]);
+  const price = (v) => (v.quote ? null : { rear: tint.rearPackage[v.cat], front: tint.frontOnly, all: tint.rearPackage[v.cat] + tint.frontWithRear });
+  const data = cars.map((v) => ({ id: v.id, label: v.label, example: v.example, price: price(v), credit: pictures[v.id].credit || '' }));
+  const first = cars[0];
+  const img = (id, view, size) => `/img/vitres/${id}-${view}-${size}.webp`;
+  const zones = [
+    { value: 'rear', label: 'Vitres arrière', hint: 'latérales arrière + lunette' },
+    { value: 'front', label: 'Vitres avant', hint: 'conducteur + passager' },
+    { value: 'all', label: 'Toutes les vitres', hint: 'hors pare-brise' },
+  ];
+  return `<section class="sim tsim" id="simulateur" data-tint-simple aria-labelledby="tsim-title" data-cars="${esc(JSON.stringify(data))}">
+  <div class="container">
+    <div class="sim__head">
+      <p class="kicker" style="color:var(--gold-300)">Simulateur · prix immédiat</p>
+      <h2 id="tsim-title">Votre prix en trois clics</h2>
+      <p>Choisissez votre type de véhicule et les vitres à teinter : elles s’allument en doré sur la photo et le prix s’affiche aussitôt. Envie de tourner autour de la voiture ? Passez au simulateur 3D.</p>
+    </div>
+    <div class="tsim__modes" role="group" aria-label="Mode du simulateur">
+      <button type="button" class="tsim__mode" aria-pressed="true" data-mode="simple">Simulateur photo</button>
+      <button type="button" class="tsim__mode" aria-pressed="false" data-mode="3d">Simulateur 3D</button>
+    </div>
+    <div class="tsim__layout">
+      <div class="tsim__stage">
+        <figure class="tsim__photo" data-photo>
+          <img src="${img(first.id, '34', 960)}" srcset="${img(first.id, '34', 960)} 960w, ${img(first.id, '34', 1600)} 1600w" sizes="(min-width: 960px) 58vw, 100vw" width="1600" height="1000" alt="${esc(`${first.label} (${first.example}) vue de trois quarts arrière`)}" loading="lazy" decoding="async" data-photo-img>
+          ${['rear', 'front'].map((g) => `<div class="tsim__zone tsim__zone--${g}" data-zone="${g}" aria-hidden="true"><span class="tsim__tint"></span><span class="tsim__glow"><span class="tsim__gold"></span></span></div>`).join('')}
+        </figure>
+        <div class="tsim__views" role="group" aria-label="Point de vue">
+          <button type="button" aria-pressed="true" data-view="34">3/4 arrière</button>
+          <button type="button" aria-pressed="false" data-view="side">Profil</button>
+        </div>
+        <p class="tsim__credit" data-credit>${esc(pictures[first.id].credit || '')}</p>
+      </div>
+      <form class="tsim__panel" data-tsim-form>
+        <fieldset class="sim__group">
+          <legend>1. Quel type de véhicule avez-vous ?</legend>
+          <div class="chips tsim__cars">${cars
+            .map((v, i) => `<label class="chip"><input type="radio" name="car" value="${v.id}"${i === 0 ? ' checked' : ''}><span>${esc(v.label)}<small>${esc(v.example)}</small></span></label>`)
+            .join('')}</div>
+        </fieldset>
+        <fieldset class="sim__group">
+          <legend>2. Quelles vitres voulez-vous teinter ?</legend>
+          <div class="chips">${zones.map((z, i) => `<label class="chip"><input type="radio" name="zone" value="${z.value}"${i === 0 ? ' checked' : ''}><span>${esc(z.label)}<small>${esc(z.hint)}</small></span></label>`).join('')}</div>
+        </fieldset>
+        <fieldset class="sim__group">
+          <legend>3. Quelle teinte à l’arrière ?</legend>
+          <div class="chips">${tint.shades.map((v) => `<label class="chip"><input type="radio" name="shade" value="${v}"${v === 15 ? ' checked' : ''}><span><i class="swatch" style="background:rgba(10,14,20,${((1 - v / 100) * 0.95 + 0.04).toFixed(2)})"></i>${v} %</span></label>`).join('')}</div>
+          <p class="zone__note">Pourcentage de lumière qui traverse le film : 5 % est le plus foncé. Toutes les teintes sont au même prix.</p>
+        </fieldset>
+        <div class="tsim__price" aria-live="polite">
+          <span>Prix TTC, pose comprise</span>
+          <strong data-price>—</strong>
+          <small data-price-note></small>
+        </div>
+        <p class="tsim__law" data-law hidden>À l’avant, la loi impose au moins ${glazing.frontMin} % de lumière, vitre et film compris : seul un film très clair convient, contrôlé sur votre véhicule. Les vitres arrière et la lunette peuvent être aussi foncées que vous le souhaitez.</p>
+        <div class="ctas">
+          <a class="btn btn--primary" href="/contact/?prestation=vitres-teintees" data-quote>Demander ce devis</a>
+          <button type="button" class="btn btn--ghost" data-mode="3d">Voir en 3D</button>
+        </div>
+        <p class="price-note">Prix TTC indicatifs, confirmés par le devis après vérification du véhicule. Photos de modèles représentatifs de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle exact.</p>
+      </form>
+    </div>
+  </div>
+</section>`;
+}
+
+/** the tint simulators of the page: the simple mode first when its pictures exist, the 3D one behind a switch */
+export function tintSims(ctx) {
+  const pictures = tintPictures();
+  const ok = pictures && ctx.pricing.tintVehicles.every((v) => pictures[v.id]);
+  if (!ok) return simTint(ctx);
+  return simTintSimple(ctx, pictures) + simTint(ctx, { hidden: true });
+}
+
 
 export function tintPriceTable(ctx) {
   const { tint, vehicleTypes } = ctx.pricing;
@@ -309,7 +405,7 @@ export function simStarlight(ctx) {
 export function simFor(ctx, slug) {
   switch (slug) {
     case 'vitres-teintees':
-      return simTint(ctx); // the price grid of every category is a section of the page (content/sections/vitres-teintees.js)
+      return tintSims(ctx); // the price grid of every category is a section of the page (content/sections/vitres-teintees.js)
     case 'feux-arriere-teintes':
       return simLights(ctx);
     case 'renovation-phares':

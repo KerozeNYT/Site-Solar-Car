@@ -20,6 +20,25 @@ export const vehicleTypes = [
   { id: 'utilitaire', label: 'Utilitaire & mini-van', examples: 'Ford Edge, Mercedes ML…', model: 'utilitaire' },
 ];
 
+/**
+ * Vehicles of the window tint simulator in simple mode (photos, /vitres-teintees/): what the
+ * visitor recognises, mapped to the price category above (`cat`). `quote`: priced on quote.
+ * The pictures are public/img/vitres/<id>-34|side-*.webp (scripts/cars/render.mjs).
+ */
+export const tintVehicles = [
+  { id: 'petite-citadine', label: 'Petite citadine', example: 'Fiat 500', cat: 'citadine' },
+  { id: 'citadine', label: 'Citadine', example: 'Audi A3 Sportback', cat: 'citadine' },
+  { id: 'berline', label: 'Berline', example: 'BMW Série 3', cat: 'berline' },
+  { id: 'cabriolet', label: 'Cabriolet', example: 'Audi A4 Cabriolet', cat: 'coupe' },
+  { id: 'coupe', label: 'Coupé', example: 'BMW Série 2 Coupé', cat: 'coupe' },
+  { id: 'break', label: 'Break', example: 'Audi A6 Avant', cat: 'break' },
+  { id: 'monospace', label: 'Monospace', example: 'Renault Espace', cat: 'suv' },
+  { id: 'suv', label: 'SUV', example: 'BMW X5', cat: 'suv' },
+  // a specific package (large glass roof): to price with the workshop
+  { id: 'tesla', label: 'Tesla Model 3', example: 'forfait spécifique', quote: true },
+  { id: 'utilitaire', label: 'Utilitaire', example: 'Volkswagen Transporter', cat: 'utilitaire' },
+];
+
 export const tint = {
   validated: true,
   currency: 'EUR',
