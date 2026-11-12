@@ -614,6 +614,11 @@ export const partners = {
     { name: 'TeckWrap', logo: '/img/partners/teckwrap.png' },
     { name: 'RUPES', logo: '/img/partners/rupes.png' },
     { name: '3M', logo: '/img/partners/3m.png' },
+    { name: 'Avery Dennison', logo: '/img/partners/avery-dennison.png' },
+    // no official Oracal logo to download (Orafol publishes none): the name in gold
+    { name: 'Oracal', logo: null },
+    { name: 'APA', logo: '/img/partners/apa.png' },
+    { name: 'Ravoony', logo: '/img/partners/ravoony.png' },
     { name: 'Solar Screen', logo: '/img/partners/solar-screen.png' },
     { name: 'Tego', logo: '/img/partners/tego.png' },
     { name: 'STEK', logo: '/img/partners/stek.png' },

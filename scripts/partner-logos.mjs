@@ -18,7 +18,11 @@ import sharp from 'sharp';
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const src = path.join(root, 'assets-src/partners');
 const out = path.join(root, 'public/img/partners');
-const OPTIONS = {};
+const OPTIONS = {
+  // APA: one-colour version of the official logo (pentagon black, the A and the paper fold cut
+  // into it white, on a white background): the dark parts are the logo
+  apa: { mode: 'dark' },
+};
 // largest box of a logo on the page (.brands__logo, at most 170 × 58 px), ×3 for sharp screens
 const BOX = { w: 510, h: 174 };
 
