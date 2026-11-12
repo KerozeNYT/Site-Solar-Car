@@ -57,8 +57,10 @@ export default {
   },
 
   // The bonnet in car space (metres, nose towards +x): carbon covering of the home film
-  // (setCarbon). x: from the windscreen to the nose; halfWidth: at the windscreen, at the nose.
-  hood: { x: [0.98, 2.4], halfWidth: [0.6, 0.5] },
+  // (setCarbon). x: from the windscreen to the nose (the film is laid along it); part: the bonnet
+  // panel is the piece of this mesh nearest to `at`, so the carbon stays on it alone (not the
+  // bumper nor the wings). halfWidth: the bonnet's outline for a model without `part`.
+  hood: { x: [0.98, 2.4], halfWidth: [0.6, 0.5], part: { mesh: 'Object_2', at: [1.6, 0.85, 0] } },
 
   // Roof area that receives the starlight (model space). Rays are cast upwards inside it and
   // stars are placed on the first opaque surface; listed meshes (roll cage...) are ignored.

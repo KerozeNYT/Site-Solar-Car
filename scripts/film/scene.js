@@ -1,10 +1,12 @@
 /**
  * Home page film, rendered frame by frame in a headless browser (scripts/film/render.mjs).
  * Same car, materials and service effects as the site's 3D scene (src/js/tour/), in a dark
- * studio: black floor, fog, soft light from above. Exposes window.renderFrame(t) and
- * window.frameData(type, quality); window.ready once the car is loaded.
+ * detailing garage (scripts/film/garage.js): black PVC tiles framed in yellow around the car,
+ * LED tubes on the ceiling and the walls reflected in the paint. Exposes window.renderFrame(t)
+ * and window.frameData(type, quality); window.ready once the car is loaded.
  *
- * URL knobs: w, h (pixels), msaa (samples), exp (exposure), fog (density), grain, vig.
+ * URL knobs: w, h (pixels), msaa (samples), exp (exposure), fog (depth haze), led (tube
+ * brightness), grain, vig.
  */
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -16,15 +18,17 @@ import { loadCarModel } from '../../src/js/tour/car-model.js';
 import { createPath, createEffects } from '../../src/js/tour/flight.js';
 import carConfig from '../../content/car.js';
 import { keys, effects } from './shots.js';
+import { buildGarage } from './garage.js';
 
 const q = new URLSearchParams(location.search);
 const W = Number(q.get('w') || 1920);
 const H = Number(q.get('h') || 1080);
 const MSAA = q.get('msaa') != null ? Number(q.get('msaa')) : W >= 3000 ? 2 : 4;
 const EXPOSURE = Number(q.get('exp') || 1.18);
-const FOG = Number(q.get('fog') || 0.022);
+const FOG = Number(q.get('fog') ?? 0.012);
+const LED = Number(q.get('led') || 4.2);
 const GRAIN = Number(q.get('grain') || 0.006);
-const VIGNETTE = Number(q.get('vig') || 0.55);
+const VIGNETTE = Number(q.get('vig') || 0.38);
 
 const canvas = document.createElement('canvas');
 document.body.append(canvas);
@@ -36,73 +40,13 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = EXPOSURE;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x030405);
-scene.fog = new THREE.FogExp2(0x040506, FOG);
-scene.environment = studioReflections(renderer);
-// the windows reflect the same room without the warm lamp: flat glass shows it at its true size,
-// a ragged beige disc, where the curved paint turns it into a fine amber glint
-const glassReflections = studioReflections(renderer, { warm: false });
-
-// ---------------------------------------------------------------- studio: floor, lights
-// the floor is lit in a soft pool around the car and fades to black with distance
-const pool = document.createElement('canvas');
-pool.width = pool.height = 512;
-const pg = pool.getContext('2d');
-const grad = pg.createRadialGradient(256, 256, 0, 256, 256, 256);
-grad.addColorStop(0, '#2a2c31');
-grad.addColorStop(0.1, '#1d1f23');
-grad.addColorStop(0.24, '#0d0e10');
-grad.addColorStop(0.42, '#030304');
-grad.addColorStop(1, '#000000');
-pg.fillStyle = grad;
-pg.fillRect(0, 0, 512, 512);
-const poolTex = new THREE.CanvasTexture(pool);
-poolTex.colorSpace = THREE.SRGBColorSpace;
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(44, 44),
-  new THREE.MeshStandardMaterial({ map: poolTex, roughness: 0.42, metalness: 0.0, envMapIntensity: 0.35 })
-);
-floor.rotation.x = -Math.PI / 2;
-scene.add(floor);
-scene.add(new THREE.HemisphereLight(0xbfd0ff, 0x0b0b0d, 0.08));
-// soft pool of light from above
-const top = new THREE.SpotLight(0xfff6ec, 18, 0, 0.55, 1, 2);
-top.position.set(0, 7.5, 0);
-top.target.position.set(0, 0, 0);
-scene.add(top, top.target);
-
-/** reflections: a black room with long strip lights (crisp lines on the clearcoat), a dim
- * overhead diffuser and one small warm lamp (the amber glints) */
-function studioReflections(renderer, { warm = true } = {}) {
-  const env = new THREE.Scene();
-  env.add(new THREE.Mesh(new THREE.BoxGeometry(24, 9, 18), new THREE.MeshBasicMaterial({ color: 0x050506, side: THREE.BackSide })));
-  const floorEnv = new THREE.Mesh(new THREE.PlaneGeometry(24, 18), new THREE.MeshBasicMaterial({ color: 0x0e0f11 }));
-  floorEnv.rotation.x = -Math.PI / 2;
-  floorEnv.position.y = -0.2;
-  env.add(floorEnv);
-  const strip = (w, h, d, k, x, y, z, color = 0xffffff) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k) }));
-    m.position.set(x, y, z);
-    env.add(m);
-  };
-  // overhead strips along the car
-  for (const z of [-1.5, 0, 1.5]) strip(7, 0.06, 0.16, 5, 0, 4.2, z);
-  // side strips at waist height: the long lines along the flanks
-  for (const z of [-6, 6]) strip(9, 0.12, 0.06, 3.2, 0, 1.6, z);
-  // behind the car: lines across the rear (tail lights chapter)
-  strip(0.06, 0.1, 6, 2.6, -8, 1.5, 0);
-  strip(0.06, 0.08, 4, 1.6, -8, 3.0, 0);
-  // dim overhead diffuser
-  strip(5, 0.05, 2.6, 0.35, 0, 4.4, 0);
-  // small warm lamp
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.55, 0.2).multiplyScalar(14) }));
-  lamp.position.set(3.5, 3.6, 2.5);
-  if (warm) env.add(lamp);
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const rt = pmrem.fromScene(env, 0.0, 0.1, 60, { size: 512, position: new THREE.Vector3(0, 0.9, 0) });
-  pmrem.dispose();
-  return rt.texture;
-}
+scene.background = new THREE.Color(0x0b0c0e);
+// a faint depth haze only: the far walls settle back, no smoke
+if (FOG > 0) scene.fog = new THREE.FogExp2(0x0b0c0e, FOG);
+// ---------------------------------------------------------------- the garage (scripts/film/garage.js)
+const garage = buildGarage(scene, renderer, { ledLevel: LED });
+scene.environment = garage.envMap;
+const glassReflections = garage.glassEnvMap;
 
 const camera = new THREE.PerspectiveCamera(30, W / H, 0.02, 200);
 scene.add(camera);
@@ -111,6 +55,8 @@ scene.add(camera);
 const car = await loadCarModel({ ...carConfig, model: '/public' + carConfig.model, paint: { ...carConfig.paint, color: '#050506' } }, { quality: 'high' });
 scene.add(car.group);
 car.setFrontVLT(0.75);
+// test knob: paint=rrggbb repaints the body (to see the carbon bonnet's outline)
+if (q.get('paint')) car.setPaint('#' + q.get('paint'));
 car.setStarlight({ count: 1100, twinkle: true });
 for (const m of Object.values(car.materials.glass)) m.envMap = glassReflections;
 // the red halo sprites beside the tail lights float off the body at this resolution
@@ -128,6 +74,49 @@ const hideNames = ['Object_53', 'beam', ...(q.get('hide') || '').split(',').filt
 car.group.traverse((o) => {
   if (hideNames.includes(o.name)) o.visible = false;
 });
+
+// anthracite grey: a dielectric base under the mirror clearcoat, so the light of the ceiling
+// gives the paint a soft grey sheen (it stands out against the dark garage) and the varnish
+// keeps the sharp lines of the tubes
+car.group.traverse((o) => {
+  if (!o.isMesh) return;
+  for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+    if (m?.userData?.uniforms?.uCarbonX) {
+      m.metalness = 0.12;
+      m.roughness = 0.38;
+    }
+  }
+});
+
+// the cabin under its roof: the area light of the ceiling casts no shadow and would light the
+// seats through the roof; what sits inside the cabin keeps 40 % of its colour (a material also
+// used outside the cabin is copied for the inside)
+{
+  const cabin = new THREE.Box3(new THREE.Vector3(-1.3, 0.45, -0.78), new THREE.Vector3(0.95, 1.3, 0.78));
+  const keep = new Set([...carConfig.paint.materials, ...(carConfig.cabinDim || [])]);
+  const b = new THREE.Box3();
+  const c = new THREE.Vector3();
+  const inside = [];
+  const outsideMats = new Set();
+  car.group.traverse((o) => {
+    if (!o.isMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    if (!keep.has(o.name) && cabin.containsPoint(b.setFromObject(o).getCenter(c))) inside.push(o);
+    else for (const m of mats) outsideMats.add(m);
+  });
+  const dimmed = new Map();
+  const dim = (m) => {
+    // glass and the materials with their own shader (lights, windows) stay as they are
+    if (!m || m.transparent || !m.color || Object.prototype.hasOwnProperty.call(m, 'onBeforeCompile')) return m;
+    if (!dimmed.has(m)) {
+      const d = outsideMats.has(m) ? m.clone() : m;
+      d.color.multiplyScalar(0.4);
+      dimmed.set(m, d);
+    }
+    return dimmed.get(m);
+  };
+  for (const o of inside) o.material = Array.isArray(o.material) ? o.material.map(dim) : dim(o.material);
+}
 
 // window tint chapter: a soft light panel on the far side of the car, at window height, hidden by
 // the body: it shows only through the glass, so the rear windows read clear, then black, while

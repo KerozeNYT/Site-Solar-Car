@@ -23,6 +23,58 @@ import { drawPlate, loadEmblem, PLATE_TEXT } from '../plate-art.js';
 
 const YAW = { '+z': Math.PI / 2, '-z': -Math.PI / 2, '+x': 0, '-x': Math.PI };
 
+/**
+ * The bonnet as a piece of its mesh: the connected part of `mesh` (vertices welded by position)
+ * nearest to `at` (car space). Every mesh painted with `paintMats` gets a `carbonMask`
+ * attribute: 1 on that part, 0 elsewhere (materials.js, CARBON_MASK). Returns false when the
+ * mesh is missing.
+ */
+function markHood(model, paintMats, mesh, at, group) {
+  if (!mesh?.geometry?.index) return false;
+  model.traverse((o) => {
+    if (!o.isMesh || o.geometry.getAttribute('carbonMask')) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    if (mats.some((m) => paintMats.has(m))) o.geometry.setAttribute('carbonMask', new THREE.BufferAttribute(new Float32Array(o.geometry.attributes.position.count), 1));
+  });
+  const g = mesh.geometry;
+  const pos = g.attributes.position;
+  const n = pos.count;
+  const weld = new Map();
+  const id = new Int32Array(n);
+  for (let i = 0; i < n; i++) {
+    const k = `${Math.round(pos.getX(i) * 1e4)},${Math.round(pos.getY(i) * 1e4)},${Math.round(pos.getZ(i) * 1e4)}`;
+    if (!weld.has(k)) weld.set(k, i);
+    id[i] = weld.get(k);
+  }
+  const parent = Int32Array.from({ length: n }, (_, i) => i);
+  const root = (a) => {
+    while (parent[a] !== a) a = parent[a] = parent[parent[a]];
+    return a;
+  };
+  const index = g.index;
+  for (let t = 0; t < index.count; t += 3) {
+    const a = root(id[index.getX(t)]);
+    const b = root(id[index.getX(t + 1)]);
+    const c = root(id[index.getX(t + 2)]);
+    parent[a] = c;
+    parent[b] = c;
+  }
+  // the vertex nearest to `at`, in car space
+  const toCar = new THREE.Matrix4().copy(group.matrixWorld).invert().multiply(mesh.matrixWorld);
+  const v = new THREE.Vector3();
+  const target = new THREE.Vector3(...at);
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < n; i++) {
+    const d = v.fromBufferAttribute(pos, i).applyMatrix4(toCar).distanceToSquared(target);
+    if (d < bestD) (bestD = d), (best = i);
+  }
+  const part = root(id[best]);
+  const mask = g.getAttribute('carbonMask').array;
+  for (let i = 0; i < n; i++) mask[i] = root(id[i]) === part ? 1 : 0;
+  return true;
+}
+
 export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
@@ -135,6 +187,9 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     for (const k of ['metalness', 'roughness', 'clearcoat', 'clearcoatRoughness']) if (finish[k] !== undefined && k in m) m[k] = finish[k];
     m.envMapIntensity = 1.3;
     injectPolish(m, polishU);
+  }
+  if (cfg.hood?.part && markHood(model, paintMats, find([cfg.hood.part.mesh])[0], cfg.hood.part.at, group)) {
+    for (const m of paintMats) m.defines = { ...m.defines, CARBON_MASK: '' };
   }
   if (cfg.interiorAccent) {
     for (const o of find(cfg.interiorAccent.materials)) {

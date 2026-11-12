@@ -94,10 +94,13 @@ export function injectPolish(m, uniforms) {
     if (prev) prev(sh, r);
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform mat4 uCarInv;\nvarying vec3 vCarPos;\nvarying vec3 vCarNormal;')
+      .replace(
+        '#include <common>',
+        '#include <common>\nuniform mat4 uCarInv;\nvarying vec3 vCarPos;\nvarying vec3 vCarNormal;\n#ifdef CARBON_MASK\nattribute float carbonMask;\nvarying float vCarbonMask;\n#endif'
+      )
       .replace(
         '#include <project_vertex>',
-        '#include <project_vertex>\nvCarPos = (uCarInv * modelMatrix * vec4(transformed, 1.0)).xyz;\nvCarNormal = normalize(mat3(uCarInv) * mat3(modelMatrix) * objectNormal);'
+        '#include <project_vertex>\nvCarPos = (uCarInv * modelMatrix * vec4(transformed, 1.0)).xyz;\nvCarNormal = normalize(mat3(uCarInv) * mat3(modelMatrix) * objectNormal);\n#ifdef CARBON_MASK\nvCarbonMask = carbonMask;\n#endif'
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
@@ -128,6 +131,10 @@ export function injectPolish(m, uniforms) {
         // uHood: the bonnet in car space (x from, x to, half width at the windscreen, at the nose)
         uniform float uCarbonX;
         uniform vec4 uHood;
+        #ifdef CARBON_MASK
+        // 1 on the bonnet panel itself (car-model.js, cfg.hood.part), 0 everywhere else
+        varying float vCarbonMask;
+        #endif
         float h31(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
         float vnoise(vec3 p){
           vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -225,6 +232,10 @@ export function injectPolish(m, uniforms) {
         roughnessFactor = mix(roughnessFactor, uWrapMat.x, wrapped);
         metalnessFactor = mix(metalnessFactor, uWrapMat.y, wrapped);
         float wrapEdge = uWrap * (1.0 - smoothstep(0.0, 0.05, abs(vCarPos.x - uWrapX))) * step(abs(uWrapX), 3.0);
+        #ifdef CARBON_MASK
+        // carbon bonnet: the bonnet panel alone, as marked on the mesh
+        float onHood = step(-5.0, uCarbonX) * step(0.5, vCarbonMask);
+        #else
         // carbon bonnet: the top of the bonnet only (not the vents' walls nor the wings)
         float hoodU = clamp((vCarPos.x - uHood.x) / max(uHood.y - uHood.x, 0.001), 0.0, 1.0);
         float hoodW = mix(uHood.z, uHood.w, hoodU);
@@ -232,6 +243,7 @@ export function injectPolish(m, uniforms) {
           * (1.0 - smoothstep(uHood.y - 0.004, uHood.y + 0.004, vCarPos.x))
           * (1.0 - smoothstep(hoodW - 0.004, hoodW + 0.004, abs(vCarPos.z)))
           * smoothstep(0.32, 0.45, normalize(vCarNormal).y);
+        #endif
         float carbon = onHood * (1.0 - smoothstep(-0.004, 0.004, vCarPos.x - uCarbonX));
         float carbonEdge = onHood * (1.0 - smoothstep(0.0, 0.012, abs(vCarPos.x - uCarbonX))) * step(uCarbonX, uHood.y + 0.01);
         // 2x2 twill: tows of 8 mm, each pair of cells turned the other way, shifted one cell a row
