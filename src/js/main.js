@@ -363,41 +363,75 @@ if (form) {
   if (presta) form.querySelectorAll(`input[name="prestations"][value="${CSS.escape(presta)}"]`).forEach((i) => (i.checked = true));
   const config = q.get('config');
   const vehicle = q.get('vehicule');
+  const forfait = q.get('forfait');
   const msg = form.querySelector('[name="message"]');
-  if (msg && !msg.value && (config || vehicle)) {
-    const lines = ['Configuration choisie sur le simulateur :'];
+  if (msg && !msg.value && (config || vehicle || forfait)) {
+    // detailing packages (content/sections/detailing-carrosserie.js)
+    const label = { essentiel: 'Essentiel', eclat: 'Éclat', correction: 'Correction', signature: 'Signature céramique' }[forfait];
+    const lines = [config ? 'Configuration choisie sur le simulateur :' : `Forfait souhaité : ${label || forfait}`];
     if (config) lines.push(config);
     if (vehicle && !(config || '').includes(vehicle)) lines.push(`Catégorie de véhicule : ${vehicle}`);
     msg.value = lines.join('\n') + '\n\n';
   }
-  // at least one service ticked (the browser checks the rest)
+  // ---- what is missing, said in red under each field and listed at the top of the form
   const boxes = [...form.querySelectorAll('[data-required-group] input[type="checkbox"]')];
-  const syncGroup = () => boxes[0]?.setCustomValidity(boxes.some((b) => b.checked) ? '' : 'Cochez au moins une prestation (ou « Autre demande »).');
-  boxes.forEach((b) => b.addEventListener('change', syncGroup));
-  syncGroup();
+  const summary = form.querySelector('[data-form-summary]');
+  const checks = [
+    ...[...form.querySelectorAll('[data-error-for]')].map((err) => {
+      const key = err.dataset.errorFor;
+      if (key === 'prestations') return { err, label: 'la prestation souhaitée', target: boxes[0], ok: () => boxes.some((b) => b.checked) };
+      const input = key === 'consentement' ? form.elements.consentement : form.querySelector('#' + CSS.escape(key));
+      const label = key === 'consentement' ? 'votre accord pour l’utilisation de vos données' : (form.querySelector(`label[for="${key}"]`)?.firstChild.textContent || key).trim().toLowerCase();
+      return { err, label, target: input, ok: () => (input.type === 'checkbox' ? input.checked : input.value.trim() !== '' && input.checkValidity()) };
+    }),
+  ];
+  const mark = (c, show) => {
+    const bad = !c.ok();
+    if (show || !bad) c.err.hidden = !bad;
+    if (c.target) c.target.toggleAttribute('aria-invalid', bad && !c.err.hidden);
+    return bad;
+  };
+  /** check every required field; `show`: reveal the red lines and the summary */
+  const validate = (show) => {
+    const missing = checks.filter((c) => mark(c, show));
+    if (show) {
+      summary.hidden = !missing.length;
+      summary.innerHTML = '';
+      if (missing.length) {
+        const p = document.createElement('p');
+        p.textContent = missing.length === 1 ? 'Pour envoyer votre demande, il manque une information :' : `Pour envoyer votre demande, il manque ${missing.length} informations :`;
+        const ul = document.createElement('ul');
+        for (const c of missing) {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = '#' + (c.target?.id || c.err.id);
+          a.textContent = c.err.textContent;
+          a.addEventListener('click', (e) => {
+            e.preventDefault();
+            c.target?.focus();
+          });
+          li.append(a);
+          ul.append(li);
+        }
+        summary.append(p, ul);
+      }
+    } else if (!summary.hidden && !missing.length) summary.hidden = true;
+    return missing;
+  };
+  // fixing a field clears its red line (and the summary once all is complete)
+  form.addEventListener('input', () => validate(false));
+  form.addEventListener('change', () => validate(false));
+  form.addEventListener('focusout', (e) => {
+    const c = checks.find((x) => x.target === e.target);
+    if (c && e.target.value) mark(c, true);
+  });
   const fields = (d) => {
     const label = (v) => form.querySelector(`input[name="prestations"][value="${CSS.escape(v)}"]`)?.parentElement.textContent.trim() || v;
     const prestations = d.getAll('prestations').map(label);
     const car = [d.get('marque'), d.get('modele'), d.get('annee')].filter(Boolean).join(' ');
     const wish = [d.get('date_souhaitee') ? `à partir du ${new Date(d.get('date_souhaitee')).toLocaleDateString('fr-FR')}` : '', d.get('moment') || ''].filter(Boolean).join(', ');
-    return { prestations, car, wish, subject: `Demande de devis${prestations.length ? ' – ' + prestations.join(', ') : ''} – ${car}` };
-  };
-
-  /** the whole request as a pre-filled e-mail (no form service, or the service failed) */
-  const mailtoHref = (to, d) => {
-    const { prestations, car, wish, subject } = fields(d);
-    const body = [
-      `Nom : ${d.get('nom') || ''}`,
-      `Prénom : ${d.get('prenom') || ''}`,
-      `E-mail : ${d.get('email') || ''}`,
-      `Téléphone : ${d.get('telephone') || ''}`,
-      `Véhicule : ${car}`,
-      `Prestation(s) : ${prestations.join(', ')}`,
-      `Rendez-vous souhaité : ${wish || 'indifférent'}`,
-      '',
-      String(d.get('message') || ''),
-    ].join('\n');
-    return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    // the e-mail's subject, as the workshop asked: the details are in the e-mail itself
+    return { prestations, car, wish, subject: 'Nouvelle demande de devis' };
   };
 
   // duplicates: one request at a time, and the same request sent again within 15 minutes is
@@ -448,18 +482,11 @@ if (form) {
       return;
     }
     resendOk = false;
-    if (!form.checkValidity()) {
-      form.reportValidity();
-      status.textContent = 'Merci de compléter les champs obligatoires.';
-      status.classList.add('is-error');
-      return;
-    }
-    if (form.hasAttribute('data-mailto')) {
-      // no form service configured: compose the e-mail in the visitor's mail app
-      if (form.elements._gotcha?.value) return;
-      location.href = mailtoHref(form.dataset.mailto, new FormData(form));
-      status.textContent = 'Votre messagerie s’ouvre avec la demande pré-remplie : vérifiez-la puis envoyez-la. Rien ne s’ouvre ? Écrivez-nous à ' + form.dataset.mailto + ' ou appelez-nous.';
-      status.classList.add('is-ok');
+    const missing = validate(true);
+    if (missing.length) {
+      status.textContent = '';
+      summary.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
+      missing[0].target?.focus({ preventScroll: true });
       return;
     }
     const btn = form.querySelector('[type="submit"]');
@@ -544,22 +571,19 @@ if (form) {
       // workshop address, to click once
       console.warn('[form]', err?.message || err);
       track('demande_erreur');
-      // nothing is lost: the same request, ready to send from the visitor's own mail app
-      const mail = form.dataset.fallback;
+      // the request stays in the form: the visitor tries again, or calls
       const phone = document.querySelector('a[href^="tel:"]');
       status.innerHTML = '';
       const p = document.createElement('p');
-      p.textContent = 'L’envoi en ligne n’a pas abouti. Votre demande n’est pas perdue : envoyez-la depuis votre messagerie (elle est déjà rédigée), ou appelez-nous.';
+      p.textContent = 'L’envoi n’a pas abouti (connexion ou service momentanément indisponible). Votre demande est toujours là : réessayez dans un instant, ou appelez-nous.';
       const actions = document.createElement('p');
       actions.className = 'form__fallback';
-      if (mail) {
-        const a = document.createElement('a');
-        a.className = 'btn btn--primary btn--sm';
-        a.href = mailtoHref(mail, new FormData(form));
-        a.textContent = 'Envoyer ma demande par e-mail';
-        a.addEventListener('click', () => track('demande_par_email'));
-        actions.append(a);
-      }
+      const retry = document.createElement('button');
+      retry.type = 'button';
+      retry.className = 'btn btn--primary btn--sm';
+      retry.textContent = 'Réessayer l’envoi';
+      retry.addEventListener('click', () => form.requestSubmit());
+      actions.append(retry);
       if (phone) {
         const t = document.createElement('a');
         t.className = 'btn btn--ghost btn--sm';
@@ -568,11 +592,6 @@ if (form) {
         actions.append(t);
       }
       status.append(p, actions);
-      if (files.length) {
-        const f = document.createElement('p');
-        f.textContent = 'Pensez à joindre vos photos à l’e-mail.';
-        status.append(f);
-      }
       status.classList.add('is-error');
     } finally {
       btn.disabled = false;

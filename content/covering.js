@@ -64,10 +64,17 @@ export const coveringPage = {
     title: 'Films, finitions et préparation',
     blocks: [
       {
-        title: 'Les films 3M™ Série 2080',
+        title: 'Six marques, des centaines de teintes',
         text: [
-          'Notre nuancier en ligne commence par la gamme 3M™ Série 2080, un film coulé conçu pour l’habillage partiel ou complet des véhicules, qui épouse les courbes et les creux de la carrosserie.',
-          'Chaque référence du nuancier renvoie à sa fiche sur le site de 3M France. Les couleurs affichées sont des approximations : le choix se fait toujours sur l’échantillon réel, à l’atelier.',
+          'Nous posons les films de plusieurs fabricants reconnus : 3M™, Avery Dennison, TeckWrap, Oracal, APA, Ravoony… Chacun a ses gammes de couleurs, ses finitions et ses effets : de quoi trouver la teinte exacte, du noir satiné au carbone en passant par les reflets changeants.',
+          'Tous les nuanciers sont à l’atelier de Vouvray : prenez rendez-vous, nous les parcourons ensemble et vous choisissez sur l’échantillon réel, posé contre votre carrosserie, à la lumière du jour.',
+        ],
+      },
+      {
+        title: 'Le nuancier 3M™ Série 2080 en ligne',
+        text: [
+          'Pour vous faire une première idée depuis chez vous, la gamme 3M™ Série 2080 est consultable ci-dessous : un film coulé conçu pour l’habillage partiel ou complet des véhicules, qui épouse les courbes et les creux de la carrosserie.',
+          'Chaque référence renvoie à sa fiche sur le site de 3M France. Les couleurs affichées sont des approximations : le choix se fait toujours sur l’échantillon réel, à l’atelier.',
         ],
       },
       {

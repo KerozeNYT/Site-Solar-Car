@@ -306,44 +306,6 @@ export function simStarlight(ctx) {
   });
 }
 
-// ------------------------------------------------------------------------- detailing
-export function simDetailing(ctx) {
-  const D = ctx.pricing.detailing;
-  const panel = `
-        <fieldset class="sim__group">
-          <legend>Les étapes, en immersion</legend>
-          <ol class="steps-rail">${D.steps.map((s, i) => `<li><button type="button" data-step="${s.id}"${i === 0 ? ' aria-current="step"' : ''}>${i + 1}. ${esc(s.label)}</button></li>`).join('')}</ol>
-          <p class="price-note" data-step-text>Cliquez une étape ou lancez la démonstration complète.</p>
-        </fieldset>
-        <fieldset class="sim__group">
-          <legend>Forfaits</legend>
-          <div class="packages">${D.packages
-            .map(
-              (p, i) =>
-                `<label class="package"><input type="radio" name="package" value="${p.id}"${i === 1 ? ' checked' : ''}><span><strong><span>${esc(p.label)}</span><span>Sur devis</span></strong><small>${esc(p.text)}</small></span></label>`
-            )
-            .join('')}</div>
-          <p class="zone__note">Entretien esthétique : nettoyage et décontamination, sans polissage. Polissage : une passe qui atténue micro-rayures et ternissement. Correction : plusieurs passes pour retirer davantage de défauts. Protection céramique : un revêtement sur le vernis corrigé. Le niveau de correction possible dépend de l’état et de l’épaisseur du vernis : il est évalué à l’atelier.</p>
-        </fieldset>
-        ${vehicleGroup(ctx.pricing)}
-        ${total('Prix établi après examen de la peinture', { quote: true })}
-        ${actions('detailing-carrosserie', '<button type="button" class="btn btn--ghost" data-play>Lancer la démonstration</button>')}`;
-  return shell({
-    kind: 'detailing',
-    title: 'Le detailing, étape par étape',
-    intro: 'Lavage, décontamination, polissage, protection céramique, finitions : suivez chaque étape sur la Porsche du studio, choisissez votre forfait et demandez votre devis.',
-    poster: 'detailing',
-    posterAlt: 'Polissage de la carrosserie de la Porsche dans le studio',
-    views: [
-      ['flanc', 'Flanc'],
-      ['34avant', '3/4 avant'],
-      ['34arriere', '3/4 arrière'],
-      ['dessus', 'Vue drone'],
-    ],
-    panel,
-  });
-}
-
 export function simFor(ctx, slug) {
   switch (slug) {
     case 'vitres-teintees':
@@ -354,8 +316,6 @@ export function simFor(ctx, slug) {
       return headlightsPriceTable(ctx);
     case 'ciel-etoile':
       return simStarlight(ctx);
-    case 'detailing-carrosserie':
-      return simDetailing(ctx);
     default:
       return '';
   }

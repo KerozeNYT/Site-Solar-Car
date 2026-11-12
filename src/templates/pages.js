@@ -165,7 +165,7 @@ const breadcrumbLd = (b, items) => ({
 });
 
 /** service pages that carry a 3D simulator (src/templates/sims.js) */
-const SIMS = new Set(['vitres-teintees', 'feux-arriere-teintes', 'detailing-carrosserie', 'ciel-etoile']);
+const SIMS = new Set(['vitres-teintees', 'feux-arriere-teintes', 'ciel-etoile']);
 
 const ld = (obj) => `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, '\\u003c')}</script>`;
 
@@ -614,7 +614,7 @@ export function homePage(ctx) {
     .map(
       (s, i) => `<li class="service-card">
         <a href="/${s.slug}/" class="service-card__link">
-          <div class="service-card__media">${realOr(ctx, s.cardPhoto, () => still(s.still, '', { sizes: '(min-width: 900px) 33vw, 100vw' }), { alt: '', sizes: '(min-width: 900px) 33vw, 100vw' })}</div>
+          <div class="service-card__media">${realOr(ctx, s.cardPhoto, () => still(s.still, '', { sizes: '(min-width: 960px) 33vw, (min-width: 600px) 50vw, 100vw' }), { alt: '', sizes: '(min-width: 960px) 33vw, (min-width: 600px) 50vw, 100vw' })}</div>
           <div class="service-card__body">
             <p class="kicker">0${i + 1}</p>
             <h3>${esc(s.name)}</h3>
@@ -689,6 +689,58 @@ export function homePage(ctx) {
 
 // ------------------------------------------------------------------------- service
 /** Structured prices, only for grids validated by the business (never the example prices). */
+// ------------------------------------------------------------------------- rich service sections
+/** text with *emphasis* and [internal links](/path/) */
+const inline = (t = '') => rich(t).replace(/\[([^\]]+)\]\((\/[^)\s]*)\)/g, '<a href="$2">$1</a>');
+const cell = (v) => (v === true ? '<span class="yes" aria-label="oui">✓</span>' : v === false ? '<span class="no" aria-label="non">—</span>' : inline(String(v)));
+
+/**
+ * The long-form sections of a service page (content: `sections` of a service), between the
+ * simulator and the benefits. Types:
+ * - prose    { id, kicker?, title, text: [], points? }        a few paragraphs, an optional list
+ * - blocks   { id, title, lead?, items: [{ title, text: [] }] } short explanations side by side
+ * - packages { id, title, lead?, items: [{ id, label, tagline?, includes: [], forWho?, price? }], note? }
+ * - compare  { id, title, lead?, caption?, head: [], rows: [[label, ...cells]], note? }  ✓ / — / text
+ * - steps    { id, title, lead?, items: [{ title, text }] }   the work, step by step
+ * Text accepts *emphasis* and [links](/path/).
+ */
+function richSections(ctx, s) {
+  if (!s.sections) return '';
+  return s.sections
+    .map((x, i) => {
+      const paper = i % 2 === 0 ? ' section--paper' : '';
+      const head = `${x.kicker ? `<p class="kicker">${esc(x.kicker)}</p>` : ''}<h2 id="${x.id}-title">${rich(x.title)}</h2>${x.lead ? `<p class="lead">${inline(x.lead)}</p>` : ''}`;
+      const note = x.note ? `<p class="rich__note">${inline(x.note)}</p>` : '';
+      let inner = '';
+      if (x.type === 'prose')
+        inner = `<div class="container container--narrow">${head}${x.text.map((t) => `<p>${inline(t)}</p>`).join('')}${x.points ? `<ul class="checklist">${x.points.map((t) => `<li>${inline(t)}</li>`).join('')}</ul>` : ''}${note}</div>`;
+      else if (x.type === 'blocks')
+        inner = `<div class="container"><div class="section-head">${head}</div><div class="cov-films__grid">${x.items.map((b) => `<div class="cov-films__block"><h3>${rich(b.title)}</h3>${b.text.map((t) => `<p>${inline(t)}</p>`).join('')}</div>`).join('')}</div>${note}</div>`;
+      else if (x.type === 'packages')
+        inner = `<div class="container"><div class="section-head">${head}</div><ul class="cov-offers__list packages-list">${x.items
+          .map(
+            (p) => `<li class="cov-offer" id="forfait-${p.id}">
+          <p class="kicker">${esc(p.kicker || 'Forfait')}</p>
+          <h3>${esc(p.label)}</h3>
+          ${p.tagline ? `<p>${inline(p.tagline)}</p>` : ''}
+          <ul class="checklist">${p.includes.map((t) => `<li>${inline(t)}</li>`).join('')}</ul>
+          ${p.forWho ? `<p class="package__for"><strong>Pour qui :</strong> ${inline(p.forWho)}</p>` : ''}
+          <p class="cov-offer__price"><span>Tarif</span> <strong>${esc(p.price || 'Sur devis')}</strong></p>
+          <a class="btn btn--ghost btn--sm" href="/contact/?prestation=${s.slug}&amp;forfait=${p.id}">Demander un devis</a>
+        </li>`
+          )
+          .join('')}</ul>${note}</div>`;
+      else if (x.type === 'compare')
+        inner = `<div class="container"><div class="section-head">${head}</div><div class="compare"><table class="compare__table">${x.caption ? `<caption>${inline(x.caption)}</caption>` : ''}<thead><tr>${x.head.map((h, j) => `<th scope="col"${j === 0 ? ' class="compare__corner"' : ''}>${inline(h)}</th>`).join('')}</tr></thead><tbody>${x.rows
+          .map((r) => `<tr><th scope="row">${inline(r[0])}</th>${r.slice(1).map((v) => `<td>${cell(v)}</td>`).join('')}</tr>`)
+          .join('')}</tbody></table></div>${note}</div>`;
+      else if (x.type === 'steps')
+        inner = `<div class="container container--narrow">${head}<ol class="rich-steps">${x.items.map((st) => `<li><h3>${rich(st.title)}</h3><p>${inline(st.text)}</p></li>`).join('')}</ol>${note}</div>`;
+      return `<section class="section rich rich--${x.type}${paper}" id="${x.id}" aria-labelledby="${x.id}-title">${inner}</section>`;
+    })
+    .join('\n');
+}
+
 function offersFor(ctx, slug) {
   const { tint, vehicleTypes, lights, headlights } = ctx.pricing;
   const ttc = { '@type': 'PriceSpecification', priceCurrency: 'EUR', valueAddedTaxIncluded: true };
@@ -715,6 +767,14 @@ function offersFor(ctx, slug) {
     offers: { '@type': 'AggregateOffer', priceCurrency: tint.currency, lowPrice: String(Math.min(...prices)), highPrice: String(Math.max(...prices)), offerCount: String(items.length) },
     hasOfferCatalog: { '@type': 'OfferCatalog', name: 'Tarifs de pose de films teintés', itemListElement: items },
   };
+}
+
+/** the two buttons under a service page's title (s.cta overrides: { label, href } for the second) */
+function heroCtas(s) {
+  const quote = `<a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a>`;
+  if (s.heroCta) return `${quote}<a class="btn btn--ghost" href="${esc(s.heroCta.href)}" data-scroll>${esc(s.heroCta.label)}</a>`;
+  if (s.slug === 'renovation-phares') return `${quote}<a class="btn btn--ghost" href="#tarifs" data-scroll>Voir les tarifs</a>`;
+  return `<a class="btn btn--primary" href="#simulateur" data-scroll>Simuler et voir le prix</a><a class="btn btn--ghost" href="/contact/?prestation=${s.slug}">Demander un devis</a>`;
 }
 
 export function servicePage(ctx, s) {
@@ -751,10 +811,11 @@ export function servicePage(ctx, s) {
         <p class="kicker">${esc(b.name)} · ${esc(placeLabel(b))}</p>
         <h1>${rich(s.h1)}</h1>
         <p class="lead">${esc(s.intro)}</p>
-        <div class="ctas">${s.slug === 'renovation-phares' ? `<a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a><a class="btn btn--ghost" href="#tarifs" data-scroll>Voir les tarifs</a>` : `<a class="btn btn--primary" href="#simulateur" data-scroll>Simuler en 3D et voir le prix</a><a class="btn btn--ghost" href="/contact/?prestation=${s.slug}">Demander un devis</a>`}</div>
+        <div class="ctas">${heroCtas(s)}</div>
       </div>
     </header>
     ${simFor(ctx, s.slug)}
+    ${richSections(ctx, s)}
 
     <section class="section" aria-labelledby="benefits-${s.slug}">
       <div class="container">
@@ -763,12 +824,16 @@ export function servicePage(ctx, s) {
       </div>
     </section>
 
-    <section class="section section--paper" aria-labelledby="steps-${s.slug}">
+    ${
+      (s.sections || []).some((x) => x.type === 'steps')
+        ? '' // the page already tells the work step by step
+        : `<section class="section section--paper" aria-labelledby="steps-${s.slug}">
       <div class="container container--narrow">
         <h2 id="steps-${s.slug}">Déroulé de la prestation</h2>
         <ol class="numbered">${s.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
       </div>
-    </section>
+    </section>`
+    }
     ${law}
     ${realisationsBlock(ctx, { service: s.slug, title: `${s.name} : nos réalisations`, exclude: heroJob?.job.id })}
     ${faqBlock(s.faq)}
@@ -982,9 +1047,12 @@ function guideFor(ctx, slug) {
 }
 
 // ------------------------------------------------------------------------- contact
+/** a required form field: label with its star, the control, the red line shown when it is missing */
+const field = (id, label, open, error, tag = 'input') =>
+  `<label for="${id}">${esc(label)} <span class="req" aria-hidden="true">*</span></label>${open} aria-describedby="err-${id}">${tag === 'textarea' ? '</textarea>' : ''}<p class="form__error" id="err-${id}" data-error-for="${id}" hidden>${esc(error)}</p>`;
+
 export function contactPage(ctx) {
   const { contactPage: c, business: b, services } = ctx;
-  const demo = !b.formEndpoint;
   const formsubmit = /formsubmit\.co/.test(b.formEndpoint || '');
   const body = `
   <section class="section page-intro">
@@ -996,31 +1064,31 @@ export function contactPage(ctx) {
   </section>
   <section class="section section--tight">
     <div class="container contact-grid">
-      <form class="form" data-form ${demo ? `data-mailto="${esc(b.email || '')}"` : `action="${esc(b.formEndpoint)}" method="post" data-fallback="${esc(b.email || '')}"`} novalidate>
-        ${demo ? `<p class="form__demo" role="note">Votre demande s’ouvre dans votre messagerie, adressée à ${esc(b.email)} : il ne reste qu’à l’envoyer. Vous pouvez aussi nous appeler au ${esc(b.phone)}.</p>` : ''}
-        <p class="form__req">Tous les champs sont obligatoires.</p>
+      <form class="form" data-form action="${esc(b.formEndpoint || '')}" method="post" novalidate>
+        <p class="form__req">Champs obligatoires marqués d’un <span class="req" aria-hidden="true">*</span> ; la photo et le rendez-vous sont facultatifs.</p>
+        <div class="form__summary" role="alert" data-form-summary hidden></div>
         <div class="form__row form__row--2">
-          <div><label for="f-last">Nom</label><input id="f-last" name="nom" autocomplete="family-name" required></div>
-          <div><label for="f-first">Prénom</label><input id="f-first" name="prenom" autocomplete="given-name" required></div>
+          <div>${field('f-last', 'Nom', '<input id="f-last" name="nom" autocomplete="family-name" required', 'Indiquez votre nom.')}</div>
+          <div>${field('f-first', 'Prénom', '<input id="f-first" name="prenom" autocomplete="given-name" required', 'Indiquez votre prénom.')}</div>
         </div>
         <div class="form__row form__row--2">
-          <div><label for="f-email">E-mail</label><input id="f-email" name="email" type="email" autocomplete="email" required></div>
-          <div><label for="f-phone">Téléphone</label><input id="f-phone" name="telephone" type="tel" autocomplete="tel" inputmode="tel" pattern="[0-9+().\s\-]{10,20}" title="Un numéro de téléphone, par exemple 06 12 34 56 78" required></div>
+          <div>${field('f-email', 'E-mail', '<input id="f-email" name="email" type="email" autocomplete="email" required', 'Indiquez une adresse e-mail valide, par exemple prenom.nom@exemple.fr.')}</div>
+          <div>${field('f-phone', 'Téléphone', '<input id="f-phone" name="telephone" type="tel" autocomplete="tel" inputmode="tel" pattern="[0-9+().\s\-]{10,20}" required', 'Indiquez un numéro de téléphone, par exemple 06 12 34 56 78.')}</div>
         </div>
         <div class="form__row form__row--3">
-          <div><label for="f-make">Marque du véhicule</label><input id="f-make" name="marque" placeholder="ex. Peugeot" required></div>
-          <div><label for="f-model">Modèle du véhicule</label><input id="f-model" name="modele" placeholder="ex. 308 SW" required></div>
-          <div><label for="f-year">Année du véhicule</label><input id="f-year" name="annee" type="number" inputmode="numeric" min="1950" max="${new Date().getFullYear() + 1}" placeholder="ex. 2019" required></div>
+          <div>${field('f-make', 'Marque du véhicule', '<input id="f-make" name="marque" placeholder="ex. Peugeot" required', 'Indiquez la marque du véhicule.')}</div>
+          <div>${field('f-model', 'Modèle du véhicule', '<input id="f-model" name="modele" placeholder="ex. 308 SW" required', 'Indiquez le modèle du véhicule.')}</div>
+          <div>${field('f-year', 'Année du véhicule', `<input id="f-year" name="annee" type="number" inputmode="numeric" min="1950" max="${new Date().getFullYear() + 1}" placeholder="ex. 2019" required`, `Indiquez l’année du véhicule (entre 1950 et ${new Date().getFullYear() + 1}).`)}</div>
         </div>
-        <fieldset class="form__row" data-required-group>
-          <legend>Prestation(s) souhaitée(s)</legend>
+        <fieldset class="form__row" data-required-group aria-describedby="err-presta">
+          <legend>Prestation(s) souhaitée(s) <span class="req" aria-hidden="true">*</span></legend>
           <div class="choices">${services.map((s) => `<label class="choice"><input type="checkbox" name="prestations" value="${s.slug}"> ${esc(s.name)}</label>`).join('')}<label class="choice"><input type="checkbox" name="prestations" value="autre"> Autre demande</label></div>
+          <p class="form__error" id="err-presta" data-error-for="prestations" hidden>Choisissez au moins une prestation (ou « Autre demande »).</p>
         </fieldset>
         <div class="form__row">
-          <label for="f-msg">Votre message</label>
-          <textarea id="f-msg" name="message" rows="5" required></textarea>
+          ${field('f-msg', 'Votre message', '<textarea id="f-msg" name="message" rows="5" required', 'Écrivez votre message : ce que vous souhaitez faire sur le véhicule.', 'textarea')}
         </div>
-        ${demo ? '' : `<div class="form__row">
+        ${`<div class="form__row">
           <label for="f-files">Photos ou documents <span class="optional">(facultatif)</span></label>
           <input id="f-files" name="attachment" type="file" accept="image/*,.pdf" multiple data-max-mb="10">
           <p class="form__hint">Photos du véhicule, des vitres, des phares ou de la carrosserie. Images (JPG, PNG, HEIC…) ou PDF, 10 Mo maximum au total. Inutile d’envoyer une carte grise complète.</p>
@@ -1032,11 +1100,12 @@ export function contactPage(ctx) {
           <p class="form__hint">Atelier ouvert du lundi au vendredi. Ce n’est pas une réservation : nous vous confirmons le créneau.</p>
         </fieldset>
         <div class="form__row form__consent">
-          <label class="choice"><input type="checkbox" name="consentement" required> J’accepte que mes données soient utilisées pour répondre à ma demande (voir <a href="/mentions-legales/#confidentialite">confidentialité</a>).</label>
+          <label class="choice"><input type="checkbox" name="consentement" required aria-describedby="err-consent"> J’accepte que mes données soient utilisées pour répondre à ma demande (voir <a href="/mentions-legales/#confidentialite">confidentialité</a>). <span class="req" aria-hidden="true">*</span></label>
+          <p class="form__error" id="err-consent" data-error-for="consentement" hidden>Cochez cette case pour que nous puissions vous répondre.</p>
         </div>
         <input type="text" name="${formsubmit ? '_honey' : '_gotcha'}" class="visually-hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
-        ${formsubmit ? '<input type="hidden" name="_subject" value="Demande de devis depuis le site"><input type="hidden" name="_template" value="table">' : ''}
-        <button class="btn btn--primary" type="submit">${demo ? 'Préparer l’e-mail de demande' : 'Envoyer la demande'}</button>
+        ${formsubmit ? '<input type="hidden" name="_subject" value="Nouvelle demande de devis"><input type="hidden" name="_template" value="table">' : ''}
+        <button class="btn btn--primary" type="submit">Envoyer la demande</button>
         <p class="form__status" role="status" aria-live="polite" data-form-status></p>
       </form>
       <div class="contact-card">
@@ -1148,7 +1217,7 @@ export function guidesIndexPage(ctx) {
       <ul class="guide-grid">${guides
         .map(
           (x) => `<li class="guide-card reveal-up"><a href="/guides/${x.slug}/">
-          <div class="guide-card__media">${realOr(ctx, x.photo, () => still(x.still, '', { sizes: '(min-width: 900px) 33vw, 100vw' }), { alt: '', sizes: '(min-width: 900px) 33vw, 100vw' })}</div>
+          <div class="guide-card__media">${realOr(ctx, x.photo, () => still(x.still, '', { sizes: '(min-width: 960px) 33vw, (min-width: 600px) 50vw, 100vw' }), { alt: '', sizes: '(min-width: 960px) 33vw, (min-width: 600px) 50vw, 100vw' })}</div>
           <div class="guide-card__body"><p class="kicker">${esc(x.kicker)}</p><h2>${esc(x.title)}</h2><p>${esc(x.summary || x.seo.description)}</p><span class="service-card__more">Lire <span aria-hidden="true">→</span></span></div>
         </a></li>`
         )

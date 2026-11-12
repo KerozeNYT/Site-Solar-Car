@@ -8,6 +8,9 @@
 
 import { priceText as P } from './pricing.js';
 import { glazing as G } from './regulation.js';
+// long-form sections and extra FAQ of the service pages (one file per page)
+import * as detailingMore from './sections/detailing-carrosserie.js';
+import * as starsMore from './sections/ciel-etoile.js';
 
 export const business = {
   name: 'SOLAR CAR 37',
@@ -142,7 +145,7 @@ export const home = {
         title: 'Une nouvelle couleur, *sans toucher à la peinture*',
         text: 'Covering complet ou partiel, finitions brillantes, satinées, mates ou effet carbone, chromes passés au noir : changez de style sans repeindre, et revenez à la teinte d’origine quand vous le souhaitez.',
         link: { label: 'Découvrir le covering', href: '/covering-dechromage/' },
-        linkHint: 'Offres · nuancier 3M™ · devis',
+        linkHint: 'Offres · nuanciers à l’atelier · devis',
         side: 'left',
       },
       stars: {
@@ -347,7 +350,7 @@ export const services = [
     slug: 'detailing-carrosserie',
     shortName: 'Detailing',
     tagline: 'Le brillant d’origine',
-    simPitch: 'Suivez chaque étape du detailing sur la voiture 3D, du lavage à la céramique.',
+    heroCta: { label: 'Voir les forfaits', href: '#forfaits' },
     chapter: 'detailing',
     heroPhoto: 'bmw-m2-detailing-lustrage',
     // photo of the card on the home page (« Un atelier, six savoir-faire »)
@@ -398,18 +401,18 @@ export const services = [
     cardPhoto: { id: 'mclaren-720s-covering-noir-satine-34', focus: '50% 50%' },
     still: 'covering',
     name: 'Covering & déchromage',
-    short: 'Covering complet ou partiel et déchromage : films 3M™ Série 2080, choix sur échantillon réel.',
+    short: 'Covering complet ou partiel et déchromage : 3M™, Avery Dennison, TeckWrap, Oracal…, choix sur nuancier à l’atelier.',
     seo: {
       title: 'Covering & déchromage à Vouvray, près de Tours | SOLAR CAR 37',
       description:
-        'Covering complet ou partiel (toit, capot, rétroviseurs) et déchromage à Vouvray, près de Tours : films 3M™ Série 2080 brillants, satinés ou mats. Sur devis.',
+        'Covering complet ou partiel et déchromage à Vouvray, près de Tours : films 3M™, Avery Dennison, TeckWrap, Oracal, APA… Brillant, satiné, mat ou carbone, nuanciers à l’atelier. Sur devis.',
     },
     h1: 'Covering et déchromage *automobile près de Tours*',
     intro:
-      'Changer la couleur ou la finition de votre véhicule sans le repeindre : un film adhésif posé sur la carrosserie, en totalité ou sur quelques éléments, et des chromes passés au noir. Choisissez votre teinte dans le nuancier 3M™ Série 2080, puis validez l’échantillon réel à l’atelier de Vouvray.',
+      'Changer la couleur ou la finition de votre véhicule sans le repeindre : un film adhésif posé sur la carrosserie, en totalité ou sur quelques éléments, et des chromes passés au noir. Films 3M™, Avery Dennison, TeckWrap, Oracal, APA, Ravoony… : un très large choix de couleurs et de finitions, dans nos nuanciers à l’atelier de Vouvray, sur rendez-vous.',
     benefits: [
       { title: 'Réversible', text: 'Le film se pose sur la peinture d’origine et se retire par un professionnel quand vous voulez changer.' },
-      { title: 'Des finitions introuvables en peinture', text: 'Satiné, mat, métallisé, nacré, reflets changeants, carbone : le style que vous voulez.' },
+      { title: 'Des centaines de teintes', text: 'Six marques de films et leurs nuanciers à l’atelier : satiné, mat, métallisé, nacré, reflets changeants, carbone.' },
       { title: 'Partiel ou complet', text: 'Un toit noir, des rétroviseurs contrastés ou toute la carrosserie : au choix.' },
       { title: 'Chromes au noir', text: 'Le déchromage donne une ligne plus sobre sans remplacer les pièces.' },
     ],
@@ -433,6 +436,10 @@ export const services = [
       {
         q: 'Qu’est-ce que le déchromage ?',
         a: 'C’est l’habillage des pièces chromées (calandre, entourages de vitres, baguettes…) avec un film noir brillant, satiné ou mat. Seules les pièces réellement chromées de votre véhicule sont concernées ; il se combine avec un covering complet ou partiel.',
+      },
+      {
+        q: 'Quelles marques de films posez-vous ?',
+        a: 'Nous travaillons avec plusieurs fabricants de films de covering : 3M™, Avery Dennison, TeckWrap, Oracal, APA et Ravoony, entre autres. Chaque marque a ses teintes, ses finitions et ses effets : les nuanciers sont à l’atelier, et nous les parcourons avec vous sur rendez-vous pour choisir sur l’échantillon réel, à la lumière du jour.',
       },
       {
         q: 'Comment entretenir un véhicule covering ?',
@@ -538,6 +545,15 @@ export const services = [
     ],
   },
 ];
+
+// the long-form sections of each service page, and their questions added to its FAQ
+const more = { 'detailing-carrosserie': detailingMore, 'ciel-etoile': starsMore };
+for (const s of services) {
+  const x = more[s.slug];
+  if (!x) continue;
+  s.sections = x.sections;
+  s.faq = [...s.faq, ...(x.faq || [])];
+}
 
 /** Local page: where the workshop is, how to get there, opening hours. */
 export const atelierPage = {

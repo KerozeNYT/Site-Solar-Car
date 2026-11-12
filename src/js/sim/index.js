@@ -8,7 +8,6 @@ const loaders = {
   tint: () => import('./tint.js'),
   lights: () => import('./lights.js'),
   starlight: () => import('./starlight.js'),
-  detailing: () => import('./detailing.js'),
 };
 
 /**
