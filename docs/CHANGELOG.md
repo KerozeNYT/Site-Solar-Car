@@ -2,6 +2,35 @@
 
 ## V3 — refonte (sombre, moderne, moins de simulateurs)
 
+### Pages de prestations complètes, contact, fond animé
+- Pages longues (`content/sections/`) : forfaits, tableaux comparatifs, blocs, étapes, avec
+  liens internes ; questions ajoutées à chaque FAQ (données structurées FAQPage).
+  - Detailing : simulateur retiré (page, guides, code), quatre forfaits sur devis (Essentiel,
+    Éclat, Correction, Signature céramique), ce que comprend chaque forfait, options, étapes,
+    cire / scellant / céramique, rayures, fourchettes de prix constatées en France (une
+    quinzaine d'ateliers, aucun nommé, distinctes de nos tarifs), entretien.
+  - Ciel étoilé : fonctionnement, réglages, densité, véhicules compatibles, pose, usage, devis.
+  - Vitres teintées : grille des 10 catégories, vitres concernées, teintes, loi, calcul vitre ×
+    film, types de films, avantages, pose, entretien ; chiffres tirés de `pricing.js` et
+    `regulation.js`.
+  - Covering : marques de films (3M, Avery Dennison, TeckWrap, Oracal, APA, Ravoony…) et
+    nuanciers à l'atelier sur rendez-vous, zones, finitions, choix de la teinte, tenue,
+    covering / peinture / PPF, couleur et carte grise (à confirmer avant mise en ligne).
+  - Nouvelle page Déchromage (`/dechromage/`), rattachée au savoir-faire covering.
+- Simulateur photo des vitres teintées (`src/js/tint-simple.js`) : 10 catégories, vitres
+  arrière / avant / toutes, teinte, vitres choisies assombries et entourées d'or, prix TTC,
+  devis prérempli, simulateur 3D à un clic. S'active quand les photos des 10 véhicules sont
+  fournies (`content/tint-photos.js`, `node scripts/tint-photos.mjs`).
+- Accueil : grille « six savoir-faire » en 3 × 2 (2 × 3 sur tablette), plus de trou.
+- Contact : champs obligatoires signalés en rouge sous chaque champ et dans un récapitulatif,
+  objet « Nouvelle demande de devis », plus jamais d'ouverture de la messagerie (en cas
+  d'échec : « Réessayer » et téléphone). Emplacement prêt pour la réservation en ligne
+  (`business.bookingUrl`).
+- Fond animé : le blason officiel en fine pièce d'or qui tourne lentement, reflet et
+  étincelles (CSS seulement, discret, à l'arrêt si moins d'animations demandées).
+- Audit des 40 pages : aucun lien ni ancre cassés, textes alternatifs, un H1 par page, titres
+  et descriptions uniques et à la bonne longueur, plan du site complet.
+
 ### Vraies photos sur l'accueil et dans les guides
 - « Un atelier, six savoir-faire » : chaque carte montre une photo de l'atelier au lieu d'un
   rendu 3D (Panamera, Cayenne aux feux foncés, BMW M2, McLaren 720S, BMW Série 2, Porsche 911).

@@ -33,6 +33,8 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `src/styles/main.css` | Charte V3 « garage de nuit » : jetons de couleur et polices en tête de fichier, fond animé dans la section « garage ambience » |
 | `src/js/ambient.js` | Fond animé : néons, sol mouillé, fumée et poussière dessinés sur place (rien à télécharger) |
 | `content/film.js` | Vidéo d'accueil au défilement : versions (1080p, 1440p, 4K, téléphone 9:16), durée, moments de chaque prestation et onglets |
+| `content/sections/` | Sections longues des pages de prestations (forfaits, tableaux, étapes) et questions ajoutées à leur FAQ, une page par fichier ; `content/sections/dechromage.js` porte toute la page Déchromage |
+| `content/tint-photos.js` | Photos du simulateur simple des vitres teintées et contour de leurs vitres ; images sources dans `assets-src/vitres/`, puis `node scripts/tint-photos.mjs` |
 | `scripts/film/` | Le film lui-même : décor, trajectoire de la caméra et effets (`shots.js`), rendu image par image en 4K (`node scripts/film/render.mjs <dossier> 3840 2160`), puis `node scripts/film-assets.mjs '<dossier>/f%04d.jpg'` pour fabriquer toutes les versions |
 
 ## Carte 3D de l’accès
