@@ -199,22 +199,27 @@ function starCeiling({ px, count = 9000, seed = 11, level = 1 }) {
   return group;
 }
 
-/** the shell: floor, walls, ceiling (lit materials for the room, flat colours for reflections) */
+/**
+ * the shell: floor, walls, ceiling (lit materials for the room, flat colours for reflections).
+ * Cut into ~0.8 m squares: one huge triangle with a corner close behind the camera is sometimes
+ * dropped or mis-filled by the software renderer at 4K (a black floor on a single frame).
+ */
+const plane = (w, h) => new THREE.PlaneGeometry(w, h, Math.ceil(w / 0.8), Math.ceil(h / 0.8));
 function shell(group, { floorMat, wallMat, ceilingMat }) {
   const W = ROOM.x[1] - ROOM.x[0];
   const D = ROOM.z[1] - ROOM.z[0];
   const cx = (ROOM.x[0] + ROOM.x[1]) / 2;
   const cz = (ROOM.z[0] + ROOM.z[1]) / 2;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
+  const floor = new THREE.Mesh(plane(W, D), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(cx, 0, cz);
   group.add(floor);
-  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(W, D), ceilingMat);
+  const ceiling = new THREE.Mesh(plane(W, D), ceilingMat);
   ceiling.rotation.x = Math.PI / 2;
   ceiling.position.set(cx, ROOM.h, cz);
   group.add(ceiling);
   const wall = (w, x, z, ry) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, ROOM.h), wallMat);
+    const m = new THREE.Mesh(plane(w, ROOM.h), wallMat);
     m.position.set(x, ROOM.h / 2, z);
     m.rotation.y = ry;
     group.add(m);
