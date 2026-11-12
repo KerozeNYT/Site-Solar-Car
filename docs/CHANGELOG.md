@@ -69,6 +69,23 @@
 - Index des guides : le résumé de chaque guide, plus la copie de son introduction ; encart
   « guide » des prestations sans recopie du texte du guide.
 
+### Film d'accueil V3 : plus fluide, covering carbone, ciel étoilé plus long
+- Lecture image par image (`src/js/film-frames.js`, WebCodecs) au lieu de sauter dans la vidéo :
+  un saut coûte au navigateur 40 ms en 1080p et plus de 100 ms en 4K, d'où une vingtaine
+  d'images par seconde au défilement ; l'image suit maintenant le défilement au rythme de
+  l'écran, dans les deux sens. Repli automatique sur la vidéo classique ailleurs.
+- 48 images par seconde au lieu de 24 (images intermédiaires calculées en 4K, pas inventées
+  par interpolation) et défilement un peu plus long (6,5 écrans au lieu de 4,6) : 1,8 fois
+  plus d'images par centimètre de défilement.
+- Vitres teintées : une lumière douce derrière la voiture se voit à travers les vitres ; la
+  custode passe du clair au noir pendant que la vitre avant reste claire (70 % minimum à
+  l'avant). La vitre de custode droite du modèle 3D, masquée par erreur, est rétablie.
+- Ciel étoilé : entrée plus lente et longue pause sous le pavillon étoilé (4 s de plus), avec
+  plus de défilement pour ce chapitre.
+- Nouvelle étape Covering : un film effet carbone (sergé 2×2) se pose sur le capot, du
+  pare-brise vers le nez, avec la ligne de pose ; onglet Covering et lien vers la page
+  covering. Film de 47 s.
+
 ### Film d'accueil en 4K, net sur tous les écrans
 - Film recalculé image par image en 3840×2160 (864 images, 24 images/s, anticrénelage
   multi-échantillons), dans un studio noir : sol éclairé en cercle qui se fond dans le noir,

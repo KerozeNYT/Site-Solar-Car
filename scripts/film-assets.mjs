@@ -3,6 +3,7 @@
 //   node scripts/film-assets.mjs '<frames>/f%04d.jpg'      (scripts/film/render.mjs output, film.fps)
 //   node scripts/film-assets.mjs <master-2160p.mp4>
 //   FAST=1 node scripts/film-assets.mjs ...                 (quick draft encodes, for tests)
+//   node scripts/film-assets.mjs ... --only=mobile.mp4,images   (only those videos / the images)
 // - public/video/: H.264 versions made for scrolling (a key frame every film.gop pictures, no
 //   B-frames, fast start, no sound, film.fps pictures a second, the light ones 24), all scaled
 //   down from the 4K picture (lanczos):
@@ -27,6 +28,9 @@ if (!src) {
   process.exit(1);
 }
 const frames = src.includes('%');
+// --only=a,b: the videos whose name contains one of them, and the images if `images` is listed
+const only = process.argv.find((a) => a.startsWith('--only='))?.slice(7).split(',');
+const wanted = (name) => !only || only.some((o) => name.includes(o));
 const FPS = film.fps || 24;
 const GOP = film.gop || 12;
 const input = frames ? ['-framerate', String(FPS), '-start_number', '0', '-i', src] : ['-i', src];
@@ -57,16 +61,17 @@ const jobs = [
   ...S.tall.map((t) => [t.src, vf(FPS, TALL, scale(t.w, t.h)), t.crf]),
 ];
 fs.mkdirSync(path.join(root, 'public/video'), { recursive: true });
-for (const [out, filter, crf, gop] of jobs) {
+for (const [out, filter, crf, gop] of jobs.filter(([out]) => wanted(out))) {
   const t0 = Date.now();
   run([...input, ...filter, ...scroll(crf, gop), path.join(root, 'public', out)]);
   console.log(out, `${((Date.now() - t0) / 1000).toFixed(0)} s`);
 }
 
 const imgDir = path.join(root, 'public/img/film');
+const chapters = wanted('images') ? film.chapters : [];
 fs.mkdirSync(imgDir, { recursive: true });
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'film-'));
-for (const c of film.chapters) {
+for (const c of chapters) {
   let still;
   if (frames) still = src.replace(/%0?(\d*)d/, (m, n) => String(Math.round(c.still * FPS)).padStart(Number(n) || 0, '0'));
   else {

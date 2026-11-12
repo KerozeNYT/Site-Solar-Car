@@ -499,7 +499,7 @@ function chapterArticles(ctx, order, { image, jump, attrs = () => '', hint = nul
       const numbered = /^\d+\s*—\s*/.test(c.kicker);
       const kicker = numbered ? `${String(++n).padStart(2, '0')} — ${c.kicker.replace(/^\d+\s*—\s*/, '')}` : c.kicker;
       const link = c.link
-        ? `<p class="chapter__link"><a class="btn btn--primary chapter__cta" href="${c.link.href}">${esc(c.link.label)} <span class="chapter__arrow" aria-hidden="true">→</span></a><span class="chapter__hint">${esc(c.linkHint || 'Simulateur 3D · tarifs · questions fréquentes')}</span></p>`
+        ? `<p class="chapter__link"><a class="btn btn--primary chapter__cta" href="${c.link.href}">${esc(c.link.label)} <span class="chapter__arrow" aria-hidden="true">→</span></a><span class="chapter__hint">${esc(c.linkHint || 'Simulateur · tarifs · questions fréquentes')}</span></p>`
         : '';
       const readout =
         tour && c.readout === 'vlt'
