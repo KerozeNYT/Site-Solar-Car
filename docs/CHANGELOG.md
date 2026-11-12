@@ -71,8 +71,9 @@
 
 ### Logos officiels des partenaires, en doré
 - Bandeau « Nos marques partenaires » : les logos officiels de Milwaukee, TeckWrap, RUPES,
-  Solar Screen, TEGO, Cover Styl, STEK et Protector, pris sur le site de chaque marque, plus
-  3M ; tous peints dans l'or du site. Milwaukee sans son slogan.
+  Solar Screen, TEGO, STEK, Protector, Koch-Chemie et Polytop, pris sur le site de chaque
+  marque, plus 3M ; tous peints dans l'or du site. Milwaukee et Koch-Chemie sans leur slogan.
+  Cover Styl retiré (films pour l'ameublement, sans rapport avec l'automobile).
 - `scripts/partner-logos.mjs` fait de chaque logo une silhouette détourée (logo en couleurs,
   sur fond blanc ou coloré), et la page donne à chacun à peu près la même surface : un
   logotype long et fin pèse autant qu'un logo compact.

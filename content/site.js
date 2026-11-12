@@ -616,9 +616,10 @@ export const partners = {
     { name: '3M', logo: '/img/partners/3m.png' },
     { name: 'Solar Screen', logo: '/img/partners/solar-screen.png' },
     { name: 'Tego', logo: '/img/partners/tego.png' },
-    { name: 'Coverstyl’', logo: '/img/partners/coverstyl.png' },
     { name: 'STEK', logo: '/img/partners/stek.png' },
     { name: 'Protector', logo: '/img/partners/protector.png' },
+    { name: 'Koch-Chemie', logo: '/img/partners/koch-chemie.png' },
+    { name: 'Polytop', logo: '/img/partners/polytop.png' },
   ],
 };
 
