@@ -140,7 +140,7 @@ export const home = {
       covering: {
         kicker: '04 — Covering & déchromage',
         title: 'Une nouvelle couleur, *sans toucher à la peinture*',
-        text: 'Covering complet ou partiel, finitions brillantes, satinées ou mates, chromes passés au noir : changez de style sans repeindre, et revenez à la teinte d’origine quand vous le souhaitez.',
+        text: 'Covering complet ou partiel, finitions brillantes, satinées, mates ou effet carbone, chromes passés au noir : changez de style sans repeindre, et revenez à la teinte d’origine quand vous le souhaitez.',
         link: { label: 'Découvrir le covering', href: '/covering-dechromage/' },
         linkHint: 'Offres · nuancier 3M™ · devis',
         side: 'left',

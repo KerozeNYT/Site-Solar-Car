@@ -32,6 +32,7 @@ export function startFilm(section) {
     copy: el.querySelector('.chapter__copy'),
     from: Number(el.dataset.from),
     to: Number(el.dataset.to),
+    scroll: Number(el.dataset.scroll) || 0,
     first: i === 0,
     last: i === all.length - 1,
   }));
@@ -91,7 +92,7 @@ export function startFilm(section) {
     const a = Math.max(start, c.from);
     const b = c.last ? end : Math.min(end, c.to);
     if (i > 0) curve.push([a, (units += pace.gap ?? 0.08)]);
-    units += c.first ? pace.opening ?? 0.45 : c.last ? pace.closing ?? 0.5 : pace.chapter ?? 0.55;
+    units += c.first ? pace.opening ?? 0.45 : c.last ? pace.closing ?? 0.5 : c.scroll || (pace.chapter ?? 0.55);
     curve.push([b, units]);
   });
   const total = units;

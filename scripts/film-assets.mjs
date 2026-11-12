@@ -1,10 +1,11 @@
 // Prepares the home page film (content/film.js) from its 4K frames or a 3840×2160 master.
 // Needs ffmpeg.
-//   node scripts/film-assets.mjs '<frames>/f%04d.jpg'      (scripts/film/render.mjs output, 24 fps)
+//   node scripts/film-assets.mjs '<frames>/f%04d.jpg'      (scripts/film/render.mjs output, film.fps)
 //   node scripts/film-assets.mjs <master-2160p.mp4>
 //   FAST=1 node scripts/film-assets.mjs ...                 (quick draft encodes, for tests)
-// - public/video/: H.264 versions made for scrolling (a key frame every 12 images, no B-frames,
-//   fast start, no sound, 24 images/s), all scaled down from the 4K picture (lanczos):
+// - public/video/: H.264 versions made for scrolling (a key frame every film.gop pictures, no
+//   B-frames, fast start, no sound, film.fps pictures a second, the light ones 24), all scaled
+//   down from the 4K picture (lanczos):
 //   · wide screens: accueil-360p.mp4 (light, answers the scroll within a second), then the
 //     sharpest of 1080p / 1440p / 2160p the screen can show (`sources.wide`);
 //   · tall screens (phones, tablets upright): the centre of the picture in 9:16 over the whole
@@ -26,15 +27,17 @@ if (!src) {
   process.exit(1);
 }
 const frames = src.includes('%');
-const input = frames ? ['-framerate', '24', '-start_number', '0', '-i', src] : ['-i', src];
+const FPS = film.fps || 24;
+const GOP = film.gop || 12;
+const input = frames ? ['-framerate', String(FPS), '-start_number', '0', '-i', src] : ['-i', src];
 const run = (args) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args], { stdio: 'inherit' });
-const scroll = (crf) => [
+const scroll = (crf, gop = GOP) => [
   '-an',
   '-c:v', 'libx264',
   '-preset', process.env.FAST ? 'ultrafast' : 'slow',
   '-pix_fmt', 'yuv420p',
   '-profile:v', 'high',
-  '-g', '12', '-keyint_min', '12', '-sc_threshold', '0', '-bf', '0',
+  '-g', String(gop), '-keyint_min', String(gop), '-sc_threshold', '0', '-bf', '0',
   // more bits in the dark, smooth areas of the picture (the studio), where banding would show
   '-x264-params', 'aq-mode=3:aq-strength=0.9',
   '-crf', String(crf),
@@ -43,19 +46,20 @@ const scroll = (crf) => [
 // the centre of the 16:9 picture in 9:16, full height (even width)
 const TALL = 'crop=trunc(ih*9/32)*2:ih:(iw-trunc(ih*9/32)*2)/2:0';
 const scale = (w, h) => `scale=${w}:${h}:flags=lanczos,setsar=1`; // square pixels (the 9:16 crop is 1214 wide)
-const vf = (...steps) => ['-vf', ['fps=24', ...steps].join(',')];
+const vf = (fps, ...steps) => ['-vf', [`fps=${fps}`, ...steps].join(',')];
 
 const S = film.sources;
 const jobs = [
-  [S.preview, vf(scale(640, 360)), 30],
-  ...S.wide.map((t) => [t.src, vf(scale(t.w, Math.round((t.w * 9) / 16))), t.crf]),
-  [S.previewTall, vf(TALL, scale(360, 640)), 30],
-  ...S.tall.map((t) => [t.src, vf(TALL, scale(t.w, t.h)), t.crf]),
+  // the light versions: 24 pictures a second (half the weight), a key frame every 12
+  [S.preview, vf(24, scale(640, 360)), 30, 12],
+  ...S.wide.map((t) => [t.src, vf(FPS, scale(t.w, Math.round((t.w * 9) / 16))), t.crf]),
+  [S.previewTall, vf(24, TALL, scale(360, 640)), 30, 12],
+  ...S.tall.map((t) => [t.src, vf(FPS, TALL, scale(t.w, t.h)), t.crf]),
 ];
 fs.mkdirSync(path.join(root, 'public/video'), { recursive: true });
-for (const [out, filter, crf] of jobs) {
+for (const [out, filter, crf, gop] of jobs) {
   const t0 = Date.now();
-  run([...input, ...filter, ...scroll(crf), path.join(root, 'public', out)]);
+  run([...input, ...filter, ...scroll(crf, gop), path.join(root, 'public', out)]);
   console.log(out, `${((Date.now() - t0) / 1000).toFixed(0)} s`);
 }
 
@@ -64,7 +68,7 @@ fs.mkdirSync(imgDir, { recursive: true });
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'film-'));
 for (const c of film.chapters) {
   let still;
-  if (frames) still = src.replace(/%0?(\d*)d/, (m, n) => String(Math.round(c.still * 24)).padStart(Number(n) || 0, '0'));
+  if (frames) still = src.replace(/%0?(\d*)d/, (m, n) => String(Math.round(c.still * FPS)).padStart(Number(n) || 0, '0'));
   else {
     still = path.join(tmp, `${c.id}.png`);
     run(['-ss', String(c.still), '-i', src, '-frames:v', '1', still]);

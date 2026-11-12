@@ -571,7 +571,7 @@ function filmSection(ctx) {
   const chapters = chapterArticles(ctx, order, {
     image: (id, i) => filmStill(id, byId[id].alt || '', { eager: i === 0 }),
     jump,
-    attrs: (id) => ` data-from="${byId[id].from}" data-to="${byId[id].to}"`,
+    attrs: (id) => ` data-from="${byId[id].from}" data-to="${byId[id].to}"${byId[id].scroll ? ` data-scroll="${byId[id].scroll}"` : ''}`,
     hint: home.film.hint,
     // a figure that follows the picture (content/film.js `readout`: keys [second, value])
     extra: (id) => {
