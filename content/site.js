@@ -406,11 +406,11 @@ export const services = [
     name: 'Covering & déchromage',
     short: 'Covering complet ou partiel et déchromage : 3M™, Avery Dennison, TeckWrap, Oracal…, choix sur nuancier à l’atelier.',
     seo: {
-      title: 'Covering & déchromage à Vouvray, près de Tours | SOLAR CAR 37',
+      title: 'Covering voiture à Vouvray, près de Tours | SOLAR CAR 37',
       description:
-        'Covering complet ou partiel et déchromage à Vouvray, près de Tours : films 3M™, Avery Dennison, TeckWrap, Oracal, APA… Brillant, satiné, mat ou carbone, nuanciers à l’atelier. Sur devis.',
+        'Covering voiture près de Tours : couleur complète ou partielle, brillant, satiné, mat ou carbone. Films 3M™, Avery Dennison, TeckWrap, Oracal, nuanciers à l’atelier.',
     },
-    h1: 'Covering et déchromage *automobile près de Tours*',
+    h1: 'Covering automobile *près de Tours*',
     intro:
       'Changer la couleur ou la finition de votre véhicule sans le repeindre : un film adhésif posé sur la carrosserie, en totalité ou sur quelques éléments, et des chromes passés au noir. Films 3M™, Avery Dennison, TeckWrap, Oracal, APA, Ravoony… : un très large choix de couleurs et de finitions, dans nos nuanciers à l’atelier de Vouvray, sur rendez-vous.',
     benefits: [
@@ -642,7 +642,7 @@ export const contactPage = {
 export const legalPage = {
   seo: {
     title: 'Mentions légales et confidentialité | SOLAR CAR 37',
-    description: 'Mentions légales, hébergement et politique de confidentialité du site SOLAR CAR 37.',
+    description: 'Mentions légales de SOLAR CAR 37 (Vouvray, Indre-et-Loire) : éditeur, hébergement, tarifs indicatifs, médiation et politique de confidentialité du site.',
   },
   // Host details are required by French law (LCEN). The site is published with GitHub Pages;
   // change this if it moves to another host.
