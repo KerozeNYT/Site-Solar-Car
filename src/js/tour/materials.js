@@ -124,6 +124,10 @@ export function injectPolish(m, uniforms) {
         uniform float uWrapX;
         uniform vec3 uWrapCol;
         uniform vec4 uWrapMat; // roughness, metalness, clearcoat, clearcoat roughness
+        // carbon covering on the bonnet, laid from the windscreen towards the nose (up to uCarbonX);
+        // uHood: the bonnet in car space (x from, x to, half width at the windscreen, at the nose)
+        uniform float uCarbonX;
+        uniform vec4 uHood;
         float h31(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
         float vnoise(vec3 p){
           vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -220,7 +224,32 @@ export function injectPolish(m, uniforms) {
         diffuseColor.rgb = mix(diffuseColor.rgb, uWrapCol, wrapped);
         roughnessFactor = mix(roughnessFactor, uWrapMat.x, wrapped);
         metalnessFactor = mix(metalnessFactor, uWrapMat.y, wrapped);
-        float wrapEdge = uWrap * (1.0 - smoothstep(0.0, 0.05, abs(vCarPos.x - uWrapX))) * step(abs(uWrapX), 3.0);`
+        float wrapEdge = uWrap * (1.0 - smoothstep(0.0, 0.05, abs(vCarPos.x - uWrapX))) * step(abs(uWrapX), 3.0);
+        // carbon bonnet: the top of the bonnet only (not the vents' walls nor the wings)
+        float hoodU = clamp((vCarPos.x - uHood.x) / max(uHood.y - uHood.x, 0.001), 0.0, 1.0);
+        float hoodW = mix(uHood.z, uHood.w, hoodU);
+        float onHood = step(-5.0, uCarbonX) * smoothstep(uHood.x - 0.004, uHood.x + 0.004, vCarPos.x)
+          * (1.0 - smoothstep(uHood.y - 0.004, uHood.y + 0.004, vCarPos.x))
+          * (1.0 - smoothstep(hoodW - 0.004, hoodW + 0.004, abs(vCarPos.z)))
+          * smoothstep(0.32, 0.45, normalize(vCarNormal).y);
+        float carbon = onHood * (1.0 - smoothstep(-0.004, 0.004, vCarPos.x - uCarbonX));
+        float carbonEdge = onHood * (1.0 - smoothstep(0.0, 0.012, abs(vCarPos.x - uCarbonX))) * step(uCarbonX, uHood.y + 0.01);
+        // 2x2 twill: tows of 8 mm, each pair of cells turned the other way, shifted one cell a row
+        vec2 tw = vCarPos.xz / 0.008;
+        vec2 twc = floor(tw);
+        vec2 twf = fract(tw);
+        float warp = step(2.0, mod(twc.x + twc.y, 4.0));
+        float across = mix(twf.x, twf.y, warp);
+        float along = mix(twf.y, twf.x, warp);
+        float tow = sin(across * 3.14159);
+        // fades to the average where a tow is smaller than a pixel (no shimmer, no moire)
+        float twAA = 1.0 - smoothstep(0.25, 0.8, length(fwidth(tw)));
+        float sheenC = mix(0.5, warp, twAA);
+        float fibre = mix(0.5, 0.5 + 0.5 * sin(along * 6.2832 * 3.0 + across * 1.7), twAA * 0.35);
+        vec3 carbonCol = vec3(0.012, 0.013, 0.015) + vec3(0.11, 0.112, 0.12) * sheenC * mix(0.6, tow, twAA) * (0.75 + 0.5 * fibre);
+        diffuseColor.rgb = mix(diffuseColor.rgb, carbonCol, carbon);
+        roughnessFactor = mix(roughnessFactor, mix(0.42, 0.24, sheenC), carbon);
+        metalnessFactor = mix(metalnessFactor, mix(0.2, 0.75, sheenC), carbon);`
       )
       .replace(
         '#include <lights_physical_fragment>',
@@ -237,6 +266,7 @@ export function injectPolish(m, uniforms) {
         totalEmissiveRadiance += vec3(1.0, 0.72, 0.38) * glint * 0.9;
         // the squeegee line where the film is being laid
         totalEmissiveRadiance += vec3(1.0, 0.82, 0.5) * wrapEdge * 0.35;
+        totalEmissiveRadiance += vec3(1.0, 0.86, 0.62) * carbonEdge * 0.5;
         // ceramic: a band of light sweeping across the coated paint
         float band = exp(-pow((vCarPos.x - mix(-3.4, 3.4, uSweep) + vCarPos.y * 0.7) / 0.14, 2.0));
         totalEmissiveRadiance += vec3(1.0, 0.95, 0.86) * band * uCeramic * 0.5 * step(0.001, uSweep) * (1.0 - step(0.999, uSweep));

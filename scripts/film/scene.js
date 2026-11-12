@@ -129,6 +129,26 @@ car.group.traverse((o) => {
   if (hideNames.includes(o.name)) o.visible = false;
 });
 
+// window tint chapter: a soft light panel on the far side of the car, at window height, hidden by
+// the body: it shows only through the glass, so the rear windows read clear, then black, while
+// the front side window stays clear
+const backlight = new THREE.Group();
+const lightPanel = (w, h, x, y, z) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false }));
+  m.position.set(x, y, z);
+  backlight.add(m);
+  return m.material;
+};
+// behind the far side (seen through both front side windows, the seats against it) and inside
+// the cabin behind the right-hand rear quarter window (the cabin trim hides the far one there)
+const backlightMats = [lightPanel(0.9, 0.26, -0.18, 1.04, -1.2), lightPanel(0.4, 0.17, -0.9, 1.035, 0.47)];
+backlight.visible = false;
+scene.add(backlight);
+const backlightColor = new THREE.Color(1.0, 0.97, 0.92);
+// the model's right-hand rear quarter window (glass since content/car.js lists it): from the
+// window tint chapter on, so the shots before it keep their look
+const quarterR = car.group.getObjectByName('Object_186');
+
 // ---------------------------------------------------------------- post: bloom, then grade
 const target = new THREE.WebGLRenderTarget(W, H, { type: THREE.HalfFloatType, samples: MSAA });
 const composer = new EffectComposer(renderer, target);
@@ -162,8 +182,17 @@ composer.addPass(finish);
 const path = createPath(keys);
 const fx = createEffects(effects);
 const view = {};
+// test knobs: cam=px,py,pz,lx,ly,lz,fov replaces the camera; fx=name:value,... sets effects
+const camKnob = q.get('cam') ? q.get('cam').split(',').map(Number) : null;
+const fxKnob = Object.fromEntries((q.get('fx') || '').split(',').filter(Boolean).map((kv) => [kv.split(':')[0], Number(kv.split(':')[1])]));
 window.renderFrame = (t) => {
   path.sample(t, view);
+  if (camKnob) {
+    view.pos.set(camKnob[0], camKnob[1], camKnob[2]);
+    view.look.set(camKnob[3], camKnob[4], camKnob[5]);
+    view.fov = camKnob[6];
+    view.roll = 0;
+  }
   camera.position.copy(view.pos);
   camera.up.set(0, 1, 0);
   camera.lookAt(view.look);
@@ -171,7 +200,7 @@ window.renderFrame = (t) => {
   camera.fov = view.fov;
   camera.updateProjectionMatrix();
 
-  const e = fx(t);
+  const e = { ...fx(t), ...fxKnob };
   car.setHeadlights(e.headlights);
   for (const m of halos) m.opacity = 0; // no sprite halo: the bloom alone, as through a lens
   car.setHeadlightClear(e.headClear);
@@ -183,6 +212,11 @@ window.renderFrame = (t) => {
   car.setWindowDrop('R', e.windowR);
   car.setWindowSheen('R', e.sheen, 0.09);
   car.setStars(e.stars);
+  car.setCarbon(e.carbonX ?? -10);
+  const bl = e.backlight ?? 0;
+  backlight.visible = bl > 0.001;
+  for (const m of backlightMats) m.color.copy(backlightColor).multiplyScalar(bl * (Number(q.get('bl')) || 0.8));
+  if (quarterR) quarterR.visible = t >= 14.6;
   bloom.strength = e.bloom;
   finish.uniforms.uFade.value = e.fade;
   finish.uniforms.uSeed.value = (t * 24.0) % 97.0;

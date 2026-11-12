@@ -1,4 +1,5 @@
-// Renders the home page film to numbered JPEG frames (24 fps), resuming where it stopped.
+// Renders the home page film to numbered JPEG frames, resuming where it stopped. Frame i is the
+// moment i / FPS (FILM_FPS, default the film's `fps` in content/film.js).
 //
 //   node scripts/film/render.mjs <out dir> <width> <height> [first frame] [end frame] [port]
 //   node scripts/film/render.mjs <out dir> <width> <height> --at 3.8,8.6,12.5   (test stills)
@@ -11,6 +12,7 @@ import path from 'node:path';
 import * as esbuild from 'esbuild';
 import { serve } from '../serve.mjs';
 import { duration } from './shots.js';
+import { film } from '../../content/film.js';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 const [dir, w, h, ...rest] = process.argv.slice(2);
@@ -18,7 +20,7 @@ if (!dir || !w || !h) {
   console.error('usage: node scripts/film/render.mjs <out dir> <width> <height> [from] [to] [port] | --at t1,t2');
   process.exit(1);
 }
-const FPS = 24;
+const FPS = Number(process.env.FILM_FPS || film.fps || 24);
 const at = rest[0] === '--at' ? rest[1].split(',').map(Number) : null;
 const from = at ? 0 : Number(rest[0] ?? 0);
 const to = at ? 0 : Number(rest[1] ?? Math.round(duration * FPS));

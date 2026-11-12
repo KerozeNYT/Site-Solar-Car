@@ -1,11 +1,11 @@
 /**
- * Home page film (36 s, one continuous camera move): camera keys and service effects.
+ * Home page film (47 s, one continuous camera move): camera keys and service effects.
  *
  * Same conventions as content/flight.js: metres, the car at the origin, nose towards +x, its
  * right-hand side towards +z. t = seconds of the film. Chapter times must match content/film.js
  * (copy on screen, readouts), so move them together.
  */
-export const duration = 36;
+export const duration = 47;
 
 export const keys = [
   // 01 — Hero: straight in front, the car comes out of the dark, slow push in
@@ -28,21 +28,27 @@ export const keys = [
   { t: 20.2, p: [-4.7, 1.12, 4.5], l: [-0.7, 0.6, 0.1], fov: 34 },
   { t: 21.8, p: [-5.4, 1.02, 2.7], l: [-1.3, 0.62, 0.15], fov: 32 },
   { t: 23.6, p: [-4.0, 1.25, 1.15], l: [-2.0, 0.72, 0.1], fov: 34 },
-  // 06 — Starlight: along the right-hand side at window height, in through the lowered window
+  // 06 — Starlight: along the right-hand side at window height, in through the lowered window,
+  // a long, slow look at the starlit headliner from the back of the cabin
   { t: 24.8, p: [-2.6, 1.15, 2.25], l: [-1.0, 0.92, 0.6], fov: 42 },
   { t: 25.9, p: [-0.95, 1.1, 1.95], l: [0.25, 0.98, 0.45], fov: 46 },
-  { t: 26.8, p: [-0.2, 1.08, 1.45], l: [0.1, 1.0, 0.3], fov: 52 },
-  { t: 27.5, p: [-0.15, 1.08, 0.95], l: [-0.7, 0.88, -0.3], fov: 60 },
-  { t: 28.2, p: [-0.85, 1.0, 0.12], l: [0.2, 1.22, 0.0], fov: 68 },
-  { t: 28.8, p: [-1.28, 0.98, 0.0], l: [0.5, 1.4, 0.0], fov: 70 },
+  { t: 27.3, p: [-0.2, 1.08, 1.45], l: [0.1, 1.0, 0.3], fov: 52 },
+  { t: 28.5, p: [-0.15, 1.08, 0.95], l: [-0.7, 0.88, -0.3], fov: 60 },
+  { t: 29.9, p: [-0.85, 1.0, 0.12], l: [0.2, 1.22, 0.0], fov: 68 },
+  { t: 31.6, p: [-1.28, 0.98, 0.0], l: [0.5, 1.4, 0.0], fov: 70 },
+  { t: 33.4, p: [-1.18, 0.99, -0.1], l: [0.6, 1.36, -0.32], fov: 70 },
   // forward between the seats, then out through the same window, above the mirror
-  { t: 29.6, p: [-0.45, 0.99, 0.05], l: [0.8, 1.05, 0.6], fov: 66 },
-  { t: 30.2, p: [-0.08, 1.04, 0.6], l: [1.3, 0.98, 1.1], fov: 58 },
-  { t: 30.7, p: [0.05, 1.12, 1.35], l: [1.6, 0.85, 0.75], fov: 52 },
-  { t: 31.4, p: [1.0, 1.1, 2.45], l: [1.7, 0.72, 0.6], fov: 44 },
-  // 07 — Final: three-quarter front, lights on, slow drift
-  { t: 32.6, p: [4.5, 0.88, 3.9], l: [0.1, 0.5, 0.0], fov: 34 },
-  { t: 36, p: [5.4, 0.86, 4.3], l: [0.0, 0.5, 0.0], fov: 34 },
+  { t: 34.8, p: [-0.45, 0.99, 0.05], l: [0.8, 1.05, 0.6], fov: 66 },
+  { t: 35.7, p: [-0.08, 1.04, 0.6], l: [1.3, 0.98, 1.1], fov: 58 },
+  { t: 36.4, p: [0.05, 1.12, 1.35], l: [1.6, 0.85, 0.75], fov: 52 },
+  { t: 37.3, p: [1.0, 1.1, 2.45], l: [1.7, 0.72, 0.6], fov: 44 },
+  // 07 — Covering: up over the right-hand wing, the bonnet below; the carbon film is laid from the
+  // windscreen to the nose
+  { t: 38.6, p: [2.2, 1.6, 1.75], l: [1.5, 0.72, 0.05], fov: 40 },
+  { t: 42.4, p: [3.05, 1.62, 0.95], l: [1.5, 0.72, -0.05], fov: 38 },
+  // 08 — Final: back out to the three-quarter front, lights on, slow drift
+  { t: 44.0, p: [4.6, 0.98, 3.0], l: [0.5, 0.52, 0.0], fov: 35 },
+  { t: 47, p: [5.4, 0.86, 4.3], l: [0.0, 0.5, 0.0], fov: 34 },
 ];
 
 // [t, value] pairs, eased (src/js/tour/math.js `track`)
@@ -57,14 +63,19 @@ export const effects = {
   polishX: [[0, -10], [9.35, -10], [9.4, 2.7], [10.0, 2.4], [14.0, -2.4], [14.4, -10]],
   // rear window and rear quarter windows: 70 % -> 5 % (readout 15.9 -> 17.9)
   rearVLT: [[0, 0.7], [15.9, 0.7], [17.9, 0.05]],
+  // a soft light behind the side windows during the window tint chapter, so they read clear, then
+  // black (scripts/film/scene.js)
+  backlight: [[0, 0], [14.9, 0], [15.5, 1], [18.9, 1], [19.5, 0]],
   frontVLT: [[0, 0.75]],
   tailSmoke: [[0, 0.85]],
   tailOn: [[0, 0], [20.2, 0], [20.8, 0.6]],
   // right-hand window down to let the camera in, up again on the way out
-  windowR: [[0, 0], [25.3, 0], [26.5, 1], [30.6, 1], [31.9, 0]],
+  windowR: [[0, 0], [25.3, 0], [26.5, 1], [36.2, 1], [37.5, 0]],
   // the moving pane catches a little light so it reads on screen
-  sheen: [[0, 0], [25.1, 0], [25.4, 1], [26.6, 1], [27.0, 0], [30.4, 0], [30.7, 1], [32.0, 1], [32.6, 0]],
-  stars: [[0, 0], [27.0, 0], [27.9, 1], [29.9, 1], [30.5, 0]],
+  sheen: [[0, 0], [25.1, 0], [25.4, 1], [26.6, 1], [27.0, 0], [36.0, 0], [36.3, 1], [37.6, 1], [38.2, 0]],
+  stars: [[0, 0], [27.6, 0], [28.6, 1], [34.6, 1], [35.4, 0]],
+  // carbon covering on the bonnet: laid from the windscreen (0.98 m) to the nose (2.45 m)
+  carbonX: [[0, -10], [38.9, -10], [39.0, 0.98], [42.0, 2.45]],
   // bloom strength: lower on the rear (the red strip must stay a sharp line)
   bloom: [[0, 0.16], [19.4, 0.16], [19.9, 0.1], [24.6, 0.1], [25.1, 0.16]],
 };

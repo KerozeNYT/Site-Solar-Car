@@ -1,10 +1,14 @@
+import { openFrames } from './film-frames.js';
+
 /**
  * Home film: the scroll moves the video forward and back (content/film.js, section [data-film]).
  * - Once the page has loaded, a light version (about 1 MB) is downloaded and kept in memory: the
  *   film answers the scroll within a second; the sharpest one the screen can show (1080p, 1440p
  *   or 4K, or the 9:16 centre on tall screens) follows in the background and takes over with a
- *   cross-fade. Seeking in memory is instant; the encoding (scripts/film-assets.mjs) has short
- *   key-frame intervals, no B-frames.
+ *   cross-fade. The film is decoded picture by picture and drawn on a canvas (src/js/film-frames.js,
+ *   WebCodecs): the picture follows the scroll at the screen's refresh rate, both ways. Where the
+ *   browser cannot do that, the <video> element is moved by seeking (some 20 pictures a second);
+ *   the encoding (scripts/film-assets.mjs) has short key-frame intervals, no B-frames.
  * - The video time follows the scroll with some easing; the chapters (copy, links) and the tabs
  *   follow the video time, so the words always match the picture.
  * - Before the video is there, each chapter shows its own image: the page reads the same.
@@ -12,7 +16,7 @@
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 
 export function startFilm(section) {
-  let video = section.querySelector('[data-video]');
+  const template = section.querySelector('[data-video]'); // replaced by the film once loaded
   const stage = section.querySelector('[data-stage]');
   const progressEl = section.querySelector('[data-progress]');
   const loading = section.querySelector('[data-loading]');
@@ -151,18 +155,19 @@ export function startFilm(section) {
     }
   }
 
-  // ------------------------------------------------------------- the video
+  // ------------------------------------------------------------- the picture
   // 1. the light version (about 1 MB) answers the scroll within a second; 2. the sharp one
-  // (phone or computer) downloads behind it and takes over with a cross-fade, at the same moment
+  // (phone or computer) downloads behind it and takes over with a cross-fade, at the same moment.
+  // A view shows the film at a given time: { el, show(t, force), ready(t), close() }.
+  let view = null;
   let ready = false;
   const show = () => {
     if (ready) return;
     ready = true;
     section.classList.add('is-ready');
     loading.hidden = true;
-    seek(true);
   };
-  /** the whole file in memory (seeking is then instant), with its progress */
+  /** the whole file in memory, with its progress */
   async function blobOf(url, onProgress) {
     const res = await fetch(url);
     if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
@@ -177,9 +182,8 @@ export function startFilm(section) {
       got += value.length;
       if (total) onProgress?.(got / total);
     }
-    return URL.createObjectURL(new Blob(parts, { type: 'video/mp4' }));
+    return new Blob(parts, { type: 'video/mp4' });
   }
-  const loaded = (v) => new Promise((resolve) => (v.readyState >= 2 ? resolve() : v.addEventListener('loadeddata', resolve, { once: true })));
   /** true once the first picture is decoded, false if the browser gives up on the file */
   const playable = (v) =>
     new Promise((resolve) => {
@@ -187,46 +191,101 @@ export function startFilm(section) {
       v.addEventListener('loadeddata', () => resolve(true), { once: true });
       v.addEventListener('error', () => resolve(false), { once: true });
     });
-  async function load() {
-    let first;
+  /** the <video> element moved by seeking (a blob in memory, or the file on the network) */
+  async function videoView(source, cls) {
+    const v = template.cloneNode();
+    v.removeAttribute('data-video');
+    v.className = cls;
+    const url = source instanceof Blob ? URL.createObjectURL(source) : source;
+    v.src = url;
+    v.load();
+    if (!(await playable(v))) {
+      if (url !== source) URL.revokeObjectURL(url);
+      return null;
+    }
+    const seekTo = (t, force) => {
+      if (v.readyState >= 1 && (force || (!v.seeking && Math.abs(v.currentTime - t) > 1 / 120))) v.currentTime = t;
+    };
+    return {
+      el: v,
+      video: v,
+      show: seekTo,
+      ready: (t) =>
+        new Promise((resolve) => {
+          v.addEventListener('seeked', resolve, { once: true });
+          seekTo(t, true);
+        }),
+      close: () => url !== source && URL.revokeObjectURL(url),
+    };
+  }
+  /** the best view of a file: its pictures decoded on a canvas, else the <video> element */
+  async function viewOf(blob, cls) {
+    const canvas = document.createElement('canvas');
+    canvas.className = cls;
+    canvas.setAttribute('aria-hidden', 'true');
+    let frames = null;
+    const fallBack = async () => {
+      // the decoder failed on this device: the same file, in the video element
+      const v = await videoView(blob, cls);
+      if (!v || view?.el !== canvas) return;
+      canvas.replaceWith(v.el);
+      v.el.classList.toggle('is-on', canvas.classList.contains('is-on'));
+      view = v;
+      frames?.close();
+      v.show(current, true);
+    };
     try {
-      first = await blobOf(light, (k) => pct && (pct.textContent = `${Math.round(k * 100)} %`));
+      frames = await openFrames(await blob.arrayBuffer(), canvas, { onError: fallBack });
+    } catch (err) {
+      console.warn('[film] decoding', err);
+    }
+    if (!frames) return videoView(blob, cls);
+    return { el: canvas, show: (t) => frames.show(t), ready: (t) => frames.ready(t), close: () => frames.close() };
+  }
+  /** put a view on the stage, its picture at the current time, before it shows */
+  async function mount(v, before) {
+    before.after(v.el);
+    const ok = await Promise.race([v.ready(current).then(() => true, () => false), new Promise((r) => setTimeout(() => r(false), 8000))]);
+    if (!ok) {
+      v.el.remove();
+      v.close();
+    }
+    return ok;
+  }
+  async function load() {
+    let blob = null;
+    try {
+      blob = await blobOf(light, (k) => pct && (pct.textContent = `${Math.round(k * 100)} %`));
     } catch (err) {
       console.warn('[film] direct playback', err);
-      first = light; // played from the network (seeking a little slower)
     }
-    video.src = first;
-    video.load();
-    await loaded(video);
+    // played from the network if the download failed (seeking a little slower)
+    let first = blob ? await viewOf(blob, 'tour__video') : null;
+    if (first && !(await mount(first, template))) first = null;
+    if (!first) {
+      first = await videoView(light, 'tour__video');
+      if (!first || !(await mount(first, template))) return;
+    }
+    template.remove();
+    view = first;
     show();
     // the sharp version, quietly in the background; if the device cannot play it (decoder,
     // memory), the next smaller one; if none, the light version stays and the film still works
-    let hd = null;
     for (const src of sharps) {
       if (src === light) return;
-      const url = await blobOf(src).catch(() => null);
-      if (!url) return;
-      hd = video.cloneNode();
-      hd.removeAttribute('data-video');
-      hd.classList.add('tour__video--hd');
-      hd.src = url;
-      video.after(hd);
-      hd.load();
-      if (await playable(hd)) break;
-      hd.remove();
-      URL.revokeObjectURL(url);
-      hd = null;
+      const b = await blobOf(src).catch(() => null);
+      if (!b) return;
+      const hd = await viewOf(b, 'tour__video tour__video--hd');
+      if (!hd || !(await mount(hd, view.el))) continue;
+      const old = view;
+      view = hd;
+      hd.el.classList.add('is-on');
+      setTimeout(() => {
+        old.el.remove();
+        old.close();
+      }, 900);
+      return;
     }
-    if (!hd) return;
-    hd.currentTime = current;
-    await new Promise((resolve) => hd.addEventListener('seeked', resolve, { once: true }));
-    const old = video;
-    video = hd;
-    hd.classList.add('is-on');
-    setTimeout(() => {
-      old.remove();
-      if (first.startsWith('blob:')) URL.revokeObjectURL(first);
-    }, 900);
   }
   // the download waits for the page itself (text, images): never in the way of the first screen
   const idle = (fn) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 300));
@@ -234,7 +293,9 @@ export function startFilm(section) {
   else addEventListener('load', () => idle(load), { once: true });
   // iPhone: a video must have been started once by a touch before it accepts seeking
   const unlock = () => {
-    video.play().then(() => video.pause(), () => {});
+    if (!view) return; // nothing loaded yet: at the next touch
+    const v = view.video;
+    if (v) v.play().then(() => v.pause(), () => {});
     removeEventListener('touchstart', unlock);
   };
   addEventListener('touchstart', unlock, { passive: true });
@@ -243,9 +304,8 @@ export function startFilm(section) {
   let target = timeAt(scrollY);
   let current = target;
   let last = performance.now();
-  function seek(force = false) {
-    if (!ready || video.readyState < 1) return;
-    if (force || (!video.seeking && Math.abs(video.currentTime - current) > 1 / 60)) video.currentTime = current;
+  function seek() {
+    if (ready && view) view.show(current);
   }
   let running = false;
   let visible = false;

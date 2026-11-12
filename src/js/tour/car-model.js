@@ -106,6 +106,8 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     uWrapX: { value: -10 },
     uWrapCol: { value: new THREE.Color() },
     uWrapMat: { value: new THREE.Vector4(0.5, 0, 1, 0.1) },
+    uCarbonX: { value: -10 },
+    uHood: { value: new THREE.Vector4(...(cfg.hood ? [cfg.hood.x[0], cfg.hood.x[1], cfg.hood.halfWidth[0], cfg.hood.halfWidth[1]] : [0, 0, 0, 0])) },
     uCarInv: { value: carInv },
   };
   const paintMats = new Set();
@@ -584,6 +586,11 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
      * coatRough }; `x` = how far the film is laid along the car (metres, rear to front; past
      * the nose = the whole body); amount 0 = the paint as it is
      */
+    /** carbon covering on the bonnet (cfg.hood), laid from the windscreen up to `x` metres along
+     * the car (nose towards +x); -10 = none, 10 = the whole bonnet */
+    setCarbon(x = 10) {
+      polishU.uCarbonX.value = cfg.hood ? x : -10;
+    },
     setWrap({ amount = 1, x = 10, film = null } = {}) {
       polishU.uWrap.value = amount;
       polishU.uWrapX.value = x;

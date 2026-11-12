@@ -39,8 +39,9 @@ export default {
   parts: {
     windshield: ['Object_187'],
     frontWindows: { L: ['Object_178'], R: ['Object_183'] },
-    // glass that may legally be tinted dark in France (rear window, rear quarter windows)
-    rearWindows: ['Object_189', 'Object_181'],
+    // glass that may legally be tinted dark in France (rear window, rear quarter windows; the
+    // model has a single mesh for the right-hand quarter window, Object_186)
+    rearWindows: ['Object_189', 'Object_181', 'Object_186'],
     tailLights: ['Object_150', 'Object_93', 'Object_13', 'Object_15', 'Object_164', 'Object_165'],
     tailHousing: ['Object_151'],
     tailSignals: [],
@@ -52,8 +53,12 @@ export default {
     tyres: ['Object_195', 'Object_200', 'Object_167', 'Object_173'],
     rims: ['Object_196', 'Object_201', 'Object_166', 'Object_172'],
     // reflection overlays shipped with the glass; the site renders its own reflections
-    hide: ['Object_188', 'Object_180', 'Object_185', 'Object_182', 'Object_186', 'Object_190'],
+    hide: ['Object_188', 'Object_180', 'Object_185', 'Object_182', 'Object_190'],
   },
+
+  // The bonnet in car space (metres, nose towards +x): carbon covering of the home film
+  // (setCarbon). x: from the windscreen to the nose; halfWidth: at the windscreen, at the nose.
+  hood: { x: [0.98, 2.4], halfWidth: [0.6, 0.5] },
 
   // Roof area that receives the starlight (model space). Rays are cast upwards inside it and
   // stars are placed on the first opaque surface; listed meshes (roll cage...) are ignored.
