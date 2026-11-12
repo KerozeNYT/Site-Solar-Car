@@ -70,7 +70,9 @@ export function createPath(keys) {
       const ax = (_c.x - 2 * _b.x + _a.x) / (e * e);
       const az = (_c.z - 2 * _b.z + _a.z) / (e * e);
       const speed = Math.hypot(vx, vz);
-      const lateral = speed > 0.05 ? (vx * az - vz * ax) / speed : 0;
+      // fades out with the speed below 5 cm/s instead of snapping to zero (a jolt in the picture
+      // when the camera slows down through that speed and back)
+      const lateral = ((vx * az - vz * ax) / Math.max(speed, 0.05)) * Math.min(1, speed / 0.05);
       out.roll = clamp(-lateral * 0.045, -0.22, 0.22);
       return out;
     },
