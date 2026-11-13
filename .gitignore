@@ -9,3 +9,5 @@ assets-src/models/*.usdz
 __pycache__/
 # untouched photos (plates, GPS position): only the retouched web versions are published
 assets-src/photos/originals/
+# Cloudflare wrangler local state (booking server)
+.wrangler/
