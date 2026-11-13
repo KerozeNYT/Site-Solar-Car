@@ -71,3 +71,24 @@ finale une fois le mouvement validé.
   (16:9) ou 1080p (9:16). Durées : plan 1 lavage 7 s, 2 polissage 6 s, 3 phare 5 s, 4 capot
   carbone 5 s, 5 survol et feux arrière 7 s, 6 vitres 5 s, 7 ciel étoilé 6 s, 8 final 6 s
   (47 s). Commencer par le plan 1 en brouillon et noter son coût avant de continuer.
+
+## Vidéos générées (13 novembre 2026, galerie Higgsfield)
+
+16 versions finales, 24 images/s : horizontales 3840 × 2160, verticales 1080 × 1920.
+
+| Plan | Horizontal (4K) | Vertical (1080 × 1920) |
+|---|---|---|
+| 1 Lavage (7 s) | `…144043_454ae77f` | `…150606_b8e93c2f` |
+| 2 Polissage (6 s) | `…145019_8a8714a2` | `…150610_a48036e7` |
+| 3 Phare (5 s) | `…150439_ddaa4573` (à refaire : raccord) | `…150613_2c2b4a1b` |
+| 4 Carbone (5 s) | `…145031_b5acfc08` | `…150617_075d6aee` |
+| 5 Feux arrière (7 s) | `…145034_d0c26851` (à refaire : raccord) | `…150620_cb7bed5e` |
+| 6 Vitres (5 s) | `…145037_0374f534` | `…150623_07aa8e69` |
+| 7 Ciel étoilé (6 s) | `…145219_35f4cc47` | `…150627_7521a12c` |
+| 8 Final (6 s) | `…145222_26a7018e` (à refaire : lettrage « GT3 CAR ») | `…150630_f625d9d7` |
+
+Raccords mesurés (écart moyen entre la dernière image d'un plan et la première du suivant, 0 = identique) :
+verticales toutes ≤ 10 ; horizontales 2→3 = 65 et 4→5 = 66 (cadrages différents), 3→4 = 34, autres ≤ 7.
+Kit de correction envoyé (images exactes extraites des plans voisins, photo finale retouchée avec le
+vrai marquage SOLAR CAR) : plans 8, 3 et 5 à refaire dans cet ordre. Hôte des fichiers Higgsfield
+(d8j0ntlcm91z4.cloudfront.net) autorisé dans l'environnement pour les télécharger.
