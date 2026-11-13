@@ -48,7 +48,7 @@ const server = await serve(root, port);
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: +w, height: +h } });
 page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
-page.on('console', (m) => m.type() === 'error' && console.log('console:', m.text()));
+page.on('console', (m) => (m.type() === 'error' || m.text().startsWith('[scene]')) && console.log('console:', m.text()));
 const extra = process.env.FILM_QUERY ? '&' + process.env.FILM_QUERY : '';
 await page.goto(`http://localhost:${port}/.cache/film/index-${port}.html?w=${w}&h=${h}${extra}`);
 await page.waitForFunction(() => window.ready, null, { timeout: 900000 });

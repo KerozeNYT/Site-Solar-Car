@@ -20,6 +20,7 @@ import { createPath, createEffects } from '../../src/js/tour/flight.js';
 import carConfig from '../../content/car.js';
 import { keys, effects } from './shots.js';
 import { buildGarage } from './garage.js';
+import { addLivery } from './livery.js';
 
 const q = new URLSearchParams(location.search);
 const W = Number(q.get('w') || 1920);
@@ -81,16 +82,28 @@ car.group.traverse((o) => {
 });
 
 // anthracite grey metallic (RAL 7016) under the mirror clearcoat: it stands out against the
-// dark garage
+// dark garage. Knobs metal / rough: another finish (a solid white: metal=0.02&rough=0.22)
+const METAL = q.get('metal') != null ? Number(q.get('metal')) : 0.45;
+const ROUGH = q.get('rough') != null ? Number(q.get('rough')) : 0.34;
 car.group.traverse((o) => {
   if (!o.isMesh) return;
   for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
     if (m?.userData?.uniforms?.uCarbonX) {
-      m.metalness = 0.45;
-      m.roughness = 0.34;
+      m.metalness = METAL;
+      m.roughness = ROUGH;
     }
   }
 });
+// knob livery=1: the SOLAR CAR side script on the doors (scripts/film/livery.js)
+if (q.get('livery') === '1') {
+  const body = [];
+  car.group.traverse((o) => o.isMesh && carConfig.paint.materials.includes(o.name) && body.push(o));
+  const lv = await addLivery(scene, car.group, body, {
+    fontUrl: '/node_modules/@fontsource-variable/archivo/files/archivo-latin-wdth-normal.woff2',
+    anisotropy: renderer.capabilities.getMaxAnisotropy(),
+  });
+  console.log('[scene] livery', JSON.stringify(lv.made));
+}
 
 // the cabin under its roof: the area light of the ceiling casts no shadow and would light the
 // seats through the roof; what sits inside the cabin keeps 25 % of its colour (a material also
