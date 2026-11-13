@@ -298,6 +298,59 @@ function actionBar(ctx) {
 }
 
 /** The workshop: address, hours, live map and directions (home, services, contact, atelier). */
+// the access plan (scripts/map/plan.py): two drawn pictures, labels laid over them in the page's fonts
+const PLAN = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, 'content/plan.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+})();
+
+/**
+ * Access plan: the way from the centre of Tours to the workshop (overview), and the arrival in
+ * the business park (zoom). Sharp at any size: drawn shapes (SVG) and the page's own text.
+ */
+function accessPlan(ctx) {
+  const b = ctx.business;
+  const links = placeLinks(b);
+  if (!PLAN) return '';
+  const at = (p) => `left:${p.x}%;top:${p.y}%`;
+  const street = (b.address?.street || '').replace(/^(\d+)\s+/, '$1 ');
+  const places = PLAN.places
+    .map((p) => `<span class="plan__place plan__place--${p.kind}${p.align !== 'middle' ? ` plan__place--${p.align}` : ''}${p.minor ? ' plan__place--minor' : ''}" style="${at(p)}">${esc(p.name)}</span>`)
+    .join('');
+  const streets = PLAN.streets
+    .map((p) => `<span class="plan__street${/Entrepreneurs/.test(p.name) ? ' plan__street--home' : ''}" style="${at(p)};--a:${p.angle}deg">${esc(p.name)}</span>`)
+    .join('');
+  const pin = (cls, p) => `<span class="plan__pin ${cls}" style="${at(p)}" aria-hidden="true"><i></i></span>`;
+  const km = String(PLAN.route.km).replace('.', ',');
+  return `<div class="visit__map plan">
+      <figure class="plan__view plan__view--overview">
+        <img src="/map/plan.svg" width="1600" height="1100" loading="lazy" decoding="async" alt="Plan d’accès : de Tours centre à l’atelier ${esc(b.name)}, ${esc(street)} à ${esc(b.address?.city || '')}, ${km} km en passant la Loire puis par la rive nord jusqu’à Vouvray">
+        <div class="plan__labels" aria-hidden="true">
+          ${places}
+          <span class="plan__start" style="${at(PLAN.start)}"><span>Départ · Tours centre</span></span>
+          ${pin('plan__pin--overview', PLAN.workshop)}
+          <span class="plan__tag" style="${at(PLAN.workshop)}"><b>${esc(b.name)}</b><span>${km} km depuis Tours</span></span>
+          <span class="plan__scale" style="--w:${(PLAN.scale.overview * 2).toFixed(2)}"><i></i>2 km</span>
+          <span class="plan__north">N</span>
+        </div>
+      </figure>
+      <figure class="plan__view plan__view--zoom">
+        <img src="/map/plan-zoom.svg" width="1000" height="1000" loading="lazy" decoding="async" alt="Zoom sur l’arrivée : l’atelier au ${esc(street)}, dans la zone d’activités de l’Étang Vignon à ${esc(b.address?.city || '')}">
+        <div class="plan__labels" aria-hidden="true">
+          ${streets}
+          ${pin('plan__pin--zoom', PLAN.zoomWorkshop)}
+          <span class="plan__scale" style="--w:${PLAN.scale.zoom.toFixed(2)}"><i></i>100 m</span>
+        </div>
+        <figcaption class="plan__caption"><b>Arrivée</b> ${esc(street)}<span class="plan__caption-more"> · ZA de l’Étang Vignon</span></figcaption>
+      </figure>
+      <a class="visit__map-open btn btn--sm" href="${esc(links.maps)}" rel="noopener" target="_blank">${ICONS.route} Ouvrir dans Google Maps</a>
+      <p class="plan__credits">Données © contributeurs OpenStreetMap, Overture Maps, IGN</p>
+    </div>`;
+}
+
 export function visitBlock(ctx, { title = 'L’atelier', id = 'atelier', headingLevel = 2, map = true } = {}) {
   const b = ctx.business;
   const links = placeLinks(b);
@@ -317,10 +370,7 @@ export function visitBlock(ctx, { title = 'L’atelier', id = 'atelier', heading
       </div>
       <p class="visit__apps">Ouvrir dans <a href="${esc(links.maps)}" rel="noopener" target="_blank">Google Maps</a> · <a href="${esc(links.waze)}" rel="noopener" target="_blank">Waze</a> · <a href="${esc(links.apple)}" rel="noopener" target="_blank">Plans</a></p>
     </div>
-    ${map ? `<div class="visit__map" data-map data-address="${esc(addressLine(b))}" data-name="${esc(b.name)}">
-      <img class="visit__map-poster" src="/map/poster-960.webp" srcset="/map/poster-960.webp 960w, /map/poster-1600.webp 1600w" sizes="(min-width: 900px) 640px, 100vw" width="1600" height="1100" loading="lazy" decoding="async" alt="Carte de l’accès à l’atelier ${esc(b.name)} à Vouvray : le trajet depuis le centre de Tours, au nord de la Loire">
-      <a class="visit__map-open btn btn--sm" href="${esc(links.maps)}" rel="noopener" target="_blank">${ICONS.route} Ouvrir dans Google Maps</a>
-    </div>` : ''}
+    ${map ? accessPlan(ctx) : ''}
   </div>
 </section>`;
 }

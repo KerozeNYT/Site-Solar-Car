@@ -3133,309 +3133,286 @@ p {
 .visit__apps a {
   color: var(--gold-200);
 }
+/* access plan (scripts/map/plan.py): drawn pictures, the page's text over them */
 .visit__map {
   position: relative;
-  /* the width sets the height (16:11), never the other way round: no overflow on wide screens */
   width: 100%;
   align-self: start;
-  min-height: 400px;
-  aspect-ratio: 16 / 11;
-  border-radius: var(--radius);
-  overflow: hidden;
-  border: 1px solid rgba(233, 205, 130, 0.22);
-  /* dusk sky above the haze the 3D map dissolves into */
-  background: linear-gradient(180deg, #0c1830 0%, #2a3850 26%, #6f7a86 44%, #9da1a4 56%, #9fa3a6 100%);
+  container: visit / inline-size;
 }
-.visit__map-poster,
-.visit__map-canvas {
+.plan__view {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid rgba(233, 205, 130, 0.22);
+  background: #0b0c0f;
+  container-type: inline-size;
+}
+.plan__view > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.plan__view--overview {
+  aspect-ratio: 16 / 11;
+}
+.plan__view--zoom {
+  aspect-ratio: 1;
+}
+.plan__labels {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  pointer-events: none;
+  font-family: var(--font);
 }
-.visit__map-poster {
-  object-fit: cover;
-  transition: opacity 0.8s ease;
+.plan__labels > * {
+  position: absolute;
+  white-space: nowrap;
 }
-.visit__map-canvas {
-  opacity: 0;
-  transition: opacity 0.8s ease;
+.plan__place {
+  transform: translate(-50%, -50%);
+  color: rgba(243, 240, 234, 0.82);
+  font-size: clamp(9px, 1.9cqw, 13px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px #0b0c0f, 0 0 8px #0b0c0f, 0 0 2px #0b0c0f;
 }
-.visit__map.is-live .visit__map-canvas {
-  opacity: 1;
+.plan__place--start {
+  transform: translate(0, -50%);
 }
-.visit__map.is-live .visit__map-poster,
-.visit__map.is-live .visit__map-open {
-  opacity: 0;
-  visibility: hidden;
+.plan__place--end {
+  transform: translate(-100%, -50%);
+}
+@container (max-width: 480px) {
+  .plan__place--minor {
+    display: none;
+  }
+}
+.plan__place--city {
+  transform: translate(-50%, 55%);
+  color: #fff;
+  font-size: clamp(12px, 3cqw, 19px);
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.plan__place--home {
+  color: var(--gold-200);
+  font-size: clamp(11px, 2.6cqw, 17px);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.plan__place--water {
+  color: #8fb0cc;
+  font-family: var(--font-serif, serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(11px, 2.4cqw, 16px);
+  letter-spacing: 0.04em;
+}
+.plan__place--road {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #2b2d33;
+  border: 1px solid #5d6068;
+  color: #fff;
+  font-size: clamp(9px, 1.7cqw, 11px);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-shadow: none;
+}
+.plan__start {
+  transform: translate(-50%, -50%);
+}
+.plan__start span {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-30%);
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(11, 12, 15, 0.85);
+  border: 1px solid rgba(227, 194, 122, 0.5);
+  color: var(--gold-200);
+  font-size: clamp(9px, 1.7cqw, 12px);
+  font-weight: 700;
+}
+/* the workshop: a gold point that breathes */
+.plan__pin {
+  width: 0;
+  height: 0;
+}
+.plan__pin i {
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--gold-300);
+  border: 3px solid #0b0c0f;
+  box-shadow: 0 0 0 2px var(--gold-300), 0 0 18px rgba(227, 194, 122, 0.8);
+}
+.plan__pin i::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 2px solid rgba(227, 194, 122, 0.7);
+  animation: plan-pulse 2.4s ease-out infinite;
+}
+.plan__pin--zoom i {
+  left: -12px;
+  top: -12px;
+  width: 24px;
+  height: 24px;
+}
+@keyframes plan-pulse {
+  from {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan__pin i::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+.plan__tag {
+  transform: translate(calc(-100% - 22px), -50%);
+  display: grid;
+  gap: 1px;
+  padding: 6px 11px;
+  border-radius: 10px;
+  background: rgba(11, 12, 15, 0.9);
+  border: 1px solid rgba(227, 194, 122, 0.55);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+  text-align: right;
+}
+.plan__tag b {
+  color: var(--gold-200);
+  font-size: clamp(10px, 2.1cqw, 14px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.plan__tag span {
+  color: var(--text-2);
+  font-size: clamp(9px, 1.6cqw, 11px);
+}
+.plan__street {
+  transform: translate(-50%, -50%) rotate(var(--a, 0deg));
+  color: rgba(243, 240, 234, 0.7);
+  font-size: clamp(9px, 2.6cqw, 12px);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-shadow: 0 1px 2px #0b0c0f, 0 0 6px #0b0c0f;
+}
+.plan__street--home {
+  color: var(--gold-200);
+  font-weight: 800;
+}
+.plan__scale {
+  left: 14px;
+  bottom: 12px;
+  display: grid;
+  gap: 3px;
+  color: var(--text-3);
+  font-size: clamp(9px, 1.6cqw, 11px);
+  font-weight: 600;
+}
+.plan__scale i {
+  display: block;
+  width: calc(var(--w) * 1cqw);
+  height: 6px;
+  border: 2px solid var(--text-3);
+  border-top: 0;
+}
+.plan__north {
+  left: 14px;
+  top: 12px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(11, 12, 15, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 800;
+}
+.plan__caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, rgba(11, 12, 15, 0.92), rgba(11, 12, 15, 0));
+  color: var(--text-2);
+  font-size: clamp(11px, 3cqw, 13px);
+}
+@container (max-width: 420px) {
+  .plan__caption-more {
+    display: none;
+  }
+}
+.plan__caption b {
+  margin-right: 6px;
+  color: var(--gold-200);
+  font-size: 0.78em;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 .visit__map-open {
   position: absolute;
-  left: 14px;
-  bottom: 14px;
-  background: rgba(9, 10, 12, 0.78);
+  right: 12px;
+  bottom: 12px;
+  background: rgba(9, 10, 12, 0.85);
   color: var(--text);
   border-color: rgba(255, 255, 255, 0.3);
 }
 .visit__map-open svg {
   vertical-align: -4px;
 }
-/* phones with the 3D tour on the page: the map starts on a tap */
-.visit__map-3d {
-  position: absolute;
-  right: 14px;
-  top: 14px;
-  background: rgba(9, 10, 12, 0.78);
-  color: var(--text);
-  border: 1px solid rgba(233, 205, 130, 0.6);
+.plan__credits {
+  margin: 8px 2px 0;
+  color: var(--text-3);
+  font-size: 0.72rem;
 }
-.visit__map.is-live .visit__map-3d {
-  display: none;
-}
-
-/* 3D map overlay: labels, route chip, view buttons */
-.map3d {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  font-family: var(--font);
-}
-.map3d__labels {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-.map3d__label {
-  position: absolute;
-  left: 0;
-  top: 0;
-  white-space: nowrap;
-  color: #fff;
-  will-change: transform;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 14px rgba(0, 0, 0, 0.55);
-  transition: opacity 0.25s ease;
-}
-.map3d__label.is-hidden {
-  opacity: 0;
-  visibility: hidden;
-}
-.map3d__label--town {
-  font-weight: 600;
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
-}
-.map3d__label--city {
-  font-weight: 800;
-  font-size: 1.05rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-.map3d__label--home {
-  font-weight: 800;
-  font-size: 1.2rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--gold-200);
-}
-.map3d__label--water {
-  font-style: italic;
-  font-weight: 600;
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
-  color: #d7ebff;
-}
-.map3d__label--road span {
-  display: inline-block;
-  padding: 1px 7px;
-  border: 1.5px solid #fff;
-  border-radius: 5px;
-  background: #1f4fae;
-  font-weight: 800;
-  font-size: 0.75rem;
-  text-shadow: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
-}
-.map3d__label--poi {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-weight: 600;
-  font-size: 0.75rem;
-  color: #eef3f8;
-}
-.map3d__label--start {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 999px;
-  background: rgba(9, 10, 12, 0.74);
-  font-weight: 700;
-  font-size: 0.75rem;
-  text-shadow: none;
-}
-.map3d__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 8px #fff;
-}
-.map3d__label--pin {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-shadow: none;
-  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.55));
-}
-.map3d__pin-card {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 5px 14px 5px 5px;
-  border: 2px solid #e1b354;
-  border-radius: 999px;
-  background: var(--navy-900);
-}
-.map3d__pin-card img {
-  border-radius: 50%;
-}
-.map3d__pin-card strong {
-  display: block;
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-.map3d__pin-card small {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--on-dark-muted);
-}
-.map3d__pin-tip {
-  width: 0;
-  height: 0;
-  margin-top: -1px;
-  border: 8px solid transparent;
-  border-top-color: #e1b354;
-}
-.map3d__chip {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  padding: 8px 13px;
-  border-radius: 12px;
-  background: rgba(9, 10, 12, 0.78);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  color: #fff;
-  font-size: 0.84rem;
-}
-.map3d__chip-line {
-  width: 24px;
-  height: 4px;
-  border-radius: 2px;
-  background: #ffd36b;
-  box-shadow: 0 0 10px #ffb52e;
-}
-.map3d__bar {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 14px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  pointer-events: none;
-}
-.map3d__bar button {
-  pointer-events: auto;
-  min-height: 38px;
-  padding: 7px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 999px;
-  background: rgba(9, 10, 12, 0.74);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  color: #fff;
-  font: 600 0.8rem var(--font);
-  cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-}
-.map3d__bar button:hover,
-.map3d__bar button.is-active {
-  border-color: transparent;
-  background: var(--gold-metal);
-  color: var(--navy-900);
-}
-.map3d__bar button:focus-visible {
-  outline: 2px solid var(--gold-300);
-  outline-offset: 2px;
-}
-.map3d__credit {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  max-width: min(320px, 70%);
-  pointer-events: auto;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 0.75rem;
-  text-align: right;
-}
-.map3d__credit summary {
-  display: inline-block;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: rgba(9, 10, 12, 0.6);
-  cursor: pointer;
-  list-style: none;
-}
-.map3d__credit summary::-webkit-details-marker {
-  display: none;
-}
-.map3d__credit p {
-  margin: 6px 0 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(9, 10, 12, 0.88);
-  text-align: left;
-  line-height: 1.45;
-}
-.map3d__hint {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  margin: 0;
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: rgba(9, 10, 12, 0.82);
-  color: #fff;
-  font-size: 0.82rem;
-  opacity: 0;
-  transform: translate(-50%, -50%);
-  transition: opacity 0.3s ease;
-}
-.map3d__hint.is-on {
-  opacity: 1;
-}
-@media (max-width: 760px) {
-  .visit__map {
-    aspect-ratio: 4 / 5;
+/* wide: the zoom over the top left corner of the overview (countryside north of Tours);
+   narrow: under it, full width */
+@container visit (min-width: 520px) {
+  .plan__view--zoom {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    width: 38%;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+    border-color: rgba(233, 205, 130, 0.45);
   }
-  .map3d__chip {
-    font-size: 0.76rem;
+  .plan__view--overview .plan__north {
+    left: auto;
+    right: 12px;
   }
-  .map3d__bar button {
-    min-height: 34px;
-    padding: 6px 11px;
-    font-size: 0.75rem;
+}
+@container visit (max-width: 519.98px) {
+  .plan__view--zoom {
+    margin-top: 10px;
   }
-  .map3d__label--home {
-    font-size: 1rem;
+  /* phones: the Google Maps, Waze and Plans links are just above the plan */
+  .visit__map-open {
+    display: none;
+  }
+  .plan__view--overview .plan__scale {
+    left: auto;
+    right: 12px;
   }
 }
 

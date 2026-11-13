@@ -1,0 +1,130 @@
+{
+ "route": {
+  "km": 13.2,
+  "from": "Tours"
+ },
+ "start": {
+  "x": 19.31,
+  "y": 77.52
+ },
+ "workshop": {
+  "x": 78.51,
+  "y": 23.68
+ },
+ "zoomWorkshop": {
+  "x": 50.0,
+  "y": 50.0
+ },
+ "zoomFrame": {
+  "x": 75.25,
+  "y": 18.94,
+  "w": 6.52,
+  "h": 9.49
+ },
+ "scale": {
+  "overview": 7.246,
+  "zoom": 11.111
+ },
+ "places": [
+  {
+   "name": "Saint-Cyr-sur-Loire",
+   "kind": "town",
+   "x": 6.69,
+   "y": 59.82,
+   "align": "start",
+   "minor": true
+  },
+  {
+   "name": "Tours",
+   "kind": "city",
+   "x": 19.32,
+   "y": 77.65,
+   "align": "middle",
+   "minor": false
+  },
+  {
+   "name": "Saint-Pierre-des-Corps",
+   "kind": "town",
+   "x": 35.76,
+   "y": 77.93,
+   "align": "middle",
+   "minor": true
+  },
+  {
+   "name": "La Ville-aux-Dames",
+   "kind": "town",
+   "x": 62.79,
+   "y": 72.71,
+   "align": "middle",
+   "minor": true
+  },
+  {
+   "name": "Vouvray",
+   "kind": "home",
+   "x": 79.99,
+   "y": 49.97,
+   "align": "middle",
+   "minor": false
+  },
+  {
+   "name": "Rochecorbon",
+   "kind": "town",
+   "x": 55.42,
+   "y": 49.46,
+   "align": "middle",
+   "minor": false
+  },
+  {
+   "name": "Parçay-Meslay",
+   "kind": "town",
+   "x": 50.37,
+   "y": 17.5,
+   "align": "middle",
+   "minor": true
+  },
+  {
+   "name": "Montlouis-sur-Loire",
+   "kind": "town",
+   "x": 94.83,
+   "y": 79.91,
+   "align": "end",
+   "minor": true
+  },
+  {
+   "name": "La Loire",
+   "kind": "water",
+   "x": 46.49,
+   "y": 62.44,
+   "align": "middle",
+   "minor": false
+  },
+  {
+   "name": "A10",
+   "kind": "road",
+   "x": 43.41,
+   "y": 37.48,
+   "align": "middle",
+   "minor": false
+  }
+ ],
+ "streets": [
+  {
+   "name": "Rue des Entrepreneurs",
+   "x": 60.93,
+   "y": 60.54,
+   "angle": 78.3
+  },
+  {
+   "name": "Route de Monnaie",
+   "x": 37.88,
+   "y": 41.01,
+   "angle": 67.7
+  },
+  {
+   "name": "Rue de l'Étang Vignon",
+   "x": 83.24,
+   "y": 60.13,
+   "angle": -49.9
+  }
+ ]
+}

@@ -186,57 +186,6 @@ if (bar && 'IntersectionObserver' in window) {
   hideOn.forEach((el) => io.observe(el));
 }
 
-// ---------------------------------------------------------------- workshop map (lazy)
-const maps = document.querySelectorAll('[data-map]');
-const startMap = (el) =>
-  import('./map3d.js')
-    .then((m) => m.initMap(el))
-    .catch((err) => console.warn('[map] still image kept', err));
-// without WebGL the still image stays (no attempt, no console error); support is checked when
-// the map nears the screen, not on load
-if (maps.length && 'IntersectionObserver' in window) {
-  // a phone showing the 3D tour keeps a single 3D scene at a time: two would compete for its
-  // graphics memory, and the browser may then take the tour's away. There the map waits for a tap.
-  const oneScene = matchMedia('(max-width: 760px)').matches && html.classList.contains('tour-live') && document.querySelector('[data-tour]');
-  // the 3D map starts near the screen, once the visitor scrolls, touches or moves the mouse: the
-  // still map is there before, and a page just loading never computes a 3D scene
-  const engaged = new Promise((resolve) => {
-    const evs = ['scroll', 'pointermove', 'touchstart', 'keydown'];
-    const go = () => {
-      evs.forEach((ev) => removeEventListener(ev, go));
-      resolve();
-    };
-    evs.forEach((ev) => addEventListener(ev, go, { passive: true }));
-  });
-  const near = (fn) => {
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const en of entries) {
-          if (!en.isIntersecting) continue;
-          io.unobserve(en.target);
-          engaged.then(() => webgl2() && fn(en.target));
-        }
-      },
-      { rootMargin: '400px 0px' }
-    );
-    maps.forEach((m) => io.observe(m));
-  };
-  if (oneScene) {
-    near((el) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'btn btn--sm visit__map-3d';
-      b.textContent = 'Afficher la carte 3D';
-      b.addEventListener('click', () => {
-        b.disabled = true;
-        b.textContent = 'Chargement de la carte…';
-        startMap(el).then(() => b.remove());
-      });
-      el.append(b);
-    });
-  } else near(startMap);
-}
-
 // ---------------------------------------------------------------- reveal on scroll
 // Only what is still below the screen fades in: the first report of the observer says where each
 // element is, without forcing a layout (nor the logos of a band not yet shown); what the visitor

@@ -38,12 +38,12 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `assets-src/partners/` | Logos officiels des marques partenaires (`<marque>.svg` ou `.png`) : `node scripts/partner-logos.mjs` en fait des silhouettes dans `public/img/partners/`, que la page peint en doré ; le chemin se renseigne dans `partners` de `content/site.js` |
 | `scripts/film/` | Le film lui-même : décor, trajectoire de la caméra et effets (`shots.js`), rendu image par image en 4K (`node scripts/film/render.mjs <dossier> 3840 2160`), puis `node scripts/film-assets.mjs '<dossier>/f%04d.jpg'` pour fabriquer toutes les versions |
 
-## Carte 3D de l’accès
+## Plan d’accès
 
-La carte (« Venir à l’atelier ») est une scène 3D servie par le site lui-même, sans serveur de cartes : `src/js/map3d.js` lit les fichiers de `public/map/`, produits par `scripts/map/bake.py` à partir de données ouvertes (image Sentinel-2 Copernicus, relief Copernicus DEM, eau ESA WorldCover, routes et lieux Overture Maps / OpenStreetMap, limites communales IGN). Le trajet depuis le centre de Tours est calculé sur le réseau routier.
+Le plan (« Venir à l’atelier ») est dessiné à partir de données ouvertes, sans serveur de cartes : deux images vectorielles (`public/map/plan.svg`, vue d’ensemble depuis Tours, et `public/map/plan-zoom.svg`, l’arrivée dans la zone d’activités), avec les noms de lieux et de rues écrits par la page dans ses propres polices (`content/plan.json`, `accessPlan` dans `src/templates/pages.js`). Net à toutes les tailles, quelques dizaines de Ko.
 
-- Refaire les données : `pip install rasterio numpy pillow shapely pyproj pyarrow requests`, puis `python scripts/map/bake.py` (zone, scène satellite et point de l’atelier dans `scripts/map/common.py` et `bake.py`).
-- Refaire l’image fixe (affichée avant la 3D et sans WebGL) : `npm run build`, `node scripts/render-map-poster.mjs`, puis `npm run build`.
+- Données : `pip install shapely pyproj pyarrow requests`, puis `python scripts/map/plan_data.py` (eau, routes, zones bâties et bâtiments Overture Maps / OpenStreetMap, limites communales IGN, dans `.cache/plan/`).
+- Dessin : `python scripts/map/plan.py` (cadrage, couleurs, zoom). Le trajet depuis le centre de Tours et les lieux viennent de `public/map/map.json` (`scripts/map/bake.py`, qui calcule l’itinéraire sur le réseau routier).
 
 ## Aperçu en ligne (GitHub Pages)
 
