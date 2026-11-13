@@ -36,6 +36,19 @@
 - Navigation quasi instantanée sur Chrome et Edge : la page visée est préchargée dès le
   survol de son lien (règles de spéculation, autorisées par la CSP).
 
+### Formulaire
+- Contrôle du numéro de téléphone réparé : son motif perdait ses barres obliques dans le
+  gabarit, Chrome le jugeait invalide et ne vérifiait rien (erreur dans la console). Testé
+  sous la CSP de production : envoi simple (JSON) et avec photo (multipart) sans erreur, numéro
+  invalide refusé avec le message sous le champ.
+
+### Mesures (Lighthouse mobile, build de production servi comme GitHub Pages)
+- Accessibilité 100, bonnes pratiques 100 et SEO 100 sur toutes les pages (sauf la page
+  « merci », volontairement exclue de Google).
+- Performance : accueil 97-98 (23,7 Mo → 2 Mo), pages de prestations 96-98, guides 96-98,
+  pages locales 98-100, atelier 100 ; page Guides 90 (8 photos portrait dans la grille).
+  Les mesures varient de quelques points d'un passage à l'autre.
+
 ### Référencement
 - Pages locales : 8 communes (plus de 11 000 habitants) au lieu de 14, chacune avec son propre
   récit du trajet et deux réalisations de l'atelier ; La Riche, Fondettes, Rochecorbon,
