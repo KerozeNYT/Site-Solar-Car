@@ -65,6 +65,7 @@ export function installFakes(calendars, { checkoutUrl = () => 'https://checkout.
           url: checkoutUrl(`cs_test_${nextId}`),
           status: 'open',
           payment_status: 'unpaid',
+          livemode: false,
           amount_total: Number(f.get('line_items[0][price_data][unit_amount]')),
           name: f.get('line_items[0][price_data][product_data][name]'),
           success_url: f.get('success_url'),

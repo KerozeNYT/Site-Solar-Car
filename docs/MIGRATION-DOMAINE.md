@@ -72,7 +72,11 @@ Prévoir aussi : `solarcar37.fr` → `https://www.solarcar37.fr` et `http://` �
 
 - Google Search Console : valider la propriété `https://www.solarcar37.fr`, envoyer `/sitemap.xml`,
   suivre l'indexation et les erreurs pendant plusieurs semaines.
-- Fiche Google Business Profile : mettre à jour l'adresse du site.
+- Fiche Google Business Profile : mettre à jour l'adresse du site, avec
+  `https://www.solarcar37.fr/?utm_source=fiche-google` pour la reconnaître dans les statistiques.
+- Statistiques (`docs/STATISTIQUES.md`) : ouvrir `https://www.solarcar37.fr/?stats=off` sur ses
+  propres appareils ; créer le site Cloudflare Web Analytics et coller son jeton dans
+  `content/site.js` ; passer `SITE_URL` de `booking/wrangler.toml` sur le domaine.
 - En-têtes de sécurité : déjà prêts (`_headers`, `.htaccess`, `scripts/security.mjs`). Vérifier
   qu'ils arrivent bien sur [securityheaders.com](https://securityheaders.com) et
   [MDN HTTP Observatory](https://developer.mozilla.org/fr/observatory).

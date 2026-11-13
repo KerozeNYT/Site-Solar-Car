@@ -35,6 +35,8 @@ serveur de réservation (Cloudflare Worker, dossier booking/)
   `/api/booking`).
 - `booking/schedule.js` : créneaux libres (fuseau de Paris, changement d'heure, jours fériés).
 - `booking/google.js`, `booking/stripe.js` : accès Google Agenda et Stripe, sans bibliothèque.
+- `booking/stats.js`, `booking/stats-page.js` : statistiques de visite du site (`/api/stats`,
+  page `/stats`), voir `docs/STATISTIQUES.md`.
 - `src/js/booking.js` : les 4 étapes de la page, la page de confirmation (avec « Ajouter à mon agenda »).
 - Tests : `npm run test:booking` (créneaux, prix, serveur complet avec un faux Google et un faux Stripe).
 - Essai complet sans aucun compte : `npm run booking:dev` puis

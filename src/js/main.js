@@ -293,21 +293,75 @@ if (filter) {
   });
 }
 
+// ---------------------------------------------------------------- visit statistics
+// Counted by the site's own server (booking/stats.js, docs/STATISTIQUES.md): no cookie, nothing
+// kept on the device, no identifier. Each page sends its address, phone or computer and, on
+// arrival from outside, the name of the referring site; then the actions below. Robots, test
+// browsers and devices opted out with ?stats=off (the owner's) are not counted.
+const statsUrl = document.body.dataset.stats;
+const statsOff = (() => {
+  try {
+    const q = new URLSearchParams(location.search).get('stats');
+    if (q === 'off') localStorage.setItem('sc37-stats', 'off');
+    else if (q === 'on') localStorage.removeItem('sc37-stats');
+    return localStorage.getItem('sc37-stats') === 'off';
+  } catch {
+    return false;
+  }
+})();
+const counted = !!statsUrl && !statsOff && !navigator.webdriver && !/bot|crawl|spider|slurp|headless|lighthouse|pagespeed|ptst/i.test(navigator.userAgent);
+// the page's own path, also on the preview (served from a sub-folder): its canonical address
+const statsPath = (() => {
+  try {
+    return new URL(document.querySelector('link[rel="canonical"]').href).pathname;
+  } catch {
+    return location.pathname;
+  }
+})();
+function sendHit(hit) {
+  if (!counted) return;
+  const body = JSON.stringify({ p: statsPath, d: matchMedia('(max-width: 760px)').matches ? 'telephone' : 'ordinateur', ...hit });
+  try {
+    if (navigator.sendBeacon(statsUrl, body)) return;
+  } catch {}
+  fetch(statsUrl, { method: 'POST', body, keepalive: true, mode: 'no-cors' }).catch(() => {});
+}
+{
+  const ref = (() => {
+    try {
+      return document.referrer ? new URL(document.referrer).hostname : '';
+    } catch {
+      return '';
+    }
+  })();
+  const bare = (h) => h.replace(/^www\./, '');
+  const nav = performance.getEntriesByType?.('navigation')[0]?.type || 'navigate';
+  // a visit starts on a page reached from outside: not a reload, not a page of the site, not the
+  // way back from the payment page
+  const entry = nav === 'navigate' && bare(ref) !== bare(location.hostname) && !/(^|\.)stripe\.com$/.test(ref);
+  const hit = entry ? { t: 'page', e: 1, r: ref, u: new URLSearchParams(location.search).get('utm_source') || '' } : { t: 'page', e: 0 };
+  if (document.prerendering) document.addEventListener('prerenderingchange', () => sendHit(hit), { once: true });
+  else sendHit(hit);
+  const optout = document.querySelector('[data-stats-optout]');
+  if (optout && statsOff) optout.textContent = 'Vos visites ne sont plus comptées sur cet appareil.';
+}
+
 // ---------------------------------------------------------------- conversion events
-// Privacy first: no tracker, no cookie, no personal data. Each event is a name plus a few
-// non-personal details (page, service), dispatched as `sc37:event` on window and kept in
-// window.sc37Events, ready for a cookieless audience tool if one is configured later.
+// Each event is a name plus a few non-personal details (page, service): sent to the statistics,
+// dispatched as `sc37:event` on window and kept in window.sc37Events.
 const events = (window.sc37Events = window.sc37Events || []);
 function track(name, detail = {}) {
   const ev = { name, page: location.pathname, ...detail, at: Date.now() };
   events.push(ev);
   dispatchEvent(new CustomEvent('sc37:event', { detail: ev }));
+  sendHit({ t: name, x: detail.service || (detail.pieces_jointes ? 'avec pièces jointes' : '') });
 }
 document.addEventListener('click', (e) => {
   const a = e.target.closest('a[href]');
   if (!a) return;
   const href = a.getAttribute('href');
   if (href.startsWith('tel:')) track('appel');
+  else if (href.startsWith('mailto:')) track('email');
   else if (/google\.[a-z.]+\/maps|maps\.apple|waze\.com/.test(href)) track('itineraire');
   else if (a.hasAttribute('data-quote')) track('devis_simulateur', { service: a.closest('[data-sim]')?.dataset.sim });
   else if (/\/contact\/$/.test(a.pathname)) track('clic_devis');

@@ -1,5 +1,25 @@
 # Journal des changements
 
+## Statistiques de visite (14 novembre 2026)
+
+- Chaque page envoie sa vue et les actions des visiteurs (appel, e-mail, clic « devis »,
+  simulateur 3D, itinéraire, demande envoyée) au serveur de réservation, sans cookie, sans
+  adresse IP ni identifiant conservés. Une visite = une arrivée depuis l'extérieur ; source
+  (moteurs, fiche Google, accès direct, réseaux sociaux, autres sites), téléphone ou ordinateur.
+  Robots, outils de test et appareils désactivés (`?stats=off`) exclus.
+- RDV payés comptés par le serveur à la confirmation Stripe, avec le montant.
+- Base SQLite d'un Durable Object Cloudflare (`booking/stats.js`), effacement après 25 mois.
+- Page `/stats?cle=…` (`booking/stats-page.js`) : visites, pages vues, demandes, RDV, appels,
+  taux de contact, évolution par jour / semaine / mois, sources, pages, appareils, comparaison
+  avec la période précédente et avec l'ancien site local.fr. Sans script, CSP stricte, non
+  indexée ; testée sur téléphone et ordinateur, thème clair et sombre.
+- Aperçu GitHub Pages et paiements de test comptés à part (« Aperçu »).
+- Mentions légales : paragraphe « Mesure d'audience » et lien pour ne plus être compté.
+- Cloudflare Web Analytics prêt pour le build de production (`business.stats.cloudflareToken`,
+  CSP adaptée), à activer à la mise en ligne.
+- Serveur redéployé et vérifié en ligne (créneaux, comptage, page protégée par la clé).
+  Tests : `npm run test:booking` (16 tests), visites réelles simulées dans Chromium.
+
 ## Optimisation complète (13 novembre 2026)
 
 ### Sécurité

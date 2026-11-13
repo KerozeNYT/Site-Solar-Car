@@ -475,7 +475,7 @@ const CREST = '<div class="crest-wrap" data-crest data-src="/img/brand/embleme-2
 
 function page(ctx, opts, body) {
   return `${head(ctx, opts)}
-<body class="${opts.bodyClass || ''}">
+<body class="${opts.bodyClass || ''}"${ctx.business.stats?.endpoint ? ` data-stats="${esc(ctx.business.stats.endpoint)}"` : ''}>
 <div class="ambient" data-ambient aria-hidden="true"><div class="ambient__haze" data-haze></div><div class="ambient__sweep"></div>${CREST}</div>
 ${header(ctx, opts.path)}
 <main id="contenu">
@@ -1255,7 +1255,10 @@ export function legalPage(ctx) {
       ${b.instagramFeed?.feedUrl ? '<p>Les dernières publications Instagram sont chargées depuis le service de flux qui les met à disposition ; ce service reçoit alors l’adresse IP du visiteur.</p>' : ''}
       <p><strong>Durée de conservation :</strong> ${l.retention ? esc(l.retention) : 'le temps nécessaire pour répondre à votre demande et en assurer le suivi'}.</p>
       <p><strong>Vos droits :</strong> vous pouvez demander l’accès à vos données, leur rectification, leur effacement, la limitation du traitement, vous y opposer ou demander leur portabilité en écrivant${b.email ? ` à ${esc(b.email)}` : ' à l’atelier'}. Si vous estimez que vos droits ne sont pas respectés, vous pouvez adresser une réclamation à la CNIL (<a href="https://www.cnil.fr" rel="noopener">cnil.fr</a>).</p>
-      <p>Ce site n’utilise pas de cookie publicitaire ni d’outil de mesure d’audience tiers. Les polices de caractères sont hébergées sur le site lui-même.</p>
+      ${b.stats?.endpoint ? `<h3>Mesure d’audience</h3>
+      <p>Le site compte ses visites <strong>sans cookie</strong> et sans rien enregistrer sur votre appareil. À chaque page vue, il transmet à son serveur (hébergé par Cloudflare) l’adresse de la page, le nom du site d’où vous arrivez, le type d’écran (téléphone ou ordinateur) et, le cas échéant, l’action effectuée (appel, demande de devis, simulateur…). Ni votre adresse IP ni aucun identifiant ne sont conservés : ces données servent uniquement à établir des statistiques de fréquentation, sont réservées à l’atelier et effacées au bout de 25 mois (base légale : l’intérêt légitime de l’atelier à connaître la fréquentation de son site, article 6.1.f du RGPD).${b.stats.cloudflareToken ? ' Le service Cloudflare Web Analytics (Cloudflare, Inc.) mesure aussi, sans cookie, la fréquentation et la vitesse d’affichage des pages ; il reçoit pour cela l’adresse IP du visiteur, sans l’utiliser pour le suivre.' : ''}</p>
+      <p data-stats-optout><a href="?stats=off#confidentialite">Ne plus compter mes visites sur cet appareil</a></p>` : ''}
+      <p>Ce site n’utilise aucun cookie publicitaire. Les polices de caractères sont hébergées sur le site lui-même.</p>
     </div>
   </section>`;
   return page(ctx, { title: l.seo.title, description: l.seo.description, path: '/mentions-legales/', bodyClass: 'page-legal' }, body);

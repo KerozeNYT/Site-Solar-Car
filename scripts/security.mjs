@@ -5,7 +5,7 @@
 //   long caching of the hashed files, compression;
 // - /.well-known/security.txt (RFC 9116): whom to write to about a security problem.
 // The policy lists only what the site really loads: its own files, the form service and, when
-// configured, Google (live reviews), the Instagram feed and the booking page. Each inline
+// configured, Google (live reviews), the Instagram feed, the booking page and the statistics. Each inline
 // script of the pages is allowed by its hash (there is one: the class set before the first paint).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -50,17 +50,21 @@ export function policy(business, hashes) {
   const insta = origin(business.instagramFeed?.feedUrl);
   // the booking server (content/booking.js; BOOKING_API overrides it for local tests)
   const booking = origin(process.env.BOOKING_API ?? bookingRules.api);
+  // visit statistics (docs/STATISTIQUES.md): the booking server, and Cloudflare Web Analytics on
+  // the production build when its token is set
+  const stats = origin(process.env.BOOKING_API ? `${process.env.BOOKING_API}/api/stats` : business.stats?.endpoint);
+  const beacon = !process.env.PREVIEW && !!business.stats?.cloudflareToken;
   const d = {
     'default-src': ["'self'"],
     // 'wasm-unsafe-eval': the 3D models are compressed (meshopt), decoded by WebAssembly
-    'script-src': ["'self'", ...hashes, "'wasm-unsafe-eval'", google && 'https://maps.googleapis.com'],
+    'script-src': ["'self'", ...hashes, "'wasm-unsafe-eval'", google && 'https://maps.googleapis.com', beacon && 'https://static.cloudflareinsights.com'],
     // style attributes (photo framing, logo masks) and the styles Google adds to its widgets
     'style-src': ["'self'", "'unsafe-inline'", google && 'https://fonts.googleapis.com'],
     // blob: textures of the 3D models; Google: authors' photos; Instagram: the CDN of the feed
     'img-src': ["'self'", 'data:', 'blob:', google && 'https://*.googleusercontent.com', google && 'https://maps.gstatic.com', google && 'https://maps.googleapis.com', insta && 'https:'],
     'font-src': ["'self'", google && 'https://fonts.gstatic.com'],
     // the film is read into memory (blob:) and the 3D textures decoded from blob: URLs
-    'connect-src': ["'self'", 'blob:', form, booking, google && 'https://maps.googleapis.com', google && 'https://places.googleapis.com', insta],
+    'connect-src': ["'self'", 'blob:', form, booking, stats, google && 'https://maps.googleapis.com', google && 'https://places.googleapis.com', insta, beacon && 'https://cloudflareinsights.com'],
     'media-src': ["'self'", 'blob:'],
     'worker-src': ["'self'", 'blob:'],
     'frame-src': ["'none'"],
@@ -170,4 +174,20 @@ export function writeSecurityTxt(dir, business) {
     path.join(dir, '.well-known', 'security.txt'),
     [`Contact: mailto:${business.email}`, `Expires: ${expires}`, 'Preferred-Languages: fr, en', `Canonical: ${site}/.well-known/security.txt`, ''].join('\n')
   );
+}
+
+/** Cloudflare Web Analytics (cookieless), production build only: its script in every page, before
+ *  the policy is computed (content/site.js, business.stats.cloudflareToken) */
+export function addBeacon(dir, business) {
+  const token = business.stats?.cloudflareToken;
+  if (!token || process.env.PREVIEW) return 0;
+  const tag = `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='${JSON.stringify({ token }).replace(/'/g, '&#39;')}'></script>`;
+  let n = 0;
+  for (const f of walk(dir).filter((x) => x.endsWith('.html'))) {
+    const s = fs.readFileSync(f, 'utf8');
+    if (!s.includes('</body>') || s.includes('cloudflareinsights')) continue;
+    fs.writeFileSync(f, s.replace('</body>', `${tag}\n</body>`));
+    n++;
+  }
+  return n;
 }

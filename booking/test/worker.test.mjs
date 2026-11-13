@@ -6,6 +6,7 @@ import worker from '../worker.js';
 import { resetToken } from '../google.js';
 import { zonedToUtc, addDays, utcToZoned } from '../schedule.js';
 import { installFakes } from './fakes.mjs';
+import { fakeStats } from './fake-stats.mjs';
 
 const TZ = 'Europe/Paris';
 const ORIGIN = 'https://www.solarcar37.fr';
@@ -26,6 +27,7 @@ const env = {
   NOTIFY_TO: 'contact.solarcar37@gmail.com',
   MAIL_FROM: 'SOLAR CAR 37 <reservation@solarcar37.fr>',
   MAIL_CLIENTS: '1',
+  STATS: fakeStats(),
 };
 
 // ------------------------------------------------------------------ fake Google + Stripe
@@ -114,9 +116,14 @@ test('webhook: bad signature refused, paid session confirms the appointment', as
   assert.deepEqual(client.to, ['jean@example.com']);
   assert.match(client.subject, /^Votre rendez-vous du .* à 10 h 00 est confirmé$/);
   assert.match(Buffer.from(client.attachments[0].content, 'base64').toString(), /BEGIN:VEVENT[\s\S]*DTSTART:\d{8}T\d{6}Z/);
-  // a second notice of the same payment: no new appointment, no new e-mail
+  // a second notice of the same payment: no new appointment, no new e-mail, counted once
   await hook({ type: 'checkout.session.completed', data: { object: s } });
   assert.equal(mails.length, 2);
+  const counted = env.STATS.db.prepare("SELECT site, page, detail, value FROM hits WHERE kind = 'rdv'").all();
+  assert.equal(counted.length, 1);
+  assert.equal(counted[0].site, 'apercu'); // Stripe test mode
+  assert.equal(counted[0].value, 81);
+  assert.match(counted[0].detail, /^Vitres teintées/);
   // the confirmation page
   const b = await (await call(`/api/booking?session=${sessionId}`)).json();
   assert.deepEqual([b.paid, b.amount, b.remaining, b.time], [true, 81, 189, '10:00']);

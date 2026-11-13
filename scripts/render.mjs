@@ -59,7 +59,9 @@ export async function renderSite(out, assets) {
   const photoDir = path.join(root, 'public', 'img', 'realisations');
   const photoIds = new Set(fs.existsSync(photoDir) ? fs.readdirSync(photoDir).filter((f) => f.endsWith('-1280.webp')).map((f) => f.slice(0, -'-1280.webp'.length)) : []);
   const ogIds = new Set(fs.existsSync(photoDir) ? fs.readdirSync(photoDir).filter((f) => f.endsWith('-og.jpg')).map((f) => f.slice(0, -'-og.jpg'.length)) : []);
-  const ctx = { ...site, nav, photoIds, ogIds, car, assets, film, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, zonesListed, realisations, realisationsPage, booking };
+  // BOOKING_API: the statistics go to the local booking server too
+  const business = process.env.BOOKING_API ? { ...site.business, stats: { ...site.business.stats, endpoint: `${process.env.BOOKING_API}/api/stats` } } : site.business;
+  const ctx = { ...site, business, nav, photoIds, ogIds, car, assets, film, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, zonesListed, realisations, realisationsPage, booking };
 
   const pages = [
     ['index.html', T.homePage(ctx)],

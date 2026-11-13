@@ -7,6 +7,8 @@
  *   POST /api/checkout                               holds the slot, opens a Stripe payment page
  *   POST /api/stripe-webhook                         paid: appointment confirmed; expired: slot freed
  *   GET  /api/booking?session=cs_…                   what was booked (confirmation page)
+ *   POST /api/stats                                  a page view or an action (booking/stats.js)
+ *   GET  /stats?cle=…                                the site's statistics (booking/stats-page.js)
  *
  * Environment (booking/wrangler.toml, secrets with `wrangler secret put`):
  *   ALLOWED_ORIGINS        sites allowed to call the API, comma separated
@@ -17,12 +19,20 @@
  *   STRIPE_WEBHOOK_SECRET  (secret)
  *   RESEND_API_KEY         (secret) e-mails of a confirmed booking (booking/mail.js); none without it
  *   NOTIFY_TO, MAIL_FROM, MAIL_CLIENTS   who is told, from which address, and whether clients are
+ *   STATS                  Durable Object (class Stats) holding the visit statistics
+ *   STATS_KEY              (secret) the key of the statistics page
+ *   STATS_PREVIEW_ORIGINS  sites whose visits are counted apart (the preview), comma separated
  */
 import { bookingRules as R, quote, amountDue, formatDuration } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents } from './google.js';
 import { createSession, getSession, verifyWebhook } from './stripe.js';
 import { sendBookingMails } from './mail.js';
+import { record, hitFromPage } from './stats.js';
+import { statsPage } from './stats-page.js';
+
+// the Durable Object class of the statistics database (booking/wrangler.toml)
+export { Stats } from './stats.js';
 
 const DAY = 86400000;
 const list = (s) => (s || '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -129,6 +139,8 @@ async function confirm(env, session) {
       end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
     });
   }
+  // counted once, when the appointment is confirmed (Stripe test mode: with the preview's figures)
+  await record(env, [{ site: session.livemode ? 'site' : 'apercu', kind: 'rdv', page: '/reservation/', detail: q.items.map((i) => i.label).join(' + ').slice(0, 120), value: paid }]).catch((err) => console.error('[stats]', err));
   // « Nouveau RDV » to the workshop, the confirmation to the client (never fails the booking)
   await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id }).catch((err) => console.error('[mail]', err));
   return out;
@@ -274,8 +286,25 @@ async function booking(req, env, url) {
   );
 }
 
+/** a page view or an action sent by a page of the site (navigator.sendBeacon, text/plain): kept
+ *  only from the site's own pages; always a silent 204 */
+async function collect(req, env, ctx, now) {
+  const origin = req.headers.get('origin') || '';
+  const robot = /bot|crawl|spider|slurp|headless|lighthouse/i.test(req.headers.get('user-agent') || '');
+  if (env.STATS && !robot && list(env.ALLOWED_ORIGINS).includes(origin)) {
+    const text = await req.text();
+    const row = text.length <= 2048 ? hitFromPage(text, list(env.STATS_PREVIEW_ORIGINS).includes(origin) ? 'apercu' : 'site') : null;
+    if (row) {
+      const done = record(env, [row], now).catch((err) => console.error('[stats]', err));
+      if (ctx?.waitUntil) ctx.waitUntil(done);
+      else await done;
+    }
+  }
+  return new Response(null, { status: 204, headers: cors(req, env) });
+}
+
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
     const now = Date.now();
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req, env) });
@@ -284,6 +313,8 @@ export default {
       if (req.method === 'POST' && url.pathname === '/api/checkout') return await checkout(req, env, now);
       if (req.method === 'POST' && url.pathname === '/api/stripe-webhook') return await webhook(req, env);
       if (req.method === 'GET' && url.pathname === '/api/booking') return await booking(req, env, url);
+      if (req.method === 'POST' && url.pathname === '/api/stats') return await collect(req, env, ctx, now);
+      if (req.method === 'GET' && url.pathname === '/stats') return await statsPage(req, env, url, now);
       return json({ error: 'not found' }, 404, cors(req, env));
     } catch (err) {
       console.error(err);
