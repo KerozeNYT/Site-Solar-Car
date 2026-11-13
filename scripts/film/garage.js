@@ -11,8 +11,11 @@ import * as THREE from 'three';
 
 // the room: walls on the tile grid (0.4 m), the car's bay framed by yellow tiles
 const TILE = 0.4;
-const ROOM = { x: [-8.4, 12.8], z: [-6.4, 8.0], h: 2.5 };
-const BAY = { x: [-3.2, 3.2], z: [-2.0, 2.0] }; // inside the yellow frame (one tile wide)
+let ROOM = { x: [-8.4, 12.8], z: [-6.4, 8.0], h: 2.5 };
+let BAY = { x: [-3.2, 3.2], z: [-2.0, 2.0] }; // inside the yellow frame (one tile wide)
+// the real SOLAR CAR bay (ceiling 'atelier', film V5): a narrower room, the yellow frame closer
+// to the car, a little more height for the suspended hexagon ceiling
+const ATELIER = { room: { x: [-6.0, 9.2], z: [-3.6, 3.6], h: 2.75 }, bay: { x: [-2.8, 2.8], z: [-1.6, 1.6] } };
 const COLORS = {
   tile: [12, 12, 14],
   yellow: [168, 120, 8],
@@ -133,6 +136,118 @@ function leds() {
     { x0: ROOM.x[0] + inset, z0: ROOM.z[0] + 0.3, x1: ROOM.x[0] + inset, z1: ROOM.z[1] - 0.3, y },
   ];
   return { walls, cove };
+}
+
+/**
+ * Linear LED ceiling (film V5, `ceiling: 'leds'`): rows of long tubes running along the car,
+ * cut into segments, and a horizontal line on each long wall at 1.7 m; the reflections draw
+ * clean parallel lines along the white bodywork.
+ */
+function ledCeiling() {
+  const y = ROOM.h - 0.025;
+  const ceiling = [];
+  for (const z of [-3.0, -1.8, -0.6, 0.6, 1.8, 3.0])
+    for (let x = ROOM.x[0] + 0.8; x < ROOM.x[1] - 1.0; x += 3.0) ceiling.push({ x0: x, z0: z, x1: x + 2.4, z1: z, y });
+  const inset = 0.03;
+  const walls = [];
+  for (const z of [ROOM.z[0] + inset, ROOM.z[1] - inset])
+    for (let x = ROOM.x[0] + 0.6; x < ROOM.x[1] - 1.0; x += 3.0) walls.push({ x0: x, z0: z, x1: x + 2.4, z1: z, y: 1.7 });
+  // the back wall behind the tail: two lines across
+  for (const y2 of [1.2, 1.9]) walls.push({ x0: ROOM.x[0] + inset, z0: ROOM.z[0] + 0.8, x1: ROOM.x[0] + inset, z1: ROOM.z[1] - 0.8, y: y2 });
+  return { ceiling, walls };
+}
+
+/** bars between any two points [[x, y, z], [x, y, z]] (angled tubes), as one instanced mesh */
+function segments(list, { thick = 0.045, material }) {
+  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, list.length);
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const up = new THREE.Vector3(0, 1, 0);
+  list.forEach(([p0, p1], i) => {
+    a.fromArray(p0);
+    b.fromArray(p1);
+    const d = b.clone().sub(a);
+    q.setFromUnitVectors(up, d.clone().normalize());
+    m.compose(a.clone().add(b).multiplyScalar(0.5), q, new THREE.Vector3(thick, d.length(), thick));
+    mesh.setMatrixAt(i, m);
+  });
+  return mesh;
+}
+
+/**
+ * The real SOLAR CAR bay (photo of the workshop): black walls lined with bent LED tubes (a
+ * vertical run, then a kink leaning towards the front of the bay), two on the back wall around the
+ * door, and over the car a suspended rectangle of white LED hexagons framed by a violet strip.
+ */
+function atelierLights() {
+  const tubes = [];
+  const inset = 0.04;
+  for (const z of [ROOM.z[0] + inset, ROOM.z[1] - inset])
+    for (let x = ROOM.x[0] + 0.9; x < ROOM.x[1] - 0.8; x += 0.95) {
+      tubes.push([[x, 0.32, z], [x, 1.38, z]]);
+      tubes.push([[x, 1.38, z], [x + 0.42, 2.28, z]]);
+    }
+  const xb = ROOM.x[0] + inset;
+  for (const side of [-1, 1]) {
+    tubes.push([[xb, 0.4, side * 1.5], [xb, 1.3, side * 1.5]]);
+    tubes.push([[xb, 1.3, side * 1.5], [xb, 2.2, side * 1.1]]);
+  }
+  // the hexagon ceiling: pointy hexagons (circumradius r) clipped to the frame
+  const F = { x: [-2.7, 2.7], z: [-1.55, 1.55] };
+  const y = ROOM.h - 0.28;
+  const r = 0.5;
+  const w = Math.sqrt(3) * r;
+  const seen = new Set();
+  const hex = [];
+  const inside = (p) => p[0] >= F.x[0] - 1e-6 && p[0] <= F.x[1] + 1e-6 && p[1] >= F.z[0] - 1e-6 && p[1] <= F.z[1] + 1e-6;
+  const clip = (a, b) => {
+    // keep the part of segment a-b inside the frame (simple parametric clip)
+    let t0 = 0;
+    let t1 = 1;
+    const d = [b[0] - a[0], b[1] - a[1]];
+    for (const [k, lo, hi] of [[0, F.x[0], F.x[1]], [1, F.z[0], F.z[1]]]) {
+      if (Math.abs(d[k]) < 1e-9) {
+        if (a[k] < lo || a[k] > hi) return null;
+        continue;
+      }
+      let u0 = (lo - a[k]) / d[k];
+      let u1 = (hi - a[k]) / d[k];
+      if (u0 > u1) [u0, u1] = [u1, u0];
+      t0 = Math.max(t0, u0);
+      t1 = Math.min(t1, u1);
+      if (t0 >= t1) return null;
+    }
+    return [[a[0] + d[0] * t0, a[1] + d[1] * t0], [a[0] + d[0] * t1, a[1] + d[1] * t1]];
+  };
+  for (let row = -4; row <= 4; row++)
+    for (let col = -5; col <= 5; col++) {
+      // rows of hexagons along x, offset every other row
+      const cx = col * w + (row & 1 ? w / 2 : 0);
+      const cz = row * 1.5 * r;
+      const pts = [];
+      for (let k = 0; k < 6; k++) {
+        const ang = Math.PI / 6 + (k * Math.PI) / 3;
+        pts.push([cx + r * Math.cos(ang), cz + r * Math.sin(ang)]);
+      }
+      for (let k = 0; k < 6; k++) {
+        const a = pts[k];
+        const b = pts[(k + 1) % 6];
+        const key = [a, b].map((p) => p.map((v) => v.toFixed(3)).join(',')).sort().join('|');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const c = inside(a) && inside(b) ? [a, b] : clip(a, b);
+        if (c && Math.hypot(c[1][0] - c[0][0], c[1][1] - c[0][1]) > 0.08) hex.push([[c[0][0], y, c[0][1]], [c[1][0], y, c[1][1]]]);
+      }
+    }
+  const frame = [
+    [[F.x[0], y, F.z[0]], [F.x[1], y, F.z[0]]],
+    [[F.x[1], y, F.z[0]], [F.x[1], y, F.z[1]]],
+    [[F.x[1], y, F.z[1]], [F.x[0], y, F.z[1]]],
+    [[F.x[0], y, F.z[1]], [F.x[0], y, F.z[0]]],
+  ];
+  return { tubes, hex, frame };
 }
 
 /** a round soft dot, the picture of one fibre end */
@@ -256,7 +371,10 @@ function contactShadow() {
  * Builds the garage into `scene` and returns the reflections for the car:
  * { envMap, glassEnvMap, update(t) }. `px`: the size of a fibre end on screen (pixels).
  */
-export function buildGarage(scene, renderer, { ledLevel = 4.2, px = 3, starLevel = 2.2 } = {}) {
+export function buildGarage(scene, renderer, { ledLevel = 4.2, px = 3, starLevel = 2.2, ceiling = 'stars', violet = '8a3cff' } = {}) {
+  const linear = ceiling === 'leds';
+  const atelier = ceiling === 'atelier';
+  if (atelier) ({ room: ROOM, bay: BAY } = ATELIER);
   const room = new THREE.Group();
   const { map, roughnessMap } = floorMaps(renderer);
   // canvas columns run along +x, rows along +z (the floor plane, laid flat, puts the top of the
@@ -269,9 +387,16 @@ export function buildGarage(scene, renderer, { ledLevel = 4.2, px = 3, starLevel
   room.add(contactShadow());
   const L = leds();
   const tube = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.99, 0.97).multiplyScalar(ledLevel) });
-  room.add(bars(L.walls, { material: tube }), bars(L.cove, { thick: 0.03, material: tube }));
-  const stars = starCeiling({ px, level: starLevel });
-  room.add(stars);
+  // the stars and atelier versions keep the vertical strips and the cove; the linear ceiling has
+  // only horizontal lines (ceiling rows, a line on each long wall), like a detailing studio
+  if (!atelier && !linear) room.add(bars(L.walls, { material: tube }), bars(L.cove, { thick: 0.03, material: tube }));
+  const LC = linear ? ledCeiling() : null;
+  if (LC) room.add(bars(LC.ceiling, { thick: 0.06, material: tube }), bars(LC.walls, { thick: 0.04, material: tube }));
+  const AT = atelier ? atelierLights() : null;
+  const violetTube = new THREE.MeshBasicMaterial({ color: new THREE.Color('#' + violet).multiplyScalar(ledLevel * 0.7) });
+  if (AT) room.add(segments(AT.tubes, { thick: 0.04, material: tube }), segments(AT.hex, { thick: 0.035, material: tube }), segments(AT.frame, { thick: 0.05, material: violetTube }));
+  const stars = linear || atelier ? null : starCeiling({ px, level: starLevel });
+  if (stars) room.add(stars);
   scene.add(room);
 
   // light: soft and cheap (no area lights, which cost a lot in software rendering): the sky of
@@ -285,6 +410,14 @@ export function buildGarage(scene, renderer, { ledLevel = 4.2, px = 3, starLevel
   };
   for (const z of [ROOM.z[0] + 0.6, ROOM.z[1] - 0.6]) for (const x of [-2.6, 3.4]) lamp(x, 1.9, z, 12);
   lamp(ROOM.x[0] + 0.6, 1.9, 0, 12);
+  // the LED ceiling lights the roof, bonnet and wings from above
+  if (linear || atelier) for (const z of [-1.2, 1.2]) for (const x of [-2.4, 0, 2.4]) lamp(x, ROOM.h - 0.15, z, 4.5);
+  // the violet frame tints the ceiling and the roof a little
+  if (atelier) {
+    const v = new THREE.PointLight(new THREE.Color('#' + violet), 3, 0, 2);
+    v.position.set(0, ROOM.h - 0.2, 0);
+    lights.add(v);
+  }
   scene.add(lights);
 
   // reflections: the same room, flat colours, the strips much brighter (they are the light)
@@ -297,14 +430,18 @@ export function buildGarage(scene, renderer, { ledLevel = 4.2, px = 3, starLevel
     ceilingMat: flat(new THREE.Color(0x040405)),
   });
   const bright = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.99, 0.97).multiplyScalar(3.2) });
-  envRoom.add(bars(L.walls, { material: bright, thick: 0.05 }), bars(L.cove, { material: bright, thick: 0.035 }));
+  if (!atelier && !linear) envRoom.add(bars(L.walls, { material: bright, thick: 0.05 }), bars(L.cove, { material: bright, thick: 0.035 }));
+  if (AT) {
+    const brightViolet = new THREE.MeshBasicMaterial({ color: new THREE.Color('#' + violet).multiplyScalar(2.4) });
+    envRoom.add(segments(AT.tubes, { material: bright, thick: 0.05 }), segments(AT.hex, { material: bright, thick: 0.045 }), segments(AT.frame, { material: brightViolet, thick: 0.06 }));
+  } else if (LC) envRoom.add(bars(LC.ceiling, { material: bright, thick: 0.07 }), bars(LC.walls, { material: bright, thick: 0.05 }));
   // the stars as seen from the car: a little larger, so they survive in the sharpest reflection
-  envRoom.add(starCeiling({ px: 2.2, count: 5000, level: 3 }));
+  else if (!AT) envRoom.add(starCeiling({ px: 2.2, count: 5000, level: 3 }));
   env.add(envRoom);
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envMap = pmrem.fromScene(env, 0.0, 0.05, 40, { size: 1024, position: new THREE.Vector3(0, 0.9, 0) }).texture;
   bright.color.multiplyScalar(0.6);
   const glassEnvMap = pmrem.fromScene(env, 0.0, 0.05, 40, { size: 512, position: new THREE.Vector3(0, 1.0, 0) }).texture;
   pmrem.dispose();
-  return { envMap, glassEnvMap, update: (t) => stars.update(t) };
+  return { envMap, glassEnvMap, update: (t) => stars?.update(t) };
 }

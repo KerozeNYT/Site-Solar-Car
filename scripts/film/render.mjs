@@ -22,9 +22,11 @@ if (!dir || !w || !h) {
 }
 const FPS = Number(process.env.FILM_FPS || film.fps || 24);
 const at = rest[0] === '--at' ? rest[1].split(',').map(Number) : null;
-const from = at ? 0 : Number(rest[0] ?? 0);
-const to = at ? 0 : Number(rest[1] ?? Math.round(duration * FPS));
-const port = Number((at ? rest[2] : rest[2]) || 4790 + Math.floor(Math.random() * 200));
+// --keys <file.mjs>: the key frames it exports as `keyframes` ([{ id, cam, fx }]), one still each
+const keysFile = rest[0] === '--keys' ? path.resolve(rest[1]) : null;
+const from = at || keysFile ? 0 : Number(rest[0] ?? 0);
+const to = at || keysFile ? 0 : Number(rest[1] ?? Math.round(duration * FPS));
+const port = Number(rest[2] || 4790 + Math.floor(Math.random() * 200));
 
 // bundle the scene (three.js + the site's tour modules) next to its page
 const cache = path.join(root, '.cache/film');
@@ -61,7 +63,16 @@ const grab = async (t, file) => {
   fs.renameSync(tmp, file); // never leave a half-written frame behind
 };
 const t0 = Date.now();
-if (at) {
+if (keysFile) {
+  // KEYS_SET=vertical: the phone versions (keyframesVertical)
+  const mod = await import(keysFile);
+  const keyframes = process.env.KEYS_SET === 'vertical' ? mod.keyframesVertical : mod.keyframes;
+  for (const k of keyframes) {
+    const url = await page.evaluate((k) => (window.renderShot(k), window.frameData('image/jpeg', 0.96)), k);
+    fs.writeFileSync(path.join(dir, `${k.id}.jpg`), Buffer.from(url.split(',')[1], 'base64'));
+    console.log('key frame', k.id);
+  }
+} else if (at) {
   for (const t of at) await grab(t, path.join(dir, `t${t.toFixed(2)}.jpg`));
 } else {
   let done = 0;

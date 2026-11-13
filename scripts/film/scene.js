@@ -50,7 +50,8 @@ scene.background = new THREE.Color(0x0b0c0e);
 if (FOG > 0) scene.fog = new THREE.FogExp2(0x0b0c0e, FOG);
 // ---------------------------------------------------------------- the garage (scripts/film/garage.js)
 // fibre ends of the starry ceiling: about 3 px at most in 4K
-const garage = buildGarage(scene, renderer, { ledLevel: LED, px: Math.max(1.2, (3 * W) / 3840) });
+// knob ceiling=leds: the linear LED ceiling of the film V5 (docs/FILM-V5.md) instead of the stars
+const garage = buildGarage(scene, renderer, { ledLevel: LED, px: Math.max(1.2, (3 * W) / 3840), ceiling: q.get('ceiling') || 'stars' });
 scene.environment = garage.envMap;
 const glassReflections = garage.glassEnvMap;
 
@@ -94,6 +95,22 @@ car.group.traverse((o) => {
     }
   }
 });
+// knob rims=rrggbb: the wheels' colour (satin, e.g. rims=17181a for satin black)
+if (q.get('rims')) {
+  const rimNames = carConfig.parts.rims || [];
+  car.group.traverse((o) => {
+    if (!o.isMesh || !rimNames.includes(o.name)) return;
+    const mats = (Array.isArray(o.material) ? o.material : [o.material]).map((m) => {
+      const c = m.clone();
+      c.color?.set('#' + q.get('rims'));
+      if (c.map) c.map = null;
+      c.metalness = 0.35;
+      c.roughness = 0.42;
+      return c;
+    });
+    o.material = Array.isArray(o.material) ? mats : mats[0];
+  });
+}
 // knob livery=1: the SOLAR CAR side script on the doors (scripts/film/livery.js)
 if (q.get('livery') === '1') {
   const body = [];
@@ -196,12 +213,21 @@ const view = {};
 // test knobs: cam=px,py,pz,lx,ly,lz,fov replaces the camera; fx=name:value,... sets effects
 const camKnob = q.get('cam') ? q.get('cam').split(',').map(Number) : null;
 const fxKnob = Object.fromEntries((q.get('fx') || '').split(',').filter(Boolean).map((kv) => [kv.split(':')[0], Number(kv.split(':')[1])]));
+// window.renderShot({ cam, fx, t }): one still with its own camera and effects (the key frames of
+// the film V5, scripts/film/keyframes.js), in the same page load as the others
+let shot = null;
+window.renderShot = ({ cam, fx: f = {}, t = 0 }) => {
+  shot = { cam, fx: f };
+  window.renderFrame(t);
+  shot = null;
+};
 window.renderFrame = (t) => {
   path.sample(t, view);
-  if (camKnob) {
-    view.pos.set(camKnob[0], camKnob[1], camKnob[2]);
-    view.look.set(camKnob[3], camKnob[4], camKnob[5]);
-    view.fov = camKnob[6];
+  const cam = shot?.cam || camKnob;
+  if (cam) {
+    view.pos.set(cam[0], cam[1], cam[2]);
+    view.look.set(cam[3], cam[4], cam[5]);
+    view.fov = cam[6];
     view.roll = 0;
   }
   camera.position.copy(view.pos);
@@ -211,7 +237,7 @@ window.renderFrame = (t) => {
   camera.fov = view.fov;
   camera.updateProjectionMatrix();
 
-  const e = { ...fx(t), ...fxKnob };
+  const e = { ...fx(t), ...fxKnob, ...(shot?.fx || {}) };
   car.setHeadlights(e.headlights);
   for (const m of halos) m.opacity = 0; // no sprite halo: the bloom alone, as through a lens
   car.setHeadlightClear(e.headClear);
