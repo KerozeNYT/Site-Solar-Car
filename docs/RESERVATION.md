@@ -47,8 +47,13 @@ serveur de réservation (Cloudflare Worker, dossier booking/)
   `GOOGLE_SERVICE_ACCOUNT` déposés ; il lit les trois agendas (vérifié).
 - Compte de service Google : `reservation@solar-car-37-reservation.iam.gserviceaccount.com`,
   agendas partagés.
-- Reste : `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` (mode test d'abord), puis un essai
-  complet avec la carte de test.
+- Stripe branché en **mode test** (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) : réservation
+  d'essai réussie le 13 novembre 2026 (acompte payé, RDV confirmé en bleu dans SOLAR CAR 37 30 s
+  après le paiement).
+- Boutons « Prendre RDV » : accueil (haut de page, fin du film), Vitres teintées, Feux teintés,
+  simulateurs, page Contact. La teinte n'est pas demandée : elle se choisit à l'atelier.
+- Reste : passer Stripe en réel (clé et webhook du mode réel dans Cloudflare), régénérer le jeton
+  Cloudflare et la clé Google (passés dans une conversation), faire relire les conditions.
 
 ## Mise en service (à faire une fois)
 
