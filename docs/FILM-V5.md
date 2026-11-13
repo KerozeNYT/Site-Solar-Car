@@ -46,3 +46,23 @@ finale une fois le mouvement validé.
 3. Plans vidéo en brouillon (Seedance 2.5, image de départ + d'arrivée) → validation.
 4. Versions finales (4K horizontal, 1080p vertical).
 5. Montage, raccords, étalonnage, encodage pour le défilement 1:1, intégration au site.
+
+## État d'avancement (13 novembre 2026)
+
+- Storyboard v2 **validé** : 9 images clés horizontales et verticales (`scripts/film/keyframes.js`),
+  garage habillé (Koch-Chemie, polisseuses, rouleaux de film), peinture terne sans rayures avant
+  polissage, brillant miroir après.
+- Rendu des images clés (4K horizontal et 1080 × 1920 vertical) :
+
+  ```bash
+  FILM_QUERY='paint=f2f2ee&metal=0.02&rough=0.2&livery=1&ceiling=leds&rims=17181a&exp=0.95&swirl=0&dullcoat=0.8' \
+    node scripts/film/render.mjs <dossier> 3840 2160 --keys scripts/film/keyframes.js
+  KEYS_SET=vertical FILM_QUERY='…même chose…' node scripts/film/render.mjs <dossier> 1080 1920 --keys scripts/film/keyframes.js
+  ```
+
+- Guide de l'étape 1 (photos réalistes, Nano Banana Pro, textes à copier) :
+  https://claude.ai/artifact/PsFNVrYMhQurrzJwbt62Sa
+- Higgsfield : offre Ultra active (3 010 crédits, aucun dépensé). Le connecteur de la session ne
+  donnait que la lecture (crédits, modèles, galerie) ; pour générer directement depuis une session,
+  autoriser les outils de génération du connecteur (claude.ai → Connecteurs → Higgsfield →
+  permissions) puis ouvrir une nouvelle session.
