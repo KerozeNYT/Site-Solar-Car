@@ -7,6 +7,8 @@ import { jobSpan, utcToZoned } from '../../booking/schedule.js';
  * Google Calendar); 3. contact details; 4. a deposit of 30 % or the total, paid on Stripe's page.
  */
 const DAY = 86400000;
+// the site may live in a sub-folder (GitHub Pages preview): the part of the address before /reservation/
+const base = () => location.pathname.slice(0, location.pathname.indexOf('reservation/')) || '/';
 const pad = (n) => String(n).padStart(2, '0');
 const dateLabel = (date, opts = { weekday: 'long', day: 'numeric', month: 'long' }) => new Intl.DateTimeFormat('fr-FR', { ...opts, timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
 const hour = (t) => t.replace(/^0/, '').replace(':', ' h ');
@@ -97,7 +99,7 @@ export function startBooking(root) {
     const img = $('[data-preview]');
     if (c.tint && vehicle && formula) {
       const view = formula === 'full' ? 'complet' : formula === 'rear' ? 'arriere' : 'avant';
-      const src = `/img/vitres/${vehicle}-34-${view}-960.webp`;
+      const src = `${base()}img/vitres/${vehicle}-34-${view}-960.webp`;
       if (!img.src.endsWith(src)) img.src = src;
       img.alt = `Aperçu : ${q.items?.[0]?.detail || ''}, formule ${q.items?.[0]?.label.replace('Vitres teintées — ', '') || ''}`;
       img.hidden = false;
@@ -347,7 +349,7 @@ export async function startBookingDone(root) {
   }
   if (!b.paid) {
     $('[data-done-title]').textContent = 'Paiement non finalisé';
-    lead.innerHTML = 'Le paiement n’a pas abouti : aucun rendez-vous n’a été retenu. <a href="/reservation/">Choisir un créneau</a>.';
+    lead.innerHTML = `Le paiement n’a pas abouti : aucun rendez-vous n’a été retenu. <a href="${base()}reservation/">Choisir un créneau</a>.`;
     return;
   }
   const span = jobSpan(b.date, b.time, b.minutes, R);
