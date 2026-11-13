@@ -1,0 +1,20 @@
+# Updates proposed once a month, grouped (one pull request per ecosystem): the GitHub actions of
+# the workflows (pinned to a commit) and the npm packages. Security fixes come as soon as they
+# are published.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      npm:
+        patterns: ['*']

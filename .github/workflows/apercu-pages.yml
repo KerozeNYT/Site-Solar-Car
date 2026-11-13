@@ -21,12 +21,20 @@ jobs:
   publier:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # actions pinned to a commit (a moved tag cannot change what runs here); Dependabot
+      # (.github/dependabot.yml) proposes the updates
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          # the publish step below uses its own token: none left in .git for the build scripts
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      # known vulnerabilities in what the site ships (shown in the run, never blocks the preview)
+      - run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
       - name: Construire le site (sous-dossier du dépôt, aperçu non indexé)
         run: npm run build
         env:

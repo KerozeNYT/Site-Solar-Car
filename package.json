@@ -28,5 +28,10 @@
     "@gltf-transform/cli": "^4.5.1",
     "esbuild": "^0.28.2",
     "fontkit": "^2.0.4"
+  },
+  "overrides": {
+    "@donmccurdy/caporal": {
+      "glob": "^14.0.6"
+    }
   }
 }
