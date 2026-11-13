@@ -1113,7 +1113,7 @@ export function contactPage(ctx) {
         </div>
         <div class="form__row form__row--2">
           <div>${field('f-email', 'E-mail', '<input id="f-email" name="email" type="email" autocomplete="email" required', 'Indiquez une adresse e-mail valide, par exemple prenom.nom@exemple.fr.')}</div>
-          <div>${field('f-phone', 'Téléphone', '<input id="f-phone" name="telephone" type="tel" autocomplete="tel" inputmode="tel" pattern="[0-9+().\s\-]{10,20}" required', 'Indiquez un numéro de téléphone, par exemple 06 12 34 56 78.')}</div>
+          <div>${field('f-phone', 'Téléphone', '<input id="f-phone" name="telephone" type="tel" autocomplete="tel" inputmode="tel" pattern="[0-9+\\(\\)\\.\\s\\-]{10,20}" required', 'Indiquez un numéro de téléphone, par exemple 06 12 34 56 78.')}</div>
         </div>
         <div class="form__row form__row--3">
           <div>${field('f-make', 'Marque du véhicule', '<input id="f-make" name="marque" placeholder="ex. Peugeot" required', 'Indiquez la marque du véhicule.')}</div>
