@@ -82,7 +82,8 @@ export const bookableVehicles = tintVehicles.filter((v) => !v.quote && tint.rear
 
 /**
  * Price and duration of a configuration:
- *   { tint?: { vehicle, formula, shade, windshield?, color? }, lights?: { pairs, shade } }
+ *   { tint?: { vehicle, formula, windshield?, color? }, lights?: { pairs } }
+ * The shade (of the windows or of the lights) is chosen with the workshop on the day.
  * Returns { items: [{ label, detail, price, minutes }], total, minutes, deposit } (EUR, minutes)
  * or { error } when the configuration is not bookable.
  */
@@ -94,12 +95,9 @@ export function quote(config = {}) {
     const formula = tintFormulas.find((f) => f.id === c.formula);
     if (!vehicle) return { error: 'Véhicule à choisir' };
     if (!formula) return { error: 'Formule à choisir' };
-    const shade = Number(c.shade);
-    const rearShade = formula.id === 'rear' || formula.id === 'full';
-    if (rearShade && !tint.shades.includes(shade)) return { error: 'Teinte à choisir' };
     items.push({
       label: `Vitres teintées — ${formula.label}`,
-      detail: `${vehicle.label}${rearShade ? `, teinte ${shade} %` : ''}`,
+      detail: `${vehicle.label}, teinte choisie à l’atelier`,
       price: formula.price(vehicle.cat),
       minutes: formula.minutes,
     });
@@ -114,12 +112,10 @@ export function quote(config = {}) {
   if (config.lights) {
     const c = config.lights;
     const pairs = lightsBooking.pairs.find((p) => p.id === c.pairs);
-    const shade = lights.shades.find((s) => s.id === Number(c.shade));
     if (!pairs) return { error: 'Feux à choisir' };
-    if (!shade) return { error: 'Teinte des feux à choisir' };
     items.push({
       label: `Feux teintés — ${pairs.label}`,
-      detail: `${lightsBooking.material.label}, ${shade.label}`,
+      detail: `${lightsBooking.material.label}, teinte choisie à l’atelier`,
       price: lightsBooking.material.perPair.max * pairs.count,
       minutes: lightsBooking.minutesPerPair * pairs.count,
     });

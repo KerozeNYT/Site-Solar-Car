@@ -45,13 +45,13 @@ export function startBooking(root) {
     const svc = checked('svc');
     const c = {};
     if (svc.includes('tint')) {
-      c.tint = { vehicle: value('vehicle'), formula: value('formula'), shade: Number(value('shade')) };
+      c.tint = { vehicle: value('vehicle'), formula: value('formula') };
       if (value('windshield')) {
         c.tint.windshield = value('windshield');
         if (c.tint.windshield === 'irise') c.tint.color = value('color');
       }
     }
-    if (svc.includes('lights')) c.lights = { pairs: value('pairs'), shade: Number(value('lightShade')) };
+    if (svc.includes('lights')) c.lights = { pairs: value('pairs') };
     return c;
   }
 
@@ -60,13 +60,12 @@ export function startBooking(root) {
     $('[data-block="tint"]').hidden = !svc.includes('tint');
     $('[data-block="lights"]').hidden = !svc.includes('lights');
     const formula = value('formula');
-    $('[data-rear-shade]').hidden = !(formula === 'rear' || formula === 'full' || !formula);
     $('[data-front-note]').hidden = !['full', 'front', 'front-quarters'].includes(formula);
     $('[data-iridescent]').hidden = value('windshield') !== 'irise';
     // the price of each package for the chosen vehicle
     const vehicle = value('vehicle');
     for (const el of $$('[data-formula-price]')) {
-      const q = vehicle ? quote({ tint: { vehicle, formula: el.dataset.formulaPrice, shade: 15 } }) : null;
+      const q = vehicle ? quote({ tint: { vehicle, formula: el.dataset.formulaPrice } }) : null;
       el.textContent = q && !q.error ? formatEuros(q.items[0].price) : '';
     }
     const c = config();
@@ -311,12 +310,10 @@ export function startBooking(root) {
   const t = saved?.c?.tint;
   setRadio('vehicle', t?.vehicle || p.get('vehicule'));
   setRadio('formula', t?.formula || p.get('formule'));
-  setRadio('shade', t?.shade || p.get('teinte'));
   if (t?.windshield) setRadio('windshield', t.windshield);
   if (t?.color) setRadio('color', t.color);
   const l = saved?.c?.lights;
   setRadio('pairs', l?.pairs || p.get('feux'));
-  setRadio('lightShade', l?.shade);
   if (saved?.mode) setRadio('mode', saved.mode);
   const contact = saved ? store.get('booking-contact') : null;
   if (contact) for (const [k, v] of Object.entries(contact)) {

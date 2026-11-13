@@ -1696,7 +1696,7 @@ const BOOKING_INTRO = 'Vitres teintées et feux teintés : choisissez votre pres
 /** The booking page: a form that works step by step (the script fills prices and free slots). */
 export function reservationPage(ctx) {
   const b = ctx.business;
-  const { bookingRules: R, tintFormulas, bookableVehicles, lightsBooking, windshieldFilms, windshieldColors, tintShades, lightShades } = ctx.booking;
+  const { bookingRules: R, tintFormulas, bookableVehicles, lightsBooking, windshieldFilms, windshieldColors } = ctx.booking;
   const open = !!R.api;
   const radio = (name, value, label, extra = '', checked = false) =>
     `<label class="pick"><input type="radio" name="${name}" value="${esc(String(value))}"${checked ? ' checked' : ''}><span class="pick__body">${label}${extra}</span></label>`;
@@ -1724,11 +1724,7 @@ export function reservationPage(ctx) {
             <p class="form__hint">Tesla Model 3 et toit vitré : <a href="/contact/">sur devis</a>.</p>
             <p class="booking__label">Formule</p>
             <div class="picks picks--formulas">${tintFormulas.map((f) => radio('formula', f.id, `<b>${esc(f.label)}</b><small>${esc(f.text)}</small>`, `<span class="pick__meta"><span data-formula-price="${f.id}"></span> · ${esc(fmtMinutes(f.minutes))}</span>`)).join('')}</div>
-            <div data-rear-shade>
-              <p class="booking__label">Teinte des vitres arrière <span class="optional">(part de lumière qui passe)</span></p>
-              <div class="picks picks--shades">${tintShades.map((s) => radio('shade', s, `<b>${s} %</b>`, '', s === 15)).join('')}</div>
-              <p class="form__hint">Hésitez ? Comparez les teintes dans le <a href="/vitres-teintees/#simulateur">simulateur</a>.</p>
-            </div>
+            <p class="form__hint">La teinte se choisit avec vous à l’atelier, le jour du rendez-vous, en comparant les films sur votre voiture.</p>
             <p class="form__hint" data-front-note hidden>Vitres avant : film clair, qui laisse au vitrage complet au moins 70 % de lumière comme l’impose la loi (<a href="/vitres-teintees/#loi-vitres-teintees">ce que dit la loi</a>).</p>
             <p class="booking__label">Pare-brise <span class="optional">(en option, ${esc(fmtMinutes(ctx.booking.windshieldMinutes))} de plus)</span></p>
             <div class="picks picks--windshield">${radio('windshield', '', '<b>Sans</b>', '', true)}${windshieldFilms.map((f) => radio('windshield', f.id, `<b>${esc(f.label)}</b>`, `<span class="pick__meta">+${f.price} €</span>`)).join('')}</div>
@@ -1737,9 +1733,7 @@ export function reservationPage(ctx) {
           <div class="booking__block" data-block="lights" hidden>
             <p class="booking__label">Feux à teinter</p>
             <div class="picks">${lightsBooking.pairs.map((p, i) => radio('pairs', p.id, `<b>${esc(p.label)}</b>`, `<span class="pick__meta">${lightsBooking.material.perPair.max * p.count} € · ${esc(fmtMinutes(lightsBooking.minutesPerPair * p.count))}</span>`, i === 0)).join('')}</div>
-            <p class="booking__label">Teinte</p>
-            <div class="picks">${lightShades.map((s, i) => radio('lightShade', s.id, `<b>${esc(s.label)}</b>`, '', i === 0)).join('')}</div>
-            <p class="form__hint">PPF teinté (plus épais, protège des petits impacts) : <a href="/feux-arriere-teintes/">sur devis</a>.</p>
+            <p class="form__hint">La teinte (fumé léger ou foncé) se choisit avec vous le jour du rendez-vous. PPF teinté (plus épais, protège des petits impacts) : <a href="/feux-arriere-teintes/">sur devis</a>.</p>
           </div>
         </fieldset>
 

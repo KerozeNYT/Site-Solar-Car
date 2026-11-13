@@ -42,7 +42,7 @@ const hook = (event, header) => {
 // a Wednesday three weeks ahead (outside the 14 days of withdrawal)
 let day = utcToZoned(Date.now() + 21 * 86400000, TZ).date;
 while (new Date(day + 'T12:00:00Z').getUTCDay() !== 3) day = addDays(day, 1);
-const config = { tint: { vehicle: 'berline', formula: 'rear', shade: 15 } }; // 270 €, 2 h
+const config = { tint: { vehicle: 'berline', formula: 'rear' } }; // 270 €, 2 h
 const customer = { firstName: 'Jean', lastName: 'Martin', email: 'jean@example.com', phone: '06 12 34 56 78', vehicle: 'Peugeot 508' };
 const slotsOf = async (cfg = config) => {
   const r = await call(`/api/slots?config=${encodeURIComponent(JSON.stringify(cfg))}&from=${day}&days=1`);
@@ -131,7 +131,7 @@ test('refusals: other site, missing consent, bad details, unbookable', async () 
   assert.equal((await call('/api/checkout', { method: 'POST', body: base, headers: { origin: 'https://evil.example' } })).status, 403);
   assert.equal((await call('/api/checkout', { method: 'POST', body: { ...base, consent: {} } })).status, 400);
   assert.equal((await call('/api/checkout', { method: 'POST', body: { ...base, customer: { ...customer, email: 'x' } } })).status, 400);
-  assert.equal((await call('/api/checkout', { method: 'POST', body: { ...base, config: { tint: { vehicle: 'tesla', formula: 'rear', shade: 5 } } } })).status, 400);
+  assert.equal((await call('/api/checkout', { method: 'POST', body: { ...base, config: { tint: { vehicle: 'tesla', formula: 'rear' } } } })).status, 400);
   assert.equal((await call('/api/checkout', { method: 'POST', body: { ...base, back: 'https://evil.example/reservation/' } })).status, 400);
   // within 14 days: the early start must be asked for
   const r = await call('/api/checkout', { method: 'POST', body: { ...base, date: near, time: '08:00' } });

@@ -31,8 +31,6 @@ export async function renderSite(out, assets) {
     windshieldMinutes: B.windshieldMinutes,
     windshieldFilms: pricing.tint.windshield.films,
     windshieldColors: pricing.tint.windshield.colors,
-    tintShades: pricing.tint.shades,
-    lightShades: pricing.lights.shades,
   };
   const vehicles = (await load('content/vehicles.js')).default;
   const { guides, guidesPage } = await load('content/guides.js');

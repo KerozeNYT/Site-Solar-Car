@@ -48,15 +48,17 @@ test('free start times: notice, weekends, holidays, busy calendars', () => {
 });
 
 test('prices and durations of the bookable services', () => {
-  const q = quote({ tint: { vehicle: 'berline', formula: 'full', shade: 15 }, lights: { pairs: 'rear', shade: 80 } });
+  const q = quote({ tint: { vehicle: 'berline', formula: 'full' }, lights: { pairs: 'rear' } });
   assert.equal(q.total, 270 + 50 + 120);
   assert.equal(q.minutes, 150 + 60);
   assert.equal(q.deposit, 132);
   assert.equal(amountDue(q, 'full'), 440);
   assert.equal(quote({ tint: { vehicle: 'citadine', formula: 'front-quarters' } }).total, 150);
-  assert.equal(quote({ tint: { vehicle: 'suv', formula: 'rear', shade: 5, windshield: 'irise', color: 'rouge' } }).minutes, 210);
-  assert.ok(quote({ tint: { vehicle: 'tesla', formula: 'rear', shade: 5 } }).error);
-  assert.ok(quote({ tint: { vehicle: 'berline', formula: 'rear', shade: 12 } }).error);
+  assert.equal(quote({ tint: { vehicle: 'suv', formula: 'rear', windshield: 'irise', color: 'rouge' } }).minutes, 210);
+  assert.ok(quote({ tint: { vehicle: 'tesla', formula: 'rear' } }).error);
+  assert.ok(quote({ tint: { vehicle: 'berline' } }).error);
   assert.ok(quote({}).error);
-  assert.equal(quote({ lights: { pairs: 'both', shade: 50 } }).deposit, 72);
+  assert.equal(quote({ lights: { pairs: 'both' } }).deposit, 72);
+  // the shade is chosen at the workshop: none is asked
+  assert.match(quote({ lights: { pairs: 'rear' } }).items[0].detail, /teinte choisie à l’atelier/);
 });
