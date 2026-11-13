@@ -22,7 +22,7 @@ export async function renderSite(out, assets) {
   const pricing = await load('content/pricing.js');
   const vehicles = (await load('content/vehicles.js')).default;
   const { guides, guidesPage } = await load('content/guides.js');
-  const { zones, zonesPage } = await load('content/zones.js');
+  const { zones, zonesPage, zonesListed } = await load('content/zones.js');
   const { realisations: allJobs, realisationsPage } = await load('content/realisations.js');
   // a job photo is published only once scripts/photos.mjs has written its web versions; a job
   // without any published photo (or before / after) is left out
@@ -47,7 +47,7 @@ export async function renderSite(out, assets) {
   const photoDir = path.join(root, 'public', 'img', 'realisations');
   const photoIds = new Set(fs.existsSync(photoDir) ? fs.readdirSync(photoDir).filter((f) => f.endsWith('-1280.webp')).map((f) => f.slice(0, -'-1280.webp'.length)) : []);
   const ogIds = new Set(fs.existsSync(photoDir) ? fs.readdirSync(photoDir).filter((f) => f.endsWith('-og.jpg')).map((f) => f.slice(0, -'-og.jpg'.length)) : []);
-  const ctx = { ...site, nav, photoIds, ogIds, car, assets, film, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, realisations, realisationsPage };
+  const ctx = { ...site, nav, photoIds, ogIds, car, assets, film, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, zonesListed, realisations, realisationsPage };
 
   const pages = [
     ['index.html', T.homePage(ctx)],
@@ -85,7 +85,9 @@ export async function renderSite(out, assets) {
     const hash = crypto.createHash('sha1').update(main).digest('hex').slice(0, 16);
     if (manifest[url]?.hash !== hash) manifest[url] = { hash, date: today };
   }
-  const sorted = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)));
+  // pages that no longer exist leave the manifest
+  const built = new Set(pages.map(([rel]) => '/' + rel.replace(/index\.html$/, '')));
+  const sorted = Object.fromEntries(Object.entries(manifest).filter(([u]) => built.has(u)).sort(([a], [b]) => a.localeCompare(b)));
   if (JSON.stringify(sorted) !== before) fs.writeFileSync(manifestFile, JSON.stringify(sorted, null, 1) + '\n');
   const changedOn = (u) => manifest[u]?.date || today;
 
@@ -103,12 +105,29 @@ export async function renderSite(out, assets) {
     ...zones.map((z) => [`/${z.slug}/`, '0.6', null]),
     ['/mentions-legales/', '0.2', null],
   ];
+  // the pictures of each page in the sitemap (Google Images): its share image (a real job's
+  // photo when the page has one) and, for the gallery, every published job photo
+  const htmlOf = Object.fromEntries(pages.map(([rel, html]) => ['/' + rel.replace(/index\.html$/, ''), html]));
+  const xml = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const imagesOf = (u, still) => {
+    const html = htmlOf[u] || '';
+    const og = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
+    // only a picture the page really shows (the generic share image is not on the page)
+    const stem = og?.split('/').pop().replace(/(-wide)?(-\d+|-og)?\.jpg$/, '');
+    const main = html.match(/<main[\s\S]*<\/main>/)?.[0] || '';
+    const list = [og && stem && main.includes(`/${stem}-`) ? og : null];
+    // the home page: the opening picture of the film
+    if (u === '/') list.push(`${base}/img/film/hero-1600.jpg`);
+    // every job photo the page shows (gallery, home, service and town pages)
+    for (const m of main.matchAll(/\/img\/realisations\/([a-z0-9-]+?)-(?:960|1280)\.webp/g)) if (photoIds.has(m[1])) list.push(`${base}/img/realisations/${m[1]}-1280.webp`);
+    return [...new Set(list.filter(Boolean))];
+  };
   fs.writeFileSync(
     path.join(out, 'sitemap.xml'),
     `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${urls
       .map(
         ([u, pr, img, mod]) =>
-          `  <url><loc>${base}${u}</loc><lastmod>${[mod, changedOn(u)].filter(Boolean).sort().pop()}</lastmod><priority>${pr}</priority>${img ? `<image:image><image:loc>${base}/stills/${img}-1600.jpg</image:loc></image:image>` : ''}</url>`
+          `  <url><loc>${base}${u}</loc><lastmod>${[mod, changedOn(u)].filter(Boolean).sort().pop()}</lastmod><priority>${pr}</priority>${imagesOf(u, img).map((i) => `<image:image><image:loc>${xml(i)}</image:loc></image:image>`).join('')}</url>`
       )
       .join('\n')}\n</urlset>\n`
   );

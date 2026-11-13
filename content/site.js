@@ -62,6 +62,9 @@ export const business = {
     // the Places API (New) enabled, restricted to the site's domain (HTTP referrers).
     // same profile as the review link above (both carry the place's CID 0xc0f526f622b5935e)
     placeId: 'ChIJoTNtbwnN_EcRXpO1IvYm9cA',
+    // the profile's permanent Google Maps address (its CID 0xc0f526f622b5935e, in decimal): cited
+    // in the structured data so that Google ties the site to the profile without doubt
+    mapsUrl: 'https://maps.google.com/?cid=13904062263162409822',
     // browser key: public by design, restricted in Google Cloud to the site's addresses
     // (solarcar37.fr, www.solarcar37.fr, kerozenyt.github.io/Site-Solar-Car) and to the Maps
     // JavaScript API + Places API (New), with a daily cap on Places requests
@@ -116,9 +119,10 @@ export const home = {
     chapters: {
       hero: {
         kicker: 'Atelier à Vouvray — Tours (37)',
-        // the H1 reads « SOLAR CAR 37 — Esthétique & personnalisation automobile »
+        // the H1 reads « SOLAR CAR 37 — Vitres teintées, detailing & covering près de Tours »:
+        // the words people search for, under the name (the page title says the same)
         brand: 'SOLAR CAR 37',
-        title: 'Esthétique & personnalisation automobile',
+        title: 'Vitres teintées, detailing & covering près de Tours',
         text: 'Vitres teintées, feux fumés, detailing, covering et déchromage, ciel étoilé, rénovation de phares : un atelier dédié à Vouvray, près de Tours.',
         ctas: [
           { label: 'Demander un devis', href: '/contact/', primary: true },
@@ -416,7 +420,7 @@ export const services = [
     seo: {
       title: 'Covering voiture à Vouvray, près de Tours | SOLAR CAR 37',
       description:
-        'Covering voiture près de Tours : couleur complète ou partielle, brillant, satiné, mat ou carbone. Films 3M™, Avery Dennison, TeckWrap, Oracal, nuanciers à l’atelier.',
+        'Covering voiture près de Tours : couleur complète ou partielle, brillant, satiné, mat ou carbone. Films 3M™, Avery Dennison, TeckWrap, Oracal à l’atelier.',
     },
     h1: 'Covering automobile *près de Tours*',
     intro:
@@ -666,7 +670,9 @@ export const legalPage = {
   // Consumer mediator (mandatory for services sold to private customers, Code de la consommation
   // L612-1): { name, url, address }. Unknown for now: the page shows « à compléter ».
   mediator: null,
-  // How long quote requests are kept, e.g. '3 ans après le dernier contact'. Until it is set,
-  // the page states the criterion (the time needed to answer and follow up the request).
-  retention: null,
+  // How long quote requests are kept: the durations of the CNIL reference framework for
+  // commercial management (référentiel « gestion des activités commerciales »). To be adjusted
+  // if the workshop keeps them for a shorter time.
+  retention:
+    '3 ans à compter du dernier contact pour une demande restée sans suite ; pour les clients, la durée de la relation commerciale, puis le temps imposé par la loi pour les pièces comptables (10 ans pour les factures)',
 };

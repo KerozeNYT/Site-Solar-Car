@@ -1,6 +1,6 @@
 {
  "/": {
-  "hash": "ffcd2a31404d7f2c",
+  "hash": "ddc972eba39c712f",
   "date": "2026-11-13"
  },
  "/404.html": {
@@ -36,8 +36,8 @@
   "date": "2026-11-10"
  },
  "/design/visite-3d/": {
-  "hash": "cc073f4e869c6eb4",
-  "date": "2026-11-12"
+  "hash": "88029e8549d7eb90",
+  "date": "2026-11-13"
  },
  "/detailing-carrosserie/": {
   "hash": "ac4f87339ab73ce5",
@@ -84,7 +84,7 @@
   "date": "2026-11-11"
  },
  "/mentions-legales/": {
-  "hash": "caa0473d283472f6",
+  "hash": "1d2c908452ff5602",
   "date": "2026-11-13"
  },
  "/realisations/": {
@@ -96,67 +96,43 @@
   "date": "2026-11-13"
  },
  "/vitres-teintees-amboise/": {
-  "hash": "1580491cd430995c",
+  "hash": "78d5e509a1e60137",
   "date": "2026-11-13"
  },
  "/vitres-teintees-chambray-les-tours/": {
-  "hash": "70bd34c4f7b0f254",
-  "date": "2026-11-13"
- },
- "/vitres-teintees-fondettes/": {
-  "hash": "bee063d0e4a77c2f",
+  "hash": "56ac66e53d70e7b5",
   "date": "2026-11-13"
  },
  "/vitres-teintees-joue-les-tours/": {
-  "hash": "d0d7e75ad5e4540d",
-  "date": "2026-11-13"
- },
- "/vitres-teintees-la-riche/": {
-  "hash": "d56c4aece0c37e16",
-  "date": "2026-11-13"
- },
- "/vitres-teintees-monnaie/": {
-  "hash": "1155c1c9c2227a3a",
+  "hash": "707559f265a0ca46",
   "date": "2026-11-13"
  },
  "/vitres-teintees-montlouis-sur-loire/": {
-  "hash": "3044d33beecb0cb1",
-  "date": "2026-11-13"
- },
- "/vitres-teintees-parcay-meslay/": {
-  "hash": "0d09007f4f161685",
-  "date": "2026-11-13"
- },
- "/vitres-teintees-rochecorbon/": {
-  "hash": "0e9c4b1fe0ac45b3",
+  "hash": "75d5476970bbc938",
   "date": "2026-11-13"
  },
  "/vitres-teintees-saint-avertin/": {
-  "hash": "4c0c77d8bc3a042f",
+  "hash": "18f8a7cc4c09c99b",
   "date": "2026-11-13"
  },
  "/vitres-teintees-saint-cyr-sur-loire/": {
-  "hash": "2009997d19c26ac9",
+  "hash": "8745c00f06a5ca20",
   "date": "2026-11-13"
  },
  "/vitres-teintees-saint-pierre-des-corps/": {
-  "hash": "24de8e1f8657edf7",
+  "hash": "24807dab76f05c7b",
   "date": "2026-11-13"
  },
  "/vitres-teintees-tours/": {
-  "hash": "e98ff036c98eb5ed",
-  "date": "2026-11-13"
- },
- "/vitres-teintees-vernou-sur-brenne/": {
-  "hash": "7b99e2e2e90855f9",
+  "hash": "783ab0272b6b01fd",
   "date": "2026-11-13"
  },
  "/vitres-teintees/": {
-  "hash": "1f6648e56265b2bc",
+  "hash": "787e5a7c23637b9c",
   "date": "2026-11-13"
  },
  "/zones-intervention/": {
-  "hash": "cfcef5fe22c59bb4",
+  "hash": "af4d5af0df0a1c4e",
   "date": "2026-11-13"
  }
 }

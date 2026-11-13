@@ -136,7 +136,8 @@ function localBusiness(ctx) {
       opens: h.opens,
       closes: h.closes,
     }));
-  const same = [...Object.values(b.social || {}), b.google?.profileUrl].filter(Boolean);
+  const same = [...new Set([...Object.values(b.social || {}), b.google?.mapsUrl, b.google?.profileUrl].filter(Boolean))];
+  if (b.google?.mapsUrl) data.hasMap = b.google.mapsUrl;
   if (same.length) data.sameAs = same;
   return data;
 }
@@ -414,16 +415,9 @@ function instagramBlock(ctx) {
 
 /** the workshop's crest in the backdrop: the official emblem stacked into a thin gold coin that
  * turns slowly, a light sweeping its face, a few sparks (CSS only, src/styles/main.css "crest") */
-const CREST_LAYERS = 19;
-// a thick gold coin: the faces bright, the edge layers lit like a bevel (brighter near each face,
-// darker in the middle of the edge)
-const CREST = `<div class="crest-wrap" style="--emblem:url(/img/brand/embleme-256.webp)"><i class="crest__halo"></i><div class="crest">${Array.from({ length: CREST_LAYERS }, (_, i) => {
-  const last = CREST_LAYERS - 1;
-  const role = i === 0 ? ' crest__face' : i === last ? ' crest__back' : '';
-  const edge = Math.abs(i - last / 2) / (last / 2); // 0 in the middle of the edge, 1 at a face
-  const b = (0.42 + 0.5 * edge * edge).toFixed(2);
-  return `<img class="crest__layer${role}" src="/img/brand/embleme-256.webp" alt="" width="256" height="280" loading="lazy" decoding="async" draggable="false" style="--z:${(last / 2 - i) * 1.7}px;--b:${b}">`;
-}).join('')}<i class="crest__shine"></i><i class="crest__shine crest__shine--back"></i></div><i class="crest__sparks"></i><i class="crest__sparks crest__sparks--b"></i></div>`;
+// the emblem turning in the backdrop: built by src/js/ambient.js once the page has loaded (it
+// shows only then), from these files; nothing of it is downloaded before
+const CREST = '<div class="crest-wrap" data-crest data-src="/img/brand/embleme-256.webp" data-srcset="/img/brand/embleme-256.webp 256w, /img/brand/embleme-512.webp 512w" data-emblem="/img/brand/embleme-512.webp"></div>';
 
 function page(ctx, opts, body) {
   return `${head(ctx, opts)}
@@ -1496,7 +1490,8 @@ export function zonePage(ctx, z) {
   const dir = dirFrom(z.bearing);
   const from = deTown(town);
   const route = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(`${town}, France`)}&destination=${encodeURIComponent(addressLine(b))}`;
-  const roadName = (r) => (r.refs?.includes('A10') ? `l’A10 (${r.name})` : r.name);
+  // the A10 is named « L’Aquitaine » in the road data
+  const roadName = (r) => (r.refs?.includes('A10') || r.name === 'L\'Aquitaine' ? `l’A10 (${r.name.replace(/^L'/, 'L’')})` : r.name);
   // every answer comes from this town's own route (scripts/map/towns.py): no sentence shared by all
   // the town pages
   const steps = z.roads.map((r) => `${roadName(r)} (${kmFr(r.km)} km)`);
@@ -1511,6 +1506,13 @@ export function zonePage(ctx, z) {
     },
   ];
   const others = ctx.zones.filter((o) => o.slug !== z.slug).sort((a, c) => Math.abs(a.roadKm - z.roadKm) - Math.abs(c.roadKm - z.roadKm)).slice(0, 6);
+  // two real jobs of the workshop, different on each town page (one window tinting job, one
+  // other service); shown as the workshop's work, never as a job done for this town
+  const i = Math.max(0, ctx.zones.indexOf(z));
+  const jobs = ctx.realisations || [];
+  const tintJobs = jobs.filter((r) => r.service === 'vitres-teintees');
+  const otherJobs = jobs.filter((r) => r.service !== 'vitres-teintees');
+  const picked = [tintJobs[i % (tintJobs.length || 1)], otherJobs[i % (otherJobs.length || 1)]].filter(Boolean);
   const body = `
   <section class="section page-intro">
     <div class="container">
@@ -1524,9 +1526,10 @@ export function zonePage(ctx, z) {
   <section class="section section--paper" aria-labelledby="trajet-title">
     <div class="container container--narrow">
       <h2 id="trajet-title">Venir ${esc(from)} à l’atelier</h2>
+      ${z.intro ? `<p>${esc(z.intro)}</p>` : ''}
       <p>Environ <strong>${kmFr(z.roadKm)} km</strong> par la route depuis le centre ${esc(from)}. Le trajet le plus direct :</p>
       <ol class="route-steps">${z.roads.map((r) => `<li><strong>${esc(roadName(r))}</strong><span>${kmFr(r.km)} km</span></li>`).join('')}<li><strong>${esc(b.address.street)}</strong><span>ZA de l’Étang Vignon, ${esc(b.address.postalCode)} Vouvray</span></li></ol>
-      <p class="price-note">Itinéraire indicatif (réseau routier OpenStreetMap).</p>
+      <p class="price-note">Itinéraire indicatif (réseau routier OpenStreetMap). ${esc(b.hoursText)} : <a href="/atelier-vouvray/">plan d’accès et horaires</a>.</p>
     </div>
   </section>
   <section class="section" aria-labelledby="zone-services">
@@ -1535,8 +1538,18 @@ export function zonePage(ctx, z) {
       <ul class="related__list">${services.map((s) => `<li><a href="/${s.slug}/"><strong>${esc(s.name)}</strong><span>${esc(s.tagline || s.short)} <em class="zone-price">${esc(priceHint(ctx, s.slug))}</em></span></a></li>`).join('')}</ul>
     </div>
   </section>
+  ${
+    picked.length
+      ? `<section class="section works-block" aria-labelledby="zone-works">
+    <div class="container">
+      <div class="section-head"><h2 id="zone-works">Des réalisations de l’atelier</h2></div>
+      <ul class="works">${picked.map((r) => realisationCard(ctx, r)).join('')}</ul>
+      <p><a class="btn btn--ghost" href="/realisations/">Voir toutes les réalisations</a></p>
+    </div>
+  </section>`
+      : ''
+  }
   ${faqBlock(faq, `Questions de nos clients ${from}`)}
-  ${visitBlock(ctx, { title: 'L’atelier, à Vouvray', id: 'atelier' })}
   <section class="section related" aria-labelledby="zones-near">
     <div class="container">
       <h2 id="zones-near">Nous accueillons aussi les conducteurs de…</h2>
@@ -1588,6 +1601,15 @@ export function zonesIndexPage(ctx) {
           (z) => `<li><a href="/${z.slug}/"><strong>${esc(z.town)}</strong><span>${kmFr(z.roadKm)} km par la route · ${esc(dirFrom((z.bearing + 180) % 360).replace(/^(au|à l’) ?/, ''))} de l’atelier</span></a></li>`
         )
         .join('')}</ul>
+      ${
+        ctx.zonesListed?.length
+          ? `<h2 class="zone-grid__title">Et tout près de l’atelier</h2>
+      <ul class="zone-grid zone-grid--plain">${[...ctx.zonesListed]
+        .sort((a, c) => a.roadKm - c.roadKm)
+        .map((z) => `<li><strong>${esc(z.town)}</strong><span>${kmFr(z.roadKm)} km par la route · ${esc(dirFrom((z.bearing + 180) % 360).replace(/^(au|à l’) ?/, ''))} de l’atelier</span></li>`)
+        .join('')}</ul>`
+          : ''
+      }
     </div>
   </section>
   ${visitBlock(ctx, { title: 'L’atelier, à Vouvray', id: 'atelier' })}
