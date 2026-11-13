@@ -8,6 +8,7 @@
  * Car space: metres, the car at the origin, nose towards +x, right-hand side towards +z.
  */
 import * as THREE from 'three';
+import { Batch, M, propMaterials, kochShelf, polisherWall, filmRack, tintBoard, towelCubbies } from '../../src/js/tour/props.js';
 
 // the room: walls on the tile grid (0.4 m), the car's bay framed by yellow tiles
 const TILE = 0.4;
@@ -16,6 +17,32 @@ let BAY = { x: [-3.2, 3.2], z: [-2.0, 2.0] }; // inside the yellow frame (one ti
 // the real SOLAR CAR bay (ceiling 'atelier', film V5): a narrower room, the yellow frame closer
 // to the car, a little more height for the suspended hexagon ceiling
 const ATELIER = { room: { x: [-6.0, 9.2], z: [-3.6, 3.6], h: 2.75 }, bay: { x: [-2.8, 2.8], z: [-1.6, 1.6] } };
+// the detailing studio of the film V5 (ceiling 'leds'): walls close enough to read behind the car
+const STUDIO = { room: { x: [-7.6, 10.4], z: [-4.6, 5.6], h: 2.9 }, bay: { x: [-3.2, 3.2], z: [-2.0, 2.0] } };
+
+/**
+ * The equipment walls of the film V5 (the site's own props, src/js/tour/props.js): behind the
+ * car's left-hand side (the backdrop of most shots) the Koch-Chemie shelving, the RUPES-blue
+ * polishers with their pads and the window-film rolls; on the back wall more rolls and the tint
+ * tool board; on the front wall (behind the tail-light shot) a second polisher wall.
+ */
+function equipment() {
+  const pm = propMaterials({ dark: true });
+  const kit = new Batch();
+  const zl = ROOM.z[0];
+  kit.at(M(-4.6, 0, zl), (b) => kochShelf(b, pm, { width: 3.2 }));
+  kit.at(M(-1.1, 0, zl), (b) => polisherWall(b, pm, { width: 2.6, n: 5, y: 1.25 }));
+  kit.at(M(1.6, 0, zl), (b) => towelCubbies(b, pm, { width: 1.6 }));
+  kit.at(M(3.9, 0, zl), (b) => filmRack(b, pm, { bays: 2, rows: 5 }));
+  kit.at(M(6.6, 0, zl), (b) => tintBoard(b, pm, { w: 2.2, h: 1.3, y: 1.5 }));
+  const xb = ROOM.x[0];
+  kit.at(M(xb, 0, -1.4, 0, Math.PI / 2, 0), (b) => filmRack(b, pm, { bays: 2, rows: 5 }));
+  kit.at(M(xb, 0, 1.6, 0, Math.PI / 2, 0), (b) => kochShelf(b, pm, { width: 2.4 }));
+  const xf = ROOM.x[1];
+  kit.at(M(xf, 0, -1.3, 0, -Math.PI / 2, 0), (b) => polisherWall(b, pm, { width: 2.6, n: 5, y: 1.25 }));
+  kit.at(M(xf, 0, 1.5, 0, -Math.PI / 2, 0), (b) => kochShelf(b, pm, { width: 2.4 }));
+  return kit.build('equipment');
+}
 const COLORS = {
   tile: [12, 12, 14],
   yellow: [168, 120, 8],
@@ -375,6 +402,7 @@ export function buildGarage(scene, renderer, { ledLevel = 4.2, px = 3, starLevel
   const linear = ceiling === 'leds';
   const atelier = ceiling === 'atelier';
   if (atelier) ({ room: ROOM, bay: BAY } = ATELIER);
+  if (linear) ({ room: ROOM, bay: BAY } = STUDIO);
   const room = new THREE.Group();
   const { map, roughnessMap } = floorMaps(renderer);
   // canvas columns run along +x, rows along +z (the floor plane, laid flat, puts the top of the
@@ -395,6 +423,7 @@ export function buildGarage(scene, renderer, { ledLevel = 4.2, px = 3, starLevel
   const AT = atelier ? atelierLights() : null;
   const violetTube = new THREE.MeshBasicMaterial({ color: new THREE.Color('#' + violet).multiplyScalar(ledLevel * 0.7) });
   if (AT) room.add(segments(AT.tubes, { thick: 0.04, material: tube }), segments(AT.hex, { thick: 0.035, material: tube }), segments(AT.frame, { thick: 0.05, material: violetTube }));
+  if (linear) room.add(equipment());
   const stars = linear || atelier ? null : starCeiling({ px, level: starLevel });
   if (stars) room.add(stars);
   scene.add(room);

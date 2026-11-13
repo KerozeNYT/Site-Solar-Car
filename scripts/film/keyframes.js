@@ -4,7 +4,7 @@
  * AI video model gets them as its first and last pictures.
  *
  *   node scripts/film/render.mjs <out dir> 3840 2160 --keys scripts/film/keyframes.js
- *   with FILM_QUERY='paint=f2f2ee&metal=0.02&rough=0.2&livery=1&ceiling=leds&rims=17181a&exp=0.95'
+ *   with FILM_QUERY='paint=f2f2ee&metal=0.02&rough=0.2&livery=1&ceiling=leds&rims=17181a&exp=0.95&swirl=0&dullcoat=0.8'
  *
  * Car space: metres, the car at the origin, nose towards +x, right-hand side towards +z.
  * cam: [x, y, z, look x, look y, look z, fov]. fx: the state of every service effect at that
@@ -29,7 +29,9 @@ const before = {
   backlight: 0,
 };
 // each service, once done
-const polished = { polishX: -10 };
+// polished: a mirror finish (ceramic gloss), the « before » being a clean dull haze (render with
+// swirl=0, see the FILM_QUERY above)
+const polished = { polishX: -10, ceramic: 1 };
 const headlights = { headClear: 1, headlights: 0.7 };
 const carbon = { carbonX: 2.45 };
 const tails = { tailSmoke: 0.45, tailOn: 1 };

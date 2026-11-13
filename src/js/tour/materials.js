@@ -122,6 +122,10 @@ export function injectPolish(m, uniforms) {
         uniform float uRinseY;
         uniform float uWet;
         uniform float uSweep;
+        // before polishing: uSwirl scales the swirl marks (0: none, a clean dull haze only),
+        // uDullCoat the roughness of the varnish there
+        uniform float uSwirl;
+        uniform float uDullCoat;
         // covering preview: a film laid from the rear to the front (vCarPos.x < uWrapX)
         uniform float uWrap;
         uniform float uWrapX;
@@ -274,14 +278,14 @@ export function injectPolish(m, uniforms) {
         '#include <clearcoat_normal_fragment_maps>',
         `#include <clearcoat_normal_fragment_maps>
         #ifdef USE_CLEARCOAT
-          if (dull > 0.001) {
+          if (dull * uSwirl > 0.001) {
             // swirl marks: the varnish normal tilted along the scratches (projected on the plane
             // facing the panel, back to view space), so every light draws rings around itself
             vec3 an = abs(vCarNormal);
             vec3 U = an.y > max(an.x, an.z) ? vec3(1.0, 0.0, 0.0) : an.z > an.x ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 0.0, 1.0);
             vec3 V = an.y > max(an.x, an.z) ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
             vec2 st = swirlTilt(vec2(dot(vCarPos, U), dot(vCarPos, V)));
-            vec3 tCar = (U * st.x + V * st.y) * 0.18 * dull;
+            vec3 tCar = (U * st.x + V * st.y) * 0.18 * dull * uSwirl;
             clearcoatNormal = normalize(clearcoatNormal + mat3(viewMatrix) * (transpose(mat3(uCarInv)) * tCar));
           }
         #endif`
@@ -290,7 +294,7 @@ export function injectPolish(m, uniforms) {
         '#include <lights_physical_fragment>',
         `#include <lights_physical_fragment>
         #ifdef USE_CLEARCOAT
-          material.clearcoatRoughness = mix(material.clearcoatRoughness, 0.2, dull);
+          material.clearcoatRoughness = mix(material.clearcoatRoughness, uDullCoat, dull);
           material.clearcoat = mix(material.clearcoat, 1.0, fresh);
           material.clearcoat *= 1.0 - clamp(mud, 0.0, 1.0);
           // ceramic: a glass-smooth top layer, mirror reflections

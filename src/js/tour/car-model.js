@@ -154,6 +154,8 @@ export async function loadCarModel(cfg, { quality = 'high', onProgress } = {}) {
     uRinseY: { value: 9 },
     uWet: { value: 0 },
     uSweep: { value: 0 },
+    uSwirl: { value: 1 },
+    uDullCoat: { value: 0.2 },
     uWrap: { value: 0 },
     uWrapX: { value: -10 },
     uWrapCol: { value: new THREE.Color() },

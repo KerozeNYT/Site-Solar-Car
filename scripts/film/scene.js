@@ -111,6 +111,16 @@ if (q.get('rims')) {
     o.material = Array.isArray(o.material) ? mats : mats[0];
   });
 }
+// the paint's shared uniforms (src/js/tour/materials.js): knob swirl=0 turns the « before
+// polishing » state into a clean dull haze without scratches, dullcoat its varnish roughness
+let paintU = null;
+car.group.traverse((o) => {
+  if (paintU || !o.isMesh) return;
+  const m = Array.isArray(o.material) ? o.material[0] : o.material;
+  if (m?.userData?.uniforms?.uSwirl) paintU = m.userData.uniforms;
+});
+if (paintU && q.get('swirl') != null) paintU.uSwirl.value = Number(q.get('swirl'));
+if (paintU && q.get('dullcoat') != null) paintU.uDullCoat.value = Number(q.get('dullcoat'));
 // knob livery=1: the SOLAR CAR side script on the doors (scripts/film/livery.js)
 if (q.get('livery') === '1') {
   const body = [];
@@ -242,6 +252,8 @@ window.renderFrame = (t) => {
   for (const m of halos) m.opacity = 0; // no sprite halo: the bloom alone, as through a lens
   car.setHeadlightClear(e.headClear);
   car.setPolish(e.polishX, 1);
+  // ceramic gloss (film V5 « after »): a glass-smooth varnish, mirror reflections
+  if (paintU) paintU.uCeramic.value = e.ceramic ?? 0;
   car.setRearVLT(e.rearVLT);
   car.setFrontVLT(e.frontVLT);
   car.setTailSmoke(e.tailSmoke);
