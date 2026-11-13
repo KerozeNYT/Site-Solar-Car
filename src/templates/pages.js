@@ -863,7 +863,7 @@ function offersFor(ctx, slug) {
 function heroCtas(s, ctx) {
   // window tint and tinted lights are booked online once the booking server is there
   const book = ctx?.booking?.bookingRules.api && { 'vitres-teintees': 'vitres', 'feux-arriere-teintes': 'feux' }[s.slug];
-  if (book) return `<a class="btn btn--primary" href="/reservation/?prestation=${book}">Réserver en ligne</a><a class="btn btn--ghost" href="#simulateur" data-scroll>Simuler et voir le prix</a>`;
+  if (book) return `<a class="btn btn--primary" href="/reservation/?prestation=${book}">Prendre RDV</a><a class="btn btn--ghost" href="#simulateur" data-scroll>Simuler et voir le prix</a>`;
   const quote = `<a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a>`;
   if (s.heroCta) return `${quote}<a class="btn btn--ghost" href="${esc(s.heroCta.href)}" data-scroll>${esc(s.heroCta.label)}</a>`;
   if (s.slug === 'renovation-phares') return `${quote}<a class="btn btn--ghost" href="#tarifs" data-scroll>Voir les tarifs</a>`;
@@ -1215,9 +1215,9 @@ export function contactPage(ctx) {
     ctx.booking.bookingRules.api
       ? `<section class="section section--tight" id="rendez-vous" aria-labelledby="booking-title">
     <div class="container container--narrow book-cta">
-      <h2 id="booking-title">Vitres ou feux teintés : réservez en ligne</h2>
+      <h2 id="booking-title">Vitres ou feux teintés : prenez RDV en ligne</h2>
       <p class="lead">Choisissez votre prestation et un créneau libre de l’atelier, puis réglez un acompte de 30 % ou la totalité : le rendez-vous est confirmé aussitôt.</p>
-      <a class="btn btn--primary" href="/reservation/">Réserver un créneau</a>
+      <a class="btn btn--primary" href="/reservation/">Prendre RDV</a>
     </div>
   </section>`
       : ''

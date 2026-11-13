@@ -70,8 +70,11 @@ const total = (note = '', { quote = false, value = '' } = {}) => `<div class="si
           <p class="sim__detail" data-detail>${esc(note)}</p>
         </div>`;
 
-const actions = (slug, extra = '') => `<div class="sim__actions">
-          <a class="btn btn--primary" href="/contact/?prestation=${slug}" data-quote>Demander ce devis</a>
+// window tint and tinted lights are booked online (content/booking.js): a « Prendre RDV » button
+const BOOKABLE = { 'vitres-teintees': 'vitres', 'feux-arriere-teintes': 'feux' };
+const actions = (slug, extra = '', book = false) => `<div class="sim__actions">
+          ${book && BOOKABLE[slug] ? `<a class="btn btn--primary" href="/reservation/?prestation=${BOOKABLE[slug]}" data-book>Prendre RDV</a>` : ''}
+          <a class="btn ${book && BOOKABLE[slug] ? 'btn--ghost' : 'btn--primary'}" href="/contact/?prestation=${slug}" data-quote>Demander ce devis</a>
           ${extra}
           <button type="reset" class="sim__reset">Réinitialiser</button>
         </div>`;
@@ -128,7 +131,7 @@ export function simTint(ctx, { hidden = false } = {}) {
           )}
         </fieldset>
         ${total('Choisissez vos vitres', { value: fmt(tint.rearPackage.coupe) })}
-        ${actions('vitres-teintees', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Avant / après</button>')}
+        ${actions('vitres-teintees', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Avant / après</button>', !!ctx.booking?.bookingRules.api)}
         <p class="price-note">Prix TTC indicatifs, confirmés par le devis après vérification du véhicule. Rendu 3D indicatif : il ne mesure pas la transmission lumineuse réelle. Véhicules 3D présentés à titre d’illustration de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle. Crédits des modèles : <a href="/mentions-legales/">mentions légales</a>.</p>`;
   return shell({
     kind: 'tint',
@@ -220,7 +223,7 @@ export function simTintSimple(ctx, pictures) {
         </div>
         <p class="tsim__law" data-law hidden>À l’avant, la loi impose au moins ${glazing.frontMin} % de lumière, vitre et film compris : seul un film très clair convient, contrôlé sur votre véhicule. Les vitres arrière et la lunette peuvent être aussi foncées que vous le souhaitez (${tint.shades.join(', ')} %, toutes au même prix).</p>
         <div class="ctas">
-          ${ctx.booking?.bookingRules.api ? '<a class="btn btn--primary" href="/reservation/?prestation=vitres" data-book>Réserver en ligne</a>' : ''}
+          ${ctx.booking?.bookingRules.api ? '<a class="btn btn--primary" href="/reservation/?prestation=vitres" data-book>Prendre RDV</a>' : ''}
           <a class="btn ${ctx.booking?.bookingRules.api ? 'btn--ghost' : 'btn--primary'}" href="/contact/?prestation=vitres-teintees" data-quote>Demander ce devis</a>
           <button type="button" class="btn btn--ghost" data-mode="3d">Voir en 3D</button>
         </div>
@@ -305,7 +308,7 @@ export function simLights(ctx) {
         <div class="warning"><p><strong>Réglementation :</strong> ${esc(lightsRule)}</p></div>
         ${total('Choisissez vos feux', { value: pairPrice(L.materials[0]) })}
         <p class="price-note">${L.materials.map((m) => `${esc(m.label)} : ${pairPrice(m)}${m.validated ? ' TTC la paire' : ''}`).join(' · ')}. Prix indicatifs selon le véhicule, confirmés par le devis.</p>
-        ${actions('feux-arriere-teintes', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Avant / après</button>')}`;
+        ${actions('feux-arriere-teintes', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Avant / après</button>', !!ctx.booking?.bookingRules.api)}`;
   return shell({
     kind: 'lights',
     title: 'Simulez vos feux fumés',

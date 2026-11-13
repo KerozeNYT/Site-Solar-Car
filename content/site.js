@@ -122,7 +122,9 @@ export const home = {
         title: 'Vitres teintées, detailing & covering près de Tours',
         text: 'Vitres teintées, feux fumés, detailing, covering et déchromage, ciel étoilé, rénovation de phares : un atelier dédié à Vouvray, près de Tours.',
         ctas: [
-          { label: 'Demander un devis', href: '/contact/', primary: true },
+          // online booking (window tint, tinted lights): /reservation/, content/booking.js
+          { label: 'Prendre RDV', href: '/reservation/', primary: true },
+          { label: 'Demander un devis', href: '/contact/' },
           // jumps into the film, to the first service (the template adds its second)
           { label: 'Découvrir l’expérience', href: '#chapitre-detailing', tour: 'detailing' },
         ],
@@ -179,8 +181,11 @@ export const home = {
       final: {
         kicker: 'SOLAR CAR 37',
         title: 'Prenez rendez-vous *à l’atelier*',
-        text: 'Décrivez votre véhicule et la prestation souhaitée : nous revenons vers vous avec un devis détaillé.',
-        ctas: [{ label: 'Demander un devis', href: '/contact/', primary: true }],
+        text: 'Vitres ou feux teintés : choisissez votre créneau en ligne. Pour les autres prestations, décrivez votre véhicule : nous revenons vers vous avec un devis détaillé.',
+        ctas: [
+          { label: 'Prendre RDV', href: '/reservation/', primary: true },
+          { label: 'Demander un devis', href: '/contact/' },
+        ],
         contact: true,
         side: 'left',
       },
