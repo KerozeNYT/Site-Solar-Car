@@ -10,9 +10,9 @@
 import { tint, lights, tintVehicles } from './pricing.js';
 
 export const bookingRules = {
-  // the booking server (Cloudflare Worker, booking/): '' until it is deployed, the page then
-  // offers a quote request instead
-  api: '',
+  // the booking server (Cloudflare Worker, booking/, deployed with `npx wrangler deploy`); ''
+  // would close online booking (the page then offers a quote request instead)
+  api: 'https://solarcar37-reservation.contact-solarcar37.workers.dev',
   timeZone: 'Europe/Paris',
   // opening hours, Monday (1) to Friday (5); a job may run over the lunch break, which does not
   // count as working time

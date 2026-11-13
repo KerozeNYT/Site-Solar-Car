@@ -40,6 +40,16 @@ serveur de réservation (Cloudflare Worker, dossier booking/)
 - Essai complet sans aucun compte : `npm run booking:dev` puis
   `BOOKING_API=http://localhost:8787 npm run build` et ouvrir `/reservation/` (paiement simulé).
 
+## État (13 novembre 2026)
+
+- Serveur en ligne : https://solarcar37-reservation.contact-solarcar37.workers.dev (compte
+  Cloudflare de contact.solarcar37@gmail.com), secrets `CALENDARS_BUSY` et
+  `GOOGLE_SERVICE_ACCOUNT` déposés ; il lit les trois agendas (vérifié).
+- Compte de service Google : `reservation@solar-car-37-reservation.iam.gserviceaccount.com`,
+  agendas partagés.
+- Reste : `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET` (mode test d'abord), puis un essai
+  complet avec la carte de test.
+
 ## Mise en service (à faire une fois)
 
 Tant que `bookingRules.api` est vide dans `content/booking.js`, la page `/reservation/` affiche
