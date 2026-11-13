@@ -92,3 +92,31 @@ verticales toutes ≤ 10 ; horizontales 2→3 = 65 et 4→5 = 66 (cadrages diff�
 Kit de correction envoyé (images exactes extraites des plans voisins, photo finale retouchée avec le
 vrai marquage SOLAR CAR) : plans 8, 3 et 5 à refaire dans cet ordre. Hôte des fichiers Higgsfield
 (d8j0ntlcm91z4.cloudfront.net) autorisé dans l'environnement pour les télécharger.
+
+## Montage et intégration (13 novembre 2026)
+
+Les deux films sont montés plan par plan, sur **la même chronologie** (1 107 images, 46,125 s à
+24 images/s) : les chapitres, onglets et compteurs de `content/film.js` valent pour les deux.
+
+```bash
+# horizontal 4K et vertical 1080 × 1920 (fichiers des plans dans l'ordre 1 → 8)
+node scripts/film/assemble.mjs wide.mp4 --fade=3,5 plan1.mp4 … plan8.mp4
+node scripts/film/assemble.mjs tall.mp4 --fade=3,5 --soften=4@112,7@75 plan1v.mp4 … plan8v.mp4
+# versions pour le défilement (public/video/accueil-v5-*.mp4), images des chapitres, carte de partage
+node scripts/film-assets.mjs wide.mp4 --tall=tall.mp4
+```
+
+- Raccords : la première image de chaque plan (identique à la dernière du précédent) est retirée ;
+  les plans 3 et 5 entrent par un fondu de 0,5 s tant que leurs raccords horizontaux ne collent
+  pas (même fondu sur le vertical pour garder la même chronologie). Quand les plans 3 et 5 refaits
+  arrivent : retirer leur numéro de `--fade` sur les deux films et décaler les temps des
+  chapitres en conséquence (un fondu en moins = 11 images de plus).
+- Coupures franches générées à l'intérieur des plans verticaux 4 (image 112, capot → plan large)
+  et 7 (image 75, portière → habitacle) : adoucies en fondu de 0,5 s sans changer la durée.
+- Début des plans : 0 · 7,04 · 12,54 · 17,58 · 22,08 · 29,13 · 34,13 · 40,13 s.
+- Défilement : la vidéo suit le défilement à vitesse constante (0,16 écran par seconde de film,
+  environ 7,5 écrans), sans lissage : l'image s'arrête dès que le défilement s'arrête
+  (`src/js/film.js`). Les fichiers portent la version du film (`accueil-v5-…`) : aucun visiteur
+  ne revoit l'ancien film depuis son cache.
+- Ordre des chapitres à l'écran : accueil (lavage) → detailing (polissage) → phares → covering
+  (capot carbone) → feux arrière → vitres teintées → ciel étoilé → final.
