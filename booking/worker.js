@@ -25,7 +25,7 @@ const DAY = 86400000;
 const list = (s) => (s || '').split(',').map((x) => x.trim()).filter(Boolean);
 const euros = (n) => `${n.toFixed(2).replace('.', ',').replace(',00', '')} €`;
 const longDate = (date, time) =>
-  new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`)) + ` à ${time.replace(':', ' h ')}`;
+  new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`)) + ` à ${time.replace(/^0/, '').replace(':', ' h ')}`;
 
 function cors(req, env) {
   const origin = req.headers.get('origin') || '';
