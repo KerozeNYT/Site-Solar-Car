@@ -24,8 +24,9 @@ export const film = {
   pace: { hold: 0.45, opening: 0.55, chapter: 0.62, closing: 0.6, gap: 0.1 },
   // the light version answers the scroll within a second, then the sharpest version the screen
   // can show takes over once downloaded (src/js/film.js picks it from the width drawn × pixel
-  // density): 1080p, 1440p or 4K on wide screens; tall screens (phones, tablets upright) get
-  // the centre of the picture in 9:16 over their whole height. `crf`: encoding quality used by
+  // density, and downloads it at the visitor's first scroll): 1080p, 1440p or 4K on wide
+  // screens; tall screens (phones, tablets upright) get the centre of the picture in 9:16 over
+  // their whole height, the 720p version unless the browser reports a fast connection. `crf`: encoding quality used by
   // scripts/film-assets.mjs (lower = sharper and heavier; the film grain and the twinkling stars
   // cost bits that the eye does not miss: +2 is 20 % lighter for the same picture).
   sources: {

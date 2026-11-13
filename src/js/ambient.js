@@ -158,13 +158,41 @@ function drawDust(c) {
   }
 }
 
+/** the gold emblem of the backdrop: a thick coin made of stacked layers (src/styles/main.css,
+ *  "crest"); the faces bright, the edge layers lit like a bevel (brighter near each face) */
+function buildCrest(wrap) {
+  if (!wrap || wrap.firstChild) return;
+  const LAYERS = 19;
+  const last = LAYERS - 1;
+  const el = (tag, cls) => Object.assign(document.createElement(tag), { className: cls });
+  const crest = el('div', 'crest');
+  for (let i = 0; i < LAYERS; i++) {
+    const role = i === 0 ? ' crest__face' : i === last ? ' crest__back' : '';
+    const edge = Math.abs(i - last / 2) / (last / 2); // 0 in the middle of the edge, 1 at a face
+    const img = el('img', `crest__layer${role}`);
+    Object.assign(img, { alt: '', width: 256, height: 308, decoding: 'async', draggable: false });
+    img.sizes = '(max-width: 760px) 62vmin, min(44vmin, 420px)';
+    img.srcset = wrap.dataset.srcset;
+    img.src = wrap.dataset.src;
+    img.style.setProperty('--z', `${(last / 2 - i) * 1.7}px`);
+    img.style.setProperty('--b', (0.42 + 0.5 * edge * edge).toFixed(2));
+    crest.append(img);
+  }
+  crest.append(el('i', 'crest__shine'), el('i', 'crest__shine crest__shine--back'));
+  wrap.style.setProperty('--emblem', `url("${wrap.dataset.emblem}")`);
+  wrap.append(el('i', 'crest__halo'), crest, el('i', 'crest__sparks'), el('i', 'crest__sparks crest__sparks--b'));
+}
+
 export function startAmbient() {
   const host = document.querySelector('[data-ambient]');
   if (!host || host.dataset.on) return;
   host.dataset.on = '1';
   const idle = (fn) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 500));
+  // nothing is drawn before the page has loaded and painted its main picture: the backdrop
+  // fades in afterwards and never delays the first screen
+  const afterLoad = (fn) => (document.readyState === 'complete' ? idle(fn) : addEventListener('load', () => idle(fn), { once: true }));
   // 1. the room: ceiling tubes and floor (redrawn when the window changes size)
-  idle(() => {
+  afterLoad(() => {
     const room = document.createElement('canvas');
     room.className = 'ambient__room';
     drawGarage(room);
@@ -186,15 +214,15 @@ export function startAmbient() {
       });
     });
   });
-  // 3. dust, then the motion: it starts once the page has loaded (never during the first paint)
+  // 3. dust, then the motion
   const go = () =>
     idle(() => {
       const dust = document.createElement('canvas');
       dust.className = 'ambient__dust';
       drawDust(dust);
       host.querySelector('[data-haze]').after(dust);
+      buildCrest(host.querySelector('[data-crest]'));
       host.classList.add('is-live');
     });
-  if (document.readyState === 'complete') go();
-  else addEventListener('load', go, { once: true });
+  afterLoad(go);
 }

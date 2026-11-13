@@ -303,15 +303,27 @@ p {
   color: var(--on-accent);
   box-shadow: 0 14px 34px -18px rgba(227, 178, 80, 0.75), inset 0 1px 0 rgba(255, 248, 225, 0.55), inset 0 -1px 0 rgba(90, 55, 10, 0.35);
   transition: transform 0.3s var(--ease), box-shadow 0.3s ease;
-  /* brushed gold: the metal flows slowly, a light sweep passes now and then */
+}
+/* brushed gold: the metal flows slowly (a band 2.2 times as wide sliding by transform: the
+   compositor moves it, nothing is repainted), a light sweep passes now and then */
+.btn--primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 220%;
+  z-index: -2;
+  pointer-events: none;
+  background: var(--gold-metal);
   animation: gold-flow 7s ease-in-out infinite alternate;
 }
 @keyframes gold-flow {
   from {
-    background-position: 0% 0;
+    transform: translate3d(0, 0, 0);
   }
   to {
-    background-position: 100% 0;
+    transform: translate3d(-54.5455%, 0, 0);
   }
 }
 @keyframes gold-glow {
@@ -858,6 +870,26 @@ p {
   font-size: 0.8rem;
   letter-spacing: 0.04em;
   color: var(--on-dark-muted);
+}
+/* short screens (laptops): the opening copy keeps clear of the bar of tabs under the film (the
+   hint goes, the name scales with the height, the tabs move to the right) */
+@media (min-width: 761px) and (max-height: 860px) {
+  .tour-live .tour .hero-hint {
+    display: none;
+  }
+  .tour-live .film .chapter__brand {
+    font-size: clamp(2.7rem, 10.5vh, 5.6rem);
+  }
+  .tour-live .film .film__tabs ul {
+    justify-content: flex-end;
+  }
+}
+/* and on narrower ones (tablets across), the direct links give way to the tabs, which lead to
+   the same services (the menu lists them too) */
+@media (min-width: 761px) and (max-width: 1199px) and (max-height: 860px) {
+  .tour-live .film .hero-quick {
+    display: none;
+  }
 }
 .hero-hint__mouse {
   position: relative;
@@ -1774,6 +1806,18 @@ p {
 .zone-grid span {
   color: var(--muted);
   font-size: 0.92rem;
+}
+/* villages without a page of their own: same card, not a link */
+.zone-grid__title {
+  margin: 40px 0 16px;
+  font-size: 1.25rem;
+}
+.zone-grid--plain li {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
 }
 .site-footer__zones {
   columns: 2;
@@ -2934,6 +2978,10 @@ p {
 .brands {
   overflow: hidden;
   color: var(--on-dark);
+  /* far down the page: not laid out, and its logos (CSS masks) not downloaded, until it nears
+     the screen */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 340px;
 }
 .brands__head {
   max-width: 720px;
@@ -4431,6 +4479,7 @@ p {
 @media (prefers-reduced-motion: reduce) {
   .marquee__track,
   .btn--primary,
+  .btn--primary::before,
   .btn--primary::after,
   .site-nav__sub li,
   .site-nav__list.is-open > li {
@@ -4734,7 +4783,8 @@ p {
   left: 74%;
   top: 52%;
   width: min(44vmin, 420px);
-  aspect-ratio: 256 / 280;
+  /* the emblem's own proportions (public/img/brand/embleme-*.webp: 256 × 308) */
+  aspect-ratio: 256 / 308;
   translate: -50% -50%;
   perspective: 1200px;
   opacity: 0;
@@ -4768,22 +4818,45 @@ p {
 .crest__back {
   transform: translateZ(var(--z)) rotateY(180deg);
 }
-/* light sweeping each face, cut to the emblem's shape */
+/* light sweeping each face, cut to the emblem's shape: the band (::before, 2.8 times as wide)
+   slides under the mask by transform, so the compositor moves it without repainting */
 .crest__shine {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   transform: translateZ(15.6px);
   backface-visibility: hidden;
-  background: linear-gradient(115deg, transparent 30%, rgba(255, 246, 214, 0.15) 40%, rgba(255, 250, 230, 0.95) 48%, rgba(255, 246, 214, 0.15) 56%, transparent 66%);
-  background-size: 280% 100%;
   -webkit-mask: var(--emblem) center / 100% 100% no-repeat;
   mask: var(--emblem) center / 100% 100% no-repeat;
   mix-blend-mode: screen;
+}
+.crest__shine::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 280%;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 246, 214, 0.15) 40%, rgba(255, 250, 230, 0.95) 48%, rgba(255, 246, 214, 0.15) 56%, transparent 66%);
+  transform: translate3d(-64.2857%, 0, 0);
   animation: crest-shine 6s ease-in-out infinite;
 }
 .crest__shine--back {
   transform: translateZ(-15.6px) rotateY(180deg);
+}
+.crest__shine--back::before {
   animation-delay: -3s;
+}
+/* nothing moves before the backdrop shows (it fades in once the page has loaded) */
+.crest-wrap,
+.crest-wrap *,
+.crest-wrap *::before {
+  animation-play-state: paused;
+}
+.ambient.is-live:not(.is-paused) .crest-wrap,
+.ambient.is-live:not(.is-paused) .crest-wrap *,
+.ambient.is-live:not(.is-paused) .crest-wrap *::before {
+  animation-play-state: running;
 }
 /* a warm halo breathing behind it */
 .crest__halo {
@@ -4823,11 +4896,11 @@ p {
 @keyframes crest-shine {
   0%,
   30% {
-    background-position: 100% 0;
+    transform: translate3d(-64.2857%, 0, 0);
   }
   62%,
   100% {
-    background-position: 0% 0;
+    transform: translate3d(0, 0, 0);
   }
 }
 @keyframes crest-halo {

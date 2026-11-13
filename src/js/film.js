@@ -4,8 +4,8 @@ import { openFrames } from './film-frames.js';
  * Home film: the scroll moves the video forward and back (content/film.js, section [data-film]).
  * - Once the page has loaded, a light version (about 1 MB) is downloaded and kept in memory: the
  *   film answers the scroll within a second; the sharpest one the screen can show (1080p, 1440p
- *   or 4K, or the 9:16 centre on tall screens) follows in the background and takes over with a
- *   cross-fade. The film is decoded picture by picture and drawn on a canvas (src/js/film-frames.js,
+ *   or 4K, or the 9:16 centre on tall screens, 720p on phones unless the connection is fast)
+ *   downloads once the visitor starts scrolling and takes over with a cross-fade. The film is decoded picture by picture and drawn on a canvas (src/js/film-frames.js,
  *   WebCodecs): the picture follows the scroll at the screen's refresh rate, both ways. Where the
  *   browser cannot do that, the <video> element is moved by seeking (some 20 pictures a second);
  *   the encoding (scripts/film-assets.mjs) has short key-frame intervals, no B-frames.
@@ -51,7 +51,10 @@ export function startFilm(section) {
   // over their whole height (a 16:9 film stretched to their height would be enlarged and soft);
   // then the lightest version that still has a pixel for every pixel of the screen (width drawn,
   // the video covering the stage, × pixel density): 1080p on most computers, 1440p or 4K on
-  // large and Retina screens. Data saver or a 2G link: the light version only.
+  // large and Retina screens. Phones stop at the 720p version (11 MB instead of 22) unless the
+  // browser reports a fast connection. Data saver or a 2G link: the light version only.
+  const c = navigator.connection;
+  const fast = !!c && !c.saveData && c.effectiveType === '4g' && (c.downlink || 0) >= 10;
   const tall = matchMedia('(max-aspect-ratio: 2/3)').matches && !!section.dataset.tallSrcset;
   const parse = (set = '') =>
     set
@@ -69,12 +72,12 @@ export function startFilm(section) {
     const h = r.height || innerHeight;
     const need = (tall ? Math.max(w, (h * 9) / 16) : Math.max(w, (h * 16) / 9)) * Math.min(devicePixelRatio || 1, 3);
     // little memory (2 GB or less): never the largest version, the film is kept in memory
-    const top = navigator.deviceMemory && navigator.deviceMemory <= 2 && list.length > 1 ? list.length - 2 : list.length - 1;
+    let top = navigator.deviceMemory && navigator.deviceMemory <= 2 && list.length > 1 ? list.length - 2 : list.length - 1;
+    if (tall && !fast) top = 0;
     let i = list.findIndex((t) => t.w >= need * 0.9);
     i = i < 0 ? top : Math.min(i, top);
     return list.slice(0, i + 1).reverse().map((t) => t.src);
   };
-  const c = navigator.connection;
   const frugal = !!c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''));
   const preview = tall ? section.dataset.srcPreviewTall : section.dataset.srcPreview;
   const sharps = frugal && preview ? [] : pickSharp();
@@ -270,8 +273,10 @@ export function startFilm(section) {
     template.remove();
     view = first;
     show();
-    // the sharp version, quietly in the background; if the device cannot play it (decoder,
-    // memory), the next smaller one; if none, the light version stays and the film still works
+    // the sharp version, quietly in the background once the visitor starts the film (a visit
+    // that stays on the first screen never downloads it); if the device cannot play it
+    // (decoder, memory), the next smaller one; if none, the light version stays and the film works
+    await engaged;
     for (const src of sharps) {
       if (src === light) return;
       const b = await blobOf(src).catch(() => null);
@@ -288,6 +293,15 @@ export function startFilm(section) {
       return;
     }
   }
+  // the first scroll (a tab, a link to a chapter, the keyboard: all of them scroll)
+  const engaged = new Promise((resolve) => {
+    if (scrollY > 0) return resolve();
+    const go = () => {
+      removeEventListener('scroll', go);
+      resolve();
+    };
+    addEventListener('scroll', go, { passive: true });
+  });
   // the download waits for the page itself (text, images): never in the way of the first screen
   const idle = (fn) => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 300));
   if (document.readyState === 'complete') idle(load);

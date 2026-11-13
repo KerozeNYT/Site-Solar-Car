@@ -178,7 +178,7 @@ export function simTintSimple(ctx, pictures) {
     { value: 'all', label: 'Toutes les vitres', hint: 'hors pare-brise' },
   ];
   const picture = (cls, extra = '') =>
-    `<img class="tsim__img ${cls}" src="${img(first.id, '34', 'rear', 960)}" srcset="${img(first.id, '34', 'rear', 960)} 960w, ${img(first.id, '34', 'rear', 1600)} 1600w" sizes="(min-width: 960px) 58vw, 100vw" width="${size0.w}" height="${size0.h}" alt="${esc(`${first.label} (${first.example}) vue de trois quarts arrière, vitres arrière en surbrillance`)}" decoding="async"${extra}>`;
+    `<img class="tsim__img ${cls}" src="${img(first.id, '34', 'rear', 960)}" srcset="${img(first.id, '34', 'rear', 960)} 960w, ${img(first.id, '34', 'rear', 1600)} 1600w" sizes="(min-width: 960px) 58vw, 100vw" width="${size0.w}" height="${size0.h}" alt="${esc(`${first.label} (${first.example}) vue de trois quarts arrière, vitres arrière en surbrillance`)}" loading="lazy" decoding="async"${extra}>`;
   return `<section class="sim tsim" id="simulateur" data-tint-simple aria-labelledby="tsim-title" data-cars="${esc(JSON.stringify(data))}">
   <div class="container">
     <div class="sim__head">
