@@ -127,7 +127,7 @@ export const home = {
         ctas: [
           { label: 'Demander un devis', href: '/contact/', primary: true },
           // jumps into the film, to the first service (the template adds its second)
-          { label: 'Découvrir l’expérience', href: '#chapitre-headlights', tour: 'headlights' },
+          { label: 'Découvrir l’expérience', href: '#chapitre-detailing', tour: 'detailing' },
         ],
         quick: 'Accès direct',
         hint: 'Faites défiler : la caméra entre dans l’atelier',

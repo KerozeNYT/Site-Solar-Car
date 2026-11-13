@@ -718,6 +718,8 @@ export function homePage(ctx) {
       description: home.seo.description,
       path: '/',
       bodyClass: 'page-home',
+      // the share card: the last picture of the film (scripts/film-assets.mjs)
+      image: '/img/film/og.jpg',
       preload: poster,
       extra: [ld(localBusiness(ctx)), ld(faqLd(home.faq)), ld({ '@context': 'https://schema.org', '@type': 'WebSite', name: b.name, url: abs(b, '/'), inLanguage: 'fr-FR', publisher: { '@id': abs(b, '/#entreprise') } })].join('\n'),
     },

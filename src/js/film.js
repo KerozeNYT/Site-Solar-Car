@@ -9,7 +9,8 @@ import { openFrames } from './film-frames.js';
  *   WebCodecs): the picture follows the scroll at the screen's refresh rate, both ways. Where the
  *   browser cannot do that, the <video> element is moved by seeking (some 20 pictures a second);
  *   the encoding (scripts/film-assets.mjs) has short key-frame intervals, no B-frames.
- * - The video time follows the scroll with some easing; the chapters (copy, links) and the tabs
+ * - The video time follows the scroll directly: the picture moves with the finger or the wheel
+ *   and stops the moment the scroll stops (no easing). The chapters (copy, links) and the tabs
  *   follow the video time, so the words always match the picture.
  * - Before the video is there, each chapter shows its own image: the page reads the same.
  */
@@ -84,14 +85,16 @@ export function startFilm(section) {
   const light = preview || sharps[sharps.length - 1];
 
   // ------------------------------------------------------------- scroll <-> time
-  // Scroll -> time is not linear: each chapter gets the same scroll length (pace.chapter screens,
-  // the opening and the closing their own), the passages between chapters are crossed quickly
-  // (pace.gap), and the first pace.hold screens keep the opening still. Points (time, units)
-  // of a piecewise linear curve, units in screen heights.
+  // The first pace.hold screens keep the opening still. Then either one steady rate
+  // (pace.rate screens per second of film), or each chapter gets the same scroll length
+  // (pace.chapter screens, the opening and the closing their own) and the passages between
+  // chapters are crossed quickly (pace.gap). Points (time, units) of a piecewise linear curve,
+  // units in screen heights.
   const pace = JSON.parse(section.dataset.pace || '{}');
   const curve = [[start, 0]];
   let units = 0;
-  chapters.forEach((c, i) => {
+  if (pace.rate) curve.push([end, (units = (end - start) * pace.rate)]);
+  else chapters.forEach((c, i) => {
     const a = Math.max(start, c.from);
     const b = c.last ? end : Math.min(end, c.to);
     if (i > 0) curve.push([a, (units += pace.gap ?? 0.08)]);
@@ -316,23 +319,17 @@ export function startFilm(section) {
   addEventListener('touchstart', unlock, { passive: true });
 
   // ------------------------------------------------------------- the loop
-  let target = timeAt(scrollY);
-  let current = target;
-  let last = performance.now();
+  let current = timeAt(scrollY);
+  let applied = current;
   function seek() {
     if (ready && view) view.show(current);
   }
   let running = false;
   let visible = false;
-  function frame(now) {
-    const dt = Math.min(0.1, (now - last) / 1000);
-    last = now;
-    target = timeAt(scrollY);
-    // long jumps (tabs, keyboard) cut straight there, otherwise the time eases after the scroll
-    if (Math.abs(target - current) > 6) current = target;
-    else current += (target - current) * (1 - Math.exp(-dt * 7));
-    if (Math.abs(target - current) < 0.002) current = target;
-    apply(current);
+  function frame() {
+    // the picture is where the scroll is: it stops when the scroll stops
+    current = timeAt(scrollY);
+    if (current !== applied) apply((applied = current));
     seek();
     // while the video is loading and the visitor has gone past the opening, say so
     if (!ready) loading.hidden = current < start + 0.8;
@@ -342,7 +339,6 @@ export function startFilm(section) {
   const wake = () => {
     if (running || !visible) return;
     running = true;
-    last = performance.now();
     requestAnimationFrame(frame);
   };
   new IntersectionObserver(([en]) => {
