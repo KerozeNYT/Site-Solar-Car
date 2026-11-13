@@ -40,7 +40,7 @@ Statuts : À faire · En cours · Terminé et testé · Bloqué · En attente de
 | Médiateur de la consommation | Absent (`npm run check`) | Toujours à fournir |
 | Durée de conservation | Durées du référentiel CNIL (3 ans après le dernier contact, factures 10 ans) | À ajuster si l'atelier conserve moins longtemps |
 
-| Optimisation (13/11/2026) | Terminé et testé | CSP dans chaque page + `_headers` / `.htaccess` (en-têtes de sécurité, cache, compression), `security.txt`, workflow durci, Dependabot, 0 vulnérabilité ; vidéo d'accueil allégée sur mobile ; fond animé sans coût au chargement ; 8 pages locales enrichies ; H1 de l'accueil ; photos réelles dans le plan du site (`docs/SECURITE.md`, `docs/SEO-LOCAL.md`) | Lighthouse mobile sur les 30 pages indexables + 4 autres, CSP sans violation sur 34 pages (ordinateur et téléphone), avis Google chargés à l'adresse de l'aperçu | Mise en ligne sur le domaine ; actions hors code de `docs/SEO-LOCAL.md` |
+| Optimisation (13/11/2026) | Terminé et testé | CSP dans chaque page + `_headers` / `.htaccess` (en-têtes de sécurité, cache, compression), `security.txt`, workflow durci, Dependabot, 0 vulnérabilité ; vidéo d'accueil allégée sur mobile ; fond animé sans coût au chargement ; 8 pages locales enrichies ; H1 de l'accueil ; photos réelles dans le plan du site (`docs/SECURITE.md`, `docs/SEO-LOCAL.md`) | Lighthouse mobile sur les 30 pages indexables + 4 autres, CSP de production sans violation ni erreur sur 33 pages (ordinateur et téléphone), formulaire (avec et sans photo), simulateurs 3D, carte, film (fichiers chargés avant et après défilement), avis Google chargés à l'adresse de l'aperçu | Mise en ligne sur le domaine ; actions hors code de `docs/SEO-LOCAL.md` |
 
 ## Avant la mise en production (rappel)
 

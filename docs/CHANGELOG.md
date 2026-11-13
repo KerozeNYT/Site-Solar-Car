@@ -6,7 +6,7 @@
 - Content-Security-Policy dans chaque page (balise meta, valable aussi sur GitHub Pages) :
   seuls le site, FormSubmit et Google (avis) sont autorisés ; le script en ligne de l'en-tête
   l'est par son empreinte ; WebAssembly permis pour décoder les modèles 3D (meshopt).
-  Testée sur les 34 pages, ordinateur et téléphone : aucune violation, avis Google chargés.
+  Testée sur les 33 pages, ordinateur et téléphone : aucune violation, avis Google chargés.
 - Build de production : `_headers` (Netlify, Cloudflare Pages) et `.htaccess` (Apache, OVH) avec
   CSP complète (frame-ancestors), HSTS, nosniff, X-Frame-Options, Referrer-Policy,
   Permissions-Policy, COOP ; cache d'un an pour les fichiers à empreinte, d'une semaine pour
