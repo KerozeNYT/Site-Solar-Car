@@ -15,11 +15,14 @@
  *   GOOGLE_SERVICE_ACCOUNT (secret) JSON key of the service account the calendars are shared with
  *   STRIPE_SECRET_KEY      (secret)
  *   STRIPE_WEBHOOK_SECRET  (secret)
+ *   RESEND_API_KEY         (secret) e-mails of a confirmed booking (booking/mail.js); none without it
+ *   NOTIFY_TO, MAIL_FROM, MAIL_CLIENTS   who is told, from which address, and whether clients are
  */
 import { bookingRules as R, quote, amountDue, formatDuration } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents } from './google.js';
 import { createSession, getSession, verifyWebhook } from './stripe.js';
+import { sendBookingMails } from './mail.js';
 
 const DAY = 86400000;
 const list = (s) => (s || '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -111,19 +114,24 @@ async function confirm(env, session) {
     colorId: '9',
     extendedProperties: { private: { solarcarHold: '0', session: session.id, paid: String(paid) } },
   };
-  let ev = m.event ? await getEvent(env, env.CALENDAR_WRITE, m.event).catch(() => null) : null;
-  if (ev && ev.status !== 'cancelled') {
-    if (ev.extendedProperties?.private?.solarcarHold === '0') return ev; // already confirmed
-    return patchEvent(env, env.CALENDAR_WRITE, ev.id, body);
-  }
-  // the held slot is gone (should not happen): the appointment is written all the same, flagged
   const span = jobSpan(m.date, m.time, q.minutes, R);
-  return insertEvent(env, env.CALENDAR_WRITE, {
-    ...body,
-    summary: `⚠ À vérifier — ${body.summary}`,
-    start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone },
-    end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
-  });
+  const ev = m.event ? await getEvent(env, env.CALENDAR_WRITE, m.event).catch(() => null) : null;
+  let out;
+  if (ev && ev.status !== 'cancelled') {
+    if (ev.extendedProperties?.private?.solarcarHold === '0') return ev; // already confirmed (and e-mailed)
+    out = await patchEvent(env, env.CALENDAR_WRITE, ev.id, body);
+  } else {
+    // the held slot is gone (should not happen): the appointment is written all the same, flagged
+    out = await insertEvent(env, env.CALENDAR_WRITE, {
+      ...body,
+      summary: `⚠ À vérifier — ${body.summary}`,
+      start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone },
+      end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
+    });
+  }
+  // « Nouveau RDV » to the workshop, the confirmation to the client (never fails the booking)
+  await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id }).catch((err) => console.error('[mail]', err));
+  return out;
 }
 
 async function slots(req, env, url, now) {

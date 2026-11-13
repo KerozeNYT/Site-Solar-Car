@@ -3,6 +3,7 @@
 export function installFakes(calendars, { checkoutUrl = () => 'https://checkout.stripe.com/c/pay/x' } = {}) {
   const cal = Object.fromEntries(Object.values(calendars).map((id) => [id, []]));
   const sessions = new Map();
+  const mails = [];
   let nextId = 1;
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (input, init = {}) => {
@@ -48,6 +49,11 @@ export function installFakes(calendars, { checkoutUrl = () => 'https://checkout.
         return new Response(null, { status: 204 });
       }
     }
+    if (url.host === 'api.resend.com') {
+      if (!/^Bearer re_/.test(init.headers.authorization)) return ok({ message: 'API key is invalid' }, 401);
+      mails.push(JSON.parse(body));
+      return ok({ id: `mail${mails.length}` });
+    }
     if (url.host === 'api.stripe.com') {
       if (!/^Bearer sk_/.test(init.headers.authorization)) throw new Error('no stripe key');
       if (method === 'POST' && url.pathname === '/v1/checkout/sessions') {
@@ -75,5 +81,5 @@ export function installFakes(calendars, { checkoutUrl = () => 'https://checkout.
     }
     return realFetch(input, init);
   };
-  return { cal, sessions };
+  return { cal, sessions, mails };
 }

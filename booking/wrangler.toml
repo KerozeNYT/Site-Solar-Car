@@ -4,6 +4,7 @@
 #                               npx wrangler secret put GOOGLE_SERVICE_ACCOUNT
 #                               npx wrangler secret put STRIPE_SECRET_KEY
 #                               npx wrangler secret put STRIPE_WEBHOOK_SECRET
+#                               npx wrangler secret put RESEND_API_KEY
 name = "solarcar37-reservation"
 main = "worker.js"
 compatibility_date = "2026-10-01"
@@ -18,3 +19,13 @@ CALENDAR_WRITE = "contact.solarcar37@gmail.com"
 # 37 and PERSO. Stored as a secret (the PERSO calendar id stays private):
 #   npx wrangler secret put CALENDARS_BUSY
 #   contact.solarcar37@gmail.com,contact.solarhome37@gmail.com,<id of the PERSO calendar>
+
+# e-mails of a confirmed booking (booking/mail.js, Resend): « Nouveau RDV » to the workshop
+NOTIFY_TO = "contact.solarcar37@gmail.com"
+# the sender: Resend's test sender until solarcar37.fr is verified in Resend (it can only write
+# to the Resend account's own address), then "SOLAR CAR 37 <reservation@solarcar37.fr>"
+MAIL_FROM = "SOLAR CAR 37 <onboarding@resend.dev>"
+# "1": the client gets the confirmation too (needs the verified domain)
+MAIL_CLIENTS = "0"
+# where the links of the e-mails lead (the preview until the site is on solarcar37.fr)
+SITE_URL = "https://kerozenyt.github.io/Site-Solar-Car"

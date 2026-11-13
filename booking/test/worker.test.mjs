@@ -22,10 +22,14 @@ const env = {
   GOOGLE_SERVICE_ACCOUNT: JSON.stringify({ client_email: 'booking@x.iam.gserviceaccount.com', private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }), token_uri: 'https://oauth2.googleapis.com/token' }),
   STRIPE_SECRET_KEY: 'sk_test_x',
   STRIPE_WEBHOOK_SECRET: WHSEC,
+  RESEND_API_KEY: 're_test',
+  NOTIFY_TO: 'contact.solarcar37@gmail.com',
+  MAIL_FROM: 'SOLAR CAR 37 <reservation@solarcar37.fr>',
+  MAIL_CLIENTS: '1',
 };
 
 // ------------------------------------------------------------------ fake Google + Stripe
-const { cal, sessions } = installFakes({ CAR, HOME, PERSO });
+const { cal, sessions, mails } = installFakes({ CAR, HOME, PERSO });
 // ------------------------------------------------------------------ helpers
 const call = (path, { method = 'GET', body, headers = {} } = {}) =>
   worker.fetch(new Request(`https://reservation.solarcar37.fr${path}`, { method, body: body && JSON.stringify(body), headers: { origin: ORIGIN, 'content-type': 'application/json', ...headers } }), env);
@@ -99,6 +103,20 @@ test('webhook: bad signature refused, paid session confirms the appointment', as
   assert.match(ev.summary, /^RDV Vitres teintées 3\/4 arrière — Jean Martin/);
   assert.match(ev.description, /Payé en ligne : 81 € \(acompte 30 %\) — reste à régler : 189 €/);
   assert.match(ev.description, /Téléphone : 06 12 34 56 78/);
+  // the e-mails: « Nouveau RDV » to the workshop, the confirmation (with the .ics) to the client
+  assert.equal(mails.length, 2);
+  const [shop, client] = mails;
+  assert.deepEqual(shop.to, ['contact.solarcar37@gmail.com']);
+  assert.match(shop.subject, /^Nouveau RDV — Jean Martin — \S+ \d+ \S+ à 10 h 00$/);
+  assert.match(shop.html, /06 12 34 56 78/);
+  assert.match(shop.html, /Reste à régler.*189 €/s);
+  assert.equal(shop.reply_to, 'jean@example.com');
+  assert.deepEqual(client.to, ['jean@example.com']);
+  assert.match(client.subject, /^Votre rendez-vous du .* à 10 h 00 est confirmé$/);
+  assert.match(Buffer.from(client.attachments[0].content, 'base64').toString(), /BEGIN:VEVENT[\s\S]*DTSTART:\d{8}T\d{6}Z/);
+  // a second notice of the same payment: no new appointment, no new e-mail
+  await hook({ type: 'checkout.session.completed', data: { object: s } });
+  assert.equal(mails.length, 2);
   // the confirmation page
   const b = await (await call(`/api/booking?session=${sessionId}`)).json();
   assert.deepEqual([b.paid, b.amount, b.remaining, b.time], [true, 81, 189, '10:00']);
