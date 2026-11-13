@@ -52,7 +52,13 @@ serveur de réservation (Cloudflare Worker, dossier booking/)
   après le paiement).
 - Boutons « Prendre RDV » : accueil (haut de page, fin du film), Vitres teintées, Feux teintés,
   simulateurs, page Contact. La teinte n'est pas demandée : elle se choisit à l'atelier.
-- Reste : passer Stripe en réel (clé et webhook du mode réel dans Cloudflare), régénérer le jeton
+- Stripe en **mode réel** depuis le 14 novembre 2026 (paiement réel de 36 € réussi, remboursé).
+- E-mails (`booking/mail.js`, Resend, compte contact.solarcar37@gmail.com, secret
+  `RESEND_API_KEY`) : « Nouveau RDV » envoyé à contact.solarcar37@gmail.com à chaque réservation
+  payée. La confirmation au client (`MAIL_CLIENTS = "1"`) attend la vérification du domaine
+  solarcar37.fr dans Resend : le domaine est chez local.fr jusqu'à la fin du contrat (décembre
+  2026) ; ensuite `MAIL_FROM = "SOLAR CAR 37 <reservation@solarcar37.fr>"` et redéployer.
+- Reste (ancien point, fait pour Stripe) : passer Stripe en réel (clé et webhook du mode réel dans Cloudflare), régénérer le jeton
   Cloudflare et la clé Google (passés dans une conversation), faire relire les conditions.
 
 ## Mise en service (à faire une fois)
