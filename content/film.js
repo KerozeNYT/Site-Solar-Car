@@ -25,23 +25,26 @@ export const film = {
   gop: 8,
   // scroll pace, in screen heights: the first `hold` keeps the opening still, then the film
   // follows the scroll at one steady rate (`rate` screens per second of film: 0.16 → about
-  // 7.5 screens for the whole film), the picture stopping the moment the scroll stops
-  pace: { hold: 0.15, rate: 0.16 },
-  // the light version answers the scroll within a second, then the sharpest version the screen
-  // can show takes over once downloaded (src/js/film.js picks it from the width drawn × pixel
-  // density, and downloads it at the visitor's first scroll): 1080p, 1440p or 4K on wide
+  // 7.5 screens for the whole film). `glide` (s): with a mouse, the picture follows the wheel
+  // with that lag, so it keeps moving gently a moment after the last notch and settles; under
+  // the finger (phones, tablets) it follows the scroll exactly, the touch scroll having its own
+  // momentum
+  pace: { hold: 0.15, rate: 0.16, glide: 0.3 },
+  // the light version (540p) answers the scroll within a second or two, then the sharpest version
+  // the screen can show takes over once downloaded (src/js/film.js picks it from the width drawn ×
+  // pixel density, and downloads it at once on computers, at the first scroll on phones): 1080p, 1440p or 4K on wide
   // screens; tall screens (phones, tablets upright) get the 9:16 film, the 720p version unless
   // the browser reports a fast connection. `crf`: encoding quality used by
   // scripts/film-assets.mjs (lower = sharper and heavier). File names carry the film version:
   // a new film never comes from a visitor's cache of the previous one.
   sources: {
-    preview: '/video/accueil-v5-360p.mp4',
+    preview: '/video/accueil-v5-540p.mp4',
     wide: [
       { src: '/video/accueil-v5-1080p.mp4', w: 1920, crf: 25 },
       { src: '/video/accueil-v5-1440p.mp4', w: 2560, crf: 27 },
       { src: '/video/accueil-v5-2160p.mp4', w: 3840, crf: 29 },
     ],
-    previewTall: '/video/accueil-v5-mobile-360.mp4',
+    previewTall: '/video/accueil-v5-mobile-540.mp4',
     tall: [
       { src: '/video/accueil-v5-mobile-720.mp4', w: 720, h: 1280, crf: 26 },
       { src: '/video/accueil-v5-mobile-1080.mp4', w: 1080, h: 1920, crf: 26 },

@@ -2,15 +2,18 @@ import { openFrames } from './film-frames.js';
 
 /**
  * Home film: the scroll moves the video forward and back (content/film.js, section [data-film]).
- * - Once the page has loaded, a light version (about 1 MB) is downloaded and kept in memory: the
- *   film answers the scroll within a second; the sharpest one the screen can show (1080p, 1440p
- *   or 4K, or the 9:16 centre on tall screens, 720p on phones unless the connection is fast)
- *   downloads once the visitor starts scrolling and takes over with a cross-fade. The film is decoded picture by picture and drawn on a canvas (src/js/film-frames.js,
+ * - Once the page has loaded, a light version (540p, about 4 MB) is downloaded and kept in
+ *   memory: the film answers the scroll within a second or two; the sharpest one the screen can
+ *   show (1080p, 1440p or 4K, or the 9:16 film on tall screens, 720p on phones unless the
+ *   connection is fast) follows at once on computers, at the first scroll on phones, and takes
+ *   over with a cross-fade. Until the visitor scrolls, the opening image stays on screen: it is
+ *   the film's first picture at full sharpness, the video would show it softer. The film is decoded picture by picture and drawn on a canvas (src/js/film-frames.js,
  *   WebCodecs): the picture follows the scroll at the screen's refresh rate, both ways. Where the
  *   browser cannot do that, the <video> element is moved by seeking (some 20 pictures a second);
  *   the encoding (scripts/film-assets.mjs) has short key-frame intervals, no B-frames.
- * - The video time follows the scroll directly: the picture moves with the finger or the wheel
- *   and stops the moment the scroll stops (no easing). The chapters (copy, links) and the tabs
+ * - The video time follows the scroll: exactly under the finger (the touch scroll has its own
+ *   momentum); with a mouse, a little behind the wheel (pace.glide), so the picture keeps
+ *   moving gently after the last notch and settles. The chapters (copy, links) and the tabs
  *   follow the video time, so the words always match the picture.
  * - Before the video is there, each chapter shows its own image: the page reads the same.
  */
@@ -163,13 +166,16 @@ export function startFilm(section) {
   }
 
   // ------------------------------------------------------------- the picture
-  // 1. the light version (about 1 MB) answers the scroll within a second; 2. the sharp one
-  // (phone or computer) downloads behind it and takes over with a cross-fade, at the same moment.
+  // 1. the light version answers the scroll within a second or two; 2. the sharp one (phone or
+  // computer) downloads behind it and takes over with a cross-fade, at the same moment. The
+  // opening image (the film's first picture, from the 4K master) stays over them until the
+  // visitor scrolls: sharper than any video frame.
   // A view shows the film at a given time: { el, show(t, force), ready(t), close() }.
   let view = null;
-  let ready = false;
+  let loaded = false; // a version of the film is on the stage, under the opening image
+  let ready = false; // the film is shown
   const show = () => {
-    if (ready) return;
+    if (ready || !loaded) return;
     ready = true;
     section.classList.add('is-ready');
     loading.hidden = true;
@@ -275,11 +281,13 @@ export function startFilm(section) {
     }
     template.remove();
     view = first;
-    show();
-    // the sharp version, quietly in the background once the visitor starts the film (a visit
-    // that stays on the first screen never downloads it); if the device cannot play it
-    // (decoder, memory), the next smaller one; if none, the light version stays and the film works
-    await engaged;
+    loaded = true;
+    if (current > start + 0.01) show();
+    // the sharp version, quietly in the background: at once on computers, once the visitor starts
+    // the film on phones (a phone visit that stays on the first screen never downloads it); if
+    // the device cannot play it (decoder, memory), the next smaller one; if none, the light
+    // version stays and the film works
+    if (tall) await engaged;
     for (const src of sharps) {
       if (src === light) return;
       const b = await blobOf(src).catch(() => null);
@@ -321,15 +329,28 @@ export function startFilm(section) {
   // ------------------------------------------------------------- the loop
   let current = timeAt(scrollY);
   let applied = current;
+  // with a mouse (and motion allowed): the picture glides after the wheel
+  const glide = matchMedia('(pointer: fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches ? pace.glide || 0 : 0;
+  let last = 0;
   function seek() {
     if (ready && view) view.show(current);
   }
   let running = false;
   let visible = false;
-  function frame() {
-    // the picture is where the scroll is: it stops when the scroll stops
-    current = timeAt(scrollY);
+  function frame(now) {
+    const target = timeAt(scrollY);
+    const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
+    last = now;
+    // the picture follows the scroll, gliding behind the wheel with a mouse; long jumps (tabs,
+    // keyboard) cut straight there
+    if (!glide || Math.abs(target - current) > 6) current = target;
+    else {
+      current += (target - current) * (1 - Math.exp(-dt / glide));
+      if (Math.abs(target - current) < 0.003) current = target;
+    }
     if (current !== applied) apply((applied = current));
+    // the film takes over from the opening image as soon as the picture moves
+    if (!ready && loaded && current > start + 0.01) show();
     seek();
     // while the video is loading and the visitor has gone past the opening, say so
     if (!ready) loading.hidden = current < start + 0.8;
@@ -339,6 +360,7 @@ export function startFilm(section) {
   const wake = () => {
     if (running || !visible) return;
     running = true;
+    last = 0;
     requestAnimationFrame(frame);
   };
   new IntersectionObserver(([en]) => {

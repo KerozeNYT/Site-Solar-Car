@@ -63,10 +63,10 @@ const tallVf = (fps, w, h) => (tallSrc ? vf(fps, scale(w, h)) : vf(fps, TALL, sc
 
 const S = film.sources;
 const jobs = [
-  // the light versions: 24 pictures a second (half the weight), a key frame every 12
-  [S.preview, input, vf(24, scale(640, 360)), 30, 12],
+  // the light versions (540p): 24 pictures a second, a key frame every 12, more compressed
+  [S.preview, input, vf(24, scale(960, 540)), 32, 12],
   ...S.wide.map((t) => [t.src, input, vf(FPS, scale(t.w, Math.round((t.w * 9) / 16))), t.crf]),
-  [S.previewTall, tallInput, tallVf(24, 360, 640), 30, 12],
+  [S.previewTall, tallInput, tallVf(24, 540, 960), 32, 12],
   ...S.tall.map((t) => [t.src, tallInput, tallVf(FPS, t.w, t.h), t.crf]),
 ];
 fs.mkdirSync(path.join(root, 'public/video'), { recursive: true });

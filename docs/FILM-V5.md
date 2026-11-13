@@ -115,8 +115,11 @@ node scripts/film-assets.mjs wide.mp4 --tall=tall.mp4
   et 7 (image 75, portière → habitacle) : adoucies en fondu de 0,5 s sans changer la durée.
 - Début des plans : 0 · 7,04 · 12,54 · 17,58 · 22,08 · 29,13 · 34,13 · 40,13 s.
 - Défilement : la vidéo suit le défilement à vitesse constante (0,16 écran par seconde de film,
-  environ 7,5 écrans), sans lissage : l'image s'arrête dès que le défilement s'arrête
-  (`src/js/film.js`). Les fichiers portent la version du film (`accueil-v5-…`) : aucun visiteur
+  environ 7,5 écrans). Au doigt (téléphone), l'image suit exactement le défilement ; à la souris,
+  elle glisse doucement derrière la molette (0,3 s) et se pose (`pace.glide`, `src/js/film.js`).
+- Ouverture : l'image du début (tirée du master 4K) reste à l'écran jusqu'au premier défilement ;
+  la version légère (540p, 3,5 Mo) prend le relais au défilement, puis la version nette (dès
+  l'ouverture sur ordinateur, au premier défilement sur téléphone). Les fichiers portent la version du film (`accueil-v5-…`) : aucun visiteur
   ne revoit l'ancien film depuis son cache.
 - Ordre des chapitres à l'écran : accueil (lavage) → detailing (polissage) → phares → covering
   (capot carbone) → feux arrière → vitres teintées → ciel étoilé → final.
