@@ -14,8 +14,10 @@ export const film = {
   // length of the video (s) and second shown at the very top of the page
   duration: 46.125,
   start: 0,
-  // second of the film used for the home page's share card (public/img/film/og.jpg, 1200×630)
-  share: 45,
+  // the home page's share card (public/img/film/og.jpg, 1200×630): a second of the film, or a
+  // picture file. For now the retouched last picture: the wide shot 8 shows a wrong « GT3 CAR »
+  // lettering (docs/FILM-V5.md); back to a second (45) once shot 8 is generated again
+  share: 'assets-src/film/final-corrige.jpg',
   // pictures per second of the film (the generated shots are 24)
   fps: 24,
   // a key frame every `gop` pictures: stepping back costs at most that many decoded pictures
@@ -83,7 +85,8 @@ export const film = {
       readout: { label: 'Lumière transmise à l’arrière', unit: '%', keys: [[30.4, 70], [33.2, 5]] },
     },
     { id: 'stars', tab: 'Ciel étoilé', from: 37.7, to: 41.6, still: 40, alt: 'Habitacle de la Porsche sous un ciel étoilé en fibre optique, sièges baquets au premier plan, étoiles filantes' },
-    { id: 'final', from: 43, to: 46.125, still: 45, alt: 'Porsche 911 GT3 RS blanche de trois quarts avant dans le garage, phares allumés, capot carbone, marquage SOLAR CAR et plaque SOLAR CAR 37' },
+    // wideStill: the retouched last picture (true SOLAR CAR lettering) until shot 8 is redone
+    { id: 'final', from: 43, to: 46.125, still: 45, wideStill: 'assets-src/film/final-corrige.jpg', alt: 'Porsche 911 GT3 RS blanche de trois quarts avant dans le garage, phares allumés, capot carbone, marquage SOLAR CAR et plaque SOLAR CAR 37' },
   ],
 };
 

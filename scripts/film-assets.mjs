@@ -16,7 +16,8 @@
 //     `sources.tall` versions.
 // - public/img/film/<chapter>-960|1600|2560.webp, -1600.jpg and -tall-720|1080.webp: one image
 //   per chapter (its `still` second) for the page before the video is loaded, without
-//   JavaScript and with reduced motion; og.jpg: the home page's share card (`film.share`).
+//   JavaScript and with reduced motion (a chapter's `wideStill`: a retouched photo instead of the
+//   film's picture); og.jpg: the home page's share card (`film.share`).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -81,7 +82,9 @@ fs.mkdirSync(imgDir, { recursive: true });
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'film-'));
 for (const c of chapters) {
   let still;
-  if (frames) still = src.replace(/%0?(\d*)d/, (m, n) => String(Math.round(c.still * FPS)).padStart(Number(n) || 0, '0'));
+  // a chapter whose wide picture is a retouched photo (content/film.js `wideStill`)
+  if (c.wideStill) still = path.join(root, c.wideStill);
+  else if (frames) still = src.replace(/%0?(\d*)d/, (m, n) => String(Math.round(c.still * FPS)).padStart(Number(n) || 0, '0'));
   else {
     still = path.join(tmp, `${c.id}.png`);
     run(['-ss', String(c.still), '-i', src, '-frames:v', '1', still]);
@@ -107,8 +110,10 @@ for (const c of chapters) {
 }
 // the home page's share card (social networks, messaging apps): 1200×630 from the wide film
 if (film.share != null && wanted('share')) {
-  const card = path.join(tmp, 'share.png');
-  if (frames) fs.copyFileSync(src.replace(/%0?(\d*)d/, (m, n) => String(Math.round(film.share * FPS)).padStart(Number(n) || 0, '0')), card);
+  let card = path.join(tmp, 'share.png');
+  // a picture file (a retouched photo) or a second of the film
+  if (typeof film.share === 'string') card = path.join(root, film.share);
+  else if (frames) fs.copyFileSync(src.replace(/%0?(\d*)d/, (m, n) => String(Math.round(film.share * FPS)).padStart(Number(n) || 0, '0')), card);
   else run(['-ss', String(film.share), '-i', src, '-frames:v', '1', card]);
   await sharp(card).resize(1200, 630, { fit: 'cover' }).jpeg({ quality: 82, mozjpeg: true }).toFile(path.join(imgDir, 'og.jpg'));
   console.log('carte de partage : img/film/og.jpg');
