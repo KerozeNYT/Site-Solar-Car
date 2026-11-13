@@ -66,3 +66,8 @@ finale une fois le mouvement validé.
   donnait que la lecture (crédits, modèles, galerie) ; pour générer directement depuis une session,
   autoriser les outils de génération du connecteur (claude.ai → Connecteurs → Higgsfield →
   permissions) puis ouvrir une nouvelle session.
+- Étape 2 préparée (même page guide) : 8 plans Seedance 2.5 en mode image de départ + image de
+  fin (photo Kn → photo Kn+1), son coupé, brouillon 480p puis finalisation du brouillon en 4K
+  (16:9) ou 1080p (9:16). Durées : plan 1 lavage 7 s, 2 polissage 6 s, 3 phare 5 s, 4 capot
+  carbone 5 s, 5 survol et feux arrière 7 s, 6 vitres 5 s, 7 ciel étoilé 6 s, 8 final 6 s
+  (47 s). Commencer par le plan 1 en brouillon et noter son coût avant de continuer.
