@@ -20,6 +20,7 @@ export function startTintSimple(section) {
   const noteEl = section.querySelector('[data-price-note]');
   const law = section.querySelector('[data-law]');
   const quote = section.querySelector('[data-quote]');
+  const book = section.querySelector('[data-book]');
   const layout = section.querySelector('.tsim__layout');
   const three = document.getElementById('simulateur-3d');
   // the site may live in a sub-folder: take the prefix from the first picture
@@ -66,6 +67,11 @@ export function startTintSimple(section) {
     url.searchParams.set('vehicule', `${car.label} (${car.example})`);
     url.searchParams.set('config', config);
     quote.href = url.pathname + url.search;
+    // online booking of this very configuration (not for a vehicle priced on quote)
+    if (book) {
+      book.hidden = p == null;
+      book.href = `${book.pathname}?prestation=vitres&vehicule=${encodeURIComponent(car.id)}&formule=${{ rear: 'rear', front: 'front', all: 'full' }[zone]}`;
+    }
   }
   form.addEventListener('change', update);
   form.addEventListener('submit', (e) => e.preventDefault());

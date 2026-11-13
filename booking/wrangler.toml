@@ -1,0 +1,20 @@
+# SOLAR CAR 37 booking server (Cloudflare Worker). Setup: docs/RESERVATION.md
+#   cd booking && npx wrangler deploy
+# Secrets (never in this file): npx wrangler secret put CALENDARS_BUSY
+#                               npx wrangler secret put GOOGLE_SERVICE_ACCOUNT
+#                               npx wrangler secret put STRIPE_SECRET_KEY
+#                               npx wrangler secret put STRIPE_WEBHOOK_SECRET
+name = "solarcar37-reservation"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+# the sites allowed to call the API (production and the GitHub Pages preview)
+ALLOWED_ORIGINS = "https://www.solarcar37.fr,https://solarcar37.fr,https://kerozenyt.github.io"
+# appointments are written here (SOLAR CAR 37)
+CALENDAR_WRITE = "contact.solarcar37@gmail.com"
+# a slot is free only if all the calendars of CALENDARS_BUSY are free: SOLAR CAR 37, SOLAR HOME
+# 37 and PERSO. Stored as a secret (the PERSO calendar id stays private):
+#   npx wrangler secret put CALENDARS_BUSY
+#   contact.solarcar37@gmail.com,contact.solarhome37@gmail.com,<id of the PERSO calendar>

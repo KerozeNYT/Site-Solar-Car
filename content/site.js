@@ -84,10 +84,7 @@ export const business = {
   // Form" e-mail to that address, to click once. After activation FormSubmit e-mails a random
   // alias: it can replace the address below. When null the form opens the visitor's e-mail app.
   formEndpoint: 'https://formsubmit.co/contact@solarcar37.fr',
-  // Online booking: the public link of the booking page (e.g. Cal.com, which checks the free /
-  // busy times of several Google calendars: SOLAR CAR and SOLAR HOME). When set, the contact
-  // page shows « Réserver un créneau » with the booking page embedded; null = not shown.
-  bookingUrl: null,
+  // Online booking: content/booking.js (the site's own booking page and server)
 };
 
 // Header menu. `services: true` = a "Nos prestations" drop-down listing the service pages.

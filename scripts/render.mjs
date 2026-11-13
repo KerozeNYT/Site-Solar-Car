@@ -20,6 +20,20 @@ export async function renderSite(out, assets) {
   const flight = await load('content/flight.js');
   const { film } = await load('content/film.js');
   const pricing = await load('content/pricing.js');
+  const B = await load('content/booking.js');
+  // what the booking page offers (content/booking.js, prices from content/pricing.js)
+  const booking = {
+    // BOOKING_API: a local booking server for tests (booking/dev-server.mjs)
+    bookingRules: { ...B.bookingRules, api: process.env.BOOKING_API ?? B.bookingRules.api },
+    tintFormulas: B.tintFormulas,
+    bookableVehicles: B.bookableVehicles,
+    lightsBooking: B.lightsBooking,
+    windshieldMinutes: B.windshieldMinutes,
+    windshieldFilms: pricing.tint.windshield.films,
+    windshieldColors: pricing.tint.windshield.colors,
+    tintShades: pricing.tint.shades,
+    lightShades: pricing.lights.shades,
+  };
   const vehicles = (await load('content/vehicles.js')).default;
   const { guides, guidesPage } = await load('content/guides.js');
   const { zones, zonesPage, zonesListed } = await load('content/zones.js');
@@ -47,13 +61,16 @@ export async function renderSite(out, assets) {
   const photoDir = path.join(root, 'public', 'img', 'realisations');
   const photoIds = new Set(fs.existsSync(photoDir) ? fs.readdirSync(photoDir).filter((f) => f.endsWith('-1280.webp')).map((f) => f.slice(0, -'-1280.webp'.length)) : []);
   const ogIds = new Set(fs.existsSync(photoDir) ? fs.readdirSync(photoDir).filter((f) => f.endsWith('-og.jpg')).map((f) => f.slice(0, -'-og.jpg'.length)) : []);
-  const ctx = { ...site, nav, photoIds, ogIds, car, assets, film, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, zonesListed, realisations, realisationsPage };
+  const ctx = { ...site, nav, photoIds, ogIds, car, assets, film, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, zonesListed, realisations, realisationsPage, booking };
 
   const pages = [
     ['index.html', T.homePage(ctx)],
     ['contact/index.html', T.contactPage(ctx)],
     ['contact/merci/index.html', T.thanksPage(ctx)],
     ['mentions-legales/index.html', T.legalPage(ctx)],
+    ['reservation/index.html', T.reservationPage(ctx)],
+    ['reservation/confirmee/index.html', T.reservationDonePage(ctx)],
+    ['conditions-reservation/index.html', T.bookingTermsPage(ctx)],
     ['404.html', T.notFoundPage(ctx)],
     ['design/style-tile/index.html', styleTile.styleTilePage(ctx)],
     ['design/visite-3d/index.html', T.tourDemoPage(ctx)],
@@ -98,6 +115,8 @@ export async function renderSite(out, assets) {
     ...site.services.map((s) => [`/${s.slug}/`, '0.9', s.still]),
     ['/atelier-vouvray/', '0.8', 'final'],
     ['/contact/', '0.8', null],
+    // online booking, once its server is deployed (content/booking.js `api`)
+    ...(booking.bookingRules.api ? [['/reservation/', '0.8', null], ['/conditions-reservation/', '0.2', null]] : []),
     ...(realisations.length ? [['/realisations/', '0.7', null]] : []),
     ['/guides/', '0.6', null],
     ...guides.map((g) => [`/guides/${g.slug}/`, '0.6', g.still, g.updated]),

@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { bookingRules } from '../content/booking.js';
 
 const origin = (u) => {
   try {
@@ -47,7 +48,8 @@ export function policy(business, hashes) {
   const form = origin(business.formEndpoint);
   const google = !!(business.google?.placeId && business.google?.mapsApiKey);
   const insta = origin(business.instagramFeed?.feedUrl);
-  const booking = origin(business.bookingUrl);
+  // the booking server (content/booking.js; BOOKING_API overrides it for local tests)
+  const booking = origin(process.env.BOOKING_API ?? bookingRules.api);
   const d = {
     'default-src': ["'self'"],
     // 'wasm-unsafe-eval': the 3D models are compressed (meshopt), decoded by WebAssembly
@@ -58,10 +60,10 @@ export function policy(business, hashes) {
     'img-src': ["'self'", 'data:', 'blob:', google && 'https://*.googleusercontent.com', google && 'https://maps.gstatic.com', google && 'https://maps.googleapis.com', insta && 'https:'],
     'font-src': ["'self'", google && 'https://fonts.gstatic.com'],
     // the film is read into memory (blob:) and the 3D textures decoded from blob: URLs
-    'connect-src': ["'self'", 'blob:', form, google && 'https://maps.googleapis.com', google && 'https://places.googleapis.com', insta],
+    'connect-src': ["'self'", 'blob:', form, booking, google && 'https://maps.googleapis.com', google && 'https://places.googleapis.com', insta],
     'media-src': ["'self'", 'blob:'],
     'worker-src': ["'self'", 'blob:'],
-    'frame-src': booking ? [booking] : ["'none'"],
+    'frame-src': ["'none'"],
     'manifest-src': ["'self'"],
     'form-action': ["'self'", form],
     'base-uri': ["'self'"],

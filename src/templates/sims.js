@@ -220,7 +220,8 @@ export function simTintSimple(ctx, pictures) {
         </div>
         <p class="tsim__law" data-law hidden>À l’avant, la loi impose au moins ${glazing.frontMin} % de lumière, vitre et film compris : seul un film très clair convient, contrôlé sur votre véhicule. Les vitres arrière et la lunette peuvent être aussi foncées que vous le souhaitez (${tint.shades.join(', ')} %, toutes au même prix).</p>
         <div class="ctas">
-          <a class="btn btn--primary" href="/contact/?prestation=vitres-teintees" data-quote>Demander ce devis</a>
+          ${ctx.booking?.bookingRules.api ? '<a class="btn btn--primary" href="/reservation/?prestation=vitres" data-book>Réserver en ligne</a>' : ''}
+          <a class="btn ${ctx.booking?.bookingRules.api ? 'btn--ghost' : 'btn--primary'}" href="/contact/?prestation=vitres-teintees" data-quote>Demander ce devis</a>
           <button type="button" class="btn btn--ghost" data-mode="3d">Voir en 3D</button>
         </div>
         <p class="price-note">Prix TTC indicatifs, confirmés par le devis après vérification du véhicule. Visuels de véhicules représentatifs de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle exact.</p>

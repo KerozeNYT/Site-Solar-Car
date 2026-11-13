@@ -49,6 +49,8 @@ export const tint = {
   frontOnly: 100,
   // front side windows added to the rear package (full car)
   frontWithRear: 50,
+  // the two front side windows and the two small rear quarter windows (custodes), any vehicle
+  frontQuarters: 150,
   shades: [5, 15, 25, 35, 50, 70], // % of visible light transmitted
   // windshield film, priced on its own line. Road status comes from content/regulation.js
   // (the 70 % threshold applies to glass + film, so no film is "compliant" by its own %).
@@ -70,9 +72,9 @@ export const tint = {
   },
 };
 
-// Tinted lights: price per pair (front pair or rear pair), depending on the vehicle. Two
-// materials, presented separately: smoked vinyl (covering) and tinted PPF (polyurethane).
-// To confirm: covering at 100-120 € (validated earlier) or 120 € flat, and PPF at 190 € (V2 brief).
+// Tinted lights: price per pair (front pair or rear pair). Two materials, presented separately:
+// smoked vinyl (covering), 120 € the pair (confirmed by SOLAR CAR 37 for online booking, 13
+// November 2026), and tinted PPF (polyurethane), 190 € in the V2 brief, still to confirm.
 export const lights = {
   validated: true,
   currency: 'EUR',
@@ -85,7 +87,7 @@ export const lights = {
       id: 'covering',
       label: 'Covering (vinyle fumé)',
       text: 'Film vinyle teinté, fin et souple, découpé à la forme de l’optique.',
-      perPair: { min: 100, max: 120 },
+      perPair: { min: 120, max: 120 },
       validated: true,
     },
     {

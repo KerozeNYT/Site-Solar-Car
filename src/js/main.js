@@ -147,6 +147,12 @@ if (tour) {
   }
 }
 
+// ---------------------------------------------------------------- online booking
+const bookingEl = document.querySelector('[data-booking]');
+if (bookingEl) import('./booking.js').then((m) => m.startBooking(bookingEl));
+const bookingDone = document.querySelector('[data-booking-done]');
+if (bookingDone) import('./booking.js').then((m) => m.startBookingDone(bookingDone));
+
 // ---------------------------------------------------------------- simulators
 // window tint simulator, simple mode (photos): no 3D, started at once
 const tintSimple = document.querySelector('[data-tint-simple]');

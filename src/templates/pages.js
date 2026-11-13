@@ -860,7 +860,10 @@ function offersFor(ctx, slug) {
 }
 
 /** the two buttons under a service page's title (s.cta overrides: { label, href } for the second) */
-function heroCtas(s) {
+function heroCtas(s, ctx) {
+  // window tint and tinted lights are booked online once the booking server is there
+  const book = ctx?.booking?.bookingRules.api && { 'vitres-teintees': 'vitres', 'feux-arriere-teintes': 'feux' }[s.slug];
+  if (book) return `<a class="btn btn--primary" href="/reservation/?prestation=${book}">Réserver en ligne</a><a class="btn btn--ghost" href="#simulateur" data-scroll>Simuler et voir le prix</a>`;
   const quote = `<a class="btn btn--primary" href="/contact/?prestation=${s.slug}">Demander un devis</a>`;
   if (s.heroCta) return `${quote}<a class="btn btn--ghost" href="${esc(s.heroCta.href)}" data-scroll>${esc(s.heroCta.label)}</a>`;
   if (s.slug === 'renovation-phares') return `${quote}<a class="btn btn--ghost" href="#tarifs" data-scroll>Voir les tarifs</a>`;
@@ -901,7 +904,7 @@ export function servicePage(ctx, s) {
         <p class="kicker">${esc(b.name)} · ${esc(placeLabel(b))}</p>
         <h1>${rich(s.h1)}</h1>
         <p class="lead">${esc(s.intro)}</p>
-        <div class="ctas">${heroCtas(s)}</div>
+        <div class="ctas">${heroCtas(s, ctx)}</div>
       </div>
     </header>
     ${simFor(ctx, s.slug)}
@@ -1209,12 +1212,12 @@ export function contactPage(ctx) {
     </div>
   </section>
   ${
-    b.bookingUrl
-      ? `<section class="section section--paper booking" id="rendez-vous" aria-labelledby="booking-title">
-    <div class="container">
-      <div class="section-head"><h2 id="booking-title">Réserver un créneau</h2><p class="lead">Choisissez directement un créneau libre de l’atelier : seuls les moments réellement disponibles sont proposés. Vous recevez une confirmation par e-mail.</p></div>
-      <div class="booking__frame"><iframe src="${esc(b.bookingUrl)}${b.bookingUrl.includes('?') ? '&' : '?'}embed=true&amp;theme=dark" title="Réservation d’un créneau à l’atelier" loading="lazy" allow="clipboard-write"></iframe></div>
-      <p class="price-note">Un créneau réservé n’engage ni prix ni prestation : nous confirmons le détail avec vous. Un empêchement ? Le lien de la confirmation permet de déplacer ou d’annuler.</p>
+    ctx.booking.bookingRules.api
+      ? `<section class="section section--tight" id="rendez-vous" aria-labelledby="booking-title">
+    <div class="container container--narrow book-cta">
+      <h2 id="booking-title">Vitres ou feux teintés : réservez en ligne</h2>
+      <p class="lead">Choisissez votre prestation et un créneau libre de l’atelier, puis réglez un acompte de 30 % ou la totalité : le rendez-vous est confirmé aussitôt.</p>
+      <a class="btn btn--primary" href="/reservation/">Réserver un créneau</a>
     </div>
   </section>`
       : ''
@@ -1684,3 +1687,188 @@ export function zonesIndexPage(ctx) {
   );
 }
 
+
+// ------------------------------------------------------------------------- online booking
+// (content/booking.js: what can be booked; src/js/booking.js: the steps; booking/: the server)
+
+const BOOKING_INTRO = 'Vitres teintées et feux teintés : choisissez votre prestation et votre créneau, puis réglez un acompte de 30 % ou la totalité. Paiement sécurisé par Stripe, rendez-vous confirmé aussitôt.';
+
+/** The booking page: a form that works step by step (the script fills prices and free slots). */
+export function reservationPage(ctx) {
+  const b = ctx.business;
+  const { bookingRules: R, tintFormulas, bookableVehicles, lightsBooking, windshieldFilms, windshieldColors, tintShades, lightShades } = ctx.booking;
+  const open = !!R.api;
+  const radio = (name, value, label, extra = '', checked = false) =>
+    `<label class="pick"><input type="radio" name="${name}" value="${esc(String(value))}"${checked ? ' checked' : ''}><span class="pick__body">${label}${extra}</span></label>`;
+  const body = `
+  <section class="section page-intro page-intro--tight">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li aria-current="page">Réserver</li></ol></nav>
+      <h1>Réserver en ligne</h1>
+      <p class="lead">${esc(BOOKING_INTRO)}</p>
+      ${open ? '' : `<p class="notice" role="status">La réservation en ligne ouvre très bientôt. En attendant, <a href="/contact/">demandez votre rendez-vous</a>${b.phone ? ` ou appelez le <a href="${telHref(b.phone)}">${esc(b.phone)}</a>` : ''}.</p>`}
+    </div>
+  </section>
+  <section class="section section--tight">
+    <div class="container booking" data-booking data-api="${esc(R.api)}">
+      <form class="booking__steps form" novalidate>
+        <fieldset class="booking__step" data-step="service">
+          <legend><span class="booking__num">1</span> Votre prestation</legend>
+          <div class="booking__services">
+            <label class="pick pick--big"><input type="checkbox" name="svc" value="tint"><span class="pick__body"><b>Vitres teintées</b><small>Films solaires homologués, de 70 % à 5 % de lumière</small></span></label>
+            <label class="pick pick--big"><input type="checkbox" name="svc" value="lights"><span class="pick__body"><b>Feux teintés</b><small>Vinyle fumé, ${esc(String(lightsBooking.material.perPair.max))} € la paire</small></span></label>
+          </div>
+          <div class="booking__block" data-block="tint" hidden>
+            <p class="booking__label">Votre véhicule</p>
+            <div class="picks picks--vehicles">${bookableVehicles.map((v) => radio('vehicle', v.id, `<b>${esc(v.label)}</b>`, `<small>${esc(v.example)}</small>`)).join('')}</div>
+            <p class="form__hint">Tesla Model 3 et toit vitré : <a href="/contact/">sur devis</a>.</p>
+            <p class="booking__label">Formule</p>
+            <div class="picks picks--formulas">${tintFormulas.map((f) => radio('formula', f.id, `<b>${esc(f.label)}</b><small>${esc(f.text)}</small>`, `<span class="pick__meta"><span data-formula-price="${f.id}"></span> · ${esc(fmtMinutes(f.minutes))}</span>`)).join('')}</div>
+            <div data-rear-shade>
+              <p class="booking__label">Teinte des vitres arrière <span class="optional">(part de lumière qui passe)</span></p>
+              <div class="picks picks--shades">${tintShades.map((s) => radio('shade', s, `<b>${s} %</b>`, '', s === 15)).join('')}</div>
+              <p class="form__hint">Hésitez ? Comparez les teintes dans le <a href="/vitres-teintees/#simulateur">simulateur</a>.</p>
+            </div>
+            <p class="form__hint" data-front-note hidden>Vitres avant : film clair, qui laisse au vitrage complet au moins 70 % de lumière comme l’impose la loi (<a href="/vitres-teintees/#loi-vitres-teintees">ce que dit la loi</a>).</p>
+            <p class="booking__label">Pare-brise <span class="optional">(en option, ${esc(fmtMinutes(ctx.booking.windshieldMinutes))} de plus)</span></p>
+            <div class="picks picks--windshield">${radio('windshield', '', '<b>Sans</b>', '', true)}${windshieldFilms.map((f) => radio('windshield', f.id, `<b>${esc(f.label)}</b>`, `<span class="pick__meta">+${f.price} €</span>`)).join('')}</div>
+            <div class="picks picks--colors" data-iridescent hidden>${windshieldColors.map((c, i) => radio('color', c.id, `<i class="swatch" style="background:${esc(c.swatch)}"></i><b>${esc(c.label)}</b>`, '', i === 0)).join('')}</div>
+          </div>
+          <div class="booking__block" data-block="lights" hidden>
+            <p class="booking__label">Feux à teinter</p>
+            <div class="picks">${lightsBooking.pairs.map((p, i) => radio('pairs', p.id, `<b>${esc(p.label)}</b>`, `<span class="pick__meta">${lightsBooking.material.perPair.max * p.count} € · ${esc(fmtMinutes(lightsBooking.minutesPerPair * p.count))}</span>`, i === 0)).join('')}</div>
+            <p class="booking__label">Teinte</p>
+            <div class="picks">${lightShades.map((s, i) => radio('lightShade', s.id, `<b>${esc(s.label)}</b>`, '', i === 0)).join('')}</div>
+            <p class="form__hint">PPF teinté (plus épais, protège des petits impacts) : <a href="/feux-arriere-teintes/">sur devis</a>.</p>
+          </div>
+        </fieldset>
+
+        <fieldset class="booking__step" data-step="slot" disabled>
+          <legend><span class="booking__num">2</span> Date et heure</legend>
+          <div class="cal" data-cal>
+            <div class="cal__head"><button type="button" class="cal__nav" data-cal-prev aria-label="Mois précédent">‹</button><p class="cal__month" data-cal-month aria-live="polite"></p><button type="button" class="cal__nav" data-cal-next aria-label="Mois suivant">›</button></div>
+            <div class="cal__grid" data-cal-grid role="grid"></div>
+            <p class="cal__status" data-cal-status role="status"></p>
+          </div>
+          <div class="times" data-times hidden>
+            <p class="booking__label" data-times-title></p>
+            <div class="times__groups" data-times-list></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="booking__step" data-step="contact" disabled>
+          <legend><span class="booking__num">3</span> Vos coordonnées</legend>
+          <div class="form__row form__row--2">
+            <div><label for="b-first">Prénom <span class="req" aria-hidden="true">*</span></label><input id="b-first" name="firstName" autocomplete="given-name" required></div>
+            <div><label for="b-last">Nom <span class="req" aria-hidden="true">*</span></label><input id="b-last" name="lastName" autocomplete="family-name" required></div>
+          </div>
+          <div class="form__row form__row--2">
+            <div><label for="b-email">E-mail <span class="req" aria-hidden="true">*</span></label><input id="b-email" name="email" type="email" autocomplete="email" required></div>
+            <div><label for="b-phone">Téléphone <span class="req" aria-hidden="true">*</span></label><input id="b-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required></div>
+          </div>
+          <div class="form__row form__row--2">
+            <div><label for="b-vehicle">Marque et modèle <span class="req" aria-hidden="true">*</span></label><input id="b-vehicle" name="carModel" placeholder="ex. Peugeot 308 SW" required></div>
+            <div><label for="b-plate">Immatriculation <span class="optional">(facultatif)</span></label><input id="b-plate" name="plate" autocomplete="off" placeholder="AB-123-CD"></div>
+          </div>
+          <div class="form__row"><label for="b-msg">Un message pour l’atelier <span class="optional">(facultatif)</span></label><textarea id="b-msg" name="message" rows="3"></textarea></div>
+        </fieldset>
+
+        <fieldset class="booking__step" data-step="pay" disabled>
+          <legend><span class="booking__num">4</span> Paiement</legend>
+          <div class="picks picks--pay">
+            <label class="pick pick--big"><input type="radio" name="mode" value="deposit" checked><span class="pick__body"><b>Acompte de 30 % : <span data-pay-deposit></span></b><small>Le reste, <span data-pay-rest></span>, se règle à l’atelier</small></span></label>
+            <label class="pick pick--big"><input type="radio" name="mode" value="full"><span class="pick__body"><b>Totalité : <span data-pay-total></span></b><small>Plus rien à régler le jour du rendez-vous</small></span></label>
+          </div>
+          <label class="check"><input type="checkbox" name="terms" required> <span>J’accepte les <a href="/conditions-reservation/" target="_blank" rel="noopener">conditions de réservation</a> : acompte remboursé si j’annule au moins ${R.cancelHours} h avant le rendez-vous.</span></label>
+          <label class="check" data-early hidden><input type="checkbox" name="early"> <span>Je demande que la prestation soit réalisée à la date choisie, avant la fin du délai de rétractation de 14 jours.</span></label>
+          <p class="form__summary" role="alert" data-error hidden></p>
+          <button class="btn btn--primary btn--lg booking__pay" type="submit" disabled data-pay>Payer <span data-pay-amount></span></button>
+          <p class="booking__secure">Paiement sécurisé par Stripe (carte, Apple Pay, Google Pay). Aucune donnée bancaire ne passe par ce site.</p>
+        </fieldset>
+      </form>
+
+      <aside class="booking__summary" aria-label="Récapitulatif" data-summary>
+        <div class="booking__preview"><img data-preview alt="" width="960" height="600" loading="lazy" decoding="async" hidden></div>
+        <h2 class="booking__title">Récapitulatif</h2>
+        <ul class="booking__items" data-items><li class="booking__empty">Choisissez une prestation.</li></ul>
+        <dl class="booking__totals">
+          <div><dt>Durée</dt><dd data-duration>—</dd></div>
+          <div><dt>Total TTC</dt><dd data-total>—</dd></div>
+          <div><dt>Acompte 30 %</dt><dd data-deposit>—</dd></div>
+          <div><dt>Rendez-vous</dt><dd data-when>—</dd></div>
+        </dl>
+        <p class="booking__where">${esc(b.name)} · ${esc(addressLine(b))}</p>
+      </aside>
+    </div>
+  </section>`;
+  return page(
+    ctx,
+    {
+      title: `Réserver vitres teintées ou feux teintés à Vouvray (Tours) | ${b.name}`,
+      description: `Réservez en ligne la pose de vitres teintées ou de feux teintés à l’atelier ${b.name}, à Vouvray près de Tours : créneau en direct, acompte de 30 % ou paiement complet sécurisé.`,
+      path: '/reservation/',
+      noindex: !open,
+    },
+    body
+  );
+}
+
+/** After the payment: what was booked, read from the server (Stripe session). */
+export function reservationDonePage(ctx) {
+  const b = ctx.business;
+  const body = `
+  <section class="section page-intro">
+    <div class="container container--narrow booking-done" data-booking-done data-api="${esc(ctx.booking.bookingRules.api)}" data-address="${esc(addressLine(b))}" data-name="${esc(b.name)}">
+      <p class="kicker">Réservation</p>
+      <h1 data-done-title>Votre réservation</h1>
+      <p class="lead" data-done-lead>Vérification du paiement…</p>
+      <div class="booking-done__card" data-done-card hidden>
+        <p class="booking-done__when" data-done-when></p>
+        <ul class="booking__items" data-done-items></ul>
+        <dl class="booking__totals" data-done-totals></dl>
+        <p class="booking__where">${esc(b.name)} · ${esc(addressLine(b))}</p>
+        <div class="ctas"><button type="button" class="btn btn--primary" data-done-ics>Ajouter à mon agenda</button><a class="btn btn--ghost" href="${esc(placeLinks(b).google)}" rel="noopener" target="_blank">${ICONS.route} Itinéraire</a></div>
+      </div>
+      <p>Une question ? ${b.phone ? `<a href="${telHref(b.phone)}">${esc(b.phone)}</a>` : ''}${b.phone && b.email ? ' · ' : ''}${b.email ? `<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>` : ''}</p>
+    </div>
+  </section>`;
+  return page(ctx, { title: `Réservation | ${b.name}`, description: BOOKING_INTRO, path: '/reservation/confirmee/', noindex: true }, body);
+}
+
+/** The terms of online booking (deposit, cancellation, withdrawal). */
+export function bookingTermsPage(ctx) {
+  const b = ctx.business;
+  const R = ctx.booking.bookingRules;
+  const pct = Math.round(R.depositRate * 100);
+  const body = `
+  <section class="section page-intro">
+    <div class="container container--narrow prose">
+      <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li><a href="/reservation/">Réserver</a></li><li aria-current="page">Conditions de réservation</li></ol></nav>
+      <h1>Conditions de réservation en ligne</h1>
+      <p class="lead">Ces conditions s’appliquent aux rendez-vous pris sur ce site pour la pose de vitres teintées et de feux teintés à l’atelier ${esc(b.name)}, ${esc(addressLine(b))}.</p>
+      <h2>Prix et rendez-vous</h2>
+      <p>Les prix affichés sont TTC et correspondent au véhicule et à la prestation choisis lors de la réservation. Le rendez-vous est confirmé dès le paiement en ligne accepté : il est alors réservé pour vous dans l’agenda de l’atelier. Si le véhicule présenté ne correspond pas à celui indiqué, ou si son état ne permet pas la pose (ancien film à retirer, vitre endommagée), l’atelier vous propose un ajustement du prix avant toute intervention ; si vous le refusez, les sommes versées vous sont remboursées.</p>
+      <h2>Acompte ou paiement complet</h2>
+      <p>À la réservation, vous réglez soit un acompte de ${pct} % du prix total, soit la totalité. Le solde éventuel se règle à l’atelier le jour du rendez-vous. Le paiement en ligne est traité par Stripe ; ${esc(b.name)} n’a jamais accès à vos données bancaires. Un reçu vous est envoyé par e-mail.</p>
+      <h2>Annulation et report</h2>
+      <ul>
+        <li>Annulation ou report <strong>au moins ${R.cancelHours} heures avant</strong> le rendez-vous : l’acompte (ou le paiement complet) vous est intégralement remboursé, ou reporté sur la nouvelle date.</li>
+        <li>Annulation <strong>moins de ${R.cancelHours} heures avant</strong> le rendez-vous, ou absence sans prévenir : l’acompte reste acquis à l’atelier, qui avait bloqué ce créneau pour vous ; le reste d’un paiement complet vous est remboursé.</li>
+        <li>Si l’atelier doit annuler ou déplacer votre rendez-vous, vous choisissez une nouvelle date ou le remboursement intégral.</li>
+      </ul>
+      <p>Pour annuler ou déplacer un rendez-vous : ${b.phone ? `<a href="${telHref(b.phone)}">${esc(b.phone)}</a>` : ''}${b.phone && b.email ? ' ou ' : ''}${b.email ? `<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>` : ''}.</p>
+      <h2>Droit de rétractation</h2>
+      <p>Une réservation faite en ligne vous donne un délai de rétractation de 14 jours à compter de sa confirmation (articles L221-18 et suivants du Code de la consommation). Pendant ce délai, vous pouvez annuler sans motif et être intégralement remboursé. Si votre rendez-vous a lieu avant la fin de ce délai, vous demandez expressément, lors de la réservation, que la prestation soit réalisée à la date choisie ; une fois la prestation entièrement réalisée, vous ne pouvez plus exercer ce droit (article L221-28).</p>
+      <h2>Réglementation</h2>
+      <p>À l’avant, la loi impose qu’au moins 70 % de la lumière traverse le vitrage complet, film compris : l’atelier pose à l’avant uniquement des films qui respectent cette règle. Voir <a href="/vitres-teintees/#loi-vitres-teintees">ce que dit la loi sur les vitres teintées</a>.</p>
+      <h2>Médiation</h2>
+      <p>En cas de litige, vous pouvez recourir gratuitement au médiateur de la consommation indiqué dans les <a href="/mentions-legales/">mentions légales</a>.</p>
+    </div>
+  </section>`;
+  return page(ctx, { title: `Conditions de réservation | ${b.name}`, description: `Acompte de ${pct} %, annulation, report et droit de rétractation pour les rendez-vous pris en ligne à l’atelier ${b.name}.`, path: '/conditions-reservation/', noindex: !R.api }, body);
+}
+
+/** "2 h 30", "45 min" */
+function fmtMinutes(m) {
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}` : ''}`;
+}

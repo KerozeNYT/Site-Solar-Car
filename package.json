@@ -11,7 +11,9 @@
     "stills": "node scripts/render-stills.mjs",
     "posters": "node scripts/render-sim-posters.mjs",
     "model": "node scripts/prepare-model.mjs",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "test:booking": "node --test booking/test/schedule.test.mjs booking/test/worker.test.mjs",
+    "booking:dev": "node booking/dev-server.mjs"
   },
   "engines": {
     "node": ">=20"

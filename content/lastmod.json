@@ -15,6 +15,10 @@
   "hash": "5978d0ca3a4578ec",
   "date": "2026-11-13"
  },
+ "/conditions-reservation/": {
+  "hash": "0f4be3fcbaeb4b52",
+  "date": "2026-11-13"
+ },
  "/contact/": {
   "hash": "06daaef0691f10c7",
   "date": "2026-11-13"
@@ -44,7 +48,7 @@
   "date": "2026-11-13"
  },
  "/feux-arriere-teintes/": {
-  "hash": "7742119e9717af1f",
+  "hash": "1bacadebb802b3ea",
   "date": "2026-11-13"
  },
  "/guides/": {
@@ -60,8 +64,8 @@
   "date": "2026-11-11"
  },
  "/guides/feux-teintes-legal/": {
-  "hash": "3d0151c249da1e67",
-  "date": "2026-11-11"
+  "hash": "123be2be0f5431c2",
+  "date": "2026-11-13"
  },
  "/guides/film-nano-ceramique/": {
   "hash": "1c0d9ef49d75e6ba",
@@ -95,40 +99,48 @@
   "hash": "9e9e64983fbaa8d0",
   "date": "2026-11-13"
  },
+ "/reservation/": {
+  "hash": "038d78ce1c7f340d",
+  "date": "2026-11-13"
+ },
+ "/reservation/confirmee/": {
+  "hash": "b6b7acb107fc737c",
+  "date": "2026-11-13"
+ },
  "/vitres-teintees-amboise/": {
-  "hash": "78d5e509a1e60137",
+  "hash": "09f7c1e9a4b56246",
   "date": "2026-11-13"
  },
  "/vitres-teintees-chambray-les-tours/": {
-  "hash": "56ac66e53d70e7b5",
+  "hash": "97f8bb32eef96ed9",
   "date": "2026-11-13"
  },
  "/vitres-teintees-joue-les-tours/": {
-  "hash": "707559f265a0ca46",
+  "hash": "960a53195dfc8a02",
   "date": "2026-11-13"
  },
  "/vitres-teintees-montlouis-sur-loire/": {
-  "hash": "75d5476970bbc938",
+  "hash": "adf3cb009cc9a9dc",
   "date": "2026-11-13"
  },
  "/vitres-teintees-saint-avertin/": {
-  "hash": "18f8a7cc4c09c99b",
+  "hash": "2abb74b7977f57e2",
   "date": "2026-11-13"
  },
  "/vitres-teintees-saint-cyr-sur-loire/": {
-  "hash": "8745c00f06a5ca20",
+  "hash": "50ca29f5d37c84ca",
   "date": "2026-11-13"
  },
  "/vitres-teintees-saint-pierre-des-corps/": {
-  "hash": "24807dab76f05c7b",
+  "hash": "cfd2f79c3b6b5e48",
   "date": "2026-11-13"
  },
  "/vitres-teintees-tours/": {
-  "hash": "783ab0272b6b01fd",
+  "hash": "3860ddb281f0dd2a",
   "date": "2026-11-13"
  },
  "/vitres-teintees/": {
-  "hash": "787e5a7c23637b9c",
+  "hash": "7334ae110a268848",
   "date": "2026-11-13"
  },
  "/zones-intervention/": {
