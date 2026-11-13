@@ -55,12 +55,13 @@ export const business = {
   // in `profileUrl` and, if you have it, the review link (Profil > Demander des avis) in
   // `reviewUrl`. Until then the buttons open a Google Maps search for the workshop.
   google: {
-    profileUrl: null,
-    reviewUrl: null,
+    profileUrl: 'https://share.google/rkXPZBv7bJ7LOOoW4',
+    reviewUrl: 'https://g.page/r/CV6TtSL2JvXAEAE/review',
     // Live reviews (the latest Google gives, up to 5, refreshed on every visit). Needs the
     // Place ID of the profile (Google "Place ID Finder") and a Maps JavaScript API key with
     // the Places API (New) enabled, restricted to the site's domain (HTTP referrers).
-    placeId: null,
+    // same profile as the review link above (both carry the place's CID 0xc0f526f622b5935e)
+    placeId: 'ChIJoTNtbwnN_EcRXpO1IvYm9cA',
     mapsApiKey: null,
   },
   // Instagram: the latest posts (5) on the home page, refreshed by the feed service. Instagram
