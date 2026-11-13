@@ -36,7 +36,11 @@ Statuts : À faire · En cours · Terminé et testé · Bloqué · En attente de
 | Conservation des demandes | « le temps nécessaire » | Proposition : 3 ans après le dernier contact (prospects), durée légale pour les clients |
 | Covering : références | 29 films 3M™ 2080 vérifiés sur 3M France ; HG61 et S327 non intégrés (vus seulement aux États-Unis) | Confirmer la disponibilité chez le fournisseur ; autres gammes à ajouter (TeckWrap, Coverstyl') ? |
 | Covering : tarifs | « Sur devis » partout | Donner des repères (partiel, déchromage) si l'atelier le souhaite |
-| Pages locales | 14 communes | Garder les 14, ou se concentrer sur 6 à 8 communes prioritaires enrichies ? |
+| Pages locales | 8 communes (plus de 11 000 habitants), chacune avec son récit du trajet et deux réalisations ; les 6 villages voisins listés sans page | Fait le 13/11/2026 |
+| Médiateur de la consommation | Absent (`npm run check`) | Toujours à fournir |
+| Durée de conservation | Durées du référentiel CNIL (3 ans après le dernier contact, factures 10 ans) | À ajuster si l'atelier conserve moins longtemps |
+
+| Optimisation (13/11/2026) | Terminé et testé | CSP dans chaque page + `_headers` / `.htaccess` (en-têtes de sécurité, cache, compression), `security.txt`, workflow durci, Dependabot, 0 vulnérabilité ; vidéo d'accueil allégée sur mobile ; fond animé sans coût au chargement ; 8 pages locales enrichies ; H1 de l'accueil ; photos réelles dans le plan du site (`docs/SECURITE.md`, `docs/SEO-LOCAL.md`) | Lighthouse mobile sur les 30 pages indexables + 4 autres, CSP sans violation sur 34 pages (ordinateur et téléphone), avis Google chargés à l'adresse de l'aperçu | Mise en ligne sur le domaine ; actions hors code de `docs/SEO-LOCAL.md` |
 
 ## Avant la mise en production (rappel)
 

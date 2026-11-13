@@ -4,7 +4,8 @@ import data from './zones-data.js';
  * Local pages, one per nearby town: real road distance and route to the workshop (computed
  * by scripts/map/towns.py on the OpenStreetMap road network), the services and prices. They
  * are linked from the footer and from /zones-intervention/ — visible pages, no doorway pages.
- * To add a town: add it to TOWNS in scripts/map/towns.py, rerun it, then add it below.
+ * To add a town: add it to TOWNS in scripts/map/towns.py, rerun it, then add it below: to
+ * PAGES with its own account of the trip (a page), or to LISTED (a line on /zones-intervention/).
  */
 export const zonesPage = {
   path: '/zones-intervention/',

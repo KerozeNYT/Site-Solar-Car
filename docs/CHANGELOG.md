@@ -1,5 +1,54 @@
 # Journal des changements
 
+## Optimisation complète (13 novembre 2026)
+
+### Sécurité
+- Content-Security-Policy dans chaque page (balise meta, valable aussi sur GitHub Pages) :
+  seuls le site, FormSubmit et Google (avis) sont autorisés ; le script en ligne de l'en-tête
+  l'est par son empreinte ; WebAssembly permis pour décoder les modèles 3D (meshopt).
+  Testée sur les 34 pages, ordinateur et téléphone : aucune violation, avis Google chargés.
+- Build de production : `_headers` (Netlify, Cloudflare Pages) et `.htaccess` (Apache, OVH) avec
+  CSP complète (frame-ancestors), HSTS, nosniff, X-Frame-Options, Referrer-Policy,
+  Permissions-Policy, COOP ; cache d'un an pour les fichiers à empreinte, d'une semaine pour
+  les médias ; compression. `/.well-known/security.txt`.
+- Workflow GitHub : actions épinglées à un commit, identifiants non conservés, audit npm.
+  Dependabot mensuel. Faille de `glob` / `minimatch` dans l'outil des modèles 3D corrigée
+  (`overrides`) : `npm audit` à 0.
+- Mentions légales : durée de conservation des demandes (référentiel CNIL).
+- `docs/SECURITE.md` : ce que fait le site, ce qui reste à faire sur les comptes (2FA, domaine,
+  DMARC, clé Google Maps, alias FormSubmit).
+
+### Performance
+- Film d'accueil : la version nette ne se télécharge qu'au premier défilement ; les téléphones
+  s'arrêtent à la version 720p (11 Mo) sauf connexion rapide signalée par le navigateur.
+  Accueil mobile sans défilement : 23,7 Mo → 2 Mo.
+- Fond animé : rien n'est dessiné ni téléchargé avant le chargement de la page ; l'emblème est
+  construit à ce moment-là (à ses vraies proportions, 256 × 308, version 512 px) ; son reflet et
+  l'or des boutons sont animés par transform (le processeur graphique s'en charge, plus de
+  repeinture à chaque image).
+- Logos partenaires chargés à l'approche de leur bandeau (`content-visibility`), photo du
+  simulateur de vitres en chargement différé.
+- Accueil sur écrans peu hauts (portables 1280 × 720, tablettes à l'horizontale) : le texte
+  d'ouverture ne passe plus sous la barre d'onglets du film.
+- Apparition au défilement réservée à ce qui est encore sous l'écran : ce qui est visible au
+  chargement n'est plus masqué puis réaffiché (plus de clignotement, image principale à
+  l'heure). Première photo des pages Guides et Réalisations chargée en priorité.
+- Navigation quasi instantanée sur Chrome et Edge : la page visée est préchargée dès le
+  survol de son lien (règles de spéculation, autorisées par la CSP).
+
+### Référencement
+- Pages locales : 8 communes (plus de 11 000 habitants) au lieu de 14, chacune avec son propre
+  récit du trajet et deux réalisations de l'atelier ; La Riche, Fondettes, Rochecorbon,
+  Vernou-sur-Brenne, Monnaie et Parçay-Meslay listés sur `/zones-intervention/` sans page.
+  Texte commun entre deux pages locales : 44 % → 31 %. L'A10 est nommée comme telle.
+- H1 de l'accueil : « SOLAR CAR 37 — Vitres teintées, detailing & covering près de Tours ».
+- Description de la page covering ramenée sous 160 caractères.
+- Données structurées : adresse Google Maps permanente de la fiche (CID) en `hasMap` et `sameAs`.
+- Plan du site : chaque page liste les photos qu'elle affiche vraiment (131 images, dont les 31
+  de la galerie).
+- `docs/SEO-LOCAL.md` : la marche à suivre hors du site (Search Console, fiche Google, avis,
+  annuaires, marques partenaires, suivi).
+
 ## V3 — refonte (sombre, moderne, moins de simulateurs)
 
 ### Pages de prestations complètes, contact, fond animé

@@ -250,10 +250,14 @@ if (!reduceMotion && 'IntersectionObserver' in window) {
     },
     { rootMargin: '0px 0px -8% 0px' }
   );
-  document.querySelectorAll('.service-card, .steps li, .benefits li, .faq__item, .checklist li, .reveal-up, .guide-card, .related__list li, .section-head, .cov-offer, .work, .price-table').forEach((el) => {
+  // only what is still below the screen: what the visitor already sees stays as it is (no
+  // flash, and the page's main picture is never hidden then shown again)
+  const els = [...document.querySelectorAll('.service-card, .steps li, .benefits li, .faq__item, .checklist li, .reveal-up, .guide-card, .related__list li, .section-head, .cov-offer, .work, .price-table')];
+  const below = els.filter((el) => el.getBoundingClientRect().top > innerHeight); // one layout, then writes
+  for (const el of below) {
     el.classList.add('reveal');
     io.observe(el);
-  });
+  }
 }
 
 // ---------------------------------------------------------------- live Google reviews (lazy)

@@ -9,7 +9,7 @@ ci-dessous se fait sur décision de SOLAR CAR 37.
 |---|---|---|
 | Inventaire des anciennes URL | Fait le 12 novembre 2026 : le plan du site de www.solarcar37.fr (local.fr) liste 10 pages, les mêmes que les liens de son accueil | fait |
 | Correspondances | Tableau du §3, dans `content/redirects.js` | fait, à valider |
-| Hébergeur | Choisir l'hébergement de production (GitHub Pages avec domaine personnalisé, Netlify, Cloudflare Pages, OVH…) : il conditionne les redirections et les en-têtes de sécurité | SOLAR CAR 37 |
+| Hébergeur | Choisir l'hébergement de production. **Conseillé : Cloudflare Pages ou Netlify** (gratuits ici) : ils appliquent `_headers` (en-têtes de sécurité, cache) et `_redirects` (vraies 301). OVH / Apache : `.htaccess` fait de même. GitHub Pages avec domaine personnalisé : ni en-têtes ni 301 (seule la CSP en balise meta s'applique) | SOLAR CAR 37 |
 | E-mail | **Ne pas casser contact@solarcar37.fr** : relever les enregistrements MX, SPF, DKIM, DMARC actuels avant tout changement de DNS et les recopier à l'identique | SOLAR CAR 37 |
 | Informations légales | Hébergeur réel, médiateur de la consommation, mention TVA, crédits des modèles 3D (voir `docs/V2-ROADMAP.md`) | SOLAR CAR 37 |
 
@@ -28,8 +28,10 @@ npm run build          # sans SITE_BASE ni PREVIEW : pages indexables, robots.tx
 
 Liste unique : `content/redirects.js`. Le build de production (`npm run build`, sans `PREVIEW`)
 écrit `_redirects` (Netlify, Cloudflare Pages), `.htaccess` (Apache, OVH : HTTPS, `www`, puis ces
-pages) et, pour un hébergeur sans règles (GitHub Pages), une page relais à chaque ancienne adresse
-(redirection immédiate + canonical).
+pages, puis en-têtes de sécurité, cache et compression) et, pour un hébergeur sans règles (GitHub
+Pages), une page relais à chaque ancienne adresse (redirection immédiate + canonical). Il écrit
+aussi `_headers` (en-têtes de sécurité et cache pour Netlify / Cloudflare Pages) et
+`/.well-known/security.txt` (`scripts/security.mjs`, voir `docs/SECURITE.md`).
 
 | Ancienne URL (local.fr) | Nouvelle URL |
 |---|---|
@@ -47,8 +49,9 @@ proposés (confirmé par SOLAR CAR 37) : leurs anciennes adresses renvoient vers
 
 Nouvelles URL indexables (sitemap) : `/`, `/vitres-teintees/`, `/feux-arriere-teintes/`,
 `/detailing-carrosserie/`, `/covering-dechromage/`, `/ciel-etoile/`, `/renovation-phares/`, `/atelier-vouvray/`, `/contact/`,
-`/guides/` et ses 8 guides, `/zones-intervention/` et ses 14 pages locales, `/mentions-legales/`
-(et `/realisations/` dès la première réalisation).
+`/guides/` et ses 8 guides, `/zones-intervention/` et ses 8 pages locales (Tours, Joué-lès-Tours,
+Saint-Cyr-sur-Loire, Saint-Pierre-des-Corps, Saint-Avertin, Chambray-lès-Tours, Montlouis-sur-Loire,
+Amboise), `/mentions-legales/`, `/realisations/` : 30 adresses.
 
 Mise en œuvre selon l'hébergeur : fichier `_redirects` (Netlify, Cloudflare Pages), `.htaccess`
 (Apache/OVH) ou règles de l'hébergeur. GitHub Pages ne sait pas faire de vraies 301 : à éviter s'il
@@ -70,9 +73,9 @@ Prévoir aussi : `solarcar37.fr` → `https://www.solarcar37.fr` et `http://` �
 - Google Search Console : valider la propriété `https://www.solarcar37.fr`, envoyer `/sitemap.xml`,
   suivre l'indexation et les erreurs pendant plusieurs semaines.
 - Fiche Google Business Profile : mettre à jour l'adresse du site.
-- En-têtes de sécurité recommandés chez l'hébergeur : `Strict-Transport-Security`,
-  `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`,
-  `Permissions-Policy` (caméra, micro, géolocalisation désactivés), et une
-  `Content-Security-Policy` listant les seuls services utilisés (FormSubmit ; Google Maps et le flux
-  Instagram s'ils sont activés).
+- En-têtes de sécurité : déjà prêts (`_headers`, `.htaccess`, `scripts/security.mjs`). Vérifier
+  qu'ils arrivent bien sur [securityheaders.com](https://securityheaders.com) et
+  [MDN HTTP Observatory](https://developer.mozilla.org/fr/observatory).
 - Mesures réelles : PageSpeed Insights et le rapport Core Web Vitals de la Search Console.
+- Référencement local hors du site (fiche Google, avis, annuaires, marques partenaires) :
+  `docs/SEO-LOCAL.md`.

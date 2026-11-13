@@ -85,4 +85,6 @@ Les fichiers sources (`.glb`, `.usdz`) restent hors du dépôt ; seuls les modè
 
 `content/lastmod.json` : empreinte du contenu de chaque page, mise à jour par le build ; la commiter avec le contenu (le sitemap date ainsi les vraies modifications).
 
+Sécurité : `scripts/security.mjs` écrit au build la Content-Security-Policy de chaque page (balise meta) et, pour la production, `_headers` (Netlify, Cloudflare Pages), les en-têtes de `.htaccess` (Apache, OVH) et `/.well-known/security.txt` ; un service externe ajouté dans `content/site.js` (réservation, flux Instagram) y est autorisé automatiquement. Détails et actions hors code : `docs/SECURITE.md`. Référencement local hors du site (fiche Google, avis, annuaires) : `docs/SEO-LOCAL.md`.
+
 Mise en production : `docs/MIGRATION-DOMAINE.md`. Suivi de la V2 : `docs/V2-ROADMAP.md` (tableau de bord), `docs/V2-AUDIT.md` (audit initial) et `docs/CHANGELOG.md` (journal des changements).

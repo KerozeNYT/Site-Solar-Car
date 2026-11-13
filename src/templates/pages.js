@@ -175,6 +175,9 @@ const SIMS = new Set(['vitres-teintees', 'feux-arriere-teintes', 'ciel-etoile'])
 const ld = (obj) => `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, '\\u003c')}</script>`;
 
 // ------------------------------------------------------------------------- shared chrome
+// <head> of every page. The speculation rules ask Chrome / Edge to fetch a page of the site as
+// soon as the visitor hovers its link (or presses it on a phone): the next page opens at once.
+// Both inline scripts are allowed by their hash in the Content-Security-Policy (scripts/security.mjs).
 function head(ctx, { title, description, path, image = '/stills/og.jpg', preload = '', noindex = false, extra = '' }) {
   const b = ctx.business;
   return `<!doctype html>
@@ -205,6 +208,7 @@ ${(ctx.assets.fonts || [ctx.assets.font]).map((f) => `<link rel="preload" href="
 ${preload}
 <link rel="stylesheet" href="${ctx.assets.css}">
 <script>(function(d){var c=d.documentElement.classList,n=navigator.connection;c.add('js');if(!matchMedia('(prefers-reduced-motion: reduce)').matches&&!(n&&(n.saveData||/2g|3g/.test(n.effectiveType||'')))&&!/[?&]static\\b/.test(location.search))c.add('tour-live')})(document)</script>
+<script type="speculationrules">{"prefetch":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/design/*"}}]},"eagerness":"moderate"}]}</script>
 ${extra}
 </head>`;
 }
@@ -1263,8 +1267,9 @@ export function guidesIndexPage(ctx) {
     <div class="container">
       <ul class="guide-grid">${guides
         .map(
-          (x) => `<li class="guide-card reveal-up"><a href="/guides/${x.slug}/">
-          <div class="guide-card__media">${realOr(ctx, x.photo, () => still(x.still, '', { sizes: '(min-width: 960px) 33vw, (min-width: 600px) 50vw, 100vw' }), { alt: '', sizes: '(min-width: 960px) 33vw, (min-width: 600px) 50vw, 100vw' })}</div>
+          // the first card's picture is the page's main one: loaded at once, first
+          (x, i) => `<li class="guide-card reveal-up"><a href="/guides/${x.slug}/">
+          <div class="guide-card__media">${realOr(ctx, x.photo, () => still(x.still, '', { sizes: '(min-width: 960px) 33vw, (min-width: 600px) 50vw, 100vw', eager: i === 0 }), { alt: '', sizes: '(min-width: 960px) 33vw, (min-width: 600px) 50vw, 100vw', eager: i === 0 })}</div>
           <div class="guide-card__body"><p class="kicker">${esc(x.kicker)}</p><h2>${esc(x.title)}</h2><p>${esc(x.summary || x.seo.description)}</p><span class="service-card__more">Lire <span aria-hidden="true">→</span></span></div>
         </a></li>`
         )
@@ -1377,13 +1382,13 @@ function beforeAfter(ba, caption = '') {
 
 /** one job: photos or a before / after, the car, the work, a link to ask for the same. The short
  * story (`text`) is only told on /realisations/: elsewhere the card stays short (no repeated copy) */
-function realisationCard(ctx, r, { story = true } = {}) {
+function realisationCard(ctx, r, { story = true, eager = false } = {}) {
   const s = ctx.services.find((x) => x.slug === r.service);
   const shots = r.photos || [];
   const media = r.beforeAfter
     ? beforeAfter(r.beforeAfter)
     : shots[0]
-      ? `<div class="work__media">${photo({ ...shots[0], alt: shots[0].alt || r.vehicle }, { sizes: '(min-width: 900px) 33vw, 100vw', cls: 'work__img' })}${
+      ? `<div class="work__media">${photo({ ...shots[0], alt: shots[0].alt || r.vehicle }, { sizes: '(min-width: 900px) 33vw, 100vw', cls: 'work__img', eager })}${
           shots.length > 1
             ? `<div class="work__thumbs" role="group" aria-label="Autres photos">${shots
                 .map(
@@ -1431,7 +1436,7 @@ export function realisationsPage(ctx) {
       <p class="lead">${esc(p.intro)}</p>
       ${used.length > 1 ? `<div class="works-filter" role="group" aria-label="Filtrer par prestation" data-works-filter><button type="button" aria-pressed="true" data-filter="">Toutes</button>${used.map((s) => `<button type="button" aria-pressed="false" data-filter="${s.slug}">${esc(s.shortName || s.name)}</button>`).join('')}</div>` : ''}
       <h2 class="visually-hidden">Véhicules passés par l’atelier</h2>
-      <ul class="works" data-works>${ctx.realisations.map((r) => realisationCard(ctx, r)).join('')}</ul>
+      <ul class="works" data-works>${ctx.realisations.map((r, i) => realisationCard(ctx, r, { eager: i === 0 })).join('')}</ul>
     </div>
   </section>
   ${ctaBand(ctx)}`;
