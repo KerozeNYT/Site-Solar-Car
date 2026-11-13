@@ -238,26 +238,27 @@ if (maps.length && 'IntersectionObserver' in window) {
 }
 
 // ---------------------------------------------------------------- reveal on scroll
+// Only what is still below the screen fades in: the first report of the observer says where each
+// element is, without forcing a layout (nor the logos of a band not yet shown); what the visitor
+// already sees is left as it is (no flash, the page's main picture is never hidden).
 if (!reduceMotion && 'IntersectionObserver' in window) {
-  const io = new IntersectionObserver(
-    (entries) => {
-      for (const en of entries) {
-        if (en.isIntersecting) {
-          en.target.classList.add('is-in');
-          io.unobserve(en.target);
-        }
+  const seen = new WeakSet();
+  const io = new IntersectionObserver((entries) => {
+    for (const en of entries) {
+      const el = en.target;
+      if (!seen.has(el)) {
+        seen.add(el);
+        if (en.isIntersecting) io.unobserve(el);
+        else el.classList.add('reveal');
+      } else if (en.isIntersecting) {
+        el.classList.add('is-in');
+        io.unobserve(el);
       }
-    },
-    { rootMargin: '0px 0px -8% 0px' }
-  );
-  // only what is still below the screen: what the visitor already sees stays as it is (no
-  // flash, and the page's main picture is never hidden then shown again)
-  const els = [...document.querySelectorAll('.service-card, .steps li, .benefits li, .faq__item, .checklist li, .reveal-up, .guide-card, .related__list li, .section-head, .cov-offer, .work, .price-table')];
-  const below = els.filter((el) => el.getBoundingClientRect().top > innerHeight); // one layout, then writes
-  for (const el of below) {
-    el.classList.add('reveal');
-    io.observe(el);
-  }
+    }
+  });
+  document
+    .querySelectorAll('.service-card, .steps li, .benefits li, .faq__item, .checklist li, .reveal-up, .guide-card, .related__list li, .section-head, .cov-offer, .work, .price-table')
+    .forEach((el) => io.observe(el));
 }
 
 // ---------------------------------------------------------------- live Google reviews (lazy)
