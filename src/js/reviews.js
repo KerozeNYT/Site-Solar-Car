@@ -34,27 +34,46 @@ export async function showReviews(section) {
   const reviews = [...(place.reviews || [])].sort((a, b) => new Date(b.publishTime || 0) - new Date(a.publishTime || 0)).slice(0, 5);
   if (!reviews.length) return;
   const count = place.userRatingCount || 0;
+  // the band shows the list twice (the second copy, hidden from assistive technologies and the
+  // keyboard, makes the loop seamless)
+  const cards = reviews
+    .map((r) => {
+      const a = r.authorAttribution || {};
+      const name = esc(a.displayName || 'Client Google');
+      const text = esc(r.text || r.originalText || '');
+      return `<li class="review-card">
+      <div class="review-card__head">
+        ${a.photoURI ? `<img src="${esc(a.photoURI)}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer" data-initial="${name.charAt(0)}">` : `<span class="review-card__initial" aria-hidden="true">${name.charAt(0)}</span>`}
+        <div><strong>${a.uri ? `<a href="${esc(a.uri)}" target="_blank" rel="noopener">${name}</a>` : name}</strong><small>${esc(r.relativePublishTimeDescription || '')}</small></div>
+      </div>
+      ${stars(r.rating)}
+      ${text ? `<p>${text}</p>` : ''}
+    </li>`;
+    })
+    .join('');
   list.innerHTML = `
     <div class="reviews__summary">
       ${place.rating ? `<strong class="reviews__score">${String(place.rating.toFixed(1)).replace('.', ',')}</strong>${stars(place.rating)}` : ''}
       <span>${count} avis sur Google</span>
       ${place.googleMapsURI ? `<a href="${esc(place.googleMapsURI)}" target="_blank" rel="noopener">Voir tous les avis</a>` : ''}
     </div>
-    <ul class="reviews__cards">${reviews
-      .map((r) => {
-        const a = r.authorAttribution || {};
-        const name = esc(a.displayName || 'Client Google');
-        const text = esc(r.text || r.originalText || '');
-        return `<li class="review-card">
-        <div class="review-card__head">
-          ${a.photoURI ? `<img src="${esc(a.photoURI)}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">` : `<span class="review-card__initial" aria-hidden="true">${name.charAt(0)}</span>`}
-          <div><strong>${a.uri ? `<a href="${esc(a.uri)}" target="_blank" rel="noopener">${name}</a>` : name}</strong><small>${esc(r.relativePublishTimeDescription || '')}</small></div>
-        </div>
-        ${stars(r.rating)}
-        ${text ? `<p>${text}</p>` : ''}
-      </li>`;
-      })
-      .join('')}</ul>
+    <div class="reviews__band">
+      <ul class="reviews__track" aria-label="Avis Google de nos clients">${cards}</ul>
+      <ul class="reviews__track" aria-hidden="true" inert>${cards}</ul>
+    </div>
     <p class="reviews__attribution">Avis fournis par Google</p>`;
+  // an author photo that does not load (blocked, removed): the initial instead
+  for (const img of list.querySelectorAll('.review-card__head img')) {
+    img.addEventListener('error', () => {
+      const span = document.createElement('span');
+      span.className = 'review-card__initial';
+      span.setAttribute('aria-hidden', 'true');
+      span.textContent = img.dataset.initial;
+      img.replaceWith(span);
+    }, { once: true });
+  }
+  // a tap pauses the band (phones have no pointer to hover with), a second tap starts it again
+  const band = list.querySelector('.reviews__band');
+  band.addEventListener('pointerdown', (e) => e.pointerType !== 'mouse' && band.classList.toggle('is-paused'));
   list.hidden = false;
 }

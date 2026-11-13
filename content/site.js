@@ -62,7 +62,10 @@ export const business = {
     // the Places API (New) enabled, restricted to the site's domain (HTTP referrers).
     // same profile as the review link above (both carry the place's CID 0xc0f526f622b5935e)
     placeId: 'ChIJoTNtbwnN_EcRXpO1IvYm9cA',
-    mapsApiKey: null,
+    // browser key: public by design, restricted in Google Cloud to the site's addresses
+    // (solarcar37.fr, www.solarcar37.fr, kerozenyt.github.io/Site-Solar-Car) and to the Maps
+    // JavaScript API + Places API (New), with a daily cap on Places requests
+    mapsApiKey: 'AIzaSyAHeg4iZqC3g-4-6Elj9s5pMYDF5P5MYj0',
   },
   // Instagram: the latest posts (5) on the home page, refreshed by the feed service. Instagram
   // no longer offers a public feed: connect the account to a feed service (e.g. Behold,

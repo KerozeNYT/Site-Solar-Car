@@ -3749,13 +3749,53 @@ p {
 .stars i.half {
   background: linear-gradient(90deg, #e7a91a 50%, rgba(255, 255, 255, 0.2) 50%);
 }
-.reviews__cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+/* the reviews in a slow band that scrolls by itself, like the partner brands: the list twice in
+   a row, each copy sliding by its own width, paused under the pointer or the keyboard focus so a
+   review can be read; still and scrollable sideways when less motion is asked for */
+.reviews__band {
+  display: flex;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+.reviews__band:hover .reviews__track,
+.reviews__band:focus-within .reviews__track,
+.reviews__band.is-paused .reviews__track {
+  animation-play-state: paused;
+}
+.reviews__track {
+  display: flex;
+  flex: none;
   gap: 14px;
   margin: 0;
-  padding: 0;
+  padding: 6px 14px 10px 0;
   list-style: none;
+  animation: reviews 55s linear infinite;
+}
+.reviews__track > li {
+  flex: 0 0 min(300px, 78vw);
+}
+@keyframes reviews {
+  to {
+    transform: translateX(-100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reviews__band {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .reviews__track {
+    animation: none;
+  }
+  .reviews__track[aria-hidden='true'] {
+    display: none;
+  }
+  .reviews__track > li {
+    scroll-snap-align: start;
+  }
 }
 .review-card {
   display: grid;

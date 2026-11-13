@@ -72,8 +72,12 @@
 ### Fiche Google reliée
 - Lien de la fiche Google et lien « Laisser un avis » renseignés (`business.google`) : les
   boutons d'avis ouvrent directement la fiche, et la fiche est citée dans les données
-  structurées (`sameAs`). Identifiant de la fiche (Place ID) renseigné ; les 5 avis affichés
-  en direct n'attendent plus que la clé Google Maps (`mapsApiKey`).
+  structurées (`sameAs`).
+- Avis en direct (accueil et page Atelier) : note, nombre d'avis et les 5 avis que Google
+  renvoie, chargés à chaque visite (clé Google Maps limitée aux adresses du site, plafond de
+  requêtes par jour ; au-delà, les boutons restent). Les avis défilent en bandeau comme les
+  marques partenaires : pause sous la souris, au clavier ou d'un toucher sur téléphone, à
+  l'arrêt si moins d'animations demandées ; initiale de l'auteur si sa photo ne charge pas.
 
 ### Film d'accueil V4 : garage sombre premium
 - Nouveau décor : un garage de 2,50 m sous plafond, sol en dalles PVC noires avec un cadre de
