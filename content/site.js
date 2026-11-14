@@ -522,8 +522,11 @@ export const services = [
     shortName: 'Phares',
     tagline: 'Des optiques claires',
     chapter: 'headlights',
-    // photo of the card on the home page (« Un atelier, six savoir-faire »)
-    cardPhoto: { id: 'porsche-911-devant-atelier', focus: '40% 66%' },
+    // photo of the card on the home page (« Un atelier, six savoir-faire »): the before / after
+    // of a real job (content/realisations.js)
+    cardPhoto: { id: 'volvo-xc90-phares-avant-apres', focus: '50% 50%' },
+    // the page header: the same before / after, the headlight cut in two
+    heroPhoto: 'volvo-xc90-phares-avant-apres',
     still: 'headlights',
     name: 'Rénovation de phares',
     short: 'Phares jaunis ou ternes : ponçage, polissage et protection anti-UV.',

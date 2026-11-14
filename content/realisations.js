@@ -50,6 +50,18 @@ export const realisations = [
     ],
   },
   {
+    id: 'volvo-xc90-renovation-phares',
+    service: 'renovation-phares',
+    vehicle: 'Volvo XC90',
+    finish: 'Rénovation de phares',
+    text: 'Une optique jaunie et voilée par les années : après ponçage et polissage, le phare retrouve sa transparence et l’éclairage sa portée.',
+    // the before / after cut in two (page header, home card), made from the two photos below
+    // (aligned on the headlight): assets-src/photos/originals/volvo-xc90-phare-avant|apres.jpg
+    photos: [{ id: 'volvo-xc90-phares-avant-apres', alt: 'Phare avant de Volvo XC90 coupé en deux : à gauche jauni et voilé avant rénovation, à droite clair et transparent après', focus: '50% 50%' }],
+    // the slider of the job's card: the same frame before and after
+    beforeAfter: { before: '/img/realisations/volvo-xc90-phares-avant.webp', after: '/img/realisations/volvo-xc90-phares-apres.webp', alt: 'phare avant de la Volvo XC90' },
+  },
+  {
     id: 'bmw-serie-2-ciel-etoile',
     service: 'ciel-etoile',
     vehicle: 'BMW Série 2',
