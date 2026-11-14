@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Réel SOLAR CAR 37</title>
+<style>
+  @font-face { font-family: 'Geist'; font-weight: 100 900; src: url('assets/geist-latin-wght-normal.woff2') format('woff2-variations'); }
+  @font-face { font-family: 'Geist Mono'; font-weight: 100 900; src: url('assets/geist-mono-latin-wght-normal.woff2') format('woff2-variations'); }
+  @font-face { font-family: 'Instrument Serif'; font-style: italic; font-weight: 400; src: url('assets/instrument-serif-latin-400-italic.woff2') format('woff2'); }
+  :root {
+    --bg: #07080a; --text: #f3f0ea; --text-2: #c7c3ba; --gold: #e3c27a; --gold-hi: #f1dca2; --gold-lo: #c9a253;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+  body { font-family: 'Geist', sans-serif; color: var(--text); -webkit-font-smoothing: antialiased; }
+  .layer { position: absolute; inset: 0; }
+  .full { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; }
+  #blur { width: 1080px; height: 1920px; }
+  #dim { background: radial-gradient(120% 70% at 50% 62%, rgba(7,8,10,0.25) 0%, rgba(7,8,10,0.72) 70%, rgba(7,8,10,0.9) 100%); }
+  #glow { background: radial-gradient(50% 28% at 50% 78%, rgba(227,194,122,0.22), rgba(227,194,122,0) 70%); }
+  #hookShade { background: linear-gradient(180deg, rgba(7,8,10,0.86) 0%, rgba(7,8,10,0.55) 26%, rgba(7,8,10,0) 48%, rgba(7,8,10,0) 70%, rgba(7,8,10,0.55) 100%); }
+
+  /* captions */
+  .kicker { font-family: 'Geist Mono', monospace; font-size: 25px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--gold); display: flex; align-items: center; justify-content: center; gap: 18px; }
+  .kicker::before, .kicker::after { content: ''; width: 46px; height: 2px; background: linear-gradient(90deg, rgba(227,194,122,0), var(--gold)); }
+  .kicker::after { background: linear-gradient(90deg, var(--gold), rgba(227,194,122,0)); }
+  .title { font-weight: 640; letter-spacing: -0.025em; line-height: 1.04; text-align: center; color: var(--text); text-shadow: 0 2px 30px rgba(0,0,0,0.55); }
+  .title em { font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; color: var(--gold-hi); letter-spacing: -0.005em; font-size: 1.14em; line-height: 0.9; }
+  .w { display: inline-block; will-change: transform, opacity; }
+  .line { display: block; overflow: hidden; padding: 0.04em 0 0.1em; margin-bottom: -0.1em; }
+
+  #hook { position: absolute; left: 60px; right: 60px; top: 300px; }
+  #hook .title { font-size: 112px; margin-top: 30px; }
+  #hook .pill { display: inline-flex; margin: 0 auto; }
+  #hookPill { position: absolute; left: 0; right: 0; top: 230px; display: flex; justify-content: center; }
+  .pill { font-family: 'Geist Mono', monospace; font-size: 24px; letter-spacing: 0.24em; text-transform: uppercase; color: #0a0a0b; background: linear-gradient(180deg, var(--gold-hi), var(--gold) 55%, var(--gold-lo)); padding: 12px 22px 11px; border-radius: 999px; box-shadow: 0 8px 30px rgba(227,194,122,0.35); }
+
+  .cap { position: absolute; left: 50px; right: 50px; top: 196px; }
+  .cap .title { font-size: 70px; margin-top: 22px; }
+
+  /* phone */
+  #phone { position: absolute; left: 224px; top: 520px; width: 632px; height: 1349px; border-radius: 76px; padding: 16px;
+    background: linear-gradient(145deg, #3a3b40 0%, #18191c 30%, #0c0d0f 60%, #2a2b30 100%);
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.08) inset, 0 0 0 1.5px rgba(227,194,122,0.25), 0 60px 120px rgba(0,0,0,0.75), 0 20px 50px rgba(0,0,0,0.6);
+    transform-origin: 50% 470px; }
+  #screen { position: relative; width: 600px; height: 1317px; border-radius: 60px; overflow: hidden; background: #000; }
+  #status { position: absolute; left: 0; top: 0; width: 600px; height: 68px; background: #0b0c0f; display: flex; align-items: center; justify-content: space-between; padding: 6px 44px 0 62px; font-weight: 600; font-size: 25px; letter-spacing: -0.01em; color: #fff; }
+  #island { position: absolute; left: 50%; top: 16px; width: 176px; height: 50px; margin-left: -88px; border-radius: 30px; background: #000; z-index: 5; }
+  #status svg { display: block; }
+  #url { position: absolute; left: 0; top: 68px; width: 600px; height: 80px; background: #0b0c0f; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  #url .bar { width: 540px; height: 56px; border-radius: 18px; background: #1c1d22; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 24px; color: #e9e6df; letter-spacing: -0.005em; }
+  #url .bar svg { opacity: 0.75; }
+  #view { position: absolute; left: 0; top: 148px; width: 600px; height: 1169px; overflow: hidden; background: #07080a; }
+  #view img { position: absolute; left: 0; top: 0; width: 600px; height: 1169px; }
+  .touch { position: absolute; width: 74px; height: 74px; margin: -37px 0 0 -37px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,0.6), rgba(255,255,255,0.28) 60%, rgba(255,255,255,0.12)); box-shadow: 0 0 0 2px rgba(255,255,255,0.55); opacity: 0; }
+  .ring { position: absolute; width: 74px; height: 74px; margin: -37px 0 0 -37px; border-radius: 50%; border: 4px solid var(--gold-hi); opacity: 0; box-shadow: 0 0 24px rgba(227,194,122,0.7); }
+  #reflect { position: absolute; inset: 0; border-radius: 60px; background: linear-gradient(115deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,0) 100%); pointer-events: none; }
+
+  /* end card */
+  #endShade { background: linear-gradient(180deg, rgba(7,8,10,0.95) 0%, rgba(7,8,10,0.88) 33%, rgba(7,8,10,0.45) 44%, rgba(7,8,10,0.08) 54%, rgba(7,8,10,0.1) 66%, rgba(7,8,10,0.75) 84%, rgba(7,8,10,0.95) 100%); }
+  #end { position: absolute; inset: 0; }
+  #logo { position: absolute; left: 50%; top: 190px; width: 270px; margin-left: -135px; filter: drop-shadow(0 10px 40px rgba(227,194,122,0.25)); }
+  #site { position: absolute; left: 0; right: 0; top: 520px; text-align: center; font-size: 104px; font-weight: 650; letter-spacing: -0.035em; color: var(--text); }
+  #site b { font-weight: 650; color: var(--gold-hi); }
+  #rule { position: absolute; left: 50%; top: 660px; width: 150px; height: 3px; margin-left: -75px; background: linear-gradient(90deg, rgba(227,194,122,0), var(--gold), rgba(227,194,122,0)); }
+  #where { position: absolute; left: 0; right: 0; top: 690px; text-align: center; font-size: 36px; color: var(--text-2); letter-spacing: -0.005em; }
+  #where em { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 1.2em; color: var(--gold-hi); }
+  #services { position: absolute; left: 90px; right: 90px; top: 760px; text-align: center; font-family: 'Geist Mono', monospace; font-size: 22px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(243,240,234,0.72); line-height: 1.75; }
+  #cta { position: absolute; left: 50%; top: 1352px; transform: translateX(-50%); white-space: nowrap; display: flex; align-items: center; gap: 16px; font-size: 40px; font-weight: 640; letter-spacing: -0.01em; color: #0a0a0b; padding: 26px 44px 26px 48px; border-radius: 999px; background: linear-gradient(180deg, var(--gold-hi), var(--gold) 55%, var(--gold-lo)); box-shadow: 0 16px 50px rgba(227,194,122,0.4); }
+  #cta small { font-family: 'Geist Mono', monospace; font-size: 22px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; opacity: 0.75; }
+  #sheen { position: absolute; inset: 0; border-radius: 999px; overflow: hidden; }
+  #sheen::after { content: ''; position: absolute; top: -20%; bottom: -20%; width: 120px; left: var(--sx, -200px); background: linear-gradient(100deg, rgba(255,255,255,0), rgba(255,255,255,0.65), rgba(255,255,255,0)); transform: skewX(-18deg); }
+</style>
+</head>
+<body>
+  <img id="sharp" class="full" alt="">
+  <img id="blur" class="full" alt="">
+  <div id="dim" class="layer"></div>
+  <div id="glow" class="layer"></div>
+  <img id="still" class="full" src="assets/final-tall-1080.webp" alt="">
+  <div id="endShade" class="layer"></div>
+  <div id="hookShade" class="layer"></div>
+
+  <div id="hookPill"><span class="pill">Nouveau</span></div>
+  <div id="hook">
+    <p class="kicker" data-anim>SOLAR CAR 37 · Vouvray</p>
+    <h1 class="title" data-words>Notre nouveau site est <em>en ligne</em></h1>
+  </div>
+
+  <div id="caps"></div>
+
+  <div id="phone">
+    <div id="screen">
+      <div id="view"><img id="scrA" alt=""><img id="scrB" alt=""><div id="touches"></div></div>
+      <div id="status">
+        <span>9:41</span>
+        <span style="display:flex;gap:10px;align-items:center">
+          <svg width="34" height="22" viewBox="0 0 34 22"><rect x="0" y="14" width="6" height="8" rx="1.5" fill="#fff"/><rect x="9" y="10" width="6" height="12" rx="1.5" fill="#fff"/><rect x="18" y="5" width="6" height="17" rx="1.5" fill="#fff"/><rect x="27" y="0" width="6" height="22" rx="1.5" fill="#fff"/></svg>
+          <svg width="30" height="22" viewBox="0 0 30 22"><path d="M15 21.5 10.6 16a6.6 6.6 0 0 1 8.8 0Z" fill="#fff"/><path d="M5.6 11.6a13.6 13.6 0 0 1 18.8 0l-2.5 3.1a9.6 9.6 0 0 0-13.8 0Z" fill="#fff"/><path d="M.6 6.4a20.6 20.6 0 0 1 28.8 0l-2.5 3.1a16.6 16.6 0 0 0-23.8 0Z" fill="#fff"/></svg>
+          <svg width="48" height="22" viewBox="0 0 48 22"><rect x="1" y="1" width="40" height="20" rx="6" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2"/><rect x="4" y="4" width="30" height="14" rx="3.5" fill="#fff"/><path d="M44 8v6c1.6-.6 2.6-1.8 2.6-3s-1-2.4-2.6-3Z" fill="rgba(255,255,255,0.5)"/></svg>
+        </span>
+      </div>
+      <div id="island"></div>
+      <div id="url"><div class="bar"><svg width="18" height="22" viewBox="0 0 18 22"><rect x="1" y="9" width="16" height="12" rx="3" fill="#e9e6df"/><path d="M4.5 9V6.5a4.5 4.5 0 0 1 9 0V9" fill="none" stroke="#e9e6df" stroke-width="2.4"/></svg><span>solarcar37.fr</span></div></div>
+      <div id="reflect"></div>
+    </div>
+  </div>
+
+  <div id="end">
+    <img id="logo" src="assets/logo-officiel-clair-480.webp" alt="">
+    <div id="site">solarcar37<b>.fr</b></div>
+    <div id="rule"></div>
+    <div id="where">Atelier à Vouvray, <em>près de Tours</em></div>
+    <div id="services">Vitres teintées · Feux fumés · Detailing<br>Covering · Ciel étoilé · Phares</div>
+    <div id="cta"><div id="sheen"></div>Réservez en ligne <small>· lien en bio</small></div>
+  </div>
+
+<script>
+const FPS = 30;
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eOut = (x) => 1 - Math.pow(1 - x, 3);
+const eIn = (x) => x * x * x;
+const eInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const eBack = (x) => { const c1 = 1.4, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const pad = (n) => String(n).padStart(4, '0');
+const $ = (s) => document.querySelector(s);
+
+/** words of a title in their own boxes (lines kept by <br>), emphasis kept */
+function splitWords(el) {
+  const html = el.innerHTML.split(/<br\s*\/?>/i);
+  el.innerHTML = html
+    .map((line) => {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = line;
+      const parts = [];
+      for (const node of tmp.childNodes) {
+        const em = node.nodeType === 1;
+        for (const w of node.textContent.split(/\s+/).filter(Boolean)) parts.push(em ? `<span class="w"><em>${w}</em></span>` : `<span class="w">${w}</span>`);
+      }
+      return `<span class="line">${parts.join(' ')}</span>`;
+    })
+    .join('');
+  return [...el.querySelectorAll('.w')];
+}
+/** a caption in and out: kicker fades, words rise one after the other */
+function animCaption(root, words, t, tin, tout) {
+  const kick = root.querySelector('.kicker');
+  const ki = eOut(prog(t, tin, tin + 0.45));
+  const ko = eIn(prog(t, tout, tout + 0.3));
+  kick.style.opacity = ki * (1 - ko);
+  kick.style.transform = `translateY(${(1 - ki) * 18 - ko * 30}px)`;
+  words.forEach((w, i) => {
+    const a = tin + 0.08 + i * 0.055;
+    const p = eOut(prog(t, a, a + 0.55));
+    const q = eIn(prog(t, tout + i * 0.02, tout + 0.28 + i * 0.02));
+    w.style.opacity = p * (1 - q);
+    w.style.transform = `translateY(${(1 - p) * 70 - q * 60}%)`;
+  });
+  root.style.display = t < tin - 0.05 || t > tout + 0.6 ? 'none' : '';
+}
+
+let C; // configuration (clips, taps), set by setup()
+const hookWords = splitWords($('#hook .title'));
+const caps = [];
+
+window.setup = (cfg) => {
+  C = cfg;
+  // timeline
+  let t = cfg.firstClip;
+  C.clips.forEach((c, i) => {
+    c.start = t;
+    c.len = c.frames / FPS - (c.trimEnd || 0);
+    c.end = c.start + c.len;
+    t = c.end - (i < C.clips.length - 1 ? cfg.overlap : 0);
+    const el = document.createElement('div');
+    el.className = 'cap';
+    el.innerHTML = `<p class="kicker">${c.kicker}</p><h2 class="title">${c.title}</h2>`;
+    $('#caps').appendChild(el);
+    caps.push({ el, words: splitWords(el.querySelector('.title')), c });
+    // touch markers
+    c.marks = c.taps.map((tp) => {
+      const touch = document.createElement('div');
+      touch.className = 'touch';
+      const ring = document.createElement('div');
+      ring.className = 'ring';
+      const k = 600 / c.viewport[0];
+      for (const e of [touch, ring]) {
+        e.style.left = `${tp.x * k}px`;
+        e.style.top = `${tp.y * k}px`;
+        $('#touches').appendChild(e);
+      }
+      return { touch, ring, at: c.start + tp.frame / FPS };
+    });
+  });
+  C.endStart = C.clips[C.clips.length - 1].end - 0.15;
+  C.total = C.endStart + cfg.endLen;
+  return { total: C.total, frames: Math.round(C.total * FPS), clips: C.clips.map((c) => [c.name, +c.start.toFixed(3), +c.end.toFixed(3)]), endStart: C.endStart, phoneIn: cfg.phoneIn, hookEnd: cfg.hookEnd, taps: C.clips.flatMap((c) => c.marks.map((m) => +m.at.toFixed(3))) };
+};
+
+const imgSet = (img, src) => {
+  if (img.dataset.src === src) return null;
+  img.dataset.src = src;
+  img.src = src;
+  return img.decode().catch(() => {});
+};
+
+window.renderFrame = async (n) => {
+  const t = n / FPS;
+  const waits = [];
+  // ---------------------------------------------------------------- background film
+  const hookEnd = C.hookEnd;
+  const filmT = t <= hookEnd ? t * C.hookSpeed : C.hookSpeed * hookEnd + (t - hookEnd);
+  const blurIn = eInOut(prog(t, hookEnd - 0.35, hookEnd + 0.45));
+  if (blurIn < 1) waits.push(imgSet($('#sharp'), `film-sharp/f${pad(Math.min(191, Math.round(filmT * 24)))}.jpg`));
+  $('#sharp').style.opacity = 1;
+  $('#sharp').style.transform = `scale(${1.06 - 0.06 * eOut(prog(t, 0, hookEnd))})`;
+  if (blurIn > 0) waits.push(imgSet($('#blur'), `film-blur/f${pad(clamp(Math.round((filmT - 6) * 24), 0, 623))}.jpg`));
+  $('#blur').style.opacity = blurIn;
+  $('#dim').style.opacity = blurIn;
+  $('#glow').style.opacity = blurIn * (1 - prog(t, C.endStart, C.endStart + 0.6));
+  $('#hookShade').style.opacity = 1 - blurIn;
+
+  // ---------------------------------------------------------------- hook
+  const hk = $('#hook');
+  const out = C.hookOut;
+  const ki = eOut(prog(t, 0.12, 0.6));
+  const ko = eIn(prog(t, out, out + 0.3));
+  hk.querySelector('.kicker').style.opacity = ki * (1 - ko);
+  hk.querySelector('.kicker').style.transform = `translateY(${(1 - ki) * 20 - ko * 40}px)`;
+  hookWords.forEach((w, i) => {
+    const a = 0.22 + i * 0.09;
+    const p = eOut(prog(t, a, a + 0.6));
+    const q = eIn(prog(t, out + i * 0.025, out + 0.3 + i * 0.025));
+    w.style.opacity = p * (1 - q);
+    w.style.transform = `translateY(${(1 - p) * 80 - q * 70}%)`;
+  });
+  const pp = eBack(prog(t, 0.05, 0.5));
+  const pq = eIn(prog(t, out, out + 0.25));
+  $('#hookPill').style.opacity = clamp(prog(t, 0.05, 0.25)) * (1 - pq);
+  $('#hookPill').style.transform = `scale(${0.6 + 0.4 * pp}) translateY(${-pq * 40}px)`;
+  hk.style.display = $('#hookPill').style.display = t > out + 0.6 ? 'none' : '';
+
+  // ---------------------------------------------------------------- phone
+  const ph = $('#phone');
+  const pin = eOut(prog(t, C.phoneIn, C.phoneIn + 0.85));
+  const pinBack = eBack(prog(t, C.phoneIn, C.phoneIn + 0.85));
+  const pout = eIn(prog(t, C.endStart, C.endStart + 0.55));
+  const yIn = (1 - pinBack) * 1500;
+  // punch-in on the 3D view during « Avant / après » (C.punch: clip, tap index, scale, drop)
+  let zoom = 0;
+  if (C.punch) {
+    const pc = C.clips.find((c) => c.name === C.punch.clip);
+    const a = pc.marks[C.punch.tap].at - 0.4;
+    zoom = eInOut(prog(t, a, a + 0.5)) * (1 - eInOut(prog(t, pc.end - 0.5, pc.end - 0.05)));
+  }
+  const zs = 1 + (C.punch ? C.punch.scale - 1 : 0) * zoom;
+  const zy = (C.punch ? C.punch.dy : 0) * zoom;
+  ph.style.transform = `translateY(${yIn + pout * 1100 + zy}px) rotate(${(1 - pin) * -7 + pout * 5}deg) scale(${(1 - pout * 0.12) * zs})`;
+  ph.style.opacity = t < C.phoneIn ? 0 : 1 - prog(t, C.endStart + 0.35, C.endStart + 0.55);
+  ph.style.display = t < C.phoneIn || t > C.endStart + 0.6 ? 'none' : '';
+  if (ph.style.display !== 'none') {
+    // which clip on screen (two during a cross-fade)
+    let cur = C.clips.findIndex((c) => t < c.end);
+    if (cur < 0) cur = C.clips.length - 1;
+    const c = C.clips[cur];
+    const frameOf = (c) => clamp(Math.floor((t - c.start) * FPS), 0, c.frames - 1);
+    waits.push(imgSet($('#scrA'), `${C.capDir}/${c.name}/f${pad(frameOf(c))}.jpg`));
+    const nx = C.clips[cur + 1];
+    const fade = nx ? prog(t, nx.start, nx.start + C.overlap) : 0;
+    if (nx && fade > 0) {
+      waits.push(imgSet($('#scrB'), `${C.capDir}/${nx.name}/f${pad(frameOf(nx))}.jpg`));
+      $('#scrB').style.opacity = eInOut(fade);
+      $('#scrB').style.display = '';
+    } else $('#scrB').style.display = 'none';
+    // touches
+    for (const cl of C.clips) for (const m of cl.marks) {
+      const d = t - m.at;
+      const press = prog(d, -0.22, -0.05);
+      const lift = prog(d, 0.08, 0.3);
+      m.touch.style.opacity = (eOut(press) * (1 - lift)) * 0.95;
+      m.touch.style.transform = `scale(${1.25 - 0.35 * eOut(press) + 0.1 * lift})`;
+      const r = prog(d, 0, 0.5);
+      m.ring.style.opacity = d < 0 ? 0 : (1 - eOut(r)) * 0.95;
+      m.ring.style.transform = `scale(${0.6 + 1.5 * eOut(r)})`;
+    }
+  }
+
+  // ---------------------------------------------------------------- captions
+  caps.forEach((cp, i) => {
+    const c = cp.c;
+    const tin = i === 0 ? C.phoneIn + 0.2 : c.start + 0.05;
+    const nx = C.clips[i + 1];
+    const tout = nx ? nx.start - 0.2 : C.endStart - 0.05;
+    animCaption(cp.el, cp.words, t, tin, tout);
+  });
+
+  // ---------------------------------------------------------------- end card
+  const e0 = C.endStart;
+  const st = eInOut(prog(t, e0 + 0.15, e0 + 0.9));
+  const still = $('#still');
+  still.style.opacity = st;
+  still.style.transform = `translateY(150px) scale(${1.16 - 0.06 * eOut(prog(t, e0, C.total))})`;
+  still.style.display = st <= 0 ? 'none' : '';
+  $('#endShade').style.opacity = st;
+  const show = (sel, a, dy = 40, dur = 0.6) => {
+    const p = eOut(prog(t, e0 + a, e0 + a + dur));
+    const el = $(sel);
+    el.style.opacity = p;
+    return { p, el, dy: (1 - p) * dy };
+  };
+  { const { p, el } = show('#logo', 0.45, 0, 0.7); el.style.transform = `scale(${0.85 + 0.15 * eBack(prog(t, e0 + 0.45, e0 + 1.1))})`; }
+  { const { el, dy } = show('#site', 0.75); el.style.transform = `translateY(${dy}px)`; }
+  { const p = eOut(prog(t, e0 + 0.95, e0 + 1.5)); $('#rule').style.opacity = p; $('#rule').style.transform = `scaleX(${p})`; }
+  { const { el, dy } = show('#where', 1.0); el.style.transform = `translateY(${dy}px)`; }
+  { const { el, dy } = show('#services', 1.2); el.style.transform = `translateY(${dy}px)`; }
+  {
+    const p = eBack(prog(t, e0 + 1.5, e0 + 2.1));
+    const el = $('#cta');
+    el.style.opacity = clamp(prog(t, e0 + 1.5, e0 + 1.75));
+    el.style.transform = `translateX(-50%) scale(${0.7 + 0.3 * p})`;
+    const s = prog(t, e0 + 2.4, e0 + 3.2);
+    el.style.setProperty('--sx', `${-200 + s * 1000}px`);
+  }
+  $('#end').style.display = t < e0 ? 'none' : '';
+
+  await Promise.all(waits.filter(Boolean));
+  return t;
+};
+</script>
+</body>
+</html>

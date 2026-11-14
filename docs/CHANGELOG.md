@@ -1,5 +1,13 @@
 # Journal des changements
 
+## Réel « Notre nouveau site est en ligne » (14 novembre 2026)
+
+- Vidéo verticale 1080 × 1920 de 27 s pour Instagram, TikTok, Facebook et LinkedIn : accroche sur
+  le film d'accueil, puis le vrai site filmé sur un téléphone (film au défilement, simulateur 3D
+  des vitres avec avant/après, réservation en ligne), écran final avec solarcar37.fr.
+- Musique et bruitages synthétisés (aucun droit), version sans musique pour les sons tendance.
+- `scripts/reel/` régénère tout (`bash scripts/reel/make.sh`), voir `docs/REEL.md`.
+
 ## Optimisation complète (13 novembre 2026)
 
 ### Sécurité

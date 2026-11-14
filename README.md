@@ -37,6 +37,7 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `content/tint-photos.js` | Photos du simulateur simple des vitres teintées et contour de leurs vitres ; images sources dans `assets-src/vitres/`, puis `node scripts/tint-photos.mjs` |
 | `assets-src/partners/` | Logos officiels des marques partenaires (`<marque>.svg` ou `.png`) : `node scripts/partner-logos.mjs` en fait des silhouettes dans `public/img/partners/`, que la page peint en doré ; le chemin se renseigne dans `partners` de `content/site.js` |
 | `scripts/film/` | Le film lui-même : décor, trajectoire de la caméra et effets (`shots.js`), rendu image par image en 4K (`node scripts/film/render.mjs <dossier> 3840 2160`), puis `node scripts/film-assets.mjs '<dossier>/f%04d.jpg'` pour fabriquer toutes les versions |
+| `scripts/reel/` | Réel « nouveau site » pour les réseaux sociaux (9:16, musique comprise) : `bash scripts/reel/make.sh`, détails dans `docs/REEL.md` |
 
 ## Plan d’accès
 
