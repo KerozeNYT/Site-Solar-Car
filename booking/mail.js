@@ -92,6 +92,7 @@ export async function sendBookingMails(env, b) {
             ['Total', euros(q.total)],
             ['Payé en ligne', `${euros(paid)} (${b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`],
             ['Reste à régler', due ? euros(due) : 'rien'],
+            ['Nous a connus', c.source ? esc(c.source) : ''],
             ['Message', c.message ? esc(c.message) : ''],
           ])}</table><p style="margin:18px 0 0;font-size:13px;color:#6b6b6b">Le rendez-vous est dans l’agenda SOLAR CAR 37. Répondre à cet e-mail écrit au client.</p>`
         ),

@@ -126,6 +126,17 @@ export function quote(config = {}) {
   return { items, total, minutes, deposit: Math.round(total * bookingRules.depositRate * 100) / 100 };
 }
 
+/** « Comment nous avez-vous connus ? »: the answers offered on the quote form and the booking
+ * page (several can be ticked; « Autre » opens a short text) */
+export const howHeard = ['Recherche Internet (Google…)', 'Réseaux sociaux (Instagram, Facebook…)', 'Bouche-à-oreille', 'Déjà client', 'Autre'];
+
+/** the answers as one line, from the ticked boxes and the « Autre » text (checked against the list) */
+export function howHeardText(channels = [], other = '') {
+  const ok = (Array.isArray(channels) ? channels : []).filter((c) => howHeard.includes(c));
+  const extra = String(other || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  return ok.map((c) => (c === 'Autre' && extra ? `Autre : ${extra}` : c)).join(', ');
+}
+
 /** the amount to pay now (EUR): the deposit or the total */
 export const amountDue = (q, mode) => (mode === 'full' ? q.total : q.deposit);
 

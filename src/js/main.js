@@ -147,6 +147,20 @@ if (tour) {
   }
 }
 
+// ---------------------------------------------------------------- « Comment nous avez-vous connus ? »
+// the short text opens when « Autre » is ticked (always visible without JavaScript)
+for (const box of document.querySelectorAll('[data-how-heard]')) {
+  const other = box.querySelector('[data-how-other]');
+  const text = box.querySelector('[data-how-text]');
+  if (!other || !text) continue;
+  const sync = () => {
+    text.hidden = !other.checked;
+    if (other.checked && document.activeElement === other) text.querySelector('input')?.focus();
+  };
+  other.addEventListener('change', sync);
+  text.hidden = !other.checked;
+}
+
 // ---------------------------------------------------------------- online booking
 const bookingEl = document.querySelector('[data-booking]');
 if (bookingEl) import('./booking.js').then((m) => m.startBooking(bookingEl));
@@ -315,6 +329,14 @@ document.addEventListener('click', (e) => {
 addEventListener('sc37:sim', (e) => track('simulateur_3d', e.detail));
 
 // ---------------------------------------------------------------- contact form
+/** « Comment nous avez-vous connus ? » as one line: the ticked boxes, « Autre : … » with its text */
+const howHeardLine = (d) => {
+  const other = String(d.get('connu_autre') || '').replace(/\s+/g, ' ').trim();
+  return d
+    .getAll('connu')
+    .map((c) => (c === 'Autre' && other ? `Autre : ${other}` : c))
+    .join(', ');
+};
 const form = document.querySelector('[data-form]');
 if (form) {
   const status = form.querySelector('[data-form-status]');
@@ -485,6 +507,7 @@ if (form) {
           Année: d.get('annee') || '',
           'Prestation(s)': prestations.join(', '),
           'Rendez-vous souhaité': wish || 'indifférent',
+          'Nous a connus': howHeardLine(d) || 'non précisé',
           Message: d.get('message') || '',
           _subject: subject,
           _template: 'table',

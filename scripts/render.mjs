@@ -29,6 +29,7 @@ export async function renderSite(out, assets) {
     bookableVehicles: B.bookableVehicles,
     lightsBooking: B.lightsBooking,
     windshieldMinutes: B.windshieldMinutes,
+    howHeard: B.howHeard,
     windshieldFilms: pricing.tint.windshield.films,
     windshieldColors: pricing.tint.windshield.colors,
   };

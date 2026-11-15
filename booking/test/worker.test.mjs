@@ -47,7 +47,15 @@ const hook = (event, header) => {
 let day = utcToZoned(Date.now() + 21 * 86400000, TZ).date;
 while (new Date(day + 'T12:00:00Z').getUTCDay() !== 3) day = addDays(day, 1);
 const config = { tint: { vehicle: 'berline', formula: 'rear' } }; // 270 €, 2 h
-const customer = { firstName: 'Jean', lastName: 'Martin', email: 'jean@example.com', phone: '06 12 34 56 78', vehicle: 'Peugeot 508' };
+const customer = {
+  firstName: 'Jean',
+  lastName: 'Martin',
+  email: 'jean@example.com',
+  phone: '06 12 34 56 78',
+  vehicle: 'Peugeot 508',
+  // « Comment nous avez-vous connus ? »: an answer not in the list is dropped
+  source: { channels: ['Réseaux sociaux (Instagram, Facebook…)', 'Autre', 'Pirate'], other: 'Salon auto de Tours' },
+};
 const slotsOf = async (cfg = config) => {
   const r = await call(`/api/slots?config=${encodeURIComponent(JSON.stringify(cfg))}&from=${day}&days=1`);
   assert.equal(r.status, 200);
@@ -102,6 +110,8 @@ test('webhook: bad signature refused, paid session confirms the appointment', as
   assert.equal(ev.colorId, '9');
   assert.match(ev.summary, /^RDV Vitres teintées 3\/4 arrière — Jean Martin/);
   assert.match(ev.description, /Payé en ligne : 81 € \(acompte 30 %\) — reste à régler : 189 €/);
+  assert.match(ev.description, /Nous a connus : Réseaux sociaux \(Instagram, Facebook…\), Autre : Salon auto de Tours\n/);
+  assert.doesNotMatch(ev.description, /Pirate/);
   assert.match(ev.description, /Téléphone : 06 12 34 56 78/);
   // the e-mails: « Nouveau RDV » to the workshop, the confirmation (with the .ics) to the client
   assert.equal(mails.length, 2);
@@ -109,6 +119,7 @@ test('webhook: bad signature refused, paid session confirms the appointment', as
   assert.deepEqual(shop.to, ['contact.solarcar37@gmail.com']);
   assert.match(shop.subject, /^Nouveau RDV — Jean Martin — \S+ \d+ \S+ à 10 h 00$/);
   assert.match(shop.html, /06 12 34 56 78/);
+  assert.match(shop.html, /Nous a connus.*Salon auto de Tours/s);
   assert.match(shop.html, /Reste à régler.*189 €/s);
   assert.equal(shop.reply_to, 'jean@example.com');
   assert.deepEqual(client.to, ['jean@example.com']);
@@ -155,4 +166,15 @@ test('refusals: other site, missing consent, bad details, unbookable', async () 
   const r = await call('/api/checkout', { method: 'POST', body: { ...base, date: near, time: '08:00' } });
   assert.equal(r.status, 400);
   assert.match((await r.json()).error, /rétractation/);
+});
+
+test('long details: what Stripe keeps is always whole (500 characters at most)', async () => {
+  const long = { ...customer, lastName: 'M'.repeat(60), vehicle: 'V'.repeat(80), message: 'Bonjour '.repeat(100), source: { channels: ['Autre'], other: 'x'.repeat(120) } };
+  const r = await call('/api/checkout', { method: 'POST', body: { config: { lights: { pairs: 'rear' } }, date: day, time: '13:00', mode: 'deposit', customer: long, consent: { terms: true }, back: `${ORIGIN}/reservation/` } });
+  assert.equal(r.status, 200, await r.clone().text());
+  const s = [...sessions.values()].at(-1);
+  assert.ok(s.metadata.customer.length <= 500);
+  const c = JSON.parse(s.metadata.customer);
+  assert.equal(c.email, 'jean@example.com');
+  assert.match(c.source, /^Autre : x+/);
 });

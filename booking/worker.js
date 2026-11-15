@@ -18,7 +18,7 @@
  *   RESEND_API_KEY         (secret) e-mails of a confirmed booking (booking/mail.js); none without it
  *   NOTIFY_TO, MAIL_FROM, MAIL_CLIENTS   who is told, from which address, and whether clients are
  */
-import { bookingRules as R, quote, amountDue, formatDuration } from '../content/booking.js';
+import { bookingRules as R, quote, amountDue, formatDuration, howHeardText } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents } from './google.js';
 import { createSession, getSession, verifyWebhook } from './stripe.js';
@@ -72,12 +72,31 @@ function customerOf(c = {}) {
     vehicle: s(c.vehicle, 80),
     plate: s(c.plate, 15).toUpperCase(),
     message: String(c.message ?? '').trim().slice(0, 800),
+    // « Comment nous avez-vous connus ? »: only the answers of the list, and a short text
+    source: howHeardText(c.source?.channels, c.source?.other).slice(0, 180),
   };
   if (!out.firstName || !out.lastName) return { error: 'Nom et prénom à indiquer' };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(out.email)) return { error: 'Adresse e-mail à vérifier' };
   if (out.phone.replace(/\D/g, '').length < 9) return { error: 'Numéro de téléphone à vérifier' };
   if (!out.vehicle) return { error: 'Marque et modèle du véhicule à indiquer' };
   return out;
+}
+
+/** the customer for Stripe's metadata (500 characters at most): the message is shortened first,
+ *  then the other fields, so that the JSON is always whole */
+function customerJson(c) {
+  const o = { firstName: c.firstName, lastName: c.lastName, email: c.email, phone: c.phone, vehicle: c.vehicle, plate: c.plate, source: c.source, message: c.message.slice(0, 200) };
+  let j = JSON.stringify(o);
+  while (j.length > 500 && o.message) {
+    o.message = o.message.slice(0, Math.max(0, o.message.length - (j.length - 500) - 1));
+    j = JSON.stringify(o);
+  }
+  for (const k of ['source', 'vehicle', 'lastName']) {
+    if (j.length <= 500) break;
+    o[k] = String(o[k] || '').slice(0, Math.max(0, String(o[k] || '').length - (j.length - 500) - 1));
+    j = JSON.stringify(o);
+  }
+  return j;
 }
 
 /** the text of the appointment in the calendar */
@@ -87,6 +106,7 @@ function eventText(q, c, { date, time, mode, paid, sessionId }) {
     `Téléphone : ${c.phone}`,
     `E-mail : ${c.email}`,
     `Véhicule : ${c.vehicle}${c.plate ? ` (${c.plate})` : ''}`,
+    c.source ? `Nous a connus : ${c.source}` : null,
     '',
     ...q.items.map((i) => `• ${i.label}${i.detail ? ` — ${i.detail}` : ''} : ${euros(i.price)} (${formatDuration(i.minutes)})`),
     '',
@@ -222,7 +242,7 @@ async function checkout(req, env, now) {
         time,
         mode,
         config: JSON.stringify(b.config).slice(0, 500),
-        customer: JSON.stringify({ firstName: c.firstName, lastName: c.lastName, email: c.email, phone: c.phone, vehicle: c.vehicle, plate: c.plate, message: c.message.slice(0, 200) }).slice(0, 500),
+        customer: customerJson(c),
       },
     });
   } catch (err) {

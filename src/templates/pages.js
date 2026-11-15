@@ -1197,6 +1197,7 @@ export function contactPage(ctx) {
           <div><label for="f-slot">Moment</label><select id="f-slot" name="moment"><option value="">Indifférent</option><option>Matin (8 h – 12 h)</option><option>Après-midi (13 h – 17 h)</option></select></div>
           <p class="form__hint">Atelier ouvert du lundi au vendredi. Ce n’est pas une réservation : nous vous confirmons le créneau.</p>
         </fieldset>
+        ${howHeardField(ctx, 'f-connu-autre')}
         <div class="form__row form__consent">
           <label class="choice"><input type="checkbox" name="consentement" required aria-describedby="err-consent"> J’accepte que mes données soient utilisées pour répondre à ma demande (voir <a href="/mentions-legales/#confidentialite">confidentialité</a>). <span class="req" aria-hidden="true">*</span></label>
           <p class="form__error" id="err-consent" data-error-for="consentement" hidden>Cochez cette case pour que nous puissions vous répondre.</p>
@@ -1691,6 +1692,17 @@ export function zonesIndexPage(ctx) {
 }
 
 
+/** « Comment nous avez-vous connus ? » (optional): boxes to tick, « Autre » opens a short text */
+function howHeardField(ctx, id) {
+  const opts = ctx.booking?.howHeard || [];
+  if (!opts.length) return '';
+  return `<fieldset class="form__row how-heard" data-how-heard>
+          <legend>Comment nous avez-vous connus ? <span class="optional">(facultatif)</span></legend>
+          <div class="choices">${opts.map((o) => `<label class="choice"><input type="checkbox" name="connu" value="${esc(o)}"${o === 'Autre' ? ' data-how-other' : ''}> ${esc(o)}</label>`).join('')}</div>
+          <div class="how-heard__other" data-how-text><label class="visually-hidden" for="${id}">Précisez</label><input id="${id}" name="connu_autre" maxlength="120" autocomplete="off" placeholder="Précisez : salon, flyer, passage devant l’atelier…"></div>
+        </fieldset>`;
+}
+
 // ------------------------------------------------------------------------- online booking
 // (content/booking.js: what can be booked; src/js/booking.js: the steps; booking/: the server)
 
@@ -1768,6 +1780,7 @@ export function reservationPage(ctx) {
             <div><label for="b-plate">Immatriculation <span class="optional">(facultatif)</span></label><input id="b-plate" name="plate" autocomplete="off" placeholder="AB-123-CD"></div>
           </div>
           <div class="form__row"><label for="b-msg">Un message pour l’atelier <span class="optional">(facultatif)</span></label><textarea id="b-msg" name="message" rows="3"></textarea></div>
+          ${howHeardField(ctx, 'b-connu-autre')}
         </fieldset>
 
         <fieldset class="booking__step" data-step="pay" disabled>

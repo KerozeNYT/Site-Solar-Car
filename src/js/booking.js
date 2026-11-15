@@ -247,7 +247,7 @@ export function startBooking(root) {
     if (e.target.closest('[data-cal-next]')) loadMonth(nextMonth(month), false);
   });
   form.addEventListener('change', (e) => {
-    if (['firstName', 'lastName', 'email', 'phone', 'carModel', 'plate', 'message', 'terms', 'early'].includes(e.target.name)) return;
+    if (['firstName', 'lastName', 'email', 'phone', 'carModel', 'plate', 'message', 'terms', 'early', 'connu', 'connu_autre'].includes(e.target.name)) return;
     refresh();
   });
 
@@ -274,6 +274,8 @@ export function startBooking(root) {
     if (form.elements.early.required && !form.elements.early.checked) return fail('Votre rendez-vous a lieu dans moins de 14 jours : cochez la demande de réalisation avant la fin du délai de rétractation.');
     const field = (n) => form.elements[n].value;
     const customer = { firstName: field('firstName'), lastName: field('lastName'), email: field('email'), phone: field('phone'), vehicle: field('carModel'), plate: field('plate'), message: field('message') };
+    // « Comment nous avez-vous connus ? » (optional)
+    customer.source = { channels: $$('input[name="connu"]:checked').map((i) => i.value), other: field('connu_autre') };
     store.set('booking-contact', customer);
     const btn = $('[data-pay]');
     btn.disabled = true;
@@ -316,7 +318,14 @@ export function startBooking(root) {
   setRadio('pairs', l?.pairs || p.get('feux'));
   if (saved?.mode) setRadio('mode', saved.mode);
   const contact = saved ? store.get('booking-contact') : null;
+  if (contact?.source) {
+    for (const c of contact.source.channels || []) setRadio('connu', c);
+    if (form.elements.connu_autre) form.elements.connu_autre.value = contact.source.other || '';
+    const t = root.querySelector('[data-how-text]');
+    if (t) t.hidden = !(contact.source.channels || []).includes('Autre');
+  }
   if (contact) for (const [k, v] of Object.entries(contact)) {
+    if (k === 'source') continue;
     const el = form.elements[k === 'vehicle' ? 'carModel' : k];
     if (el && 'value' in el && !(el instanceof RadioNodeList)) el.value = v;
   }

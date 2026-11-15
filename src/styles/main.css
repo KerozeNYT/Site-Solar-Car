@@ -5330,3 +5330,12 @@ button.cal__day.is-on {
 .book-cta h2 {
   margin-top: 0;
 }
+
+/* « Comment nous avez-vous connus ? » (quote form, booking) */
+.how-heard .choices {
+  gap: 8px 18px;
+}
+.how-heard__other {
+  margin-top: 10px;
+  max-width: 520px;
+}
