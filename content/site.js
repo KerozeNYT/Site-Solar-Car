@@ -85,6 +85,15 @@ export const business = {
   // alias: it can replace the address below. When null the form opens the visitor's e-mail app.
   formEndpoint: 'https://formsubmit.co/contact@solarcar37.fr',
   // Online booking: content/booking.js (the site's own booking page and server)
+  // Visit statistics (docs/STATISTIQUES.md), without cookie: each page sends its view and the
+  // visitor's actions to the booking server (`endpoint`), read on its /stats page.
+  // `cloudflareToken`: Cloudflare Web Analytics (cookieless; real page speed, countries), added to
+  // the production build only; the token of the "www.solarcar37.fr" site created in the
+  // Cloudflare dashboard (Analytics & Logs → Web Analytics → Add a site → manual JS snippet).
+  stats: {
+    endpoint: 'https://solarcar37-reservation.contact-solarcar37.workers.dev/api/stats',
+    cloudflareToken: null,
+  },
 };
 
 // Header menu. `services: true` = a "Nos prestations" drop-down listing the service pages.

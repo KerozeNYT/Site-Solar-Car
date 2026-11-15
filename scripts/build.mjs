@@ -6,7 +6,7 @@ import { renderSite } from './render.mjs';
 import { rebase, markPreview } from './rebase.mjs';
 import { redirects } from '../content/redirects.js';
 import { business } from '../content/site.js';
-import { applyCsp, htaccessBlock, writeHeadersFile, writeSecurityTxt } from './security.mjs';
+import { addBeacon, applyCsp, htaccessBlock, writeHeadersFile, writeSecurityTxt } from './security.mjs';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const out = path.join(root, 'dist');
@@ -109,7 +109,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const base = process.env.SITE_BASE || '/';
   if (base !== '/') console.log('base', base, rebase(out, base).files, 'files');
   if (process.env.PREVIEW) markPreview(out);
-  // Content-Security-Policy in every page, then the host files that carry the full headers
+  // Cloudflare Web Analytics (production, when configured), then the Content-Security-Policy in
+  // every page, then the host files that carry the full headers
+  addBeacon(out, business);
   const csp = applyCsp(out, business);
   if (!process.env.PREVIEW) {
     writeRedirects(out, csp);

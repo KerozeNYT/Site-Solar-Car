@@ -19,7 +19,9 @@ la fiche Google, les avis, les sites qui citent l'atelier. Cette liste est à su
      de prestations.
    - [Bing Webmaster Tools](https://www.bing.com/webmasters) : « Importer depuis Google Search
      Console » (l'index de Bing sert aussi à Copilot et à d'autres moteurs de réponse).
-   - Fiche Google : remplacer le lien du site par `https://www.solarcar37.fr/`.
+   - Fiche Google : remplacer le lien du site par
+     `https://www.solarcar37.fr/?utm_source=fiche-google` (les visiteurs venus de la fiche sont
+     alors comptés à part dans les statistiques, `docs/STATISTIQUES.md`).
 
 ## 2. Fiche Google (le premier levier de la carte Google)
 

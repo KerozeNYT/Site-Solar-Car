@@ -7,6 +7,11 @@
  *   POST /api/checkout                               holds the slot, opens a Stripe payment page
  *   POST /api/stripe-webhook                         paid: appointment confirmed; expired: slot freed
  *   GET  /api/booking?session=cs_…                   what was booked (confirmation page)
+ *   POST /api/stats                                  a page view or an action (booking/stats.js)
+ *   GET  /stats?cle=…                                the site's statistics (booking/stats-page.js)
+ *   GET  /stats/bilan?cle=…&mois=YYYY-MM             the monthly e-mail in the browser (POST: sends it)
+ *   GET  /stats/f/<font>.woff2                       the fonts of the statistics page
+ *   cron, the 1st of each month                      the monthly e-mail (booking/stats-report.js)
  *
  * Environment (booking/wrangler.toml, secrets with `wrangler secret put`):
  *   ALLOWED_ORIGINS        sites allowed to call the API, comma separated
@@ -17,12 +22,22 @@
  *   STRIPE_WEBHOOK_SECRET  (secret)
  *   RESEND_API_KEY         (secret) e-mails of a confirmed booking (booking/mail.js); none without it
  *   NOTIFY_TO, MAIL_FROM, MAIL_CLIENTS   who is told, from which address, and whether clients are
+ *   STATS                  Durable Object (class Stats) holding the visit statistics
+ *   STATS_KEY              (secret) the key of the statistics page
+ *   STATS_PREVIEW_ORIGINS  sites whose visits are counted apart (the preview), comma separated
+ *   STATS_PAGE             address of the statistics page (link of the monthly e-mail)
  */
 import { bookingRules as R, quote, amountDue, formatDuration, howHeardText } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents } from './google.js';
 import { createSession, getSession, verifyWebhook } from './stripe.js';
 import { sendBookingMails } from './mail.js';
+import { record, hitFromPage } from './stats.js';
+import { statsPage } from './stats-page.js';
+import { sendMonthly, monthRoute } from './stats-report.js';
+
+// the Durable Object class of the statistics database (booking/wrangler.toml)
+export { Stats } from './stats.js';
 
 const DAY = 86400000;
 const list = (s) => (s || '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -149,6 +164,8 @@ async function confirm(env, session) {
       end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
     });
   }
+  // counted once, when the appointment is confirmed (Stripe test mode: with the preview's figures)
+  await record(env, [{ site: session.livemode ? 'site' : 'apercu', kind: 'rdv', page: '/reservation/', detail: q.items.map((i) => i.label).join(' + ').slice(0, 120), value: paid }]).catch((err) => console.error('[stats]', err));
   // « Nouveau RDV » to the workshop, the confirmation to the client (never fails the booking)
   await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id }).catch((err) => console.error('[mail]', err));
   return out;
@@ -294,8 +311,51 @@ async function booking(req, env, url) {
   );
 }
 
+/** a page view or an action sent by a page of the site (navigator.sendBeacon, text/plain): kept
+ *  only from the site's own pages; always a silent 204 */
+async function collect(req, env, ctx, now) {
+  const origin = req.headers.get('origin') || '';
+  const robot = /bot|crawl|spider|slurp|headless|lighthouse/i.test(req.headers.get('user-agent') || '');
+  if (env.STATS && !robot && list(env.ALLOWED_ORIGINS).includes(origin)) {
+    const text = await req.text();
+    const row = text.length <= 2048 ? hitFromPage(text, list(env.STATS_PREVIEW_ORIGINS).includes(origin) ? 'apercu' : 'site') : null;
+    if (row) {
+      const done = record(env, [row], now).catch((err) => console.error('[stats]', err));
+      if (ctx?.waitUntil) ctx.waitUntil(done);
+      else await done;
+    }
+  }
+  return new Response(null, { status: 204, headers: cors(req, env) });
+}
+
+/** the routes behind the statistics key (same check as the page) */
+async function statsKeyed(req, env, url, run) {
+  const a = url.searchParams.get('cle') || '';
+  const b = env.STATS_KEY || '';
+  let d = a.length === b.length && b ? 0 : 1;
+  for (let i = 0; i < a.length && i < b.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  if (!env.STATS || d) return new Response('Clé incorrecte', { status: 403, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+  return run();
+}
+
+/** the site's fonts for the statistics page (loaded only here: Node cannot import a .woff2) */
+async function font(name) {
+  let fonts = {};
+  try {
+    ({ FONTS: fonts } = await import('./stats-fonts.js'));
+  } catch {}
+  const data = Object.hasOwn(fonts, name) ? fonts[name] : null;
+  if (!data) return new Response('not found', { status: 404 });
+  return new Response(data, { headers: { 'content-type': 'font/woff2', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' } });
+}
+
 export default {
-  async fetch(req, env) {
+  /** the 1st of each month: the statistics e-mail of the month that just ended */
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(sendMonthly(env, controller.scheduledTime).then((r) => console.log('[stats] monthly', JSON.stringify(r))).catch((err) => console.error('[stats] monthly', err)));
+  },
+
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
     const now = Date.now();
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req, env) });
@@ -304,6 +364,10 @@ export default {
       if (req.method === 'POST' && url.pathname === '/api/checkout') return await checkout(req, env, now);
       if (req.method === 'POST' && url.pathname === '/api/stripe-webhook') return await webhook(req, env);
       if (req.method === 'GET' && url.pathname === '/api/booking') return await booking(req, env, url);
+      if (req.method === 'POST' && url.pathname === '/api/stats') return await collect(req, env, ctx, now);
+      if (req.method === 'GET' && url.pathname === '/stats') return await statsPage(req, env, url, now);
+      if (url.pathname === '/stats/bilan' && (req.method === 'GET' || req.method === 'POST')) return await statsKeyed(req, env, url, () => monthRoute(req, env, url, now));
+      if (req.method === 'GET' && url.pathname.startsWith('/stats/f/')) return await font(url.pathname.slice(9));
       return json({ error: 'not found' }, 404, cors(req, env));
     } catch (err) {
       console.error(err);

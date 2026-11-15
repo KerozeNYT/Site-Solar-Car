@@ -34,6 +34,7 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `src/js/ambient.js` | Fond animé : néons, sol mouillé, fumée et poussière dessinés sur place (rien à télécharger) |
 | `content/film.js` | Vidéo d'accueil au défilement : versions (1080p, 1440p, 4K, téléphone 9:16), durée, moments de chaque prestation et onglets |
 | `content/sections/` | Sections longues des pages de prestations (forfaits, tableaux, étapes) et questions ajoutées à leur FAQ, une page par fichier ; `content/sections/dechromage.js` porte toute la page Déchromage |
+| `content/stats.js` | Chiffres de l'ancien site (local.fr), comparés sur la page de statistiques |
 | `content/tint-photos.js` | Photos du simulateur simple des vitres teintées et contour de leurs vitres ; images sources dans `assets-src/vitres/`, puis `node scripts/tint-photos.mjs` |
 | `assets-src/partners/` | Logos officiels des marques partenaires (`<marque>.svg` ou `.png`) : `node scripts/partner-logos.mjs` en fait des silhouettes dans `public/img/partners/`, que la page peint en doré ; le chemin se renseigne dans `partners` de `content/site.js` |
 | `scripts/film/` | Le film lui-même : décor, trajectoire de la caméra et effets (`shots.js`), rendu image par image en 4K (`node scripts/film/render.mjs <dossier> 3840 2160`), puis `node scripts/film-assets.mjs '<dossier>/f%04d.jpg'` pour fabriquer toutes les versions |
@@ -86,5 +87,7 @@ Les fichiers sources (`.glb`, `.usdz`) restent hors du dépôt ; seuls les modè
 `content/lastmod.json` : empreinte du contenu de chaque page, mise à jour par le build ; la commiter avec le contenu (le sitemap date ainsi les vraies modifications).
 
 Sécurité : `scripts/security.mjs` écrit au build la Content-Security-Policy de chaque page (balise meta) et, pour la production, `_headers` (Netlify, Cloudflare Pages), les en-têtes de `.htaccess` (Apache, OVH) et `/.well-known/security.txt` ; un service externe ajouté dans `content/site.js` (réservation, flux Instagram) y est autorisé automatiquement. Détails et actions hors code : `docs/SECURITE.md`. Référencement local hors du site (fiche Google, avis, annuaires) : `docs/SEO-LOCAL.md`.
+
+Statistiques de visite (sans cookie, comptées par le serveur de réservation, page `/stats` réservée à l'atelier) : `docs/STATISTIQUES.md`.
 
 Mise en production : `docs/MIGRATION-DOMAINE.md`. Suivi de la V2 : `docs/V2-ROADMAP.md` (tableau de bord), `docs/V2-AUDIT.md` (audit initial) et `docs/CHANGELOG.md` (journal des changements).

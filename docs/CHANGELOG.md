@@ -1,5 +1,43 @@
 # Journal des changements
 
+## Tableau de bord des statistiques, bilan mensuel (15 novembre 2026)
+
+- Page `/stats` refaite dans le style « garage de nuit » du site : fond animé (lueurs dorées, sol
+  de garage en perspective), cartes en verre avec un reflet qui suit le pointeur, polices du site
+  (Geist, Geist Mono, Instrument Serif) servies par le serveur, chiffres qui défilent, apparition
+  des cartes au défilement ; tout s'arrête si l'appareil demande moins d'animations.
+- Phrase de bilan en tête (en hausse, en baisse, stable) ; courbe des visites avec la période
+  précédente et lecture point par point (souris, doigt, flèches du clavier) ; tendances dans chaque
+  chiffre clé ; « Sur 100 visites » ; « Mois par mois » sur 12 mois ; appareils ; pages classées.
+  Couleurs des données (ambre et bleu) vérifiées pour le daltonisme et le contraste sur fond noir.
+- Bilan mensuel par e-mail le 1er de chaque mois (`booking/stats-report.js`, cron Cloudflare) :
+  mois écoulé contre mois précédent et même mois un an plus tôt ; rien avant la première visite du
+  site public. Aperçu dans le navigateur (`/stats/bilan`), envoi d'essai réussi.
+- Nouvelle source « Publicité (Google Ads) » : clics d'annonce reconnus au `gclid`
+  (seule sa présence est transmise) ou à `utm_medium=cpc`.
+- Tests : 17 (dont le bilan mensuel et le cron) ; captures téléphone et ordinateur, page vide et
+  remplie, e-mail ; vérification en ligne (page, polices, bilan, réservation).
+
+## Statistiques de visite (14 novembre 2026)
+
+- Chaque page envoie sa vue et les actions des visiteurs (appel, e-mail, clic « devis »,
+  simulateur 3D, itinéraire, demande envoyée) au serveur de réservation, sans cookie, sans
+  adresse IP ni identifiant conservés. Une visite = une arrivée depuis l'extérieur ; source
+  (moteurs, fiche Google, accès direct, réseaux sociaux, autres sites), téléphone ou ordinateur.
+  Robots, outils de test et appareils désactivés (`?stats=off`) exclus.
+- RDV payés comptés par le serveur à la confirmation Stripe, avec le montant.
+- Base SQLite d'un Durable Object Cloudflare (`booking/stats.js`), effacement après 25 mois.
+- Page `/stats?cle=…` (`booking/stats-page.js`) : visites, pages vues, demandes, RDV, appels,
+  taux de contact, évolution par jour / semaine / mois, sources, pages, appareils, comparaison
+  avec la période précédente et avec l'ancien site local.fr. Sans script, CSP stricte, non
+  indexée ; testée sur téléphone et ordinateur, thème clair et sombre.
+- Aperçu GitHub Pages et paiements de test comptés à part (« Aperçu »).
+- Mentions légales : paragraphe « Mesure d'audience » et lien pour ne plus être compté.
+- Cloudflare Web Analytics prêt pour le build de production (`business.stats.cloudflareToken`,
+  CSP adaptée), à activer à la mise en ligne.
+- Serveur redéployé et vérifié en ligne (créneaux, comptage, page protégée par la clé).
+  Tests : `npm run test:booking` (16 tests), visites réelles simulées dans Chromium.
+
 ## Optimisation complète (13 novembre 2026)
 
 ### Sécurité

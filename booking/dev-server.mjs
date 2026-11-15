@@ -4,11 +4,13 @@
 //   node booking/dev-server.mjs                      → http://localhost:8787
 //   BOOKING_API=http://localhost:8787 npm run build  → the site calls it (serve dist on :4190)
 //
-// A few busy hours are put in the calendars so that the slots look real.
+// A few busy hours are put in the calendars so that the slots look real. Visit statistics are kept
+// in memory: http://localhost:8787/stats?cle=dev
 import http from 'node:http';
 import { generateKeyPairSync, createHmac } from 'node:crypto';
 import worker from './worker.js';
 import { installFakes } from './test/fakes.mjs';
+import { fakeStats } from './test/fake-stats.mjs';
 import { zonedToUtc, addDays, utcToZoned } from './schedule.js';
 
 const PORT = Number(process.env.PORT || 8787);
@@ -25,6 +27,9 @@ const env = {
   GOOGLE_SERVICE_ACCOUNT: JSON.stringify({ client_email: 'dev@local', private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }) }),
   STRIPE_SECRET_KEY: 'sk_test_dev',
   STRIPE_WEBHOOK_SECRET: WHSEC,
+  STATS: fakeStats(),
+  STATS_KEY: 'dev',
+  SITE_URL: 'http://localhost:4190',
 };
 const { cal, sessions } = installFakes({ CAR, HOME, PERSO }, { checkoutUrl: (id) => `${SELF}/fake-checkout/${id}` });
 
