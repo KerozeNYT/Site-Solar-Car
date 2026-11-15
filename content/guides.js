@@ -148,7 +148,8 @@ export const guides = [
     kicker: 'Entretien',
     updated: '2026-10-13',
     service: 'renovation-phares',
-    photo: { id: 'porsche-911-devant-atelier', focus: '45% 62%', alt: 'Porsche 911 orange de face devant l’atelier SOLAR CAR de Vouvray, optiques avant' },
+    // the before / after of a real job (content/realisations.js, Volvo XC90), framed wide for the guide
+    photo: { id: 'volvo-xc90-phares-avant-apres-large', focus: '50% 50%', alt: 'Phare avant de Volvo XC90 coupé en deux : jauni et voilé avant rénovation, clair et transparent après' },
     still: 'headlights',
     intro:
       'Avec les années, la plupart des optiques de phares en plastique jaunissent et se voilent. Bonne nouvelle : dans la majorité des cas, une rénovation leur rend leur transparence pour une fraction du prix d’un phare neuf.',

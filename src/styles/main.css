@@ -2844,17 +2844,22 @@ p {
     display: none;
   }
 }
-/* small screens: the quote and the phone stay one tap away, outside the menu (the 3D tour
-   hides the bottom action bar) */
-.site-header__quote {
+/* small screens: the quote, the booking and the phone stay one tap away, outside the menu (the
+   film hides the bottom action bar) */
+.site-header__quote,
+.site-header__book {
   display: none;
+}
+.site-header__book {
+  gap: 0.28em; /* « Prendre » and « RDV »: a word space, not the buttons' icon gap */
 }
 @media (max-width: 980px) {
   .site-header__logo {
     order: 0;
     margin-right: auto;
   }
-  .site-header__quote {
+  .site-header__quote,
+  .site-header__book {
     display: inline-flex;
     order: 1;
     min-height: 40px;
@@ -2874,6 +2879,20 @@ p {
   }
   .site-header {
     gap: 10px;
+  }
+}
+/* phones: « RDV » alone, tighter buttons so that the logo, Devis, RDV, the phone and the menu fit */
+@media (max-width: 520px) {
+  .site-header__book-long {
+    display: none;
+  }
+  .site-header__quote,
+  .site-header__book {
+    padding: 0.45em 0.8em;
+    font-size: 0.85rem;
+  }
+  .site-header {
+    gap: 8px;
   }
 }
 @media (max-width: 359px) {
@@ -4191,6 +4210,7 @@ p {
   height: 40px;
 }
 .site-header__quote,
+.site-header__book,
 .site-nav__cta .btn {
   min-height: 40px;
 }

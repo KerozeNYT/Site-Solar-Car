@@ -226,6 +226,8 @@ function header(ctx, current = '') {
       return `<li class="site-nav__group${inside ? ' is-current' : ''}" style="--i:${idx}" data-submenu><button class="site-nav__trigger" type="button" aria-expanded="false" aria-controls="menu-prestations">${esc(n.label)} ${CHEVRON}</button><ul class="site-nav__sub" id="menu-prestations">${links}</ul></li>`;
     })
     .join('');
+  // online booking (content/booking.js): a « Prendre RDV » button beside « Devis »
+  const book = !!ctx.booking?.bookingRules.api;
   return `<a class="skip-link" href="#contenu">Aller au contenu</a>
 <header class="site-header" data-header>
   <a class="site-header__logo" href="/" aria-label="${esc(ctx.business.name)} — accueil"><img src="/img/brand/logo-horizontal-clair-200.webp" srcset="/img/brand/logo-horizontal-clair-200.webp 200w, /img/brand/logo-horizontal-clair-400.webp 400w" sizes="114px" width="114" height="44" alt="${esc(ctx.business.name)}"></a>
@@ -233,9 +235,10 @@ function header(ctx, current = '') {
     <button class="site-nav__toggle" type="button" aria-expanded="false" aria-controls="menu-principal" data-nav-toggle>
       <span class="site-nav__bars" aria-hidden="true"></span><span class="visually-hidden">Menu</span>
     </button>
-    <ul class="site-nav__list" id="menu-principal">${items}<li class="site-nav__cta" style="--i:${ctx.nav.length}"><a class="btn btn--primary btn--sm" href="/contact/">Devis</a></li></ul>
+    <ul class="site-nav__list" id="menu-principal">${items}<li class="site-nav__cta" style="--i:${ctx.nav.length}"><a class="btn btn--primary btn--sm" href="/contact/">Devis</a></li>${book ? `<li class="site-nav__cta site-nav__cta--book" style="--i:${ctx.nav.length + 1}"><a class="btn btn--primary btn--sm" href="/reservation/"${current === '/reservation/' ? ' aria-current="page"' : ''}>Prendre RDV</a></li>` : ''}</ul>
   </nav>
   <a class="btn btn--primary btn--sm site-header__quote" href="/contact/"${current === '/contact/' ? ' aria-current="page"' : ''}>Devis</a>
+  ${book ? `<a class="btn btn--primary btn--sm site-header__book" href="/reservation/"${current === '/reservation/' ? ' aria-current="page"' : ''}><span class="site-header__book-long">Prendre</span>RDV</a>` : ''}
   ${ctx.business.phone ? `<a class="site-header__phone" href="${telHref(ctx.business.phone)}" aria-label="Appeler l’atelier : ${esc(ctx.business.phone)}">${ICONS.phone}<span>${esc(ctx.business.phone)}</span></a>` : ''}
 </header>`;
 }
