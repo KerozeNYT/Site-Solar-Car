@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker.js';
 import { hitFromPage, sourceOf, hostOf, record } from '../stats.js';
+import { monthFigures, monthMail, sendMonthly, shiftMonth } from '../stats-report.js';
 import { fakeStats } from './fake-stats.mjs';
 
 const DAY = 86400000;
@@ -34,6 +35,11 @@ test('sources: search engines, Google profile, social networks, other sites, dir
   assert.equal(sourceOf('facebook.com'), 'reseaux');
   assert.equal(sourceOf('pagesjaunes.fr'), 'sites');
   assert.equal(sourceOf(''), 'direct');
+  // an ad click (Google Ads adds gclid; other campaigns say utm_medium=cpc)
+  assert.equal(sourceOf('google.com', '', '', true), 'pub');
+  assert.equal(sourceOf('', 'facebook', 'cpc'), 'pub');
+  const ad = hitFromPage(JSON.stringify({ t: 'page', p: '/', e: 1, r: 'google.com', g: 1 }), 'site');
+  assert.deepEqual([ad.source, ad.ref], ['pub', '']);
 });
 
 test('a hit from a page is checked and bounded', () => {
@@ -66,6 +72,8 @@ test('collect: kept from the site and the preview (apart), refused from elsewher
   assert.match(kept[0].day, /^\d{4}-\d{2}-\d{2}$/);
 });
 
+const pointsOf = (html) => JSON.parse(html.match(/data-points="([^"]*)"/)[1].replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'));
+
 test('statistics page: key required, figures of the period, preview apart', async () => {
   const env = fresh();
   assert.equal((await page(env)).status, 403);
@@ -81,27 +89,35 @@ test('statistics page: key required, figures of the period, preview apart', asyn
   await record(env, [{ site: 'apercu', kind: 'page', page: '/', entry: 1, source: 'direct' }], now);
   const r = await page(env, `cle=${KEY}&periode=7`);
   assert.equal(r.status, 200);
-  assert.match(r.headers.get('content-security-policy'), /default-src 'none'/);
+  const csp = r.headers.get('content-security-policy');
+  assert.match(csp, /default-src 'none'/);
+  assert.match(csp, /font-src 'self'/);
   assert.equal(r.headers.get('x-robots-tag'), 'noindex, nofollow');
   assert.equal(r.headers.get('cache-control'), 'no-store');
   const html = await r.text();
-  assert.match(html, /<p class="hero__value">3<\/p>/);
-  assert.match(html, /Pages vues<\/p><p class="tile__value">5</);
-  assert.match(html, /Pages par visite<\/p><p class="tile__value">1,67</);
-  assert.match(html, /Demandes envoyées<\/p><p class="tile__value">1</);
-  assert.match(html, /Appels<\/p><p class="tile__value">1</);
-  assert.match(html, /Moteurs de recherche<\/span>.*?67 % <small>\(2\)/s);
-  assert.match(html, /<td>google\.fr<\/td><td>Moteurs de recherche<\/td><td class="n">2<\/td>/);
-  assert.match(html, /Téléphone <strong>67 %<\/strong>/);
+  // the one script carries the nonce of the policy
+  const nonce = csp.match(/'nonce-([a-f0-9]+)'/)[1];
+  assert.deepEqual([...html.matchAll(/<script([^>]*)>/g)].map((m) => m[1]), [` nonce="${nonce}"`]);
+  assert.match(html, /class="hero__value" data-count="3">3</);
+  assert.match(html, /Pages vues<\/p>\s*<p class="tile__value" data-count="5">5</);
+  assert.match(html, /Pages par visite<\/p>\s*<p class="tile__value">1,67</);
+  assert.match(html, /Demandes envoyées<\/p>\s*<p class="tile__value" data-count="1">1</);
+  assert.match(html, /Appels<\/p>\s*<p class="tile__value" data-count="1">1</);
+  assert.match(html, /Moteurs de recherche<\/span><span class="rank__val">67 % <small>2<\/small>/);
+  assert.doesNotMatch(html, /Publicité \(Google Ads\)<\/span>/); // shown only once there is one
+  assert.match(html, /google\.fr <b>2<\/b>/);
+  assert.match(html, /<p class="device__pct">67 %<\/p><p class="device__name"><span class="swatch swatch--telephone"/);
+  assert.match(html, /Contacts \(demandes, RDV, appels, e-mails\)<\/span><span class="meters__val">66,7<small> \/ 100/);
   assert.match(html, /aria-current="page">7 jours</);
-  assert.equal((html.match(/class="col[ "]/g) || []).length, 7); // one column a day
-  assert.doesNotMatch(html, /<script/);
+  assert.match(html, /verdict--new/); // nothing to compare with yet
+  assert.equal(pointsOf(html).length, 7); // one point a day
+  assert.deepEqual(pointsOf(html).slice(-3).map((p) => p.v), [1, 1, 1]);
   // the preview's figures are apart
   const p = await (await page(env, `cle=${KEY}&periode=7&site=apercu`)).text();
-  assert.match(p, /<p class="hero__value">1<\/p>/);
+  assert.match(p, /class="hero__value" data-count="1">1</);
   // weeks over 3 months, months over 12 months
-  assert.equal(((await (await page(env, `cle=${KEY}&periode=90`)).text()).match(/class="col[ "]/g) || []).length, 13);
-  const year = (await (await page(env, `cle=${KEY}&periode=365`)).text()).match(/class="col[ "]/g).length;
+  assert.equal(pointsOf(await (await page(env, `cle=${KEY}&periode=90`)).text()).length, 13);
+  const year = pointsOf(await (await page(env, `cle=${KEY}&periode=365`)).text()).length;
   assert.ok(year === 12 || year === 13, `months: ${year}`);
 });
 
@@ -115,7 +131,57 @@ test('comparison with the previous period once it is covered; rows older than 25
   assert.equal(rows(env).length, 2);
   await record(env, [{ site: 'site', kind: 'page', page: '/', entry: 1, source: 'direct' }], now);
   const html = await (await page(env, `cle=${KEY}&periode=7`)).text();
-  assert.match(html, /<p class="hero__value">1<\/p>/);
-  assert.match(html, /class="delta down"><span aria-hidden="true">▼<\/span> −50 %/);
-  assert.match(html, /Comparé aux 7 jours précédents/);
+  assert.match(html, /class="hero__value" data-count="1">1</);
+  assert.match(html, /class="pill pill--down"><span aria-hidden="true">▼<\/span> −50 %/);
+  assert.match(html, /verdict--down/);
+  assert.match(html, /<strong>En baisse<\/strong> : 1 visite \(−50 %\)/);
+  assert.match(html, /Cette période<\/li><li><span class="key key--ghost"><\/span>Période précédente/);
+});
+
+test('monthly e-mail: the month against the one before, sent on the 1st, nothing before the first visit', async () => {
+  const env = { ...fresh(), RESEND_API_KEY: 're_test', NOTIFY_TO: 'atelier@example.com', STATS_PAGE: 'https://reservation.solarcar37.fr/stats' };
+  const sent = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith('https://api.resend.com/')) {
+      sent.push(JSON.parse(init.body));
+      return new Response(JSON.stringify({ id: 'm1' }), { status: 200 });
+    }
+    return realFetch(url, init);
+  };
+  try {
+    const at = (ymd) => Date.parse(`${ymd}T10:00:00Z`);
+    // nothing counted yet: no e-mail
+    assert.deepEqual(await sendMonthly(env, at('2026-12-01')), { sent: false, why: 'no visit yet' });
+    // October: 2 visits; November: 3 visits, a request, a booking
+    for (const d of ['2026-10-05', '2026-10-20']) await record(env, [{ site: 'site', kind: 'page', page: '/', entry: 1, source: 'moteurs', ref: 'google.fr' }], at(d));
+    for (const d of ['2026-11-02', '2026-11-10', '2026-11-28']) await record(env, [{ site: 'site', kind: 'page', page: '/vitres-teintees/', entry: 1, source: 'direct' }], at(d));
+    await record(env, [{ site: 'site', kind: 'demande_envoyee', page: '/contact/' }, { site: 'site', kind: 'rdv', page: '/reservation/', detail: 'Feux teintés', value: 120 }], at('2026-11-12'));
+    const f = await monthFigures(env, '2026-11');
+    assert.deepEqual([f.cur.visits, f.prev.visits, f.cur.requests, f.cur.paid], [3, 2, 2, 120]);
+    const mail = monthMail(f, { dashboard: 'https://x/stats?cle=k' });
+    assert.equal(mail.subject, 'Bilan de novembre 2026 : 3 visites (+50 %), 2 demandes et RDV');
+    assert.match(mail.html, /Mois en hausse : 3 visites, \+50 % par rapport à octobre/);
+    assert.match(mail.html, /Ouvrir le tableau de bord/);
+    const r = await sendMonthly(env, at('2026-12-01'));
+    assert.equal(r.sent, true);
+    assert.equal(sent.length, 1);
+    assert.deepEqual(sent[0].to, ['atelier@example.com']);
+    assert.match(sent[0].html, /\/stats\?cle=cle-de-test/);
+    // the cron of the worker does the same
+    let pending;
+    await worker.scheduled({ scheduledTime: at('2026-12-01') }, env, { waitUntil: (p) => (pending = p) });
+    await pending;
+    assert.equal(sent.length, 2);
+    // in the browser (key required), and sent now as a test
+    assert.equal((await worker.fetch(new Request('https://reservation.solarcar37.fr/stats/bilan?mois=2026-11'), env)).status, 403);
+    const view = await worker.fetch(new Request(`https://reservation.solarcar37.fr/stats/bilan?cle=${KEY}&mois=2026-11`), env);
+    assert.match(await view.text(), /Bilan de novembre 2026/);
+    const test = await (await worker.fetch(new Request(`https://reservation.solarcar37.fr/stats/bilan?cle=${KEY}&mois=2026-11`, { method: 'POST' }), env)).json();
+    assert.match(test.subject, /^\[Essai\] Bilan de novembre 2026/);
+    assert.equal(sent.length, 3);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(shiftMonth('2026-01', -1), '2025-12');
 });

@@ -32,6 +32,7 @@ const FROM_PAGES = new Set(['page', ...Object.keys(ACTIONS).filter((k) => k !== 
 
 export const SOURCES = {
   moteurs: 'Moteurs de recherche',
+  pub: 'Publicité (Google Ads)',
   fiche: 'Fiche Google',
   direct: 'Accès direct',
   reseaux: 'Réseaux sociaux',
@@ -49,8 +50,13 @@ export function hostOf(h) {
   return s.replace(/^(www|m|l|lm|mobile)\./, '');
 }
 
-/** where a visit comes from */
-export function sourceOf(ref, utm = '') {
+// an ad click: Google Ads adds gclid (or gbraid / wbraid) to the address; other campaigns are
+// tagged utm_medium=cpc
+const PAID = /^(cpc|ppc|paid|ads?|sea|paid[-_ ]?search)$/i;
+
+/** where a visit comes from (utm = utm_source, medium = utm_medium, ad = an ad click id was there) */
+export function sourceOf(ref, utm = '', medium = '', ad = false) {
+  if (ad || (medium && PAID.test(medium))) return 'pub';
   if (utm && PROFILE.test(utm)) return 'fiche';
   if (!ref) return 'direct';
   // Google Maps (web or app): the profile's "Site web" button
@@ -79,13 +85,33 @@ export function hitFromPage(text, site) {
     row.entry = h.e ? 1 : 0;
     if (row.entry) {
       const ref = hostOf(h.r);
-      row.source = sourceOf(ref, typeof h.u === 'string' ? h.u.slice(0, 40) : '');
-      row.ref = row.source === 'direct' || row.source === 'fiche' ? '' : ref;
+      const str = (v) => (typeof v === 'string' ? v.slice(0, 40) : '');
+      row.source = sourceOf(ref, str(h.u), str(h.m), h.g === 1);
+      row.ref = row.source === 'moteurs' || row.source === 'reseaux' || row.source === 'sites' ? ref : '';
     }
   } else if (typeof h.x === 'string') {
     row.detail = h.x.replace(/[^\p{L}\p{N} +\-'’]/gu, '').trim().slice(0, 60);
   }
   return row;
+}
+
+/** totals of a period from the report's rows by kind: views, visits, each action, amount paid
+ *  online, contacts (requests + bookings + calls + e-mails), requests (requests + bookings) */
+export function totalsOf(rows) {
+  const o = { views: 0, visits: 0, paid: 0 };
+  for (const k of Object.keys(ACTIONS)) o[k] = 0;
+  for (const x of rows) {
+    if (x.kind === 'page') {
+      o.views = x.n;
+      o.visits = x.visits || 0;
+    } else if (x.kind in ACTIONS) {
+      o[x.kind] = x.n;
+      if (x.kind === 'rdv') o.paid = x.value || 0;
+    }
+  }
+  o.contacts = o.demande_envoyee + o.rdv + o.appel + o.email;
+  o.requests = o.demande_envoyee + o.rdv;
+  return o;
 }
 
 /** stores rows ({ site, kind, page, entry, source, ref, device, detail, value }); never throws
@@ -164,8 +190,8 @@ export class Stats {
   }
 
   /** everything the statistics page shows, for one site ("site" or "apercu"), the days
-   *  from..to and the period before (pfrom..pto) */
-  report({ site, from, to, pfrom, pto }) {
+   *  from..to, the period before (pfrom..pto) and the months since mfrom (YYYY-MM-01) */
+  report({ site, from, to, pfrom, pto, mfrom }) {
     const q = (s, ...b) => this.sql.exec(s, ...b).toArray();
     const W = 'site = ? AND day BETWEEN ? AND ?';
     const cur = [site, from, to];
@@ -174,7 +200,17 @@ export class Stats {
       first: q('SELECT MIN(day) AS day FROM hits WHERE site = ?', site)[0]?.day || null,
       totals: totals(from, to),
       previous: totals(pfrom, pto),
-      days: q(`SELECT day, COUNT(*) AS views, SUM(entry) AS visits FROM hits WHERE ${W} AND kind = 'page' GROUP BY day`, ...cur),
+      // per day and kind: the curves and the small trends of each figure
+      series: q(`SELECT day, kind, COUNT(*) AS n, SUM(entry) AS visits FROM hits WHERE ${W} GROUP BY day, kind`, ...cur),
+      before: q(`SELECT day, SUM(entry) AS visits FROM hits WHERE ${W} AND kind = 'page' GROUP BY day`, site, pfrom, pto),
+      months: mfrom
+        ? q(
+            `SELECT substr(day, 1, 7) AS month, SUM(CASE WHEN kind = 'page' THEN entry ELSE 0 END) AS visits, SUM(kind = 'page') AS views, SUM(kind IN ('demande_envoyee', 'rdv', 'appel', 'email')) AS contacts, SUM(kind IN ('demande_envoyee', 'rdv')) AS requests FROM hits WHERE site = ? AND day BETWEEN ? AND ? GROUP BY month ORDER BY month`,
+            site,
+            mfrom,
+            to
+          )
+        : [],
       sources: q(`SELECT source, COUNT(*) AS n FROM hits WHERE ${W} AND kind = 'page' AND entry = 1 GROUP BY source`, ...cur),
       refs: q(`SELECT source, ref, COUNT(*) AS n FROM hits WHERE ${W} AND kind = 'page' AND entry = 1 AND ref <> '' GROUP BY source, ref ORDER BY n DESC LIMIT 12`, ...cur),
       pages: q(`SELECT page, COUNT(*) AS views, SUM(entry) AS entries FROM hits WHERE ${W} AND kind = 'page' GROUP BY page ORDER BY views DESC LIMIT 15`, ...cur),

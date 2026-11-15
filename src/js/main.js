@@ -339,7 +339,11 @@ function sendHit(hit) {
   // a visit starts on a page reached from outside: not a reload, not a page of the site, not the
   // way back from the payment page
   const entry = nav === 'navigate' && bare(ref) !== bare(location.hostname) && !/(^|\.)stripe\.com$/.test(ref);
-  const hit = entry ? { t: 'page', e: 1, r: ref, u: new URLSearchParams(location.search).get('utm_source') || '' } : { t: 'page', e: 0 };
+  // campaign tags of the address: utm_source (the Google profile link), utm_medium and the ad click
+  // ids Google Ads adds (only "there was one" is sent, never the id itself)
+  const qs = new URLSearchParams(location.search);
+  const ad = ['gclid', 'gbraid', 'wbraid'].some((k) => qs.has(k)) ? 1 : 0;
+  const hit = entry ? { t: 'page', e: 1, r: ref, u: qs.get('utm_source') || '', m: qs.get('utm_medium') || '', g: ad } : { t: 'page', e: 0 };
   if (document.prerendering) document.addEventListener('prerenderingchange', () => sendHit(hit), { once: true });
   else sendHit(hit);
   const optout = document.querySelector('[data-stats-optout]');

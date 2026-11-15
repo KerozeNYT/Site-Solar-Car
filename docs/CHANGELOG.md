@@ -1,5 +1,23 @@
 # Journal des changements
 
+## Tableau de bord des statistiques, bilan mensuel (15 novembre 2026)
+
+- Page `/stats` refaite dans le style « garage de nuit » du site : fond animé (lueurs dorées, sol
+  de garage en perspective), cartes en verre avec un reflet qui suit le pointeur, polices du site
+  (Geist, Geist Mono, Instrument Serif) servies par le serveur, chiffres qui défilent, apparition
+  des cartes au défilement ; tout s'arrête si l'appareil demande moins d'animations.
+- Phrase de bilan en tête (en hausse, en baisse, stable) ; courbe des visites avec la période
+  précédente et lecture point par point (souris, doigt, flèches du clavier) ; tendances dans chaque
+  chiffre clé ; « Sur 100 visites » ; « Mois par mois » sur 12 mois ; appareils ; pages classées.
+  Couleurs des données (ambre et bleu) vérifiées pour le daltonisme et le contraste sur fond noir.
+- Bilan mensuel par e-mail le 1er de chaque mois (`booking/stats-report.js`, cron Cloudflare) :
+  mois écoulé contre mois précédent et même mois un an plus tôt ; rien avant la première visite du
+  site public. Aperçu dans le navigateur (`/stats/bilan`), envoi d'essai réussi.
+- Nouvelle source « Publicité (Google Ads) » : clics d'annonce reconnus au `gclid`
+  (seule sa présence est transmise) ou à `utm_medium=cpc`.
+- Tests : 17 (dont le bilan mensuel et le cron) ; captures téléphone et ordinateur, page vide et
+  remplie, e-mail ; vérification en ligne (page, polices, bilan, réservation).
+
 ## Statistiques de visite (14 novembre 2026)
 
 - Chaque page envoie sa vue et les actions des visiteurs (appel, e-mail, clic « devis »,
