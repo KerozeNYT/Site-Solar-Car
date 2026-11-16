@@ -31,9 +31,13 @@ export const bookingRules = {
   cancelHours: 48,
   // a slot is held this long while the visitor pays (Stripe's minimum session life)
   holdMinutes: 30,
+  // referral: each client gets a personal code (in the e-mail a week after, or from the workshop's
+  // page) worth `amount` EUR off one service, booked online or at the workshop, once, within
+  // `months` months (booking/referral.js)
+  referral: { amount: 20, months: 6 },
 };
 
-/** window tint packages: price (EUR, tax included) for a vehicle category, time (minutes) */
+/** window tint packages: price (EUR, net) for a vehicle category, time (minutes) */
 export const tintFormulas = [
   {
     id: 'rear',
@@ -148,6 +152,16 @@ export function howHeardParse(text = '') {
   const m = /(?:^|, )Autre(?: : (.*))?$/.exec(s);
   if (m) channels.push('Autre');
   return { channels, other: m?.[1] || '' };
+}
+
+/** a referral code as typed: capitals, digits and the dash only (e.g. JEAN-7K2QX) */
+export const referralCode = (s) => String(s || '').toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9-]/g, '').slice(0, 20);
+
+/** the price with a referral discount: the total is lowered, the deposit taken on what is left */
+export function withDiscount(q, amount) {
+  if (q.error || !(amount > 0)) return q;
+  const total = Math.max(0, Math.round((q.total - amount) * 100) / 100);
+  return { ...q, discount: amount, total, deposit: Math.round(total * bookingRules.depositRate * 100) / 100 };
 }
 
 /** the amount to pay now (EUR): the deposit or the total */

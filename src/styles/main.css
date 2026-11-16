@@ -5287,6 +5287,33 @@ button.cal__day.is-on {
   font-weight: 700;
   text-align: right;
 }
+/* referral code (step 4) */
+.referral__row {
+  display: flex;
+  gap: 8px;
+}
+.referral__row input {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.referral__status {
+  margin: 6px 0 0;
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  color: var(--text-3);
+}
+.referral__status.is-ok {
+  color: var(--gold-300);
+}
+.referral__status.is-error {
+  color: var(--danger);
+}
+[data-discount] {
+  color: var(--gold-300);
+}
 .booking__where {
   margin: 14px 0 0;
   color: var(--text-3);

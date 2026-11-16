@@ -1789,6 +1789,11 @@ export function reservationPage(ctx) {
 
         <fieldset class="booking__step" data-step="pay" disabled>
           <legend><span class="booking__num">4</span> Paiement</legend>
+          <div class="form__row referral" data-referral>
+            <label for="b-code">Code de parrainage <span class="optional">(facultatif)</span></label>
+            <div class="referral__row"><input id="b-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ex. JEAN-7K2QX"><button class="btn btn--ghost" type="button" data-referral-apply>Appliquer</button></div>
+            <p class="referral__status" data-referral-status aria-live="polite"></p>
+          </div>
           <div class="picks picks--pay">
             <label class="pick pick--big"><input type="radio" name="mode" value="deposit" checked><span class="pick__body"><b>Acompte de 30 % : <span data-pay-deposit></span></b><small>Le reste, <span data-pay-rest></span>, se règle à l’atelier</small></span></label>
             <label class="pick pick--big"><input type="radio" name="mode" value="full"><span class="pick__body"><b>Totalité : <span data-pay-total></span></b><small>Plus rien à régler le jour du rendez-vous</small></span></label>
@@ -1807,6 +1812,7 @@ export function reservationPage(ctx) {
         <ul class="booking__items" data-items><li class="booking__empty">Choisissez une prestation.</li></ul>
         <dl class="booking__totals">
           <div><dt>Durée</dt><dd data-duration>—</dd></div>
+          <div data-discount-row hidden><dt>Parrainage</dt><dd data-discount>—</dd></div>
           <div><dt>Total</dt><dd data-total>—</dd></div>
           <div><dt>Acompte 30 %</dt><dd data-deposit>—</dd></div>
           <div><dt>Rendez-vous</dt><dd data-when>—</dd></div>
@@ -1875,6 +1881,8 @@ export function bookingTermsPage(ctx) {
       <p>Une réservation faite en ligne vous donne un délai de rétractation de 14 jours à compter de sa confirmation (articles L221-18 et suivants du Code de la consommation). Pendant ce délai, vous pouvez annuler sans motif et être intégralement remboursé. Si votre rendez-vous a lieu avant la fin de ce délai, vous demandez expressément, lors de la réservation, que la prestation soit réalisée à la date choisie ; une fois la prestation entièrement réalisée, vous ne pouvez plus exercer ce droit (article L221-28).</p>
       <h2>Réglementation</h2>
       <p>À l’avant, la loi impose qu’au moins 70 % de la lumière traverse le vitrage complet, film compris : l’atelier pose à l’avant uniquement des films qui respectent cette règle. Voir <a href="/vitres-teintees/#loi-vitres-teintees">ce que dit la loi sur les vitres teintées</a>.</p>
+      <h2>Parrainage</h2>
+      <p>Après son rendez-vous, chaque client reçoit un code de parrainage personnel : il donne ${R.referral.amount} € de remise sur une prestation de l’atelier, à offrir à un proche ou à garder pour une autre voiture. Il se saisit à l’étape du paiement de la réservation en ligne, ou se donne à l’atelier. Il s’utilise une seule fois, pendant ${R.referral.months} mois ; il n’est ni cumulable avec un autre code, ni remboursable, ni échangeable contre de l’argent. La remise est déduite du total, et l’acompte de ${pct} % porte sur le montant restant.</p>
       <h2>Médiation</h2>
       <p>En cas de litige, adressez d’abord une réclamation écrite à l’atelier. Si elle n’aboutit pas, vous pouvez recourir gratuitement au médiateur de la consommation${ctx.legalPage?.mediator ? ` : ${esc(ctx.legalPage.mediator.name)}${ctx.legalPage.mediator.url ? ` (<a href="${esc(ctx.legalPage.mediator.url)}" rel="noopener">${esc(ctx.legalPage.mediator.url.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</a>)` : ''}` : ''}, dans l’année qui suit votre réclamation (voir les <a href="/mentions-legales/">mentions légales</a>).</p>
     </div>

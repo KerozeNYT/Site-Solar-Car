@@ -93,6 +93,7 @@ export async function sendBookingMails(env, b) {
             ['E-mail', `<a href="mailto:${esc(c.email)}" style="color:#111">${esc(c.email)}</a>`],
             ['Véhicule', esc(`${c.vehicle}${c.plate ? ` (${c.plate})` : ''}`)],
             ['Prestations', items],
+            ['Parrainage', q.discount ? `−${euros(q.discount)} (code ${esc(b.code || '')})` : ''],
             ['Total', euros(q.total)],
             ['Payé en ligne', `${euros(paid)} (${b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`],
             ['Reste à régler', due ? euros(due) : 'rien'],
@@ -121,6 +122,7 @@ export async function sendBookingMails(env, b) {
             ['Quand', esc(when)],
             ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
             ['Prestations', items],
+            ['Parrainage', q.discount ? `−${euros(q.discount)}` : ''],
             ['Total', `${euros(q.total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
             ['Payé en ligne', euros(paid)],
             ['À régler à l’atelier', due ? euros(due) : 'rien'],
@@ -199,7 +201,23 @@ ${p(`Cela fait une semaine que nous nous sommes occupés de votre ${esc(c.vehicl
 ${p(`Si quelque chose vous chiffonne, ou si vous avez la moindre question, <strong>répondez simplement à cet e-mail</strong> ou appelez-moi au <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${esc(B.phone)}</a> : ce sera avec grand plaisir, et nous trouverons une solution ensemble.`)}
 ${review ? `${p('Et si vous avez un petit moment, votre avis sur Google nous aiderait vraiment : pour un atelier comme le nôtre, c’est ce qui compte le plus pour se faire connaître en Touraine.', true)}
 <p style="margin:0 0 6px">${button(review, 'Donner mon avis sur Google')}</p>` : ''}
-<p style="margin:20px 0 0;font-size:15px;line-height:1.5;color:#111">Merci encore pour votre confiance, et à très bientôt à l’atelier,<br><strong>${esc(me)}</strong> — ${esc(B.name)}</p>`
+<p style="margin:20px 0 0;font-size:15px;line-height:1.5;color:#111">Merci encore pour votre confiance, et à très bientôt à l’atelier,<br><strong>${esc(me)}</strong> — ${esc(B.name)}</p>
+${b.referral?.code ? giftCard(env, b.referral) : ''}`
     ),
   });
+}
+
+/** the client's referral code as a gift card to give (or to use for another car), in the e-mail */
+function giftCard(env, r) {
+  const until = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: R.timeZone }).format(new Date(r.expires));
+  const link = `${env.SITE_URL || B.siteUrl}/reservation/?code=${encodeURIComponent(r.code)}`;
+  return `<p style="margin:28px 0 10px;font-size:15px;line-height:1.5;color:#111"><strong>P.-S.</strong> Le bouche-à-oreille, c’est ce qui nous fait le plus plaisir : voici une carte cadeau à offrir à un proche, ou à garder pour une autre voiture.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0c0f;border:1px solid #e9cd82;border-radius:16px">
+<tr><td style="padding:22px 22px 0;color:#e9cd82;font-size:12px;font-weight:700;letter-spacing:.18em">CARTE CADEAU · PARRAINAGE</td></tr>
+<tr><td style="padding:6px 22px 0;color:#ffffff;font-size:36px;font-weight:800;line-height:1.1">${euros(r.amount)} offerts</td></tr>
+<tr><td style="padding:10px 22px 0;color:#d9d4c7;font-size:14px;line-height:1.5">sur une prestation chez ${esc(B.name)} : vitres teintées, feux teintés, detailing, covering…</td></tr>
+<tr><td style="padding:18px 22px 0"><span style="display:inline-block;border:1px dashed #e9cd82;border-radius:10px;padding:10px 16px;font-family:'Courier New',Courier,monospace;font-size:22px;font-weight:700;letter-spacing:.14em;color:#e9cd82">${esc(r.code)}</span></td></tr>
+<tr><td style="padding:18px 22px 0"><a href="${esc(link)}" style="display:inline-block;background:#e9cd82;color:#0b0c0f;text-decoration:none;font-weight:800;padding:12px 20px;border-radius:999px">Réserver avec ce code</a></td></tr>
+<tr><td style="padding:16px 22px 22px;color:#8f8a7d;font-size:12px;line-height:1.5">À utiliser une seule fois, jusqu’au ${esc(until)} : en réservant en ligne avec ce code, ou en le donnant à l’atelier. Non cumulable, non remboursable.</td></tr>
+</table>`;
 }

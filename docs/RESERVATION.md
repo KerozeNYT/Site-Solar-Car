@@ -130,6 +130,26 @@ Faire d'abord une réservation complète avec les clés de test Stripe (carte `4
 vérifier le RDV dans SOLAR CAR 37, puis passer aux clés réelles (`sk_live_…` et le secret du
 webhook en mode réel).
 
+## Parrainage (16 novembre 2026)
+
+- Chaque client reçoit **son code personnel** (ex. `JEAN-7K2QX`) : **20 € de remise**, à offrir à
+  un proche ou à garder pour une autre voiture, **une seule fois**, pendant **6 mois**
+  (`bookingRules.referral` dans `content/booking.js`).
+- **Comment il le reçoit** : dans l'e-mail envoyé une semaine après son RDV en ligne, sous forme
+  de carte cadeau avec un bouton « Réserver avec ce code » (le lien remplit le code tout seul) ;
+  ou de la main de l'atelier, pour n'importe quel client, depuis la page Parrainage.
+- **Comment il sert** : sur la page de réservation (étape 4 « Paiement », champ « Code de
+  parrainage ») : le total baisse de 20 €, l'acompte de 30 % porte sur le reste ; le code est
+  consommé quand le paiement est confirmé. Pour une prestation réservée par téléphone ou sur devis,
+  l'atelier le marque « utilisé » sur la page Parrainage.
+- **Page Parrainage** de l'atelier : `https://solarcar37-reservation.contact-solarcar37.workers.dev/parrainage?cle=…`
+  (même clé que la page de statistiques) : chiffres, créer un code, vérifier ou utiliser un code,
+  liste de tous les codes et de leur état.
+- Technique : `booking/referral.js` (base de codes : Durable Object `Parrainage`, SQLite ; un code ne
+  peut pas servir deux fois), `booking/referral-page.js`, `GET /api/referral?code=…`, tests
+  `booking/test/referral.test.mjs`. Conditions : page « Conditions de réservation », section
+  Parrainage.
+
 ## Au quotidien
 
 - **Annulation ≥ 48 h** : rembourser depuis le tableau de bord Stripe (Paiements → le paiement →

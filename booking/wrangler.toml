@@ -32,6 +32,16 @@ class_name = "Fiche"
 tag = "v2"
 new_sqlite_classes = ["Fiche"]
 
+# the referral codes (booking/referral.js): one Durable Object with its own SQLite database, so that
+# a code is checked and used in one step
+[[durable_objects.bindings]]
+name = "PARRAINAGE"
+class_name = "Parrainage"
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["Parrainage"]
+
 # the statistics e-mail, on the 1st of each month at 7:00 UTC (8:00 or 9:00 in Paris); the photo of
 # the week on the Google Business Profile, every Tuesday at 8:17 UTC (FICHE_CRON in booking/fiche-google.js);
 # every day at 16:00 UTC (17:00 or 18:00 in Paris), the clients' reminders and news (booking/worker.js,

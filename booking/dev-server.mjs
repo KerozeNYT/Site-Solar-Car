@@ -5,12 +5,14 @@
 //   BOOKING_API=http://localhost:8787 npm run build  → the site calls it (serve dist on :4190)
 //
 // A few busy hours are put in the calendars so that the slots look real. Visit statistics are kept
-// in memory: http://localhost:8787/stats?cle=dev
+// in memory: http://localhost:8787/stats?cle=dev ; referral codes too: http://localhost:8787/parrainage?cle=dev
 import http from 'node:http';
 import { generateKeyPairSync, createHmac } from 'node:crypto';
 import worker from './worker.js';
 import { installFakes } from './test/fakes.mjs';
 import { fakeStats } from './test/fake-stats.mjs';
+import { fakeDO } from './test/fake-do.mjs';
+import { Parrainage, referralFor } from './referral.js';
 import { zonedToUtc, addDays, utcToZoned } from './schedule.js';
 
 const PORT = Number(process.env.PORT || 8787);
@@ -29,6 +31,7 @@ const env = {
   STRIPE_WEBHOOK_SECRET: WHSEC,
   STATS: fakeStats(),
   STATS_KEY: 'dev',
+  PARRAINAGE: fakeDO(Parrainage),
   SITE_URL: 'http://localhost:4190',
 };
 const { cal, sessions } = installFakes({ CAR, HOME, PERSO }, { checkoutUrl: (id) => `${SELF}/fake-checkout/${id}` });
@@ -82,4 +85,9 @@ http
     res.writeHead(r.status, Object.fromEntries(r.headers));
     res.end(Buffer.from(await r.arrayBuffer()));
   })
-  .listen(PORT, () => console.log(`booking dev server on ${SELF}`));
+  .listen(PORT, async () => {
+    console.log(`booking dev server on ${SELF}`);
+    // a referral code to try on the booking page (…/reservation/?code=…)
+    const demo = await referralFor(env, { owner: 'Demo', origin: 'dev' });
+    console.log(`referral code to try: ${demo.code}`);
+  });
