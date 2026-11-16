@@ -50,7 +50,7 @@ import { record, hitFromPage, heardRows } from './stats.js';
 import { statsPage } from './stats-page.js';
 import { sendMonthly, monthRoute } from './stats-report.js';
 import { ficheRoute, runFiche, FICHE_CRON } from './fiche-google.js';
-import { db, referralFor, checkCode, redeemReferral, publicBanner } from './store.js';
+import { db, referralFor, checkCode, redeemReferral } from './store.js';
 import { atelier } from './atelier.js';
 
 // the Durable Object class of the statistics database (booking/wrangler.toml)
@@ -461,11 +461,13 @@ async function codeCheck(req, env, url, now) {
   return json({ ok: true, kind: r.kind, code: r.code, label: r.label, owner: r.owner, amount: r.amount, percent: r.percent, services: r.services, expires: r.expires }, 200, h);
 }
 
-/** GET /api/promo: the promotion band of the site (cached a few minutes by the browser) */
-async function promoBand(req, env, now) {
+/** GET /api/promo: the promotion band of the site (cached a few minutes by the browser);
+ *  ?apercu=<id>: that band whatever its dates (preview from the workshop's space) */
+async function promoBand(req, env, url, now) {
   const h = cors(req, env);
-  const r = env.ATELIER ? await publicBanner(env, now).catch(() => ({ banner: null })) : { banner: null };
-  return json(r, 200, { ...h, 'cache-control': 'public, max-age=300' });
+  const id = (url.searchParams.get('apercu') || '').slice(0, 60);
+  const r = env.ATELIER ? await db(env, 'banner/public', { now, id }).catch(() => ({ banner: null })) : { banner: null };
+  return json(r, 200, { ...h, 'cache-control': id ? 'no-store' : 'public, max-age=300' });
 }
 
 /** POST /api/demande: a copy of a quote request sent from the site's form (navigator.sendBeacon,
@@ -517,7 +519,7 @@ export default {
       if (req.method === 'POST' && url.pathname === '/api/stripe-webhook') return await webhook(req, env);
       if (req.method === 'GET' && url.pathname === '/api/booking') return await booking(req, env, url);
       if (req.method === 'GET' && (url.pathname === '/api/code' || url.pathname === '/api/referral')) return await codeCheck(req, env, url, now);
-      if (req.method === 'GET' && url.pathname === '/api/promo') return await promoBand(req, env, now);
+      if (req.method === 'GET' && url.pathname === '/api/promo') return await promoBand(req, env, url, now);
       if (req.method === 'POST' && url.pathname === '/api/demande') return await quoteRequest(req, env, now);
       if (url.pathname === '/atelier' || url.pathname.startsWith('/atelier/')) return await atelier(req, env, url, now);
       // the first referral page: now in the workshop's space

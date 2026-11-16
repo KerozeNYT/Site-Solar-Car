@@ -44,6 +44,12 @@ const HEADERS = {
   'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
 };
 
+/** the looks of a band (src/styles/main.css, .promo-band--…) */
+const THEMES = { classique: 'Classique (noir et or)', noel: 'Noël (rouge, neige)', neon: 'Néon (coucher de soleil)' };
+const bandState = (x, now) => (!x.active ? '<span class="tag tag--off">en pause</span>' : now < x.starts ? '<span class="tag tag--gold">programmé</span>' : now > x.expires ? '<span class="tag tag--off">terminé</span>' : '<span class="tag tag--ok">affiché</span>');
+/** the public site (the preview until the site is on solarcar37.fr) */
+const siteUrl = (env) => String(env.SITE_URL || B.siteUrl).replace(/\/$/, '');
+
 // ---------------------------------------------------------------- signing
 const enc = new TextEncoder();
 async function hmac(secret, text) {
@@ -109,6 +115,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 8px
 .code{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;color:var(--gold);white-space:nowrap}.tag{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}.tag--ok{background:#13261a;color:var(--ok)}.tag--gold{background:#2a2414;color:var(--gold)}.tag--off{background:#222;color:var(--dim)}.tag--err{background:#2a1513;color:var(--err)}
 .list{list-style:none;margin:0;padding:0}.list li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.list li:last-child{border:0}
 .band{border:1px solid var(--gold);border-radius:14px;padding:12px 14px;background:#0f1115;margin:0 0 12px}.empty{color:var(--dim)}.search{display:flex;gap:8px}.search input{margin:0}
+.theme{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:4px;vertical-align:1px}.theme--classique{background:#2a2414;color:var(--gold)}.theme--noel{background:#b3121b;color:#fff}.theme--neon{background:linear-gradient(90deg,#ff2e88,#ff8a3d);color:#14001f}
 .big{font:800 26px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;color:var(--gold)}.right{float:right}
 @media (max-width:640px){.row,.row3{grid-template-columns:1fr}.hide-s{display:none}th,td{padding:9px 6px}}`;
 
@@ -291,13 +298,13 @@ async function home(env, url, now) {
   ];
   const nextHtml = next === null ? '<p class="empty">Agenda indisponible pour le moment.</p>' : next.length ? `<table><tbody>${next.map((x) => apptRow(x)).join('')}</tbody></table>` : '<p class="empty">Aucun RDV en ligne dans les 14 prochains jours.</p>';
   const b = band.banner;
-  const bandState = !b ? 'aucun' : !b.active ? 'en pause' : now < b.starts ? `programmé à partir du ${dateOf(b.starts)}` : now > b.expires ? 'terminé' : `affiché jusqu’au ${dateOf(b.expires)}`;
+  const bandNow = !b ? 'aucun bandeau prévu' : now < b.starts ? `prochain bandeau : du ${dateOf(b.starts)} au ${dateOf(b.expires)}` : `affiché jusqu’au ${dateOf(b.expires)}`;
   const body = `<h1>Bonjour ${esc((B.owner || '').split(' ')[0] || '')}</h1>
 <p class="lead">${esc(dayLabel(today, { weekday: 'long', day: 'numeric', month: 'long' }))} · ${sum.totalClients} client${sum.totalClients > 1 ? 's' : ''} dans le fichier</p>
 <h3>En ${esc(month)}</h3><div class="figs">${figs.map(([v, l]) => `<div class="fig"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('')}</div>
 <section class="card"><h2>Prochains rendez-vous en ligne <a class="right small" href="/atelier/rdv">Tout voir</a></h2>${nextHtml}</section>
 <div class="grid">
-<section class="card"><h2>Bandeau du site</h2>${b ? `<div class="band">${esc(b.text)}</div>` : ''}<p class="dim">État : ${esc(bandState)}${sum.promoUses.length ? ` · ce mois-ci : ${sum.promoUses.map((p) => `${esc(p.code)} utilisé ${p.n} fois`).join(', ')}` : ''}</p><a class="btn ghost small" href="/atelier/codes">Régler le bandeau et les codes</a></section>
+<section class="card"><h2>Bandeau du site</h2>${b ? `<div class="band"><span class="theme theme--${esc(b.theme)}">${esc(THEMES[b.theme] || '')}</span> <b>${esc(b.title)}</b><br>${esc(b.text)}</div>` : ''}<p class="dim">${esc(bandNow)}${sum.promoUses.length ? ` · ce mois-ci : ${sum.promoUses.map((p) => `${esc(p.code)} utilisé ${p.n} fois`).join(', ')}` : ''}</p><a class="btn ghost small" href="/atelier/codes">Régler le bandeau et les codes</a></section>
 <section class="card"><h2>Raccourcis</h2><div class="btns"><a class="btn small" href="/atelier/clients/nouveau">Ajouter un client</a><a class="btn ghost small" href="/atelier/codes#parrainage">Donner un code de parrainage</a><a class="btn ghost small" href="/atelier/clients.csv">Exporter les clients</a><a class="btn ghost small" href="/atelier/stats">Statistiques détaillées</a></div></section>
 </div>`;
   return page('Accueil', '/atelier', body, url);
@@ -385,8 +392,9 @@ async function clientsCsv(env, now) {
 
 // ---------------------------------------------------------------- Codes et promos
 async function codes(env, url, now) {
-  const [list, band] = await Promise.all([db(env, 'codes/list'), db(env, 'banner/get')]);
-  const b = band.banner;
+  const [list, bands] = await Promise.all([db(env, 'codes/list'), db(env, 'banners/list')]);
+  const be = url.searchParams.get('bandeau') ? bands.banners.find((x) => x.id === url.searchParams.get('bandeau')) : null;
+  const b = be || {};
   const day = (ms) => (ms ? paris(ms).date : '');
   const editing = url.searchParams.get('modifier') ? list.promos.find((p) => p.code === url.searchParams.get('modifier')) : null;
   const p = editing || {};
@@ -406,12 +414,19 @@ async function codes(env, url, now) {
         .join('')}</tbody></table>`
     : '<p class="empty">Aucun code de parrainage pour l’instant : ils partent avec l’e-mail envoyé une semaine après chaque RDV, ou se créent ici ou depuis la fiche d’un client.</p>';
   const body = `<h1>Codes et promos</h1>
-<section class="card" id="bandeau"><h2>Bandeau du site</h2><p class="dim">Affiché en bas de toutes les pages du site entre ces deux dates, tout seul ; « en pause » le cache tout de suite. Le bouton mène à la réservation, avec le code déjà rempli.</p>
-${b ? `<div class="band">${esc(b.text)} <b>${esc(b.cta)} →</b></div>` : ''}
-<form method="post" action="/atelier/codes"><label for="b-text">Texte</label><textarea id="b-text" name="text" maxlength="220" required>${esc(b?.text || '')}</textarea>
-<div class="row3"><div><label for="b-cta">Bouton</label><input id="b-cta" name="cta" maxlength="30" value="${esc(b?.cta || 'Réserver')}"></div><div><label for="b-from">Du</label><input id="b-from" name="starts" type="date" value="${esc(day(b?.starts))}" required></div><div><label for="b-to">Au (inclus)</label><input id="b-to" name="ends" type="date" value="${esc(day(b?.expires))}" required></div></div>
-<div class="row"><div><label for="b-code">Code rempli à la réservation</label><input id="b-code" name="code" value="${esc(b?.code || '')}" placeholder="NOEL"></div><div class="checks" style="align-items:end;padding-bottom:12px"><label><input type="checkbox" name="active" value="1"${!b || b.active ? ' checked' : ''}> Bandeau actif</label></div></div>
-<button name="action" value="banner-save">Enregistrer le bandeau</button></form></section>
+<section class="card" id="bandeau"><h2>Bandeaux du site</h2><p class="dim">Une banderole animée en haut de toutes les pages du site, affichée toute seule entre ses deux dates (si deux se chevauchent, la plus récente passe devant) ; « en pause » la cache tout de suite. Le bouton mène à la réservation, avec le code déjà rempli.</p>
+${bands.banners.length ? `<table><thead><tr><th>Bandeau</th><th class="hide-s">Période</th><th class="n">État</th></tr></thead><tbody>${bands.banners
+  .map(
+    (x) => `<tr><td><span class="theme theme--${esc(x.theme)}">${esc(THEMES[x.theme] || x.theme)}</span> <b>${esc(x.title || x.text.slice(0, 40))}</b><small>${esc(x.text)}${x.code ? ` · code <span class="code">${esc(x.code)}</span>` : ''}</small></td><td class="hide-s">${esc(dateOf(x.starts))} → ${esc(dateOf(x.expires))}</td><td class="n">${bandState(x, now)}</td></tr><tr class="acts"><td colspan="3"><form method="post" action="/atelier/codes" class="btns"><input type="hidden" name="id" value="${esc(x.id)}"><input type="hidden" name="active" value="${x.active ? '' : '1'}"><button class="ghost small" name="action" value="banner-active">${x.active ? 'Mettre en pause' : 'Activer'}</button><a class="btn ghost small" href="/atelier/codes?bandeau=${encodeURIComponent(x.id)}#bandeau-form">Modifier</a><a class="btn ghost small" href="${esc(siteUrl(env))}/?apercu-bandeau=${encodeURIComponent(x.id)}" target="_blank" rel="noopener">Voir sur le site</a><button class="danger small" name="action" value="banner-delete">Supprimer</button></form></td></tr>`
+  )
+  .join('')}</tbody></table>` : '<p class="empty">Aucun bandeau.</p>'}
+<h3 id="bandeau-form">${be ? 'Modifier le bandeau' : 'Créer un bandeau'}</h3>
+<form method="post" action="/atelier/codes">${be ? `<input type="hidden" name="id" value="${esc(be.id)}">` : ''}
+<div class="row"><div><label for="b-theme">Style</label><select id="b-theme" name="theme">${Object.entries(THEMES).map(([k, v]) => `<option value="${k}"${(b.theme || 'classique') === k ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></div><div><label for="b-title">Titre court</label><input id="b-title" name="title" maxlength="60" value="${esc(b.title || '')}" placeholder="Offre de Noël · −15 %"></div></div>
+<label for="b-text">Texte</label><textarea id="b-text" name="text" maxlength="260" required>${esc(b.text || '')}</textarea>
+<div class="row3"><div><label for="b-cta">Bouton</label><input id="b-cta" name="cta" maxlength="30" value="${esc(b.cta || 'Réserver')}"></div><div><label for="b-from">Du</label><input id="b-from" name="starts" type="date" value="${esc(day(b.starts))}" required></div><div><label for="b-to">Au (inclus)</label><input id="b-to" name="ends" type="date" value="${esc(day(b.expires))}" required></div></div>
+<div class="row"><div><label for="b-code">Code rempli à la réservation</label><input id="b-code" name="code" value="${esc(b.code || '')}" placeholder="NOEL" style="text-transform:uppercase"></div><div class="checks" style="align-items:end;padding-bottom:12px"><label><input type="checkbox" name="active" value="1"${!be || be.active ? ' checked' : ''}> Bandeau actif</label></div></div>
+<div class="btns"><button name="action" value="banner-save">${be ? 'Enregistrer' : 'Créer le bandeau'}</button>${be ? '<a class="btn ghost" href="/atelier/codes#bandeau">Annuler</a>' : ''}</div></form></section>
 
 <section class="card" id="promo"><h2>Codes promo</h2>${promoRows}
 <h3>${editing ? `Modifier ${esc(editing.code)}` : 'Créer un code promo'}</h3>
@@ -436,8 +451,16 @@ async function codesPost(req, env, now) {
   const g = (k) => String(f.get(k) || '').trim();
   const action = g('action');
   if (action === 'banner-save') {
-    const r = await db(env, 'banner/save', { now, text: g('text'), cta: g('cta'), code: g('code'), starts: g('starts'), ends: g('ends'), active: !!f.get('active') });
+    const r = await db(env, 'banner/save', { now, id: g('id'), theme: g('theme'), title: g('title'), text: g('text'), cta: g('cta'), code: g('code'), starts: g('starts'), ends: g('ends'), active: !!f.get('active') });
     return back('/atelier/codes', r.ok ? { ok: 'Bandeau enregistré.' } : { err: r.error });
+  }
+  if (action === 'banner-active') {
+    await db(env, 'banner/active', { id: g('id'), active: !!f.get('active') });
+    return back('/atelier/codes', { ok: f.get('active') ? 'Bandeau activé.' : 'Bandeau mis en pause.' });
+  }
+  if (action === 'banner-delete') {
+    await db(env, 'banner/delete', { id: g('id') });
+    return back('/atelier/codes', { ok: 'Bandeau supprimé.' });
   }
   if (action === 'promo-save') {
     const value = Number(g('value'));

@@ -70,14 +70,28 @@ test('sign-in: a code e-mailed to the workshop, then 30 days on the device; noth
   assert.equal(where(await go('/atelier', { headers: { cookie: `sc37_atelier=${Date.now() + DAY}.${'0'.repeat(64)}` } })).pathname, '/atelier/connexion');
 });
 
-test('Noël: the NOEL code and the band are ready for December, not before', async () => {
-  assert.equal((await checkCode(env, 'Noël')).ok, false);
-  const dec = Date.parse('2026-12-05T10:00:00Z');
-  const r = await checkCode(env, 'noel', dec);
+test('GTA 6 and Noël: codes and bands planned, each on its dates', async () => {
+  const at = (iso) => Date.parse(iso);
+  // GTA6: bookings made on 19 November only (Paris time)
+  const before = await checkCode(env, 'gta6', at('2026-11-18T12:00:00Z'));
+  assert.equal(before.ok, false);
+  assert.match(before.error, /valable le jeudi 19 novembre seulement/);
+  assert.equal((await checkCode(env, 'GTA6', at('2026-11-18T23:30:00Z'))).ok, true); // 0:30 in Paris
+  assert.equal((await checkCode(env, 'GTA6', at('2026-11-19T22:30:00Z'))).ok, true); // 23:30 in Paris, still the 19th
+  assert.equal((await checkCode(env, 'GTA6', at('2026-11-19T23:30:00Z'))).ok, false); // 0:30 on the 20th
+  // NOEL: all December
+  assert.equal((await checkCode(env, 'Noël', at('2026-11-30T12:00:00Z'))).ok, false);
+  const r = await checkCode(env, 'noel', at('2026-12-05T10:00:00Z'));
   assert.deepEqual([r.ok, r.kind, r.percent, r.services], [true, 'promo', 15, ['tint', 'lights']]);
-  assert.equal((await checkCode(env, 'NOEL', Date.parse('2027-01-01T10:00:00Z'))).ok, false);
-  assert.equal((await (await site('/api/promo')).json()).banner, null);
-  assert.match((await db(env, 'banner/public', { now: dec })).banner.text, /−15 %.*code NOEL/);
+  assert.equal((await checkCode(env, 'NOEL', at('2027-01-01T10:00:00Z'))).ok, false);
+  // the bands: the GTA 6 one from 17 to 19 November (neon look), then Noël (red) in December
+  assert.equal((await db(env, 'banner/public', { now: at('2026-11-10T12:00:00Z') })).banner, null);
+  const gta = (await db(env, 'banner/public', { now: at('2026-11-18T12:00:00Z') })).banner;
+  assert.deepEqual([gta.theme, gta.code], ['neon', 'GTA6']);
+  assert.match(gta.text, /19 novembre.*−15 %/);
+  assert.equal((await db(env, 'banner/public', { now: at('2026-11-25T12:00:00Z') })).banner, null);
+  const noel = (await db(env, 'banner/public', { now: at('2026-12-05T10:00:00Z') })).banner;
+  assert.deepEqual([noel.theme, noel.code, noel.title], ['noel', 'NOEL', 'Offre de Noël · −15 %']);
 });
 
 let sessionId;
@@ -156,12 +170,17 @@ test('appointments, the band, the purge after 3 years', async () => {
   const rdv = await (await go('/atelier/rdv')).text();
   assert.match(rdv, /Camille Roux/);
   assert.match(rdv, /TEST15/);
-  // the band: on from today, then paused
-  await go('/atelier/codes', { method: 'POST', form: { action: 'banner-save', text: 'Offre essai −10 %', cta: 'J’en profite', code: 'TEST15', starts: today, ends: addDays(today, 3), active: '1' } });
+  // a band made from the space: on from today (it passes in front of a planned one), then paused
+  await go('/atelier/codes', { method: 'POST', form: { action: 'banner-save', theme: 'neon', title: 'Essai', text: 'Offre essai −10 %', cta: 'J’en profite', code: 'TEST15', starts: today, ends: addDays(today, 3), active: '1' } });
   const band = (await (await site('/api/promo')).json()).banner;
-  assert.deepEqual([band.text, band.cta, band.code], ['Offre essai −10 %', 'J’en profite', 'TEST15']);
-  await go('/atelier/codes', { method: 'POST', form: { action: 'banner-save', text: 'Offre essai −10 %', starts: today, ends: addDays(today, 3) } });
-  assert.equal((await (await site('/api/promo')).json()).banner, null);
+  assert.deepEqual([band.theme, band.title, band.text, band.cta, band.code], ['neon', 'Essai', 'Offre essai −10 %', 'J’en profite', 'TEST15']);
+  const mine = (await db(env, 'banners/list')).banners.find((x) => x.text === 'Offre essai −10 %');
+  await go('/atelier/codes', { method: 'POST', form: { action: 'banner-active', id: mine.id, active: '' } });
+  assert.notEqual((await (await site('/api/promo')).json()).banner?.text, 'Offre essai −10 %');
+  // previewed from the space whatever its state
+  assert.equal((await (await site(`/api/promo?apercu=${mine.id}`)).json()).banner.text, 'Offre essai −10 %');
+  await go('/atelier/codes', { method: 'POST', form: { action: 'banner-delete', id: mine.id } });
+  assert.equal((await db(env, 'banners/list')).banners.some((x) => x.id === mine.id), false);
   const page = await (await go('/atelier/codes')).text();
   assert.match(page, /Codes promo/);
   assert.match(page, /NOEL/);

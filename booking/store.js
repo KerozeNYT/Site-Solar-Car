@@ -5,7 +5,8 @@
  *   codes       referral codes: one per client, a fixed amount off, once (booking/worker.js)
  *   promos      promotion codes made by the workshop (NOEL…): a percentage or an amount, dates,
  *               services, how many uses (0 = no limit)
- *   settings    the promotion band of the site, what was seeded
+ *   banners     the bands at the top of the site: text, code, look, dates
+ *   settings    what was seeded, and the like
  *   clients     the client file: from each online booking, each quote request, or added by hand
  *   bookings    the online bookings (paid), with their client
  *   requests    the quote requests sent from the site's form
@@ -15,7 +16,7 @@
  * or added, can never be done twice at the same time.
  */
 import { bookingRules as R, referralCode } from '../content/booking.js';
-import { promoSeeds, bannerSeed } from '../content/promos.js';
+import { promoSeeds, bannerSeeds } from '../content/promos.js';
 import { zonedToUtc, addDays } from './schedule.js';
 
 // no 0/O, 1/I: easy to read out and to type
@@ -73,6 +74,7 @@ export class Atelier {
     } catch {}
     x(`CREATE TABLE IF NOT EXISTS promos (code TEXT PRIMARY KEY, label TEXT NOT NULL DEFAULT '', percent REAL NOT NULL DEFAULT 0, amount REAL NOT NULL DEFAULT 0, services TEXT NOT NULL DEFAULT '', max_uses INTEGER NOT NULL DEFAULT 0, uses INTEGER NOT NULL DEFAULT 0, starts INTEGER NOT NULL, expires INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, created INTEGER NOT NULL)`);
     x('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    x(`CREATE TABLE IF NOT EXISTS banners (id TEXT PRIMARY KEY, theme TEXT NOT NULL DEFAULT 'classique', title TEXT NOT NULL DEFAULT '', text TEXT NOT NULL, cta TEXT NOT NULL DEFAULT 'Réserver', code TEXT NOT NULL DEFAULT '', starts INTEGER NOT NULL, expires INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, created INTEGER NOT NULL)`);
     x(`CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, first TEXT NOT NULL DEFAULT '', last TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', vehicles TEXT NOT NULL DEFAULT '', plate TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', origin TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL, last_seen INTEGER NOT NULL)`);
     x('CREATE INDEX IF NOT EXISTS clients_email ON clients (email)');
     x(`CREATE TABLE IF NOT EXISTS bookings (session TEXT PRIMARY KEY, client_id INTEGER NOT NULL DEFAULT 0, event TEXT NOT NULL DEFAULT '', date TEXT NOT NULL, time TEXT NOT NULL, minutes INTEGER NOT NULL DEFAULT 0, items TEXT NOT NULL DEFAULT '[]', total REAL NOT NULL DEFAULT 0, discount REAL NOT NULL DEFAULT 0, code TEXT NOT NULL DEFAULT '', code_kind TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT '', paid REAL NOT NULL DEFAULT 0, vehicle TEXT NOT NULL DEFAULT '', live INTEGER NOT NULL DEFAULT 1, created INTEGER NOT NULL)`);
@@ -108,9 +110,17 @@ export class Atelier {
         this.run('INSERT INTO promos (code, label, percent, amount, services, max_uses, starts, expires, active, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)', p.code, p.label || '', p.percent || 0, p.amount || 0, (p.services || []).join(','), p.maxUses || 0, dayStart(p.starts), dayEnd(p.ends), now);
       this.set(`seeded:promo:${p.code}`, now);
     }
-    if (bannerSeed && !this.setting(`seeded:banner:${bannerSeed.id}`)) {
-      this.set('banner', { text: bannerSeed.text, cta: bannerSeed.cta || 'Réserver', code: bannerSeed.code || '', starts: dayStart(bannerSeed.starts), expires: dayEnd(bannerSeed.ends), active: true, id: bannerSeed.id });
-      this.set(`seeded:banner:${bannerSeed.id}`, now);
+    // the single band of the first version (one setting): moved into the table
+    const old = this.setting('banner', null);
+    if (old) {
+      const seed = bannerSeeds.find((x) => x.id === old.id);
+      this.run('INSERT OR IGNORE INTO banners (id, theme, title, text, cta, code, starts, expires, active, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', old.id || `b${now}`, seed?.theme || 'classique', seed?.title || '', seed?.text || old.text, seed?.cta || old.cta || 'Réserver', old.code || '', old.starts, old.expires, old.active ? 1 : 0, now);
+      this.run('DELETE FROM settings WHERE key = ?', 'banner');
+    }
+    for (const x of bannerSeeds) {
+      if (this.setting(`seeded:banner:${x.id}`)) continue;
+      this.run('INSERT OR IGNORE INTO banners (id, theme, title, text, cta, code, starts, expires, active, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)', x.id, x.theme || 'classique', x.title || '', x.text, x.cta || 'Réserver', x.code || '', dayStart(x.starts), dayEnd(x.ends), now);
+      this.set(`seeded:banner:${x.id}`, now);
     }
   }
 
@@ -123,7 +133,11 @@ export class Atelier {
   }
   promoStatus(p, now) {
     if (!p) return null;
-    if (!p.active || now < p.starts) return { ok: false, error: 'Ce code promo n’est pas valable en ce moment.' };
+    if (!p.active) return { ok: false, error: 'Ce code promo n’est pas valable en ce moment.' };
+    if (now < p.starts) {
+      const d = (ms) => new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: R.timeZone }).format(new Date(ms));
+      return { ok: false, error: d(p.starts) === d(p.expires) ? `Le code ${p.code} est valable le ${d(p.starts)} seulement : réservez ce jour-là pour en profiter.` : `Le code ${p.code} sera valable à partir du ${d(p.starts)}.` };
+    }
     if (p.expires < now) return { ok: false, error: 'Ce code promo a expiré.' };
     if (p.max_uses && p.uses >= p.max_uses) return { ok: false, error: 'Ce code promo a déjà été utilisé le nombre de fois prévu.' };
     return { ok: true, kind: 'promo', code: p.code, label: `Code ${p.code}`, percent: p.percent || 0, amount: p.amount || 0, services: p.services ? p.services.split(',') : [], expires: p.expires };
@@ -235,17 +249,31 @@ export class Atelier {
         return { ok: true };
       }
       // ------------------------------------------------ the band of the site
+      case 'banners/list':
+        return { banners: this.all('SELECT * FROM banners ORDER BY starts DESC, created DESC') };
+      // the band on now (or the next one), for the home of the workshop's space
       case 'banner/get':
-        return { banner: this.setting('banner', null) };
+        return { banner: this.one('SELECT * FROM banners WHERE active = 1 AND expires >= ? ORDER BY (starts <= ?) DESC, starts ASC LIMIT 1', now, now) };
       case 'banner/save': {
-        if (!clip(b.text, 220)) return { ok: false, error: 'Écrivez le texte du bandeau.' };
+        if (!clip(b.text, 260)) return { ok: false, error: 'Écrivez le texte du bandeau.' };
         if (!b.starts || !b.ends || b.ends < b.starts) return { ok: false, error: 'Indiquez les dates du bandeau.' };
-        this.set('banner', { text: clip(b.text, 220), cta: clip(b.cta, 30) || 'Réserver', code: referralCode(b.code), starts: dayStart(b.starts), expires: dayEnd(b.ends), active: !!b.active, id: `b${now}` });
+        const theme = ['classique', 'noel', 'neon'].includes(b.theme) ? b.theme : 'classique';
+        const values = [theme, clip(b.title, 60), clip(b.text, 260), clip(b.cta, 30) || 'Réserver', referralCode(b.code), dayStart(b.starts), dayEnd(b.ends), b.active ? 1 : 0];
+        if (b.id && this.one('SELECT id FROM banners WHERE id = ?', String(b.id))) this.run('UPDATE banners SET theme = ?, title = ?, text = ?, cta = ?, code = ?, starts = ?, expires = ?, active = ? WHERE id = ?', ...values, String(b.id));
+        else this.run('INSERT INTO banners (theme, title, text, cta, code, starts, expires, active, id, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', ...values, `b${now}`, now);
         return { ok: true };
       }
+      case 'banner/active':
+        this.run('UPDATE banners SET active = ? WHERE id = ?', b.active ? 1 : 0, String(b.id));
+        return { ok: true };
+      case 'banner/delete':
+        this.run('DELETE FROM banners WHERE id = ?', String(b.id));
+        return { ok: true };
+      // the band the site shows now: the most recent start among those on
       case 'banner/public': {
-        const x = this.setting('banner', null);
-        return x && x.active && now >= x.starts && now <= x.expires ? { banner: { id: x.id, text: x.text, cta: x.cta, code: x.code } } : { banner: null };
+        // b.id: one band shown whatever its dates (« Voir sur le site » from the workshop's space)
+        const x = b.id ? this.one('SELECT * FROM banners WHERE id = ?', String(b.id)) : this.one('SELECT * FROM banners WHERE active = 1 AND starts <= ? AND expires >= ? ORDER BY starts DESC, created DESC LIMIT 1', now, now);
+        return { banner: x ? { id: `${x.id}-${x.created}`, theme: x.theme, title: x.title, text: x.text, cta: x.cta, code: x.code } : null };
       }
       // ------------------------------------------------ clients, bookings, requests
       case 'booking/add': {

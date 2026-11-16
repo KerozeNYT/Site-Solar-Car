@@ -413,34 +413,50 @@ function fileRequest(d, { prestations, wish }) {
   fetch(`${api}/api/demande`, { method: 'POST', body, keepalive: true, mode: 'no-cors' }).catch(() => {});
 }
 
-// the promotion band, set from the workshop's space: at the bottom of every page between its
-// dates; its cross hides it for the rest of the visit
+// the promotion band, set from the workshop's space: a banner that drops in under the header of
+// every page, its message scrolling, in the look chosen (classique, noel, neon); its cross hides it
+// for the rest of the visit. ?apercu-bandeau=<id>: that band, whatever its dates (preview).
+function showBand(b, preview) {
+  const root = new URL(document.querySelector('.site-header__logo')?.getAttribute('href') || '/', location.href);
+  const el = document.createElement('aside');
+  el.className = `promo-band promo-band--${/^(classique|noel|neon)$/.test(b.theme) ? b.theme : 'classique'}`;
+  el.setAttribute('aria-label', 'Offre du moment');
+  el.innerHTML =
+    '<div class="promo-band__fx" aria-hidden="true"></div><p class="promo-band__title"></p><div class="promo-band__ticker"><p class="visually-hidden"></p><div class="promo-band__track" aria-hidden="true"><span></span><span></span></div></div><a class="promo-band__cta"></a><button type="button" class="promo-band__close" aria-label="Fermer l’offre">×</button>';
+  const title = el.querySelector('.promo-band__title');
+  if (b.title) title.textContent = b.title;
+  else title.remove();
+  const msg = b.code && !String(b.text).includes(b.code) ? `${b.text} · Code ${b.code}` : b.text;
+  el.querySelector('.visually-hidden').textContent = msg;
+  for (const s of el.querySelectorAll('.promo-band__track span')) s.textContent = `${msg}   ✦   `;
+  // the same speed whatever the length of the text
+  el.style.setProperty('--ticker', `${Math.max(14, msg.length * 0.22).toFixed(1)}s`);
+  const a = el.querySelector('.promo-band__cta');
+  a.textContent = b.cta || 'Réserver';
+  a.href = new URL(`reservation/${b.code ? `?code=${encodeURIComponent(b.code)}` : ''}`, root).href;
+  el.querySelector('button').addEventListener('click', () => {
+    el.classList.add('is-out');
+    setTimeout(() => el.remove(), 450);
+    if (!preview)
+      try {
+        sessionStorage.setItem('sc37-band', b.id);
+      } catch {}
+  });
+  document.body.append(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
+}
 if (api && !/\/reservation\/confirmee\//.test(location.pathname)) {
-  fetch(`${api}/api/promo`)
+  const preview = new URLSearchParams(location.search).get('apercu-bandeau');
+  fetch(`${api}/api/promo${preview ? `?apercu=${encodeURIComponent(preview)}` : ''}`)
     .then((r) => (r.ok ? r.json() : null))
     .then((j) => {
       const b = j?.banner;
       if (!b) return;
-      try {
-        if (sessionStorage.getItem('sc37-band') === b.id) return;
-      } catch {}
-      const root = new URL(document.querySelector('.site-header__logo')?.getAttribute('href') || '/', location.href);
-      const el = document.createElement('aside');
-      el.className = 'promo-band';
-      el.setAttribute('aria-label', 'Offre du moment');
-      el.innerHTML = '<p class="promo-band__text"></p><a class="promo-band__cta"></a><button type="button" class="promo-band__close" aria-label="Fermer l’offre">×</button>';
-      el.querySelector('p').textContent = b.text;
-      const a = el.querySelector('a');
-      a.textContent = b.cta || 'Réserver';
-      a.href = new URL(`reservation/${b.code ? `?code=${encodeURIComponent(b.code)}` : ''}`, root).href;
-      el.querySelector('button').addEventListener('click', () => {
-        el.remove();
+      if (!preview)
         try {
-          sessionStorage.setItem('sc37-band', b.id);
+          if (sessionStorage.getItem('sc37-band') === b.id) return;
         } catch {}
-      });
-      document.body.append(el);
-      requestAnimationFrame(() => el.classList.add('is-in'));
+      showBand(b, !!preview);
     })
     .catch(() => {});
 }

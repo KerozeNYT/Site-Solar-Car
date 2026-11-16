@@ -44,12 +44,25 @@ lui-même, aucune page indexée.
   « Mettre en pause » l'arrête tout de suite. Le client le tape à l'étape du paiement de la
   réservation (même champ que le parrainage, un seul code par réservation) ; l'acompte de 30 % porte
   sur le prix remisé.
-- **Bandeau** : un texte et un bouton en bas de toutes les pages du site, affiché tout seul entre
-  ses deux dates ; le bouton ouvre la réservation avec le code déjà rempli. Le visiteur peut le
-  fermer (il ne revient pas pendant sa visite).
-- **Noël 2026** (préparé dans `content/promos.js`) : code **NOEL**, −15 % sur les vitres teintées
-  et les feux teintés réservés en ligne, du **1er au 31 décembre 2026**, utilisations illimitées ; le
-  bandeau s'affiche sur la même période. Tout se modifie dans l'espace.
+- **Bandeaux** : une banderole **animée en haut de toutes les pages** du site, juste sous l'en-tête
+  (elle descend comme une pop-up, son texte défile, le titre et le bouton bougent), affichée toute
+  seule entre ses deux dates ; on peut en programmer plusieurs (si deux se chevauchent, la plus
+  récente passe devant). Chacun a un **style** : Classique (noir et or), **Noël** (rouge, or, neige
+  qui tombe), **Néon** (coucher de soleil, palmiers, néons : un dessin original, sans image ni logo
+  d'un jeu). Un titre court, un texte, un bouton qui ouvre la réservation avec le code déjà rempli.
+  « Voir sur le site » montre un bandeau quelles que soient ses dates. Le visiteur peut le fermer
+  (il ne revient pas pendant sa visite). Les mouvements s'arrêtent pour les visiteurs qui ont
+  demandé à leur appareil de réduire les animations.
+- **Sortie de GTA 6** (préparé dans `content/promos.js`) : code **GTA6**, −15 % sur les vitres
+  teintées et les feux teintés, pour toute réservation en ligne **faite le jeudi 19 novembre 2026**
+  (de 0 h à minuit) ; bandeau Néon du 17 au 19 novembre. Avant le 19, le code répond « valable le
+  jeudi 19 novembre seulement ».
+- **Noël 2026** : code **NOEL**, −15 % sur les vitres teintées et les feux teintés réservés en
+  ligne, du **1er au 31 décembre 2026**, utilisations illimitées ; bandeau Noël sur la même période.
+  Tout se modifie dans l'espace.
+- Les bandeaux et les codes servent sur le **nouveau site** : tant qu'il n'est pas sur
+  www.solarcar37.fr, le partager par son lien (réseaux sociaux, SMS) pour que les clients en
+  profitent.
 - Annonce de réduction : le prix barré de référence doit être le prix le plus bas des 30 jours
   précédents (règle européenne « Omnibus ») ; les prix du site ne bougeant pas, c'est le cas.
 

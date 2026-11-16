@@ -94,9 +94,9 @@ http
     // a referral code to try on the booking page (…/reservation/?code=…)
     const demo = await referralFor(env, { owner: 'Demo', origin: 'dev' });
     console.log(`referral code to try: ${demo.code}`);
-    // a band on from today, to see it on the site
+    // the planned bands (content/promos.js) are there; to see one on the site whatever its dates:
+    // …/?apercu-bandeau=noel-2026 (or gta6-2026)
     const today = utcToZoned(Date.now(), TZ).date;
-    await db(env, 'banner/save', { text: 'Noël chez SOLAR CAR 37 : −15 % sur vos vitres teintées et feux teintés réservés en ligne avec le code NOEL, jusqu’au 31 décembre.', cta: 'Réserver', code: 'NOEL', starts: today, ends: addDays(today, 30), active: true });
     await db(env, 'promo/save', { code: 'NOELTEST', label: 'Essai', percent: 15, services: ['tint', 'lights'], starts: today, ends: addDays(today, 30) });
     console.log('workshop space: http://localhost:' + PORT + '/atelier (the sign-in code is printed below)');
     let seen = 0;
