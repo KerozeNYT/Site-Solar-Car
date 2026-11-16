@@ -1,5 +1,23 @@
 # Journal des changements
 
+## Codes promo, annulation à 72 h (16 novembre 2026)
+
+- Codes promo de campagne (`promos` dans `content/booking.js`) : pourcentage, dates de début et de
+  fin, nombre d'utilisations illimité ou plafonné. Premier code : `NOEL15`, −15 % sur toutes les
+  prestations, réservations et demandes de devis du 1er au 24 décembre 2026, quelle que soit la
+  date du rendez-vous.
+- Un seul champ « Code de parrainage ou code promo » sur la réservation (étape 4) et sur la
+  demande de devis : un seul code à la fois, jamais cumulés. Lien `?code=…` qui remplit le code et
+  affiche un bandeau en haut de la réservation.
+- Demande de devis : le code est vérifié et l'e-mail dit s'il était valable le jour de la demande.
+- Page Parrainage de l'atelier : section « Codes promo » (état, utilisations en ligne et à
+  l'atelier, montants, remises), utilisation d'un code promo notée pour un devis.
+- Annulation remboursée au moins 72 h avant le rendez-vous (au lieu de 48 h).
+- Statistiques : la source « Publicité » compte aussi les annonces TikTok (`ttclid`) et les liens
+  d'annonce en `utm_medium=cpc` (Instagram, Facebook).
+- Tests : 41 (dont 6 pour les codes promo) ; parcours vérifié dans le navigateur (lien d'annonce,
+  remplacement d'un code par l'autre, paiement, confirmation, devis, page de l'atelier).
+
 ## Tableau de bord des statistiques, bilan mensuel (15 novembre 2026)
 
 - Page `/stats` refaite dans le style « garage de nuit » du site : fond animé (lueurs dorées, sol

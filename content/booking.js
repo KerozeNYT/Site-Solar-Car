@@ -26,9 +26,9 @@ export const bookingRules = {
   // bookable from 48 h ahead, up to about two months ahead
   noticeHours: 48,
   horizonDays: 62,
-  // deposit: 30 % of the total, or the total; refunded if cancelled at least 48 h before
+  // deposit: 30 % of the total, or the total; refunded if cancelled at least 72 h (3 days) before
   depositRate: 0.3,
-  cancelHours: 48,
+  cancelHours: 72,
   // a slot is held this long while the visitor pays (Stripe's minimum session life)
   holdMinutes: 30,
   // referral: each client gets a personal code (in the e-mail a week after, or from the workshop's
@@ -36,6 +36,17 @@ export const bookingRules = {
   // `months` months (booking/referral.js)
   referral: { amount: 20, months: 6 },
 };
+
+/**
+ * Promo codes of a campaign (an ad video, a post…): `percent` off any service of the workshop, for
+ * an online booking paid (deposit or total) or a quote requested between `from` and `to` (days in
+ * Paris, both included), whatever the date of the appointment. `uses`: how many times in all, the
+ * online bookings and the uses noted by the workshop together (null: unlimited). Window tint and
+ * tinted lights: the code is typed on the booking page; the other services: in the quote request,
+ * the workshop then lowers the quote (booking/promo.js, docs/RESERVATION.md). One code per booking
+ * or quote: a promo code and a referral code never add up.
+ */
+export const promos = [{ code: 'NOEL15', percent: 15, from: '2026-12-01', to: '2026-12-24', uses: null, label: 'Noël 2026' }];
 
 /** window tint packages: price (EUR, net) for a vehicle category, time (minutes) */
 export const tintFormulas = [
@@ -154,8 +165,23 @@ export function howHeardParse(text = '') {
   return { channels, other: m?.[1] || '' };
 }
 
-/** a referral code as typed: capitals, digits and the dash only (e.g. JEAN-7K2QX) */
+/** a code as typed (referral or promo): capitals, digits and the dash only (e.g. JEAN-7K2QX, NOEL15) */
 export const referralCode = (s) => String(s || '').toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9-]/g, '').slice(0, 20);
+
+/** the promo campaign of a code, or null (then it may be a referral code) */
+export const promoOf = (code) => promos.find((p) => p.code === referralCode(code)) || null;
+
+/** the discount (EUR, to the cent) of `percent` % off a price */
+export const percentOff = (q, percent) => (q.error ? 0 : Math.round(q.total * percent) / 100);
+
+/** what the discount line is called (summary, calendar, e-mails): « Parrainage » or « Code promo NOEL15 (−15 %) » */
+export const discountLabel = ({ kind, code, percent } = {}) => (kind === 'promo' ? `Code promo ${code} (−${percent} %)` : 'Parrainage');
+
+/** "1er décembre 2026", "24 décembre 2026" (a YYYY-MM-DD day) */
+export const dayText = (date) => {
+  const s = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
+  return s.replace(/^1 /, '1er ');
+};
 
 /** the price with a referral discount: the total is lowered, the deposit taken on what is left */
 export function withDiscount(q, amount) {

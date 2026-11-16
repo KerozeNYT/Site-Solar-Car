@@ -4954,6 +4954,15 @@ p {
   gap: clamp(20px, 3vw, 40px);
   align-items: start;
 }
+/* a promo code applied (a link of an ad: /reservation/?code=…): across the page, above the steps */
+.booking__promo {
+  grid-column: 1 / -1;
+  order: -2;
+  margin: 0;
+}
+.booking__promo b {
+  color: var(--accent-strong);
+}
 .booking__steps {
   display: grid;
   gap: 18px;

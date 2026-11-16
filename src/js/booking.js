@@ -1,4 +1,4 @@
-import { bookingRules as R, quote, amountDue, formatDuration, formatEuros, withDiscount, referralCode } from '../../content/booking.js';
+import { bookingRules as R, quote, amountDue, formatDuration, formatEuros, withDiscount, referralCode, percentOff, discountLabel, dayText } from '../../content/booking.js';
 import { jobSpan, utcToZoned } from '../../booking/schedule.js';
 
 /**
@@ -39,8 +39,13 @@ export function startBooking(root) {
   const checked = (name) => $$(`input[name="${name}"]:checked`).map((i) => i.value);
   let slot = null; // { date, time }
   let lastKey = '';
-  let referral = null; // { code, amount }: a referral code checked by the server
-  const priced = (c) => withDiscount(quote(c), referral?.amount || 0);
+  // the one code of the booking, checked by the server: { kind: 'parrainage', code, amount } or
+  // { kind: 'promo', code, percent }; a second code replaces it (they never add up)
+  let referral = null;
+  const priced = (c) => {
+    const q = quote(c);
+    return withDiscount(q, referral?.kind === 'promo' ? percentOff(q, referral.percent) : referral?.amount || 0);
+  };
 
   // ------------------------------------------------------------- the configuration
   function config() {
@@ -91,6 +96,11 @@ export function startBooking(root) {
       }
     $('[data-duration]').textContent = q.error ? '—' : formatDuration(q.minutes);
     $('[data-discount-row]').hidden = !q.discount;
+    $('[data-discount-label]').textContent = discountLabel(referral || {});
+    // a promo code (often from an ad's link): said at the top of the page
+    const banner = $('[data-promo-banner]');
+    banner.hidden = referral?.kind !== 'promo';
+    if (referral?.kind === 'promo') banner.innerHTML = `Code <b>${referral.code}</b> appliqué : <b>−${referral.percent} %</b> sur votre réservation${referral.to ? `, jusqu’au ${dayText(referral.to)}` : ''}. Detailing, ciel étoilé, covering, phares… : <a href="${base()}contact/?code=${encodeURIComponent(referral.code)}">demandez un devis avec ce code</a>.`;
     $('[data-discount]').textContent = q.discount ? `−${formatEuros(q.discount)}` : '—';
     $('[data-total]').textContent = q.error ? '—' : formatEuros(q.total);
     $('[data-deposit]').textContent = q.error ? '—' : formatEuros(q.deposit);
@@ -278,10 +288,16 @@ export function startBooking(root) {
     codeStatus.textContent = 'Vérification du code…';
     checking = code;
     try {
-      const res = await fetch(`${api}/api/referral?code=${encodeURIComponent(code)}`);
+      let res = await fetch(`${api}/api/code?code=${encodeURIComponent(code)}`);
+      // a booking server of before the promo codes: referral codes only
+      if (res.status === 404) res = await fetch(`${api}/api/referral?code=${encodeURIComponent(code)}`);
       const j = await res.json();
-      if (j.ok) {
-        referral = { code: j.code, amount: j.amount };
+      if (j.ok && j.kind === 'promo') {
+        referral = { kind: 'promo', code: j.code, percent: j.percent, to: j.to };
+        codeStatus.textContent = `Code promo ${j.code} : −${j.percent} % sur le total${j.to ? `, pour une réservation faite jusqu’au ${dayText(j.to)}` : ''}.`;
+        codeStatus.classList.add('is-ok');
+      } else if (j.ok) {
+        referral = { kind: 'parrainage', code: j.code, amount: j.amount };
         codeStatus.textContent = `Code de ${j.owner} : ${formatEuros(j.amount)} de remise, déduits du total.`;
         codeStatus.classList.add('is-ok');
       } else {
@@ -390,7 +406,7 @@ export function startBooking(root) {
     if (el && 'value' in el && !(el instanceof RadioNodeList)) el.value = v;
   }
   if (p.has('annule')) fail('Paiement interrompu : votre créneau n’a pas été retenu. Choisissez-le à nouveau pour réserver.');
-  // a referral code from the gift card's link (?code=…) or kept from a cancelled payment
+  // a code from a link (the gift card's, an ad's: ?code=…) or kept from a cancelled payment
   const code = p.get('code') || (saved ? store.get('booking-code') : '');
   refresh();
   if (code) {
@@ -430,7 +446,7 @@ export async function startBookingDone(root) {
   lead.textContent = 'Merci ! Votre créneau est réservé à l’atelier. Un reçu de paiement vous a été envoyé par e-mail.';
   $('[data-done-when]').textContent = `${dateLabel(b.date)} · ${hour(b.time)} – ${hour(end)}`;
   $('[data-done-items]').innerHTML = b.items.map((i) => `<li><span><b>${i.label.replace(/</g, '&lt;')}</b><small>${(i.detail || '').replace(/</g, '&lt;')}</small></span><span class="booking__price">${formatEuros(i.price)}</span></li>`).join('');
-  $('[data-done-totals]').innerHTML = `${b.discount ? `<div><dt>Parrainage</dt><dd>−${formatEuros(b.discount)}</dd></div>` : ''}<div><dt>Total</dt><dd>${formatEuros(b.total)}</dd></div><div><dt>Payé en ligne</dt><dd>${formatEuros(b.amount)}</dd></div><div><dt>À régler à l’atelier</dt><dd>${b.remaining ? formatEuros(b.remaining) : 'rien'}</dd></div>`;
+  $('[data-done-totals]').innerHTML = `${b.discount ? `<div><dt>${(b.discountLabel || 'Parrainage').replace(/</g, '&lt;')}</dt><dd>−${formatEuros(b.discount)}</dd></div>` : ''}<div><dt>Total</dt><dd>${formatEuros(b.total)}</dd></div><div><dt>Payé en ligne</dt><dd>${formatEuros(b.amount)}</dd></div><div><dt>À régler à l’atelier</dt><dd>${b.remaining ? formatEuros(b.remaining) : 'rien'}</dd></div>`;
   $('[data-done-card]').hidden = false;
   $('[data-done-ics]').addEventListener('click', () => {
     const stamp = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');

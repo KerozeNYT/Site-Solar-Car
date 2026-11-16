@@ -13,7 +13,8 @@
  *   GET  /stats/f/<font>.woff2                       the fonts of the statistics page
  *   cron, the 1st of each month                      the monthly e-mail (booking/stats-report.js)
  *   cron, every day at 16:00 UTC                     reminders (tomorrow) and news (a week ago) to clients
- *   GET  /api/referral?code=…                        is a referral code valid (booking page)
+ *   GET  /api/code?code=…                            is a code valid, promo or referral (booking page, quote form)
+ *   GET  /api/referral?code=…                        is a referral code valid (pages of before the promo codes)
  *   GET  /parrainage?cle=… (POST: use, create)       the referral codes, for the workshop (booking/referral-page.js)
  *   GET  /fiche-google?cle=…, /fiche-google/connexion, /fiche-google/retour, POST /fiche-google/envoyer
  *        and a cron every Tuesday                    one photo a week on the Google Business Profile
@@ -33,10 +34,10 @@
  *   STATS_PREVIEW_ORIGINS  sites whose visits are counted apart (the preview), comma separated
  *   STATS_PAGE             address of the statistics page (link of the monthly e-mail)
  *   FICHE                  Durable Object (class Fiche): the Google Business Profile robot's state
- *   PARRAINAGE             Durable Object (class Parrainage): the referral codes
+ *   PARRAINAGE             Durable Object (class Parrainage): the referral codes and the uses of the promo codes
  *   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET (secrets) its Google sign-in (OAuth client)
  */
-import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount } from '../content/booking.js';
+import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, promoOf, percentOff, discountLabel } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents } from './google.js';
 import { createSession, getSession, verifyWebhook } from './stripe.js';
@@ -46,6 +47,7 @@ import { statsPage } from './stats-page.js';
 import { sendMonthly, monthRoute } from './stats-report.js';
 import { ficheRoute, runFiche, FICHE_CRON } from './fiche-google.js';
 import { referralFor, checkReferral, redeemReferral } from './referral.js';
+import { checkPromo, holdPromo, usePromo } from './promo.js';
 import { referralPage } from './referral-page.js';
 
 // the Durable Object class of the statistics database (booking/wrangler.toml)
@@ -68,7 +70,7 @@ function cors(req, env) {
 }
 const json = (data, status, headers) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers } });
 
-/** the price of a booking from its payment session's metadata, with its referral discount */
+/** the price of a booking from its payment session's metadata, with its discount (referral or promo code) */
 const priced = (m) => withDiscount(quote(JSON.parse(m.config || '{}')), Number(m.discount) || 0);
 
 /** today in Paris */
@@ -134,7 +136,7 @@ function customerJson(c) {
 }
 
 /** the text of the appointment in the calendar */
-function eventText(q, c, { date, time, mode, paid, sessionId, code }) {
+function eventText(q, c, { date, time, mode, paid, sessionId, code, kind, percent }) {
   const lines = [
     `Client : ${c.firstName} ${c.lastName}`,
     `Téléphone : ${c.phone}`,
@@ -144,7 +146,7 @@ function eventText(q, c, { date, time, mode, paid, sessionId, code }) {
     '',
     ...q.items.map((i) => `• ${i.label}${i.detail ? ` — ${i.detail}` : ''} : ${euros(i.price)} (${formatDuration(i.minutes)})`),
     '',
-    q.discount ? `Parrainage : −${euros(q.discount)} (code ${code})` : null,
+    q.discount ? (kind === 'promo' ? `${discountLabel({ kind, code, percent })} : −${euros(q.discount)}` : `Parrainage : −${euros(q.discount)} (code ${code})`) : null,
     `Total : ${euros(q.total)} — durée ${formatDuration(q.minutes)}`,
     paid != null ? `Payé en ligne : ${euros(paid)} (${mode === 'full' ? 'totalité' : 'acompte 30 %'}) — reste à régler : ${euros(Math.max(0, q.total - paid))}` : `Paiement en cours (${mode === 'full' ? 'totalité' : 'acompte 30 %'} : ${euros(amountDue(q, mode))})`,
     c.message ? `\nMessage : ${c.message}` : '',
@@ -165,7 +167,7 @@ async function confirm(env, session) {
   const paid = (session.amount_total || 0) / 100;
   const body = {
     summary: `RDV ${titleOf(q, c)}`,
-    description: eventText(q, c, { date: m.date, time: m.time, mode: m.mode, paid, sessionId: session.id, code: m.code }),
+    description: eventText(q, c, { date: m.date, time: m.time, mode: m.mode, paid, sessionId: session.id, code: m.code, kind: m.kind, percent: m.percent }),
     colorId: '9',
     extendedProperties: { private: { solarcarHold: '0', session: session.id, paid: String(paid) } },
   };
@@ -189,13 +191,18 @@ async function confirm(env, session) {
   const site = session.livemode ? 'site' : 'apercu';
   const heard = howHeardParse(c.source);
   await record(env, [{ site, kind: 'rdv', page: '/reservation/', detail: q.items.map((i) => i.label).join(' + ').slice(0, 120), value: paid }, ...heardRows({ site, page: '/reservation/' }, heard.channels, heard.other)]).catch((err) => console.error('[stats]', err));
-  // the referral code is used now that the booking is paid (checked when the payment opened)
+  // the code is used now that the booking is paid (checked when the payment opened): a promo code's
+  // use held for this payment page is counted, a referral code can no longer serve
   if (m.code && env.PARRAINAGE) {
-    const r = await redeemReferral(env, m.code, { by: `${c.firstName} ${c.lastName}`, ref: session.id, where: 'réservation en ligne' }).catch((err) => ({ ok: false, error: err.message }));
-    if (!r.ok) console.error('[parrainage]', m.code, r.error);
+    const who = `${c.firstName} ${c.lastName}`;
+    const r =
+      m.kind === 'promo'
+        ? await usePromo(env, m.code, { ref: m.event || session.id, who, place: 'réservation en ligne', detail: q.items.map((i) => i.label).join(' + '), total: q.total, discount: q.discount }).catch((err) => ({ ok: false, error: err.message }))
+        : await redeemReferral(env, m.code, { by: who, ref: session.id, where: 'réservation en ligne' }).catch((err) => ({ ok: false, error: err.message }));
+    if (!r.ok) console.error(m.kind === 'promo' ? '[promo]' : '[parrainage]', m.code, r.error);
   }
   // « Nouveau RDV » to the workshop, the confirmation to the client (never fails the booking)
-  await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id, code: m.code }).catch((err) => console.error('[mail]', err));
+  await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id, code: m.code, kind: m.kind, percent: m.percent }).catch((err) => console.error('[mail]', err));
   return out;
 }
 
@@ -225,14 +232,18 @@ async function checkout(req, env, now) {
   if (q.error) return json({ error: q.error }, 400, h);
   const c = customerOf(b.customer);
   if (c.error) return json({ error: c.error }, 400, h);
-  // a referral code: checked now, used once the payment is confirmed
+  // one code, promo or referral (they never add up): checked now, used once the payment is confirmed
   let code = '';
+  let promo = null; // { percent }: a promo code, whose use is held below with the slot
   if (b.code) {
-    if (!env.PARRAINAGE) return json({ error: 'Les codes de parrainage ne sont pas encore acceptés en ligne.', code: true }, 400, h);
-    const r = await checkReferral(env, b.code, now);
+    if (!env.PARRAINAGE) return json({ error: 'Les codes promo et de parrainage ne sont pas encore acceptés en ligne.', code: true }, 400, h);
+    const r = await checkCode(env, b.code, now);
     if (!r.ok) return json({ error: r.error, code: true }, 400, h);
     code = r.code;
-    q = withDiscount(q, r.amount);
+    if (r.kind === 'promo') {
+      promo = { percent: r.percent };
+      q = withDiscount(q, percentOff(q, r.percent));
+    } else q = withDiscount(q, r.amount);
   }
   const mode = b.mode === 'full' ? 'full' : 'deposit';
   const { date, time } = b;
@@ -258,12 +269,21 @@ async function checkout(req, env, now) {
   const holdUntil = now + R.holdMinutes * 60000 + 120000;
   const hold = await insertEvent(env, env.CALENDAR_WRITE, {
     summary: `⏳ Paiement en cours — ${titleOf(q, c)}`,
-    description: eventText(q, c, { date, time, mode, code }),
+    description: eventText(q, c, { date, time, mode, code, kind: promo ? 'promo' : '', percent: promo?.percent }),
     colorId: '8',
     start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone },
     end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
     extendedProperties: { private: { solarcarHold: '1', holdUntil: String(holdUntil) } },
   });
+  // a promo code limited to N uses: one held for this payment page (someone else may have taken
+  // the last one meanwhile)
+  if (promo) {
+    const held = await holdPromo(env, code, { ref: hold.id, until: holdUntil }, now).catch((err) => ({ ok: false, error: err.message }));
+    if (!held.ok) {
+      await deleteEvent(env, env.CALENDAR_WRITE, hold.id).catch(() => {});
+      return json({ error: /^promo \d/.test(held.error) ? 'Le code promo n’a pas pu être vérifié : réessayez dans un instant.' : held.error, code: true }, 400, h);
+    }
+  }
   const due = amountDue(q, mode);
   const what = q.items.map((i) => i.label).join(' + ');
   const when = longDate(date, time);
@@ -281,7 +301,7 @@ async function checkout(req, env, now) {
             unit_amount: Math.round(due * 100),
             product_data: {
               name: `${mode === 'full' ? 'Règlement' : 'Acompte 30 %'} — ${what}`,
-              description: `RDV le ${when} à l’atelier SOLAR CAR 37, Vouvray. Total ${euros(q.total)}${q.discount ? ` (parrainage −${euros(q.discount)} déduit)` : ''}${mode === 'full' ? '' : `, reste ${euros(q.total - due)} à régler à l’atelier`}.`,
+              description: `RDV le ${when} à l’atelier SOLAR CAR 37, Vouvray. Total ${euros(q.total)}${q.discount ? (promo ? ` (code ${code} −${promo.percent} % : −${euros(q.discount)} déduits)` : ` (parrainage −${euros(q.discount)} déduit)`) : ''}${mode === 'full' ? '' : `, reste ${euros(q.total - due)} à régler à l’atelier`}.`,
             },
           },
         },
@@ -298,6 +318,7 @@ async function checkout(req, env, now) {
         config: JSON.stringify(b.config).slice(0, 500),
         customer: customerJson(c),
         ...(code ? { code, discount: String(q.discount) } : {}),
+        ...(promo ? { kind: 'promo', percent: String(promo.percent) } : {}),
       },
     });
   } catch (err) {
@@ -343,6 +364,7 @@ async function booking(req, env, url) {
       total: q.total,
       discount: q.discount || 0,
       code: m.code || '',
+      discountLabel: q.discount ? discountLabel({ kind: m.kind, code: m.code, percent: m.percent }) : '',
       remaining: Math.max(0, q.total - paid),
       items: (q.items || []).map((i) => ({ label: i.label, detail: i.detail, price: i.price })),
     },
@@ -433,6 +455,23 @@ export async function dailyMails(env, now = Date.now()) {
   return out;
 }
 
+/** a code typed by a visitor: a promo campaign's (content/booking.js `promos`) or a client's referral code */
+async function checkCode(env, code, now) {
+  if (promoOf(code)) return checkPromo(env, code, now);
+  return checkReferral(env, code, now);
+}
+
+/** GET /api/code?code=…: is this code valid, and what does it give (booking page, quote form) */
+async function codeCheck(req, env, url, now) {
+  const h = cors(req, env);
+  if (!h['access-control-allow-origin']) return json({ error: 'Origine refusée' }, 403, h);
+  const code = url.searchParams.get('code') || '';
+  if (!env.PARRAINAGE) return json({ ok: false, error: 'Les codes promo et de parrainage ne sont pas encore acceptés en ligne.' }, 200, h);
+  const r = await checkCode(env, code, now);
+  if (!r.ok) return json({ ok: false, error: r.error }, 200, h);
+  return json(r.kind === 'promo' ? { ok: true, kind: 'promo', code: r.code, percent: r.percent, label: r.label, from: r.from, to: r.to } : { ok: true, kind: 'parrainage', code: r.code, owner: r.owner, amount: r.amount, expires: r.expires }, 200, h);
+}
+
 /** GET /api/referral?code=…: is this referral code valid (the booking page shows the discount) */
 async function referralCheck(req, env, url, now) {
   const h = cors(req, env);
@@ -466,6 +505,7 @@ export default {
       if (req.method === 'POST' && url.pathname === '/api/checkout') return await checkout(req, env, now);
       if (req.method === 'POST' && url.pathname === '/api/stripe-webhook') return await webhook(req, env);
       if (req.method === 'GET' && url.pathname === '/api/booking') return await booking(req, env, url);
+      if (req.method === 'GET' && url.pathname === '/api/code') return await codeCheck(req, env, url, now);
       if (req.method === 'GET' && url.pathname === '/api/referral') return await referralCheck(req, env, url, now);
       if (url.pathname === '/parrainage' && (req.method === 'GET' || req.method === 'POST')) return await statsKeyed(req, env, url, () => referralPage(req, env, url, now));
       if (req.method === 'POST' && url.pathname === '/api/stats') return await collect(req, env, ctx, now);

@@ -7,9 +7,11 @@
  *   - used on the booking page (checked by GET /api/referral, kept when the payment is confirmed),
  *     or at the workshop (marked on its page).
  * One Durable Object (`Parrainage`) with its own SQLite database: a code is checked and used in one
- * step, so it can never be used twice.
+ * step, so it can never be used twice. The same database counts the uses of the promo codes
+ * (booking/promo.js, routes /promo/…).
  */
-import { bookingRules as R, referralCode } from '../content/booking.js';
+import { bookingRules as R, referralCode, promoOf } from '../content/booking.js';
+import { promoTable, promoRoute } from './promo.js';
 
 // no 0/O, 1/I: easy to read out and to type
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -63,6 +65,7 @@ export class Parrainage {
       )`
     );
     this.sql.exec('CREATE INDEX IF NOT EXISTS codes_origin ON codes (origin)');
+    promoTable(this.sql);
   }
 
   row(code) {
@@ -70,10 +73,10 @@ export class Parrainage {
   }
 
   status(r, now) {
-    if (!r) return { ok: false, error: 'Ce code de parrainage n’existe pas : vérifiez-le.' };
+    if (!r) return { ok: false, error: 'Ce code n’existe pas : vérifiez-le.' };
     if (r.used) return { ok: false, error: 'Ce code de parrainage a déjà été utilisé.' };
     if (r.expires < now) return { ok: false, error: 'Ce code de parrainage a expiré.' };
-    return { ok: true, code: r.code, owner: r.owner, amount: R.referral.amount, expires: r.expires };
+    return { ok: true, kind: 'parrainage', code: r.code, owner: r.owner, amount: R.referral.amount, expires: r.expires };
   }
 
   async fetch(req) {
@@ -81,12 +84,16 @@ export class Parrainage {
     const b = req.method === 'POST' ? await req.json() : {};
     const now = Number(b.now) || Date.now();
     const clip = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+    if (url.pathname.startsWith('/promo/')) {
+      const out = promoRoute(this.sql, url.pathname, b, now);
+      return out ? Response.json(out) : new Response('not found', { status: 404 });
+    }
     if (url.pathname === '/create') {
       const origin = clip(b.origin, 120);
       const known = origin ? this.sql.exec('SELECT * FROM codes WHERE origin = ? ORDER BY created DESC LIMIT 1', origin).toArray()[0] : null;
       if (known) return Response.json({ ok: true, code: known.code, owner: known.owner, amount: R.referral.amount, expires: known.expires, used: known.used });
       let code = newCode(b.owner);
-      while (this.row(code)) code = newCode(b.owner);
+      while (this.row(code) || promoOf(code)) code = newCode(b.owner);
       const expires = now + Math.round(R.referral.months * 30.44 * DAY);
       this.sql.exec('INSERT INTO codes (code, owner, email, origin, created, expires) VALUES (?, ?, ?, ?, ?, ?)', code, clip(b.owner, 60), clip(b.email, 120).toLowerCase(), origin, now, expires);
       return Response.json({ ok: true, code, owner: clip(b.owner, 60), amount: R.referral.amount, expires });

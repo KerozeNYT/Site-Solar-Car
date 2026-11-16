@@ -14,7 +14,7 @@ acompte de 30 % ou la totalité, et le rendez-vous s'inscrit dans l'agenda **SOL
 | Agendas consultés | SOLAR CAR 37, SOLAR HOME 37 et PERSO : un créneau n'est proposé que s'il est libre dans les trois |
 | Rendez-vous écrit dans | SOLAR CAR 37, couleur **Myrtille** (RDV client), avec le client, le véhicule, les prestations, le montant payé et le reste à régler |
 | Paiement | Stripe Checkout (carte, Apple Pay, Google Pay) : acompte de 30 % ou totalité ; reçu envoyé par Stripe |
-| Annulation | Remboursé si annulation au moins 48 h avant ; acompte gardé en dessous ou si le client ne vient pas (`/conditions-reservation/`) |
+| Annulation | Remboursé si annulation au moins 72 h (3 jours) avant — 48 h jusqu'au 16 novembre 2026 ; acompte gardé en dessous ou si le client ne vient pas (`/conditions-reservation/`). Le droit de rétractation de 14 jours après la réservation reste prioritaire |
 | Pendant le paiement | Le créneau est retenu 30 min (événement gris « ⏳ Paiement en cours » dans SOLAR CAR 37), libéré si le paiement n'aboutit pas |
 
 Tout se règle dans `content/booking.js` (durées, horaires, délais, taux d'acompte) et
@@ -150,9 +150,41 @@ webhook en mode réel).
   `booking/test/referral.test.mjs`. Conditions : page « Conditions de réservation », section
   Parrainage.
 
+## Codes promo (16 novembre 2026)
+
+- **Une campagne = une ligne** dans `promos` de `content/booking.js` : le code, le pourcentage, les
+  dates, le nombre d'utilisations (`null` = illimité). En place : **`NOEL15`**, **−15 %** sur
+  **toutes les prestations**, illimité, pour une réservation payée (acompte ou totalité) ou une
+  demande de devis envoyée **du 1er au 24 décembre 2026** (heure de Paris), **quelle que soit la
+  date du rendez-vous** (dans la limite de l'agenda en ligne, environ 2 mois).
+- **Vitres et feux teintés** : le client saisit le code à l'étape 4 « Paiement » (champ « Code de
+  parrainage ou code promo ») ; la remise est déduite du total, l'acompte de 30 % porte sur le
+  reste ; elle figure dans l'agenda, les e-mails, la page de confirmation et le paiement Stripe.
+- **Autres prestations** (detailing, ciel étoilé, covering, phares…) : même champ dans la demande de
+  devis ; le site vérifie le code et l'e-mail reçu dit s'il était valable **le jour de la demande**
+  (ligne « Code promo ou parrainage »). L'atelier baisse son devis, puis note l'utilisation sur la
+  page Parrainage (« Un client utilise un code à l'atelier », avec le prix avant remise) pour que
+  les chiffres de la campagne soient complets.
+- **Jamais deux codes** : un seul champ, un seul code par réservation ou par devis ; un code promo
+  remplace un code de parrainage déjà saisi, et inversement.
+- **Lien à mettre dans la pub** : `https://www.solarcar37.fr/reservation/?code=NOEL15` (le code se
+  remplit tout seul, un bandeau l'annonce en haut de la page avec un lien vers le devis), ou
+  `/contact/?code=NOEL15` pour le devis. Ajouter `&utm_source=instagram&utm_medium=cpc` dans
+  l'annonce Instagram ou Facebook pour que la visite soit comptée « Publicité » dans les
+  statistiques (TikTok est reconnu tout seul, au `ttclid` qu'il ajoute).
+- **Chiffres** : page Parrainage → « Codes promo » : utilisations (en ligne, à l'atelier), montant
+  des prestations et des remises, dernières utilisations.
+- **Nombre limité** : avec `uses: 10`, chaque page de paiement ouverte réserve une utilisation
+  pendant 30 min ; la 11e personne est refusée (« l'offre est épuisée »). Annoncer un nombre limité
+  seulement s'il est réellement appliqué.
+- Technique : `booking/promo.js` (table `promo_uses` dans le Durable Object `Parrainage`, rien à
+  ajouter dans `wrangler.toml`), `GET /api/code?code=…` (code promo ou de parrainage), tests
+  `booking/test/promo.test.mjs`. Conditions : page « Conditions de réservation », section Codes
+  promo. Déployer le serveur (`cd booking && npx wrangler deploy`) avant le site.
+
 ## Au quotidien
 
-- **Annulation ≥ 48 h** : rembourser depuis le tableau de bord Stripe (Paiements → le paiement →
+- **Annulation ≥ 72 h** : rembourser depuis le tableau de bord Stripe (Paiements → le paiement →
   Rembourser) et supprimer l'événement dans SOLAR CAR 37.
 - **Report** : déplacer l'événement dans l'agenda ; l'acompte reste valable.
 - **Bloquer une journée** (congés, salon) : un événement « occupé » dans SOLAR CAR 37, SOLAR

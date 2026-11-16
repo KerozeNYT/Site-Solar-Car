@@ -45,7 +45,7 @@ depuis le 14 novembre 2026.
 |---|---|
 | Visites | Une page atteinte depuis l'extérieur : moteur de recherche, réseau social, autre site, application, adresse tapée. Un rechargement, une page suivante ou le retour depuis le paiement n'en sont pas. |
 | Pages vues | Chaque page affichée. |
-| Sources | **Moteurs de recherche** (Google, Bing, Qwant, DuckDuckGo, Ecosia…), **Publicité** (clic sur une annonce Google Ads, reconnu au `gclid` que Google ajoute à l'adresse, ou `utm_medium=cpc` ; affichée dès la première), **Fiche Google** (voir plus bas), **Accès direct** (aucune provenance connue : adresse tapée, favori, lien ouvert depuis une messagerie, QR code), **Réseaux sociaux**, **Autres sites** (leur nom est affiché). Seule la présence d'un identifiant de clic est transmise, jamais l'identifiant lui-même. |
+| Sources | **Moteurs de recherche** (Google, Bing, Qwant, DuckDuckGo, Ecosia…), **Publicité** (clic sur une annonce Google Ads ou TikTok, reconnu au `gclid` ou au `ttclid` ajouté à l'adresse, ou lien d'annonce terminé par `utm_medium=cpc`, à mettre dans les annonces Instagram et Facebook ; affichée dès la première), **Fiche Google** (voir plus bas), **Accès direct** (aucune provenance connue : adresse tapée, favori, lien ouvert depuis une messagerie, QR code), **Réseaux sociaux**, **Autres sites** (leur nom est affiché). Seule la présence d'un identifiant de clic est transmise, jamais l'identifiant lui-même. |
 | Demandes envoyées | Formulaire de contact envoyé avec succès (avec pièces jointes : au moment de l'envoi). |
 | RDV réservés en ligne | Comptés par le serveur quand Stripe confirme le paiement, avec le montant payé. |
 | Appels, e-mails | Clics sur le numéro de téléphone, sur l'adresse e-mail. |

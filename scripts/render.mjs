@@ -30,6 +30,8 @@ export async function renderSite(out, assets) {
     lightsBooking: B.lightsBooking,
     windshieldMinutes: B.windshieldMinutes,
     howHeard: B.howHeard,
+    // promo codes of the campaigns: the conditions page lists them
+    promos: B.promos,
     windshieldFilms: pricing.tint.windshield.films,
     windshieldColors: pricing.tint.windshield.colors,
   };

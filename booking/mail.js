@@ -8,7 +8,7 @@
  * A failed e-mail never fails the booking: the appointment is in the calendar all the same.
  */
 import { business as B } from '../content/site.js';
-import { bookingRules as R, formatDuration } from '../content/booking.js';
+import { bookingRules as R, formatDuration, discountLabel } from '../content/booking.js';
 import { vatNote } from '../content/pricing.js';
 
 const euros = (n) => `${n.toFixed(2).replace('.', ',').replace(',00', '')} €`;
@@ -63,7 +63,8 @@ export async function send(env, mail) {
 }
 
 /**
- * b: { q (quote), c (customer), date, time, start, end (UTC ms), mode, paid, sessionId }
+ * b: { q (quote), c (customer), date, time, start, end (UTC ms), mode, paid, sessionId, and with a
+ *      discount its code, kind ('promo' or a referral) and percent }
  * Returns the list of e-mails sent ('workshop', 'client').
  */
 const endOf = (end) => new Intl.DateTimeFormat('fr-FR', { hour: 'numeric', minute: '2-digit', timeZone: R.timeZone }).format(new Date(end)).replace(':', ' h ');
@@ -93,7 +94,7 @@ export async function sendBookingMails(env, b) {
             ['E-mail', `<a href="mailto:${esc(c.email)}" style="color:#111">${esc(c.email)}</a>`],
             ['Véhicule', esc(`${c.vehicle}${c.plate ? ` (${c.plate})` : ''}`)],
             ['Prestations', items],
-            ['Parrainage', q.discount ? `−${euros(q.discount)} (code ${esc(b.code || '')})` : ''],
+            [discountLabel(b), q.discount ? (b.kind === 'promo' ? `−${euros(q.discount)}` : `−${euros(q.discount)} (code ${esc(b.code || '')})`) : ''],
             ['Total', euros(q.total)],
             ['Payé en ligne', `${euros(paid)} (${b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`],
             ['Reste à régler', due ? euros(due) : 'rien'],
@@ -122,7 +123,7 @@ export async function sendBookingMails(env, b) {
             ['Quand', esc(when)],
             ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
             ['Prestations', items],
-            ['Parrainage', q.discount ? `−${euros(q.discount)}` : ''],
+            [discountLabel(b), q.discount ? `−${euros(q.discount)}` : ''],
             ['Total', `${euros(q.total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
             ['Payé en ligne', euros(paid)],
             ['À régler à l’atelier', due ? euros(due) : 'rien'],

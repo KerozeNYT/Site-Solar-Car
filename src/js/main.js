@@ -354,9 +354,9 @@ function sendHit(hit) {
   // way back from the payment page
   const entry = nav === 'navigate' && bare(ref) !== bare(location.hostname) && !/(^|\.)stripe\.com$/.test(ref);
   // campaign tags of the address: utm_source (the Google profile link), utm_medium and the ad click
-  // ids Google Ads adds (only "there was one" is sent, never the id itself)
+  // ids Google Ads and TikTok ads add (only "there was one" is sent, never the id itself)
   const qs = new URLSearchParams(location.search);
-  const ad = ['gclid', 'gbraid', 'wbraid'].some((k) => qs.has(k)) ? 1 : 0;
+  const ad = ['gclid', 'gbraid', 'wbraid', 'ttclid'].some((k) => qs.has(k)) ? 1 : 0;
   const hit = entry ? { t: 'page', e: 1, r: ref, u: qs.get('utm_source') || '', m: qs.get('utm_medium') || '', g: ad } : { t: 'page', e: 0 };
   if (document.prerendering) document.addEventListener('prerenderingchange', () => sendHit(hit), { once: true });
   else sendHit(hit);
@@ -416,6 +416,59 @@ if (form) {
     if (config) lines.push(config);
     if (vehicle && !(config || '').includes(vehicle)) lines.push(`Catégorie de véhicule : ${vehicle}`);
     msg.value = lines.join('\n') + '\n\n';
+  }
+  // ---- a promo or referral code (one only): checked by the booking server, said in the e-mail
+  // with the result, so that the workshop knows it was valid the day the request was sent
+  const codeBox = form.querySelector('[data-code-field]');
+  const codeInput = codeBox?.querySelector('input');
+  const codeStatus = codeBox?.querySelector('[data-code-status]');
+  let codeInfo = null; // { code, line }: the check of the code typed, for the e-mail
+  const cleanCode = (v) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9-]/g, '').slice(0, 20);
+  const dayFr = (d) => new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`)).replace(/^1 /, '1er ');
+  const checkCode = async () => {
+    if (!codeInput) return null;
+    const code = cleanCode(codeInput.value);
+    codeInput.value = code;
+    if (code && codeInfo?.code === code) return codeInfo;
+    codeStatus.classList.remove('is-ok', 'is-error');
+    if (!code) {
+      codeInfo = null;
+      codeStatus.textContent = '';
+      return null;
+    }
+    const api = codeBox.dataset.api;
+    const set = (line, text, ok) => {
+      codeInfo = { code, line };
+      codeStatus.textContent = text;
+      if (ok != null) codeStatus.classList.add(ok ? 'is-ok' : 'is-error');
+      return codeInfo;
+    };
+    if (!api) return set(`${code} (à vérifier par l’atelier)`, 'Votre code sera vérifié par l’atelier avec votre demande.');
+    codeStatus.textContent = 'Vérification du code…';
+    try {
+      const res = await fetch(`${api}/api/code?code=${encodeURIComponent(code)}`, { signal: AbortSignal.timeout?.(6000) });
+      const j = await res.json();
+      if (j.ok && j.kind === 'promo') return set(`${j.code} — code promo valable le jour de la demande : −${j.percent} % (${j.label || 'offre'} du ${dayFr(j.from)} au ${dayFr(j.to)})`, `Code promo ${j.code} : −${j.percent} % appliqués à votre devis. Envoyez votre demande jusqu’au ${dayFr(j.to)}.`, true);
+      if (j.ok) return set(`${j.code} — code de parrainage de ${j.owner}, valable : ${j.amount} € de remise (à marquer « utilisé » sur la page Parrainage)`, `Code de ${j.owner} : ${j.amount} € de remise appliqués à votre devis.`, true);
+      return set(`${code} — non valable le jour de la demande : ${j.error || 'code inconnu'}`, j.error || 'Ce code n’est pas reconnu.', false);
+    } catch {
+      return set(`${code} (n’a pas pu être vérifié : à contrôler)`, 'Le code n’a pas pu être vérifié pour le moment : il est joint à votre demande, l’atelier le vérifiera.', false);
+    }
+  };
+  if (codeInput) {
+    codeBox.querySelector('[data-code-check]')?.addEventListener('click', () => checkCode());
+    codeInput.addEventListener('change', () => checkCode());
+    codeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        checkCode();
+      }
+    });
+    // from a link (an ad, the booking page): /contact/?code=NOEL15
+    if (q.get('code')) {
+      codeInput.value = q.get('code');
+      checkCode();
+    }
   }
   // ---- what is missing, said in red under each field and listed at the top of the form
   const boxes = [...form.querySelectorAll('[data-required-group] input[type="checkbox"]')];
@@ -549,6 +602,9 @@ if (form) {
     btn.disabled = true;
     sending = true;
     status.textContent = 'Envoi en cours…';
+    // the code typed and the result of its check, done again now: valid the day the request is sent
+    codeInfo = null;
+    const code = await checkCode();
     try {
       let res;
       if (/formsubmit\.co\//.test(form.action)) {
@@ -566,6 +622,7 @@ if (form) {
           'Prestation(s)': prestations.join(', '),
           'Rendez-vous souhaité': wish || 'indifférent',
           'Nous a connus': howHeardLine(d) || 'non précisé',
+          ...(code ? { 'Code promo ou parrainage': code.line } : {}),
           Message: d.get('message') || '',
           _subject: subject,
           _template: 'table',
@@ -609,6 +666,8 @@ if (form) {
       remember(sig);
       const heard = new FormData(form);
       form.reset();
+      codeInfo = null;
+      if (codeStatus) codeStatus.textContent = '';
       track('demande_envoyee', { pieces_jointes: 0 });
       // the answers to « Comment nous avez-vous connus ? », counted in the statistics
       sendHit({ t: 'connu', c: heard.getAll('connu'), o: String(heard.get('connu_autre') || '') });

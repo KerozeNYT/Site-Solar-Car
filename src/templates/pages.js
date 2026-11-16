@@ -1197,6 +1197,12 @@ export function contactPage(ctx) {
           <div><label for="f-slot">Moment</label><select id="f-slot" name="moment"><option value="">Indifférent</option><option>Matin (8 h – 12 h)</option><option>Après-midi (13 h – 17 h)</option></select></div>
           <p class="form__hint">Atelier ouvert du lundi au vendredi. Ce n’est pas une réservation : nous vous confirmons le créneau.</p>
         </fieldset>
+        <div class="form__row referral" data-code-field data-api="${esc(ctx.booking?.bookingRules?.api || '')}">
+          <label for="f-code">Code de parrainage ou code promo <span class="optional">(facultatif)</span></label>
+          <div class="referral__row"><input id="f-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ex. ${esc(ctx.booking?.promos?.[0]?.code || 'JEAN-7K2QX')}"><button class="btn btn--ghost" type="button" data-code-check>Vérifier</button></div>
+          <p class="form__hint">Un seul code par demande (parrainage et code promo ne se cumulent pas). La remise est appliquée à votre devis si le code est valable le jour où vous envoyez la demande.</p>
+          <p class="referral__status" data-code-status aria-live="polite"></p>
+        </div>
         ${howHeardField(ctx, 'f-connu-autre')}
         <div class="form__row form__consent">
           <label class="choice"><input type="checkbox" name="consentement" required aria-describedby="err-consent"> J’accepte que mes données soient utilisées pour répondre à ma demande (voir <a href="/mentions-legales/#confidentialite">confidentialité</a>). <span class="req" aria-hidden="true">*</span></label>
@@ -1730,6 +1736,7 @@ export function reservationPage(ctx) {
   </section>
   <section class="section section--tight">
     <div class="container booking" data-booking data-api="${esc(R.api)}">
+      <p class="notice booking__promo" role="status" data-promo-banner hidden></p>
       <form class="booking__steps form" novalidate>
         <fieldset class="booking__step" data-step="service">
           <legend><span class="booking__num">1</span> Votre prestation</legend>
@@ -1790,8 +1797,9 @@ export function reservationPage(ctx) {
         <fieldset class="booking__step" data-step="pay" disabled>
           <legend><span class="booking__num">4</span> Paiement</legend>
           <div class="form__row referral" data-referral>
-            <label for="b-code">Code de parrainage <span class="optional">(facultatif)</span></label>
-            <div class="referral__row"><input id="b-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ex. JEAN-7K2QX"><button class="btn btn--ghost" type="button" data-referral-apply>Appliquer</button></div>
+            <label for="b-code">Code de parrainage ou code promo <span class="optional">(facultatif)</span></label>
+            <div class="referral__row"><input id="b-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ex. JEAN-7K2QX ou ${esc(ctx.booking.promos?.[0]?.code || 'NOEL15')}"><button class="btn btn--ghost" type="button" data-referral-apply>Appliquer</button></div>
+            <p class="form__hint">Un seul code par réservation : un code de parrainage et un code promo ne se cumulent pas.</p>
             <p class="referral__status" data-referral-status aria-live="polite"></p>
           </div>
           <div class="picks picks--pay">
@@ -1812,7 +1820,7 @@ export function reservationPage(ctx) {
         <ul class="booking__items" data-items><li class="booking__empty">Choisissez une prestation.</li></ul>
         <dl class="booking__totals">
           <div><dt>Durée</dt><dd data-duration>—</dd></div>
-          <div data-discount-row hidden><dt>Parrainage</dt><dd data-discount>—</dd></div>
+          <div data-discount-row hidden><dt data-discount-label>Parrainage</dt><dd data-discount>—</dd></div>
           <div><dt>Total</dt><dd data-total>—</dd></div>
           <div><dt>Acompte 30 %</dt><dd data-deposit>—</dd></div>
           <div><dt>Rendez-vous</dt><dd data-when>—</dd></div>
@@ -1883,11 +1891,24 @@ export function bookingTermsPage(ctx) {
       <p>À l’avant, la loi impose qu’au moins 70 % de la lumière traverse le vitrage complet, film compris : l’atelier pose à l’avant uniquement des films qui respectent cette règle. Voir <a href="/vitres-teintees/#loi-vitres-teintees">ce que dit la loi sur les vitres teintées</a>.</p>
       <h2>Parrainage</h2>
       <p>Après son rendez-vous, chaque client reçoit un code de parrainage personnel : il donne ${R.referral.amount} € de remise sur une prestation de l’atelier, à offrir à un proche ou à garder pour une autre voiture. Il se saisit à l’étape du paiement de la réservation en ligne, ou se donne à l’atelier. Il s’utilise une seule fois, pendant ${R.referral.months} mois ; il n’est ni cumulable avec un autre code, ni remboursable, ni échangeable contre de l’argent. La remise est déduite du total, et l’acompte de ${pct} % porte sur le montant restant.</p>
+      ${promoTerms(ctx, pct)}
       <h2>Médiation</h2>
       <p>En cas de litige, adressez d’abord une réclamation écrite à l’atelier. Si elle n’aboutit pas, vous pouvez recourir gratuitement au médiateur de la consommation${ctx.legalPage?.mediator ? ` : ${esc(ctx.legalPage.mediator.name)}${ctx.legalPage.mediator.url ? ` (<a href="${esc(ctx.legalPage.mediator.url)}" rel="noopener">${esc(ctx.legalPage.mediator.url.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</a>)` : ''}` : ''}, dans l’année qui suit votre réclamation (voir les <a href="/mentions-legales/">mentions légales</a>).</p>
     </div>
   </section>`;
   return page(ctx, { title: `Conditions de réservation | ${b.name}`, description: `Acompte de ${pct} %, annulation, report et droit de rétractation pour les rendez-vous pris en ligne à l’atelier ${b.name}.`, path: '/conditions-reservation/', noindex: !R.api }, body);
+}
+
+/** the promo codes of the campaigns (content/booking.js `promos`), in the booking terms */
+function promoTerms(ctx, pct) {
+  const promos = ctx.booking.promos || [];
+  if (!promos.length) return '';
+  const day = (d) => new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`)).replace(/^1 /, '1er ');
+  const offer = (p) =>
+    `<li><strong>${esc(p.code)}</strong>${p.label ? ` (${esc(p.label)})` : ''} : <strong>−${p.percent} %</strong> sur toutes les prestations de l’atelier, pour un rendez-vous réservé en ligne (acompte ou totalité réglé) ou une demande de devis envoyée <strong>du ${day(p.from)} au ${day(p.to)} inclus</strong>, heure de Paris, quelle que soit la date du rendez-vous${p.uses != null ? ` ; dans la limite de ${p.uses} utilisations au total, réservations en ligne et devis confondus` : ''}.</li>`;
+  return `<h2 id="codes-promo">Codes promo</h2>
+      <ul>${promos.map(offer).join('')}</ul>
+      <p>Vitres teintées et feux teintés : le code se saisit à l’étape du paiement de la réservation en ligne, la remise est déduite du total et l’acompte de ${pct} % porte sur le montant restant. Autres prestations (detailing, ciel étoilé, covering, déchromage, rénovation de phares…) : le code s’indique dans la <a href="/contact/">demande de devis</a>, et la remise s’applique au prix du devis établi pour cette demande. Un seul code par réservation ou par devis : un code promo ne se cumule ni avec un autre code promo, ni avec un code de parrainage. Il n’est ni remboursable, ni échangeable contre de l’argent.</p>`;
 }
 
 /** "2 h 30", "45 min" */
