@@ -5,7 +5,10 @@
  */
 export default {
   model: '/models/a45.glb',
-  credit: { text: 'Modèle 3D Mercedes-AMG A 45 — fourni par SOLAR CAR 37 (crédit à compléter selon la licence)', url: null },
+  credit: {
+    text: 'Modèle 3D « Mercedes-Benz A45 AMG 2018 » par Lexyc16, licence CC BY-NC 4.0, adapté par SOLAR CAR 37',
+    url: 'https://sketchfab.com/3d-models/mercedes-benz-a45-amg-2018-9482f251f9c34a6e91d7777db5934cfc',
+  },
   forward: '-z',
   length: 4.36,
   paint: {

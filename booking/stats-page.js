@@ -7,7 +7,7 @@
  * there, and each chart has its table.
  */
 import { utcToZoned, addDays } from './schedule.js';
-import { report, totalsOf, ACTIONS, SOURCES, TZ } from './stats.js';
+import { report, totalsOf, ACTIONS, SOURCES, HEARD, TZ } from './stats.js';
 import { shiftMonth } from './stats-report.js';
 import { oldSite } from '../content/stats.js';
 
@@ -312,6 +312,18 @@ function monthsBlock(r, to) {
     .join('')}</ol>`;
 }
 
+/** « Comment nous avez-vous connus ? »: the answers, most frequent first, « Sans réponse » last */
+function heardBlock(r) {
+  const list = (r.heard || []).filter((x) => HEARD[x.source]).sort((a, b) => (a.source === 'sans') - (b.source === 'sans') || b.n - a.n);
+  if (!list.length) return '<p class="muted">Pas encore de réponse sur cette période : elles arrivent avec les demandes de devis et les RDV réservés en ligne.</p>';
+  const max = Math.max(1, ...list.map((x) => x.n));
+  const bars = list
+    .map((x) => `<li><span class="rank__name">${esc(HEARD[x.source])}</span><span class="rank__val">${nf(x.n)}${x.rdv ? ` <small>dont ${nf(x.rdv)} RDV</small>` : ''}</span><span class="rank__track"><i style="--w:${((x.n / max) * 100).toFixed(2)}%"></i></span></li>`)
+    .join('');
+  const other = (r.heardOther || []).length ? `<p class="sub-h">Réponses « Autre »</p><ul class="chips">${r.heardOther.map((x) => `<li>${esc(x.detail)} <b>${nf(x.n)}</b></li>`).join('')}</ul>` : '';
+  return `<ul class="rank">${bars}</ul>${other}<p class="note">Réponses du formulaire de devis et de la réservation en ligne ; plusieurs cases peuvent être cochées.</p>`;
+}
+
 function bookingsBlock(r) {
   if (!r.bookings.length) return '';
   return `<section class="card reveal" data-spot><h2>${icon('calendar')}RDV réservés en ligne</h2><ul class="kv">${r.bookings.map((b) => `<li><span>${esc(b.detail)}</span><strong>${nf(b.n)}</strong><span class="dim">${eur(b.value || 0)}</span></li>`).join('')}</ul></section>`;
@@ -458,6 +470,11 @@ function render({ r, env, key, per, site, from, to, pfrom, pto, now, nonce }) {
       ${actionsBlock(r)}
     </section>
   </div>
+
+  <section class="card reveal" data-spot>
+    <h2>${icon('message')}Comment ils vous ont connus</h2>
+    ${heardBlock(r)}
+  </section>
 
   ${bookingsBlock(r)}
 

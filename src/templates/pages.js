@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { simFor } from './sims.js';
-import { priceText } from '../../content/pricing.js';
+import { priceText, vatNote } from '../../content/pricing.js';
 import { coveringPage as CP, FINISHES, EFFECTS } from '../../content/covering.js';
 import { filmTravel } from '../../content/film.js';
 import { films as coveringFilms, ranges as filmRanges } from '../../content/films/index.js';
@@ -146,7 +146,7 @@ function localBusiness(ctx) {
 function offerPrice(ctx, slug) {
   const P = ctx.pricing;
   const spec = (min, max) => ({
-    priceSpecification: { '@type': 'PriceSpecification', priceCurrency: 'EUR', minPrice: min, maxPrice: max, valueAddedTaxIncluded: true },
+    priceSpecification: { '@type': 'PriceSpecification', priceCurrency: 'EUR', minPrice: min, maxPrice: max },
   });
   if (slug === 'vitres-teintees') {
     const v = Object.values(P.tint.rearPackage);
@@ -283,7 +283,7 @@ function footer(ctx) {
     </nav>
   </div>
   <div class="container site-footer__bottom">
-    <p>© <span data-year>${new Date().getFullYear()}</span> ${esc(b.name)}${b.siret ? ` · SIRET ${esc(b.siret)}` : ''} · Prix TTC</p>
+    <p>© <span data-year>${new Date().getFullYear()}</span> ${esc(b.name)}${b.siret ? ` · SIRET ${esc(b.siret)}` : ''} · ${esc(vatNote)}</p>
     ${credit}
   </div>
 </footer>`;
@@ -836,10 +836,10 @@ function richSections(ctx, s) {
 
 function offersFor(ctx, slug) {
   const { tint, vehicleTypes, lights, headlights } = ctx.pricing;
-  const ttc = { '@type': 'PriceSpecification', priceCurrency: 'EUR', valueAddedTaxIncluded: true };
+  const ttc = { '@type': 'PriceSpecification', priceCurrency: 'EUR' };
   if (slug === 'feux-arriere-teintes')
     return {
-      offers: { '@type': 'AggregateOffer', priceCurrency: 'EUR', lowPrice: String(lights.perPair.min), highPrice: String(lights.perPair.max), offerCount: '2', description: 'Covering fumé : prix TTC indicatif par paire de feux, selon le véhicule' },
+      offers: { '@type': 'AggregateOffer', priceCurrency: 'EUR', lowPrice: String(lights.perPair.min), highPrice: String(lights.perPair.max), offerCount: '2', description: 'Covering fumé : prix indicatif par paire de feux, selon le véhicule' },
     };
   if (slug === 'renovation-phares')
     return {
@@ -1239,17 +1239,18 @@ export function legalPage(ctx) {
     <div class="container container--narrow prose">
       <h1>Mentions légales</h1>
       <h2>Éditeur du site</h2>
-      <p><strong>${esc(b.name)}</strong>${b.legalName ? ` — nom commercial de ${esc(b.legalName)}` : ''}<br>${b.legalForm ? `${esc(b.legalForm)}<br>` : ''}${todo(addressLine(b), 'Adresse du siège')}<br>SIRET : ${todo(b.siret, 'SIRET')}<br>Téléphone : ${todo(b.phone, 'Téléphone')}<br>E-mail : ${todo(b.email, 'E-mail')}</p>
+      <p><strong>${esc(b.name)}</strong>${b.legalName ? ` — nom commercial de ${esc(b.legalName)}` : ''}<br>${b.legalForm ? `${esc(b.legalForm)}<br>` : ''}${todo(addressLine(b), 'Adresse du siège')}<br>SIRET : ${todo(b.siret, 'SIRET')}<br>${esc(vatNote)}<br>Téléphone : ${todo(b.phone, 'Téléphone')}<br>E-mail : ${todo(b.email, 'E-mail')}</p>
       <p>Directeur de la publication : ${todo(l.publisher, 'Nom')}</p>
       <h2>Hébergement</h2>
       <p>${todo(l.host?.name, 'Hébergeur')}<br>${todo(l.host?.address, 'Adresse de l’hébergeur')}</p>
       <h2>Propriété intellectuelle</h2>
       <p>Les textes, visuels et le logo de ${esc(b.name)} sont protégés. Les marques et logos des fabricants cités (films, outillage, produits) ainsi que les marques et modèles de véhicules apparaissant sur le site appartiennent à leurs propriétaires respectifs ; la présence d’un véhicule n’implique aucun partenariat avec son constructeur.</p>
-      ${(ctx.credits || []).length ? `<p>Modèles 3D utilisés sur le site :</p><ul>${ctx.credits.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
+      ${(ctx.credits || []).length ? `<p>Modèles 3D utilisés sur le site :</p><ul>${ctx.credits.map((c) => `<li>${c.url ? `<a href="${esc(c.url)}" rel="noopener">${esc(c.text)}</a>` : esc(c.text)}</li>`).join('')}</ul>` : ''}
       <h2>Tarifs</h2>
-      <p>Les prix affichés sur le site et dans les simulateurs sont indicatifs, toutes taxes comprises, et confirmés par un devis après examen du véhicule. Les rendus 3D sont des simulations : ils ne valent ni mesure ni garantie de résultat.</p>
+      <p>Les prix affichés sur le site et dans les simulateurs sont indicatifs et confirmés par un devis après examen du véhicule. Les rendus 3D sont des simulations : ils ne valent ni mesure ni garantie de résultat.</p>
       <h2>Médiation de la consommation</h2>
-      <p>${l.mediator ? `En cas de litige non résolu avec l’atelier, vous pouvez recourir gratuitement au médiateur de la consommation : ${esc(l.mediator.name)}${l.mediator.url ? ` (<a href="${esc(l.mediator.url)}" rel="noopener">${esc(l.mediator.url.replace(/^https?:\/\//, ''))}</a>)` : ''}${l.mediator.address ? `, ${esc(l.mediator.address)}` : ''}.` : todo(null, 'Médiateur de la consommation')}</p>
+      <p>En cas de litige, adressez d’abord une réclamation écrite à l’atelier${b.email ? ` (${esc(b.email)})` : ''} : la plupart des difficultés se règlent ainsi. Si la réclamation n’aboutit pas, vous pouvez recourir gratuitement à un médiateur de la consommation (articles L611-1 et suivants du Code de la consommation), dans l’année qui suit votre réclamation écrite.</p>
+      <p>${l.mediator ? `Médiateur de l’atelier : <strong>${esc(l.mediator.name)}</strong>${l.mediator.address ? `, ${esc(l.mediator.address)}` : ''}${l.mediator.url ? ` — saisine en ligne : <a href="${esc(l.mediator.url)}" rel="noopener">${esc(l.mediator.url.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</a>` : ''}.` : todo(null, 'Médiateur de la consommation')}</p>
       <h2 id="confidentialite">Données personnelles</h2>
       <p><strong>Responsable du traitement :</strong> ${esc(b.owner || b.name)}, ${esc(b.name)}${b.email ? `, ${esc(b.email)}` : ''}.</p>
       <p><strong>Données et finalité :</strong> les informations saisies dans le formulaire (identité, coordonnées, véhicule, prestation, message et éventuelles photos) servent uniquement à répondre à votre demande de devis ou de rendez-vous et à son suivi. Elles ne sont ni vendues ni cédées. N’envoyez que les photos utiles à la demande (inutile, par exemple, de joindre une carte grise complète).</p>
@@ -1260,7 +1261,7 @@ export function legalPage(ctx) {
       <p><strong>Durée de conservation :</strong> ${l.retention ? esc(l.retention) : 'le temps nécessaire pour répondre à votre demande et en assurer le suivi'}.</p>
       <p><strong>Vos droits :</strong> vous pouvez demander l’accès à vos données, leur rectification, leur effacement, la limitation du traitement, vous y opposer ou demander leur portabilité en écrivant${b.email ? ` à ${esc(b.email)}` : ' à l’atelier'}. Si vous estimez que vos droits ne sont pas respectés, vous pouvez adresser une réclamation à la CNIL (<a href="https://www.cnil.fr" rel="noopener">cnil.fr</a>).</p>
       ${b.stats?.endpoint ? `<h3>Mesure d’audience</h3>
-      <p>Le site compte ses visites <strong>sans cookie</strong> et sans rien enregistrer sur votre appareil. À chaque page vue, il transmet à son serveur (hébergé par Cloudflare) l’adresse de la page, le nom du site d’où vous arrivez, le type d’écran (téléphone ou ordinateur) et, le cas échéant, l’action effectuée (appel, demande de devis, simulateur…). Ni votre adresse IP ni aucun identifiant ne sont conservés : ces données servent uniquement à établir des statistiques de fréquentation, sont réservées à l’atelier et effacées au bout de 25 mois (base légale : l’intérêt légitime de l’atelier à connaître la fréquentation de son site, article 6.1.f du RGPD).${b.stats.cloudflareToken ? ' Le service Cloudflare Web Analytics (Cloudflare, Inc.) mesure aussi, sans cookie, la fréquentation et la vitesse d’affichage des pages ; il reçoit pour cela l’adresse IP du visiteur, sans l’utiliser pour le suivre.' : ''}</p>
+      <p>Le site compte ses visites <strong>sans cookie</strong> et sans rien enregistrer sur votre appareil. À chaque page vue, il transmet à son serveur (hébergé par Cloudflare) l’adresse de la page, le nom du site d’où vous arrivez, le type d’écran (téléphone ou ordinateur) et, le cas échéant, l’action effectuée (appel, demande de devis, simulateur…) ; avec une demande de devis ou une réservation, il compte aussi vos réponses à « Comment nous avez-vous connus ? ». Ni votre adresse IP ni aucun identifiant ne sont conservés : ces données servent uniquement à établir des statistiques de fréquentation, sont réservées à l’atelier et effacées au bout de 25 mois (base légale : l’intérêt légitime de l’atelier à connaître la fréquentation de son site, article 6.1.f du RGPD).${b.stats.cloudflareToken ? ' Le service Cloudflare Web Analytics (Cloudflare, Inc.) mesure aussi, sans cookie, la fréquentation et la vitesse d’affichage des pages ; il reçoit pour cela l’adresse IP du visiteur, sans l’utiliser pour le suivre.' : ''}</p>
       <p data-stats-optout><a href="?stats=off#confidentialite">Ne plus compter mes visites sur cet appareil</a></p>` : ''}
       <p>Ce site n’utilise aucun cookie publicitaire. Les polices de caractères sont hébergées sur le site lui-même.</p>
     </div>
@@ -1545,9 +1546,9 @@ const deTown = (t) => (/^[AEIOUYÉÈ]/i.test(t) ? `d’${t}` : /^Le /.test(t) ? 
 function priceHint(ctx, slug) {
   const P = ctx.pricing;
   const f = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
-  if (slug === 'vitres-teintees') return `dès ${f(Math.min(...Object.values(P.tint.rearPackage)))} TTC`;
-  if (slug === 'feux-arriere-teintes') return `${P.lights.perPair.min} à ${f(P.lights.perPair.max)} TTC la paire`;
-  if (slug === 'renovation-phares') return `${f(P.headlights.renovation)} TTC les deux phares`;
+  if (slug === 'vitres-teintees') return `dès ${f(Math.min(...Object.values(P.tint.rearPackage)))}`;
+  if (slug === 'feux-arriere-teintes') return `${P.lights.perPair.min} à ${f(P.lights.perPair.max)} la paire`;
+  if (slug === 'renovation-phares') return `${f(P.headlights.renovation)} les deux phares`;
   return 'sur devis';
 }
 
@@ -1639,7 +1640,7 @@ export function zonePage(ctx, z) {
     {
       // titles kept under ~65 characters, descriptions under ~160
       title: (`Vitres teintées & detailing près ${from} | SOLAR CAR 37`.length > 60 ? `Vitres teintées près ${from} | SOLAR CAR 37` : `Vitres teintées & detailing près ${from} | SOLAR CAR 37`),
-      description: [`${town} : atelier SOLAR CAR 37 à ${kmFr(z.roadKm)} km par la route (Vouvray).`, `Vitres teintées dès ${priceText.tintFrom} TTC, feux teintés, phares ${priceText.headlights}, detailing.`, 'Trajet et devis.']
+      description: [`${town} : atelier SOLAR CAR 37 à ${kmFr(z.roadKm)} km par la route (Vouvray).`, `Vitres teintées dès ${priceText.tintFrom}, feux teintés, phares ${priceText.headlights}, detailing.`, 'Trajet et devis.']
         .reduce((acc, part) => ((acc + ' ' + part).trim().length <= 160 ? (acc + ' ' + part).trim() : acc), ''),
       path,
       image: '/stills/hero-1600.jpg',
@@ -1806,7 +1807,7 @@ export function reservationPage(ctx) {
         <ul class="booking__items" data-items><li class="booking__empty">Choisissez une prestation.</li></ul>
         <dl class="booking__totals">
           <div><dt>Durée</dt><dd data-duration>—</dd></div>
-          <div><dt>Total TTC</dt><dd data-total>—</dd></div>
+          <div><dt>Total</dt><dd data-total>—</dd></div>
           <div><dt>Acompte 30 %</dt><dd data-deposit>—</dd></div>
           <div><dt>Rendez-vous</dt><dd data-when>—</dd></div>
         </dl>
@@ -1860,7 +1861,7 @@ export function bookingTermsPage(ctx) {
       <h1>Conditions de réservation en ligne</h1>
       <p class="lead">Ces conditions s’appliquent aux rendez-vous pris sur ce site pour la pose de vitres teintées et de feux teintés à l’atelier ${esc(b.name)}, ${esc(addressLine(b))}.</p>
       <h2>Prix et rendez-vous</h2>
-      <p>Les prix affichés sont TTC et correspondent au véhicule et à la prestation choisis lors de la réservation. Le rendez-vous est confirmé dès le paiement en ligne accepté : il est alors réservé pour vous dans l’agenda de l’atelier. Si le véhicule présenté ne correspond pas à celui indiqué, ou si son état ne permet pas la pose (ancien film à retirer, vitre endommagée), l’atelier vous propose un ajustement du prix avant toute intervention ; si vous le refusez, les sommes versées vous sont remboursées.</p>
+      <p>Les prix affichés sont des prix nets : l’atelier, en micro-entreprise, ne facture pas de TVA (${esc(vatNote)}). Ils correspondent au véhicule et à la prestation choisis lors de la réservation. Le rendez-vous est confirmé dès le paiement en ligne accepté : il est alors réservé pour vous dans l’agenda de l’atelier. Si le véhicule présenté ne correspond pas à celui indiqué, ou si son état ne permet pas la pose (ancien film à retirer, vitre endommagée), l’atelier vous propose un ajustement du prix avant toute intervention ; si vous le refusez, les sommes versées vous sont remboursées.</p>
       <h2>Acompte ou paiement complet</h2>
       <p>À la réservation, vous réglez soit un acompte de ${pct} % du prix total, soit la totalité. Le solde éventuel se règle à l’atelier le jour du rendez-vous. Le paiement en ligne est traité par Stripe ; ${esc(b.name)} n’a jamais accès à vos données bancaires. Un reçu vous est envoyé par e-mail.</p>
       <h2>Annulation et report</h2>
@@ -1875,7 +1876,7 @@ export function bookingTermsPage(ctx) {
       <h2>Réglementation</h2>
       <p>À l’avant, la loi impose qu’au moins 70 % de la lumière traverse le vitrage complet, film compris : l’atelier pose à l’avant uniquement des films qui respectent cette règle. Voir <a href="/vitres-teintees/#loi-vitres-teintees">ce que dit la loi sur les vitres teintées</a>.</p>
       <h2>Médiation</h2>
-      <p>En cas de litige, vous pouvez recourir gratuitement au médiateur de la consommation indiqué dans les <a href="/mentions-legales/">mentions légales</a>.</p>
+      <p>En cas de litige, adressez d’abord une réclamation écrite à l’atelier. Si elle n’aboutit pas, vous pouvez recourir gratuitement au médiateur de la consommation${ctx.legalPage?.mediator ? ` : ${esc(ctx.legalPage.mediator.name)}${ctx.legalPage.mediator.url ? ` (<a href="${esc(ctx.legalPage.mediator.url)}" rel="noopener">${esc(ctx.legalPage.mediator.url.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</a>)` : ''}` : ''}, dans l’année qui suit votre réclamation (voir les <a href="/mentions-legales/">mentions légales</a>).</p>
     </div>
   </section>`;
   return page(ctx, { title: `Conditions de réservation | ${b.name}`, description: `Acompte de ${pct} %, annulation, report et droit de rétractation pour les rendez-vous pris en ligne à l’atelier ${b.name}.`, path: '/conditions-reservation/', noindex: !R.api }, body);

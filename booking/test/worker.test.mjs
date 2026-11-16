@@ -185,3 +185,40 @@ test('long details: what Stripe keeps is always whole (500 characters at most)',
   assert.equal(c.email, 'jean@example.com');
   assert.match(c.source, /^Autre : x+/);
 });
+
+test('daily e-mails: reminder the day before, news a week after, each once, at the calendar time', async () => {
+  const run = async (at, e = env) => {
+    let job;
+    await worker.scheduled({ cron: '0 16 * * *', scheduledTime: at }, e, { waitUntil: (p) => (job = p) });
+    await job;
+  };
+  const eve = zonedToUtc(addDays(day, -1), '17:00', TZ);
+  const before = mails.length;
+  // client e-mails not switched on yet (sending domain): nothing
+  await run(eve, { ...env, MAIL_CLIENTS: '0' });
+  assert.equal(mails.length, before);
+  // the workshop moved the appointment to 11:00 in its calendar: the reminder says 11 h 00
+  const ev = cal[CAR].find((e) => e.extendedProperties?.private?.session === sessionId);
+  ev.start = { dateTime: new Date(zonedToUtc(day, '11:00', TZ)).toISOString() };
+  ev.end = { dateTime: new Date(zonedToUtc(day, '13:00', TZ)).toISOString() };
+  await run(eve);
+  assert.equal(mails.length, before + 1);
+  const r = mails.at(-1);
+  assert.deepEqual(r.to, ['jean@example.com']);
+  assert.match(r.subject, /^Rappel : votre rendez-vous demain à 11 h 00 chez SOLAR CAR 37$/);
+  assert.match(r.html, /11 h 00 – 13 h 00/);
+  assert.match(r.html, /À régler à l’atelier.*189 €/s);
+  await run(eve + 60000); // run again: no second reminder
+  assert.equal(mails.length, before + 1);
+  // a week later: news, with the review link and the invitation to reply first
+  const week = zonedToUtc(addDays(day, 7), '17:00', TZ);
+  await run(week);
+  assert.equal(mails.length, before + 2);
+  const f = mails.at(-1);
+  assert.match(f.subject, /^Tout va bien depuis votre passage/);
+  assert.match(f.html, /Peugeot 508 \(vitres teintées, 3\/4 arrière/);
+  assert.match(f.html, /Répondez simplement à cet e-mail/);
+  assert.match(f.html, /href="https:\/\/g\.page\/r\/[^"]+\/review"/);
+  await run(week);
+  assert.equal(mails.length, before + 2);
+});

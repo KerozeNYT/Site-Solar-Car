@@ -593,6 +593,7 @@ if (form) {
           document.body.append(post);
           remember(sig);
           track('demande_envoyee', { pieces_jointes: files.length });
+          sendHit({ t: 'connu', c: d.getAll('connu'), o: String(d.get('connu_autre') || '') });
           post.submit();
           return;
         }
@@ -606,8 +607,11 @@ if (form) {
         if (!res.ok) throw new Error(String(res.status));
       }
       remember(sig);
+      const heard = new FormData(form);
       form.reset();
       track('demande_envoyee', { pieces_jointes: 0 });
+      // the answers to « Comment nous avez-vous connus ? », counted in the statistics
+      sendHit({ t: 'connu', c: heard.getAll('connu'), o: String(heard.get('connu_autre') || '') });
       status.textContent = 'Merci ! Votre demande a bien été envoyée, nous revenons vers vous rapidement.';
       status.classList.add('is-ok');
       status.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });

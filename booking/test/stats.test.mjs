@@ -185,3 +185,24 @@ test('monthly e-mail: the month against the one before, sent on the 1st, nothing
   }
   assert.equal(shiftMonth('2026-01', -1), '2025-12');
 });
+
+test('« Comment nous avez-vous connus ? »: one row per ticked box, sorted on the page, in the monthly e-mail', async () => {
+  const env = fresh();
+  // the quote form: social networks and « Autre » with its text; another with nothing ticked
+  await send(env, { t: 'connu', p: '/contact/', d: 'telephone', c: ['Réseaux sociaux (Instagram, Facebook…)', 'Autre', 'Pirate'], o: 'Salon auto de Tours "<>' });
+  await send(env, { t: 'connu', p: '/contact/', d: 'ordinateur', c: [] });
+  await send(env, { t: 'connu', p: '/contact/', c: ['Réseaux sociaux (Instagram, Facebook…)'] });
+  const r = rows(env).filter((x) => x.kind === 'connu');
+  assert.deepEqual(r.map((x) => [x.source, x.detail]), [['reseaux', ''], ['autre', 'Salon auto de Tours'], ['sans', ''], ['reseaux', '']]);
+  const html = await (await page(env, `cle=${KEY}`)).text();
+  assert.match(html, /Comment ils vous ont connus/);
+  // most frequent first, « Sans réponse » last, the « Autre » texts listed
+  const block = html.slice(html.indexOf('Comment ils vous ont connus'));
+  assert.ok(block.indexOf('Réseaux sociaux') < block.indexOf('>Autre<') && block.indexOf('>Autre<') < block.indexOf('Sans réponse'));
+  assert.match(block, /Salon auto de Tours <b>1<\/b>/);
+  // nor are they counted as contacts
+  assert.doesNotMatch(html.slice(html.indexOf('Contacts : depuis quelles pages'), html.indexOf('Comment ils vous ont connus')), /connu/);
+  const month = new Date().toISOString().slice(0, 7);
+  const mail = monthMail(await monthFigures(env, month), {});
+  assert.match(mail.html || mail, /Comment ils vous ont connus[\s\S]*Réseaux sociaux[\s\S]*>2</);
+});

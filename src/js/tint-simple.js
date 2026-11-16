@@ -61,7 +61,7 @@ export function startTintSimple(section) {
       ? `${ZONES[zone].label} : ${ZONES[zone].detail}.`
       : `${car.label} : forfait spécifique, nous vous répondons avec un devis détaillé.`;
     law.hidden = zone === 'rear';
-    const config = `Vitres teintées — ${ZONES[zone].label} (${ZONES[zone].detail}) — ${car.label} (${car.example})${p == null ? ' — sur devis' : ` — ${fmt(p)} TTC indicatif`}`;
+    const config = `Vitres teintées — ${ZONES[zone].label} (${ZONES[zone].detail}) — ${car.label} (${car.example})${p == null ? ' — sur devis' : ` — ${fmt(p)} indicatif`}`;
     const url = new URL(quote.getAttribute('href'), location.href);
     url.searchParams.set('prestation', 'vitres-teintees');
     url.searchParams.set('vehicule', `${car.label} (${car.example})`);

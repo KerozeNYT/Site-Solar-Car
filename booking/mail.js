@@ -9,6 +9,7 @@
  */
 import { business as B } from '../content/site.js';
 import { bookingRules as R, formatDuration } from '../content/booking.js';
+import { vatNote } from '../content/pricing.js';
 
 const euros = (n) => `${n.toFixed(2).replace('.', ',').replace(',00', '')} €`;
 const esc = (s = '') => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -65,13 +66,16 @@ export async function send(env, mail) {
  * b: { q (quote), c (customer), date, time, start, end (UTC ms), mode, paid, sessionId }
  * Returns the list of e-mails sent ('workshop', 'client').
  */
+const endOf = (end) => new Intl.DateTimeFormat('fr-FR', { hour: 'numeric', minute: '2-digit', timeZone: R.timeZone }).format(new Date(end)).replace(':', ' h ');
+const itemsOf = (q) => q.items.map((i) => `${esc(i.label)}<br><span style="font-weight:400;color:#6b6b6b">${esc(i.detail)} · ${esc(formatDuration(i.minutes))} · ${euros(i.price)}</span>`).join('<br>');
+const button = (href, label) => `<a href="${esc(href)}" style="display:inline-block;background:#0b0c0f;color:#e9cd82;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px">${esc(label)}</a>`;
+
 export async function sendBookingMails(env, b) {
   if (!env.RESEND_API_KEY) return [];
   const { q, c, date, time, start, end, paid } = b;
-  const endTime = new Intl.DateTimeFormat('fr-FR', { hour: 'numeric', minute: '2-digit', timeZone: R.timeZone }).format(new Date(end)).replace(':', ' h ');
-  const when = `${dayLabel(date)}, ${hour(time)} – ${endTime}`;
+  const when = `${dayLabel(date)}, ${hour(time)} – ${endOf(end)}`;
   const due = Math.max(0, q.total - paid);
-  const items = q.items.map((i) => `${esc(i.label)}<br><span style="font-weight:400;color:#6b6b6b">${esc(i.detail)} · ${esc(formatDuration(i.minutes))} · ${euros(i.price)}</span>`).join('<br>');
+  const items = itemsOf(q);
   const sent = [];
   // the workshop
   if (env.NOTIFY_TO) {
@@ -117,7 +121,7 @@ export async function sendBookingMails(env, b) {
             ['Quand', esc(when)],
             ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
             ['Prestations', items],
-            ['Total TTC', euros(q.total)],
+            ['Total', `${euros(q.total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
             ['Payé en ligne', euros(paid)],
             ['À régler à l’atelier', due ? euros(due) : 'rien'],
           ])}</table>
@@ -138,4 +142,55 @@ export async function sendBookingMails(env, b) {
     }
   }
   return sent;
+}
+
+/**
+ * The day before: a reminder to the client (sent by the daily job of booking/worker.js, only when
+ * env.MAIL_CLIENTS is "1"). b: { q, c, date, time, end, paid } with the appointment's current
+ * time in the calendar (it may have been moved by the workshop).
+ */
+export async function sendReminderMail(env, b) {
+  const { q, c, date, time, end, paid } = b;
+  const due = Math.max(0, q.total - paid);
+  await send(env, {
+    to: [c.email],
+    reply_to: B.email,
+    subject: `Rappel : votre rendez-vous demain à ${hour(time)} chez ${B.name}`,
+    html: shell(
+      'À demain à l’atelier',
+      `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>petit rappel : nous vous attendons demain à l’atelier${c.vehicle ? ` avec votre ${esc(c.vehicle)}` : ''}.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
+        ['Quand', esc(`${dayLabel(date)}, ${hour(time)} – ${endOf(end)}`)],
+        ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
+        ['Prestations', itemsOf(q)],
+        ['À régler à l’atelier', due ? euros(due) : 'rien, tout est réglé'],
+      ])}</table>
+<p style="margin:18px 0 0;font-size:14px;color:#111">Prévoyez de déposer le véhicule à l’heure indiquée. La teinte se choisit avec vous sur place.</p>
+<p style="margin:12px 0 0;font-size:13px;color:#6b6b6b">Un empêchement ou un retard ? Prévenez-nous au plus vite au <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${esc(B.phone)}</a> ou en répondant à cet e-mail.</p>`
+    ),
+  });
+}
+
+/**
+ * A week after: news of the client, and the Google review link (sent by the daily job, only when
+ * env.MAIL_CLIENTS is "1"). A problem is to be told first, by replying: the workshop handles it.
+ * The review link is given to every client alike (Google forbids asking only satisfied ones).
+ */
+export async function sendFollowUpMail(env, b) {
+  const { q, c } = b;
+  const what = q.items.map((i) => i.label).join(' et ').replace(/ — /g, ', ').toLowerCase();
+  const review = B.google?.reviewUrl;
+  await send(env, {
+    to: [c.email],
+    reply_to: B.email,
+    subject: `Tout va bien depuis votre passage chez ${B.name} ?`,
+    html: shell(
+      'Alors, ça vous plaît ?',
+      `<p style="margin:0 0 14px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>il y a une semaine, nous nous sommes occupés de votre ${esc(c.vehicle || 'véhicule')} (${esc(what)}). Nous espérons que le résultat vous plaît.</p>
+<p style="margin:0 0 14px;font-size:15px;color:#111">Le moindre souci, une question ? <strong>Répondez simplement à cet e-mail</strong> ou appelez-nous au <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${esc(B.phone)}</a> : nous trouvons une solution avec vous.</p>
+${review ? `<p style="margin:0 0 18px;font-size:15px;color:#111">Et si vous avez un moment, votre avis sur Google aide beaucoup un petit atelier comme le nôtre à se faire connaître en Touraine.</p>
+<p style="margin:0 0 6px">${button(review, 'Donner mon avis sur Google')}</p>` : ''}
+<p style="margin:18px 0 0;font-size:14px;color:#111">Merci pour votre confiance, et à bientôt,<br>${esc(B.owner || B.name)} — ${esc(B.name)}</p>`
+    ),
+  });
 }

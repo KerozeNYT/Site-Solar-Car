@@ -2,7 +2,7 @@
   "input": "porsche_raw.glb",
   "output": "public/models/porsche.glb",
   "source": "Fichier fourni par le client (Porsche_992_GT3_RS.usdz), converti en glTF avec three.js USDLoader + GLTFExporter (scripts/convert-usdz.mjs).",
-  "license": "À confirmer par le client (origine probable : Sketchfab).",
+  "license": "« Porsche 992 GT3 RS » par VTX, licence CC BY-NC-SA 4.0 — https://sketchfab.com/3d-models/porsche-992-gt3-rs-80bf174857414a57ac9741567d3c4534",
   "removeEmissiveMaps": [],
   "removeBaseMaps": [],
   "removeNormalMaps": [],

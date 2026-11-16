@@ -82,5 +82,12 @@ export async function heldEvents(env, calendar, fromMs, toMs) {
   return j.items || [];
 }
 
+/** the appointments booked online (confirmed holds) between two instants */
+export async function bookedEvents(env, calendar, fromMs, toMs) {
+  const q = new URLSearchParams({ privateExtendedProperty: 'solarcarHold=0', timeMin: new Date(fromMs).toISOString(), timeMax: new Date(toMs).toISOString(), singleEvents: 'true', maxResults: '100' });
+  const j = await call(env, 'GET', `/calendars/${enc(calendar)}/events?${q}`);
+  return j.items || [];
+}
+
 /** for tests: forget the cached token */
 export const resetToken = () => (cached = null);

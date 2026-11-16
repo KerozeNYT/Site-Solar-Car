@@ -21,9 +21,11 @@ class_name = "Stats"
 tag = "v1"
 new_sqlite_classes = ["Stats"]
 
-# the statistics e-mail, on the 1st of each month at 7:00 UTC (8:00 or 9:00 in Paris)
+# the statistics e-mail, on the 1st of each month at 7:00 UTC (8:00 or 9:00 in Paris); every day at
+# 16:00 UTC (17:00 or 18:00 in Paris), the clients' reminders and news (booking/worker.js,
+# dailyMails: nothing is sent while MAIL_CLIENTS is "0")
 [triggers]
-crons = ["0 7 1 * *"]
+crons = ["0 7 1 * *", "0 16 * * *"]
 
 # the fonts of the statistics page (booking/stats-fonts.js), uploaded as binary modules
 [[rules]]

@@ -127,7 +127,7 @@ export const guides = [
           'vérifier la visibilité feux allumés et au freinage avant de valider (notre simulateur 3D le montre) ;',
           'retenir qu’une simulation montre un rendu : elle ne prouve pas qu’un feu filmé reste conforme.',
         ],
-        p: [`À l’atelier, le covering fumé est facturé ${P.lightsPair} TTC la paire de feux selon le véhicule ; le PPF teinté, plus épais, est chiffré sur devis.`],
+        p: [`À l’atelier, le covering fumé est facturé ${P.lightsPair} la paire de feux selon le véhicule ; le PPF teinté, plus épais, est chiffré sur devis.`],
       },
     ],
     faq: [
@@ -143,7 +143,7 @@ export const guides = [
     seo: {
       title: `Phares jaunis : causes et rénovation à ${P.headlights} | SOLAR CAR 37`,
       description:
-        `Pourquoi les optiques jaunissent, ce que change une rénovation (ponçage, polissage, protection), quand remplacer le phare. Les deux phares : ${P.headlights} TTC.`,
+        `Pourquoi les optiques jaunissent, ce que change une rénovation (ponçage, polissage, protection), quand remplacer le phare. Les deux phares : ${P.headlights}.`,
     },
     kicker: 'Entretien',
     updated: '2026-10-13',
@@ -178,7 +178,7 @@ export const guides = [
           'application d’une protection pour ralentir le retour du jaunissement.',
         ],
         p: [
-          `À l’atelier, la rénovation des deux phares est à ${P.headlights} TTC. Le traitement céramique en option (${P.headlightsCeramic}) ajoute une couche de protection sur l’optique.`,
+          `À l’atelier, la rénovation des deux phares est à ${P.headlights}. Le traitement céramique en option (${P.headlightsCeramic}) ajoute une couche de protection sur l’optique.`,
         ],
       },
       {
@@ -312,8 +312,8 @@ export const guides = [
     slug: 'prix-vitres-teintees-tours',
     title: 'Prix des vitres teintées près de Tours : ce qui fait le tarif',
     seo: {
-      title: `Prix vitres teintées près de Tours : dès ${P.tintFrom} TTC | SOLAR CAR 37`,
-      description: `Tarifs de pose de films solaires à Vouvray, près de Tours : 3/4 arrière dès ${P.tintFrom} TTC selon la catégorie, vitres avant, pare-brise. Ce qui fait varier le prix.`,
+      title: `Prix vitres teintées près de Tours : dès ${P.tintFrom} | SOLAR CAR 37`,
+      description: `Tarifs de pose de films solaires à Vouvray, près de Tours : 3/4 arrière dès ${P.tintFrom} selon la catégorie, vitres avant, pare-brise. Ce qui fait varier le prix.`,
     },
     kicker: 'Tarifs',
     updated: '2026-10-13',
@@ -325,13 +325,13 @@ export const guides = [
     sections: [
       {
         h2: 'Nos tarifs indicatifs',
-        p: ['Forfait « 3/4 arrière » (vitres latérales arrière et lunette), film posé, prix TTC :'],
+        p: ['Forfait « 3/4 arrière » (vitres latérales arrière et lunette), film posé, prix nets (TVA non applicable) :'],
         list: vehicleTypes.map((v) => `${v.label} : ${tint.rearPackage[v.id]} € ;`),
       },
       {
         h2: 'Vitres avant et pare-brise',
         p: [
-          `Les deux vitres avant seules coûtent ${P.tintFrontOnly} TTC ; ajoutées au forfait arrière, elles comptent ${P.tintFrontWithRear}. Le film de pare-brise est chiffré à part (${P.windshield('athermique')} TTC pour le film athermique).`,
+          `Les deux vitres avant seules coûtent ${P.tintFrontOnly} ; ajoutées au forfait arrière, elles comptent ${P.tintFrontWithRear}. Le film de pare-brise est chiffré à part (${P.windshield('athermique')} pour le film athermique).`,
           'À l’avant, la règle des 70 % de lumière transmise s’applique au vitrage complet, film compris : nous faisons le point avec vous avant toute pose (voir notre guide sur la loi).',
         ],
       },
@@ -354,7 +354,7 @@ export const guides = [
     ],
     faq: [
       { q: 'Le prix dépend-il de la teinte choisie ?', a: 'Non : toutes les teintes proposées sont au même prix. Le tarif dépend de la catégorie du véhicule et des vitres traitées.' },
-      { q: 'Combien coûtent les vitres avant ?', a: `${P.tintFrontOnly} TTC seules, ou ${P.tintFrontWithRear} avec le forfait arrière. Attention à la règle des 70 % à l’avant, film compris.` },
+      { q: 'Combien coûtent les vitres avant ?', a: `${P.tintFrontOnly} seules, ou ${P.tintFrontWithRear} avec le forfait arrière. Attention à la règle des 70 % à l’avant, film compris.` },
     ],
   },
   {

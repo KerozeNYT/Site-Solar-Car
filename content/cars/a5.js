@@ -6,7 +6,10 @@
  */
 export default {
   model: '/models/a5.glb',
-  credit: { text: 'Modèle 3D Audi A5 Sportback — fourni par SOLAR CAR 37 (crédit à compléter selon la licence)', url: null },
+  credit: {
+    text: 'Modèle 3D « Audi A5 Sportback S Line - 2021 » par Unn Tech, licence CC BY 4.0, adapté par SOLAR CAR 37',
+    url: 'https://sketchfab.com/3d-models/audi-a5-sportback-s-line-2021-aa9b8d495d324fa1adfe6eab519e21a9',
+  },
   forward: '+z',
   length: 4.76,
   paint: {

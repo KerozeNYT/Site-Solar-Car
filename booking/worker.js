@@ -12,6 +12,7 @@
  *   GET  /stats/bilan?cle=…&mois=YYYY-MM             the monthly e-mail in the browser (POST: sends it)
  *   GET  /stats/f/<font>.woff2                       the fonts of the statistics page
  *   cron, the 1st of each month                      the monthly e-mail (booking/stats-report.js)
+ *   cron, every day at 16:00 UTC                     reminders (tomorrow) and news (a week ago) to clients
  *
  * Environment (booking/wrangler.toml, secrets with `wrangler secret put`):
  *   ALLOWED_ORIGINS        sites allowed to call the API, comma separated
@@ -27,12 +28,12 @@
  *   STATS_PREVIEW_ORIGINS  sites whose visits are counted apart (the preview), comma separated
  *   STATS_PAGE             address of the statistics page (link of the monthly e-mail)
  */
-import { bookingRules as R, quote, amountDue, formatDuration, howHeardText } from '../content/booking.js';
+import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
-import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents } from './google.js';
+import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents } from './google.js';
 import { createSession, getSession, verifyWebhook } from './stripe.js';
-import { sendBookingMails } from './mail.js';
-import { record, hitFromPage } from './stats.js';
+import { sendBookingMails, sendReminderMail, sendFollowUpMail } from './mail.js';
+import { record, hitFromPage, heardRows } from './stats.js';
 import { statsPage } from './stats-page.js';
 import { sendMonthly, monthRoute } from './stats-report.js';
 
@@ -125,7 +126,7 @@ function eventText(q, c, { date, time, mode, paid, sessionId }) {
     '',
     ...q.items.map((i) => `• ${i.label}${i.detail ? ` — ${i.detail}` : ''} : ${euros(i.price)} (${formatDuration(i.minutes)})`),
     '',
-    `Total : ${euros(q.total)} TTC — durée ${formatDuration(q.minutes)}`,
+    `Total : ${euros(q.total)} — durée ${formatDuration(q.minutes)}`,
     paid != null ? `Payé en ligne : ${euros(paid)} (${mode === 'full' ? 'totalité' : 'acompte 30 %'}) — reste à régler : ${euros(Math.max(0, q.total - paid))}` : `Paiement en cours (${mode === 'full' ? 'totalité' : 'acompte 30 %'} : ${euros(amountDue(q, mode))})`,
     c.message ? `\nMessage : ${c.message}` : '',
     '',
@@ -165,7 +166,10 @@ async function confirm(env, session) {
     });
   }
   // counted once, when the appointment is confirmed (Stripe test mode: with the preview's figures)
-  await record(env, [{ site: session.livemode ? 'site' : 'apercu', kind: 'rdv', page: '/reservation/', detail: q.items.map((i) => i.label).join(' + ').slice(0, 120), value: paid }]).catch((err) => console.error('[stats]', err));
+  // with the answers to « Comment nous avez-vous connus ? »
+  const site = session.livemode ? 'site' : 'apercu';
+  const heard = howHeardParse(c.source);
+  await record(env, [{ site, kind: 'rdv', page: '/reservation/', detail: q.items.map((i) => i.label).join(' + ').slice(0, 120), value: paid }, ...heardRows({ site, page: '/reservation/' }, heard.channels, heard.other)]).catch((err) => console.error('[stats]', err));
   // « Nouveau RDV » to the workshop, the confirmation to the client (never fails the booking)
   await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id }).catch((err) => console.error('[mail]', err));
   return out;
@@ -244,7 +248,7 @@ async function checkout(req, env, now) {
             unit_amount: Math.round(due * 100),
             product_data: {
               name: `${mode === 'full' ? 'Règlement' : 'Acompte 30 %'} — ${what}`,
-              description: `RDV le ${when} à l’atelier SOLAR CAR 37, Vouvray. Total ${euros(q.total)} TTC${mode === 'full' ? '' : `, reste ${euros(q.total - due)} à régler à l’atelier`}.`,
+              description: `RDV le ${when} à l’atelier SOLAR CAR 37, Vouvray. Total ${euros(q.total)}${mode === 'full' ? '' : `, reste ${euros(q.total - due)} à régler à l’atelier`}.`,
             },
           },
         },
@@ -318,9 +322,9 @@ async function collect(req, env, ctx, now) {
   const robot = /bot|crawl|spider|slurp|headless|lighthouse/i.test(req.headers.get('user-agent') || '');
   if (env.STATS && !robot && list(env.ALLOWED_ORIGINS).includes(origin)) {
     const text = await req.text();
-    const row = text.length <= 2048 ? hitFromPage(text, list(env.STATS_PREVIEW_ORIGINS).includes(origin) ? 'apercu' : 'site') : null;
-    if (row) {
-      const done = record(env, [row], now).catch((err) => console.error('[stats]', err));
+    const rows = [].concat((text.length <= 2048 && hitFromPage(text, list(env.STATS_PREVIEW_ORIGINS).includes(origin) ? 'apercu' : 'site')) || []);
+    if (rows.length) {
+      const done = record(env, rows, now).catch((err) => console.error('[stats]', err));
       if (ctx?.waitUntil) ctx.waitUntil(done);
       else await done;
     }
@@ -349,10 +353,53 @@ async function font(name) {
   return new Response(data, { headers: { 'content-type': 'font/woff2', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' } });
 }
 
+/**
+ * Every day (cron of booking/wrangler.toml): the clients of tomorrow get a reminder, those of a
+ * week ago are asked for news (with the Google review link). Only appointments booked online and
+ * still in the calendar (a cancelled one is deleted from it), at their current time there (the
+ * workshop may have moved them); each e-mail once, noted on the event. Nothing is sent until the
+ * client e-mails are switched on (MAIL_CLIENTS "1", once the sending domain is verified).
+ */
+export async function dailyMails(env, now = Date.now()) {
+  const out = { reminders: 0, followUps: 0 };
+  if (env.MAIL_CLIENTS !== '1' || !env.RESEND_API_KEY) return { ...out, off: true };
+  const t = today(now);
+  const jobs = [
+    { day: addDays(t, 1), flag: 'reminded', send: sendReminderMail, count: 'reminders' },
+    { day: addDays(t, -7), flag: 'followedUp', send: sendFollowUpMail, count: 'followUps' },
+  ];
+  for (const job of jobs) {
+    const from = zonedToUtc(job.day, '00:00', R.timeZone);
+    const to = zonedToUtc(addDays(job.day, 1), '00:00', R.timeZone);
+    for (const ev of await bookedEvents(env, env.CALENDAR_WRITE, from, to)) {
+      const p = ev.extendedProperties?.private || {};
+      const start = Date.parse(ev.start?.dateTime || '');
+      if (ev.status === 'cancelled' || p[job.flag] || !p.session || !(start >= from && start < to)) continue;
+      try {
+        const session = await getSession(env, p.session);
+        if (session.payment_status !== 'paid') continue;
+        const m = session.metadata || {};
+        const q = quote(JSON.parse(m.config || '{}'));
+        const c = JSON.parse(m.customer || '{}');
+        if (q.error || !c.email) continue;
+        const at = utcToZoned(start, R.timeZone);
+        await job.send(env, { q, c, date: at.date, time: at.time, end: Date.parse(ev.end.dateTime), paid: (session.amount_total || 0) / 100 });
+        await patchEvent(env, env.CALENDAR_WRITE, ev.id, { extendedProperties: { private: { ...p, [job.flag]: String(now) } } });
+        out[job.count]++;
+      } catch (err) {
+        console.error(`[mail] ${job.flag}`, ev.id, err.message);
+      }
+    }
+  }
+  return out;
+}
+
 export default {
-  /** the 1st of each month: the statistics e-mail of the month that just ended */
+  /** the 1st of each month: the statistics e-mail of the month that just ended; every day: the
+   *  reminders and news of the clients */
   async scheduled(controller, env, ctx) {
-    ctx.waitUntil(sendMonthly(env, controller.scheduledTime).then((r) => console.log('[stats] monthly', JSON.stringify(r))).catch((err) => console.error('[stats] monthly', err)));
+    if (controller.cron === '0 16 * * *') ctx.waitUntil(dailyMails(env, controller.scheduledTime).then((r) => console.log('[mail] daily', JSON.stringify(r))).catch((err) => console.error('[mail] daily', err)));
+    else ctx.waitUntil(sendMonthly(env, controller.scheduledTime).then((r) => console.log('[stats] monthly', JSON.stringify(r))).catch((err) => console.error('[stats] monthly', err)));
   },
 
   async fetch(req, env, ctx) {

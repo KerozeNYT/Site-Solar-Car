@@ -60,6 +60,13 @@ serveur de réservation (Cloudflare Worker, dossier booking/)
   payée. La confirmation au client (`MAIL_CLIENTS = "1"`) attend la vérification du domaine
   solarcar37.fr dans Resend : le domaine est chez local.fr jusqu'à la fin du contrat (décembre
   2026) ; ensuite `MAIL_FROM = "SOLAR CAR 37 <reservation@solarcar37.fr>"` et redéployer.
+- E-mails automatiques aux clients (`dailyMails` de `booking/worker.js`, tous les jours à 16 h UTC,
+  soit 17 h l'hiver et 18 h l'été) : **la veille**, un rappel (heure, adresse, itinéraire, reste à
+  régler) ; **une semaine après**, des nouvelles : « un souci ? répondez à cet e-mail », puis le
+  lien d'avis Google, donné à tous les clients (Google interdit de ne le demander qu'aux clients
+  satisfaits). Seulement pour les RDV réservés en ligne et encore dans l'agenda, à l'heure où ils y
+  sont (un RDV déplacé garde le bon horaire, un RDV supprimé ne reçoit rien), une seule fois
+  chacun. Ils partent avec la confirmation, quand `MAIL_CLIENTS` passe à `"1"`.
 - Reste (ancien point, fait pour Stripe) : passer Stripe en réel (clé et webhook du mode réel dans Cloudflare), régénérer le jeton
   Cloudflare et la clé Google (passés dans une conversation), faire relire les conditions.
 

@@ -7,7 +7,7 @@
  *   GET  /stats/bilan?cle=…&mois=YYYY-MM[&site=apercu]   the e-mail, shown in the browser
  *   POST /stats/bilan?cle=…&mois=YYYY-MM[&site=apercu]   sends it now (a test, the subject says so)
  */
-import { report, totalsOf, SOURCES, TZ } from './stats.js';
+import { report, totalsOf, SOURCES, HEARD, TZ } from './stats.js';
 import { utcToZoned, addDays } from './schedule.js';
 import { send, shell } from './mail.js';
 
@@ -34,7 +34,7 @@ export async function monthFigures(env, month, site = 'site') {
   const y = bounds(shiftMonth(month, -12));
   const r = await report(env, { site, from: m.from, to: m.to, pfrom: p.from, pto: p.to });
   const ly = await report(env, { site, from: y.from, to: y.to, pfrom: y.from, pto: y.to });
-  return { month, site, first: r.first, cur: totalsOf(r.totals), prev: totalsOf(r.previous), year: totalsOf(ly.totals), sources: r.sources, pages: r.pages };
+  return { month, site, first: r.first, cur: totalsOf(r.totals), prev: totalsOf(r.previous), year: totalsOf(ly.totals), sources: r.sources, pages: r.pages, heard: r.heard || [] };
 }
 
 const change = (cur, prev) => (prev ? Math.round(((cur - prev) / prev) * 100) : null);
@@ -82,6 +82,13 @@ export function monthMail(f, { dashboard, test = false } = {}) {
     .slice(0, 3)
     .map((p) => `<tr><td style="padding:5px 0;color:#111">${esc(p.page === '/' ? 'Accueil' : p.page)}</td><td style="padding:5px 0;text-align:right;color:#55524b">${nf(p.views)} vues</td></tr>`)
     .join('');
+  // « Comment nous avez-vous connus ? »: the answers of the month, most frequent first
+  const heard = (f.heard || [])
+    .filter((x) => HEARD[x.source] && x.source !== 'sans')
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 5)
+    .map((x) => `<tr><td style="padding:5px 0;color:#111">${esc(HEARD[x.source])}</td><td style="padding:5px 0;text-align:right;font-weight:700;color:#111">${nf(x.n)}</td></tr>`)
+    .join('');
   const h2 = 'margin:22px 0 8px;font-size:15px;color:#111';
   const body = `
 <p style="margin:0 0 16px;padding:12px 14px;border-radius:10px;background:${verdict[1]};color:${verdict[2]};font-size:15px;font-weight:700"><span aria-hidden="true">${verdict[3]}</span> ${esc(verdict[0])}</p>
@@ -90,6 +97,7 @@ export function monthMail(f, { dashboard, test = false } = {}) {
 ${rows}
 </table>
 ${sources ? `<h2 style="${h2}">D’où viennent les visiteurs</h2><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px">${sources}</table>` : ''}
+${heard ? `<h2 style="${h2}">Comment ils vous ont connus</h2><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px">${heard}</table>` : ''}
 ${pages ? `<h2 style="${h2}">Pages les plus vues</h2><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px">${pages}</table>` : ''}
 ${dashboard ? `<p style="margin:24px 0 4px"><a href="${esc(dashboard)}" style="display:inline-block;background:#0b0c0f;color:#e9cd82;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:10px">Ouvrir le tableau de bord</a></p>` : ''}
 <p style="margin:16px 0 0;color:#8a877f;font-size:12px">Comptage sans cookie du site ${f.site === 'apercu' ? '(aperçu et essais, pas les vrais visiteurs)' : 'public'}. Évolution : par rapport à ${esc(before)}.</p>`;

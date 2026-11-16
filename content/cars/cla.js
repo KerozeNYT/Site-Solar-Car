@@ -6,7 +6,10 @@
 const M = 'CLAMercedesBenz_CLA45AMGShootingBrakeBoss_2015';
 export default {
   model: '/models/cla.glb',
-  credit: { text: 'Modèle 3D Mercedes-AMG CLA 45 Shooting Brake — fourni par SOLAR CAR 37 (crédit à compléter selon la licence)', url: null },
+  credit: {
+    text: 'Modèle 3D « 2016 Mercedes-Benz CLA45 AMG Shooting Brake » par Ddiaz Design, licence CC BY-NC-SA 4.0, adapté par SOLAR CAR 37',
+    url: 'https://sketchfab.com/3d-models/2016-mercedes-benz-cla45-amg-shooting-brake-9423d22e95aa461e9cdd65039d32e75f',
+  },
   forward: '+z',
   length: 4.63,
   paint: {

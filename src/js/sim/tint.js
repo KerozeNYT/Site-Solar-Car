@@ -131,7 +131,7 @@ export function setup({ section, form, view }) {
       prestation: 'vitres-teintees',
       vehicle: label,
       config: price
-        ? `Vitres teintées — ${label} : ${parts.join(', ')} — total indicatif ${fmt(price)} TTC` +
+        ? `Vitres teintées — ${label} : ${parts.join(', ')} — total indicatif ${fmt(price)}` +
           (s.front ? ` — vitres avant ${frontShade} % : ${roadNote(frontRoad)}` : '') +
           (s.windshield ? ` — pare-brise (film ${wf.vlt} %) : ${roadNote(windRoad)}` : '')
         : '',

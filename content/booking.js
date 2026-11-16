@@ -130,11 +130,24 @@ export function quote(config = {}) {
  * page (several can be ticked; « Autre » opens a short text) */
 export const howHeard = ['Recherche Internet (Google…)', 'Réseaux sociaux (Instagram, Facebook…)', 'Bouche-à-oreille', 'Déjà client', 'Autre'];
 
-/** the answers as one line, from the ticked boxes and the « Autre » text (checked against the list) */
+/** their short names, for the statistics (booking/stats.js) */
+export const howHeardKeys = { 'Recherche Internet (Google…)': 'internet', 'Réseaux sociaux (Instagram, Facebook…)': 'reseaux', 'Bouche-à-oreille': 'bouche', 'Déjà client': 'client', Autre: 'autre' };
+
+/** the answers as one line, from the ticked boxes and the « Autre » text (checked against the
+ *  list, in its order: « Autre » comes last) */
 export function howHeardText(channels = [], other = '') {
-  const ok = (Array.isArray(channels) ? channels : []).filter((c) => howHeard.includes(c));
+  const ok = howHeard.filter((c) => Array.isArray(channels) && channels.includes(c));
   const extra = String(other || '').replace(/\s+/g, ' ').trim().slice(0, 120);
   return ok.map((c) => (c === 'Autre' && extra ? `Autre : ${extra}` : c)).join(', ');
+}
+
+/** back from that line to the answers */
+export function howHeardParse(text = '') {
+  const s = String(text || '');
+  const channels = howHeard.filter((c) => c !== 'Autre' && s.includes(c));
+  const m = /(?:^|, )Autre(?: : (.*))?$/.exec(s);
+  if (m) channels.push('Autre');
+  return { channels, other: m?.[1] || '' };
 }
 
 /** the amount to pay now (EUR): the deposit or the total */

@@ -6,7 +6,10 @@
  */
 export default {
   model: '/models/crafter.glb',
-  credit: { text: 'Modèle 3D Volkswagen Crafter — fourni par SOLAR CAR 37 (crédit à compléter selon la licence)', url: null },
+  credit: {
+    text: 'Modèle 3D « Volkswagen Crafter » par geyges, licence Sketchfab Free Standard, adapté par SOLAR CAR 37',
+    url: 'https://sketchfab.com/3d-models/volkswagen-crafter-647fb3d619c645a4b8e62d80db7cab98',
+  },
   forward: '+z',
   // a long-wheelbase Crafter with extended overhang (L5): its proportions match 7.39 m
   length: 7.39,

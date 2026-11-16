@@ -68,7 +68,7 @@ export function setup({ section, form, view }) {
     // waiting for validation is never shown: « Sur devis »
     const pairs = (s.rear ? 1 : 0) + (s.front ? 1 : 0);
     price = pairs;
-    const range = pairs && m.validated ? `${fmtRange(m.perPair.min * pairs, m.perPair.max * pairs)} TTC` : 'sur devis';
+    const range = pairs && m.validated ? fmtRange(m.perPair.min * pairs, m.perPair.max * pairs) : 'sur devis';
     totalEl.textContent = !pairs ? '—' : m.validated ? fmtRange(m.perPair.min * pairs, m.perPair.max * pairs) : 'Sur devis';
     detailEl.textContent = pairs
       ? `${m.label} — ${parts.join(' + ')} — ${pairs} paire${pairs > 1 ? 's' : ''}, ${m.validated ? 'tarif indicatif selon le véhicule' : 'tarif établi sur devis'}`

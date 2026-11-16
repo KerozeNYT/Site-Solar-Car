@@ -7,7 +7,7 @@ ci-dessous se fait sur décision de SOLAR CAR 37.
 
 | Étape | Détail | Qui |
 |---|---|---|
-| Inventaire des anciennes URL | Fait le 12 novembre 2026 : le plan du site de www.solarcar37.fr (local.fr) liste 10 pages, les mêmes que les liens de son accueil | fait |
+| Inventaire des anciennes URL | Fait le 12 novembre 2026 (plan du site : 10 pages), complété le 16 novembre par l'exploration de tous les liens du site : 3 adresses de plus (politique de confidentialité, ancienne adresse du nettoyage, lien cassé de la page feux) | fait |
 | Correspondances | Tableau du §3, dans `content/redirects.js` | fait, à valider |
 | Hébergeur | Choisir l'hébergement de production. **Conseillé : Cloudflare Pages ou Netlify** (gratuits ici) : ils appliquent `_headers` (en-têtes de sécurité, cache) et `_redirects` (vraies 301). OVH / Apache : `.htaccess` fait de même. GitHub Pages avec domaine personnalisé : ni en-têtes ni 301 (seule la CSP en balise meta s'applique) | SOLAR CAR 37 |
 | E-mail | **Ne pas casser contact@solarcar37.fr** : relever les enregistrements MX, SPF, DKIM, DMARC actuels avant tout changement de DNS et les recopier à l'identique | SOLAR CAR 37 |
@@ -42,6 +42,9 @@ aussi `_headers` (en-têtes de sécurité et cache pour Netlify / Cloudflare Pag
 | `/nettoyage-automobile-` | `/detailing-carrosserie/` (le forfait Essentiel) |
 | `/covering-stickage-publicitaire-et-dechromage` | `/covering-dechromage/` |
 | `/eclairage-d-ambiance-interieur-` | `/ciel-etoile/` (prestation la plus proche) |
+| `/politique-de-confidentialite` | `/mentions-legales/` (section « Données personnelles ») |
+| `/nettoyage-automobile` | `/detailing-carrosserie/` (renvoyait déjà vers l'accueil) |
+| `/covering-et-dechromage` | `/covering-dechromage/` (lien cassé de l'ancienne page feux) |
 | `/vitres-teintees`, `/contact`, `/mentions-legales` | les mêmes pages, avec la barre finale |
 
 Le nettoyage automobile, le stickage publicitaire et l'éclairage d'ambiance intérieur ne sont plus

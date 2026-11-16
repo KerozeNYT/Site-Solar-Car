@@ -2,7 +2,7 @@
   "input": "a5_raw.glb",
   "output": "public/models/a5.glb",
   "source": "Fichier fourni par le client (Audi_A5_Sportback_S_Line_-_2021.usdz), converti en glTF avec scripts/convert-usdz.mjs.",
-  "license": "À confirmer par le client (licence et crédit de l'auteur à vérifier).",
+  "license": "« Audi A5 Sportback S Line - 2021 » par Unn Tech, licence CC BY 4.0 — https://sketchfab.com/3d-models/audi-a5-sportback-s-line-2021-aa9b8d495d324fa1adfe6eab519e21a9",
   "materialNames": [
     {
       "name": "paint",

@@ -10,10 +10,10 @@
  */
 export default {
   model: '/models/porsche.glb',
-  // Footer credit for the 3D model (fill in according to the model's licence).
+  // Footer credit for the 3D model: title, author, licence and page of the model (Sketchfab)
   credit: {
-    text: 'Modèle 3D Porsche 992 GT3 RS — fourni par SOLAR CAR 37 (crédit à compléter selon la licence)',
-    url: null,
+    text: 'Modèle 3D « Porsche 992 GT3 RS » par VTX, licence CC BY-NC-SA 4.0, adapté par SOLAR CAR 37',
+    url: 'https://sketchfab.com/3d-models/porsche-992-gt3-rs-80bf174857414a57ac9741567d3c4534',
   },
   // Axis the model's nose points to, and an optional target length in metres (null = keep).
   forward: '-z',

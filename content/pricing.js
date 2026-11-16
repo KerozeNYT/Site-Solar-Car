@@ -2,10 +2,11 @@
  * THE single source of truth for prices: simulators, price tables, SEO titles, FAQ answers and
  * guides all read them from here (see `priceText` at the bottom), so a price changes in one place.
  *
- * Tax included (TTC), as supplied by SOLAR CAR 37. `validated: false` = a figure waiting for the
- * workshop's confirmation: it is kept here, ready, but never shown as a price (the site shows
- * « Sur devis » instead). `quote: true` = priced on quote: the simulator sends the chosen
- * configuration with the quote request. Prices are indicative: the quote confirms them after
+ * Net prices, as supplied by SOLAR CAR 37: a micro-entreprise under the VAT franchise (franchise en
+ * base) charges no VAT, hence the mention `vatNote` instead of « TTC ». `validated: false` = a
+ * figure waiting for the workshop's confirmation: it is kept here, ready, but never shown as a
+ * price (the site shows « Sur devis » instead). `quote: true` = priced on quote: the simulator
+ * sends the chosen configuration with the quote request. Prices are indicative: the quote confirms them after
  * looking at the vehicle (docs/V2-ROADMAP.md lists what is waiting for validation).
  */
 
@@ -42,7 +43,7 @@ export const tintVehicles = [
 export const tint = {
   validated: true,
   currency: 'EUR',
-  // prices tax included (TTC)
+  // net prices (no VAT: see vatNote)
   // "3/4 arrière" package: rear side windows + rear windscreen
   rearPackage: { coupe: 210, citadine: 220, berline: 270, break: 280, suv: 300, utilitaire: 320 },
   // front side windows on their own (no rear package)
@@ -140,8 +141,9 @@ export const detailing = {
   ],
 };
 
-/** every price on the site is shown tax included */
-export const taxNote = 'TTC';
+/** no VAT is charged (franchise en base, micro-entreprise): the mention required on quotes, invoices
+ *  and receipts, also shown in the footer, the price notes and the booking terms */
+export const vatNote = 'TVA non applicable, art. 293 B du CGI';
 
 export const formatPrice = (n) =>
   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);

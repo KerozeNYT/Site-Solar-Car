@@ -2,7 +2,7 @@
   "input": "x6.glb",
   "output": "public/models/x6.glb",
   "source": "Fichier fourni par le client (2016_bmw_x6_m.glb, export Sketchfab).",
-  "license": "À confirmer par le client (origine Sketchfab : licence et crédit de l'auteur à vérifier).",
+  "license": "« 2016 BMW X6 M » par Ddiaz Design, licence CC BY-NC-SA 4.0 — https://sketchfab.com/3d-models/2016-bmw-x6-m-9cba50132a864bd79bfab48bd631574d",
   "dropExtensions": [
     "KHR_materials_transmission"
   ],

@@ -5,7 +5,10 @@
  */
 export default {
   model: '/models/x6.glb',
-  credit: { text: 'Modèle 3D BMW X6 M — fourni par SOLAR CAR 37 (crédit à compléter selon la licence)', url: null },
+  credit: {
+    text: 'Modèle 3D « 2016 BMW X6 M » par Ddiaz Design, licence CC BY-NC-SA 4.0, adapté par SOLAR CAR 37',
+    url: 'https://sketchfab.com/3d-models/2016-bmw-x6-m-9cba50132a864bd79bfab48bd631574d',
+  },
   forward: '+z',
   length: 4.91,
   paint: {

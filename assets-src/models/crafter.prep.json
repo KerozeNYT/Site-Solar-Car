@@ -2,7 +2,7 @@
   "input": "crafter_raw.glb",
   "output": "public/models/crafter.glb",
   "source": "Fichier fourni par le client (Volkswagen_Crafter.usdz), converti en glTF avec scripts/convert-usdz.mjs.",
-  "license": "À confirmer par le client (licence et crédit de l'auteur à vérifier).",
+  "license": "« Volkswagen Crafter » par geyges, licence Sketchfab Free Standard — https://sketchfab.com/3d-models/volkswagen-crafter-647fb3d619c645a4b8e62d80db7cab98",
   "removeNodes": ["Object_201", "Object_19", "Object_33", "Object_75", "Object_93", "Object_229"],
   "materialNames": [
     {

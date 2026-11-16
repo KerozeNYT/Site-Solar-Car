@@ -35,7 +35,11 @@ export function installFakes(calendars, { checkoutUrl = () => 'https://checkout.
       }
       if (method === 'GET' && !id) {
         const [k, v] = url.searchParams.get('privateExtendedProperty').split('=');
-        return ok({ items: list.filter((e) => e.extendedProperties?.private?.[k] === v) });
+        // like Google: timeMin bounds the end of the events, timeMax their start
+        const min = Date.parse(url.searchParams.get('timeMin') || '') || -Infinity;
+        const max = Date.parse(url.searchParams.get('timeMax') || '') || Infinity;
+        const within = (e) => !e.start?.dateTime || (Date.parse(e.end.dateTime) > min && Date.parse(e.start.dateTime) < max);
+        return ok({ items: list.filter((e) => e.extendedProperties?.private?.[k] === v && within(e)) });
       }
       const ev = list.find((e) => e.id === id);
       if (!ev) return ok({ error: { message: 'Not Found' } }, 404);

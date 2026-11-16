@@ -2,7 +2,7 @@
   "input": "a45.glb",
   "output": "public/models/a45.glb",
   "source": "Fichier fourni par le client (mercedes-benz_a45_amg_2018.glb, export Sketchfab).",
-  "license": "À confirmer par le client (origine Sketchfab : licence et crédit de l'auteur à vérifier).",
+  "license": "« Mercedes-Benz A45 AMG 2018 » par Lexyc16, licence CC BY-NC 4.0 — https://sketchfab.com/3d-models/mercedes-benz-a45-amg-2018-9482f251f9c34a6e91d7777db5934cfc",
   "dropExtensions": ["KHR_materials_transmission"],
   "removeNodes": ["Object_14", "Object_17"],
   "split": [

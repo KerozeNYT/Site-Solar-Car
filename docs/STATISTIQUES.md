@@ -52,6 +52,7 @@ depuis le 14 novembre 2026.
 | Clics « devis », devis depuis un simulateur, simulateurs 3D, itinéraires | Les autres gestes qui mènent à un contact. |
 | Taux de contact | (demandes + RDV + appels + e-mails) pour 100 visites. |
 | Appareils | Écran de 760 px de large ou moins = téléphone. |
+| Comment ils vous ont connus | Les cases cochées dans « Comment nous avez-vous connus ? » (formulaire de devis envoyé, RDV payé en ligne) : Recherche Internet, Réseaux sociaux, Bouche-à-oreille, Déjà client, Autre (avec le texte saisi), ou « Sans réponse ». Plusieurs cases possibles ; triées de la plus fréquente à la moins fréquente, aussi dans le bilan mensuel. Comptées depuis le 16 novembre 2026. |
 
 Ne sont pas comptés : les robots, les outils de test (Lighthouse, PageSpeed, navigateurs pilotés),
 les appareils désactivés (`?stats=off`). Un bloqueur de publicité peut parfois arrêter l'envoi :

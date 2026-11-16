@@ -17,7 +17,7 @@ import { realisations } from '../realisations.js';
 
 // ------------------------------------------------------------------------- figures
 const eur = (n) => (tint.validated ? formatPrice(n) : 'Sur devis');
-const ttc = (n) => (tint.validated ? `${formatPrice(n)} TTC` : 'sur devis');
+const ttc = (n) => (tint.validated ? `${formatPrice(n)}` : 'sur devis');
 const rearPrices = Object.values(tint.rearPackage);
 const fullMin = Math.min(...rearPrices) + tint.frontWithRear;
 const fullMax = Math.max(...rearPrices) + tint.frontWithRear;
@@ -92,11 +92,11 @@ export const sections = [
     id: 'grille-tarifs',
     kicker: 'Tarifs',
     title: 'Le prix selon *votre véhicule*',
-    lead: `Le tarif dépend de la taille du véhicule et des vitres traitées, jamais de la teinte choisie : de ${darkest} % à ${lightest} %, le prix reste identique. Le forfait vitres arrière démarre à ${priceText.tintFrom} TTC, film posé.`,
-    caption: 'Prix TTC indicatifs, film et pose compris, selon le type de véhicule',
+    lead: `Le tarif dépend de la taille du véhicule et des vitres traitées, jamais de la teinte choisie : de ${darkest} % à ${lightest} %, le prix reste identique. Le forfait vitres arrière démarre à ${priceText.tintFrom}, film posé.`,
+    caption: 'Prix indicatifs, film et pose compris, selon le type de véhicule',
     head: ['Véhicule', 'Vitres arrière', 'Vitres avant seules', 'Toutes les vitres (hors pare-brise)'],
     rows: vehicleRows.map(priceRow),
-    note: `Prix TTC indicatifs, confirmés par le devis une fois le véhicule vu (forme des vitres, ancien film éventuel). « Vitres arrière » : vitres latérales arrière, custodes et lunette. Les vitres avant se posent uniquement avec un film qui laisse au vitrage complet au moins ${G.frontMin} % de lumière : voir [ce que dit la loi](/vitres-teintees/#loi-vitres-teintees). Le pare-brise se chiffre à part. Ce qui fait varier le prix : [prix des vitres teintées à Tours](/guides/prix-vitres-teintees-tours/).`,
+    note: `Prix indicatifs (TVA non applicable, art. 293 B du CGI), confirmés par le devis une fois le véhicule vu (forme des vitres, ancien film éventuel). « Vitres arrière » : vitres latérales arrière, custodes et lunette. Les vitres avant se posent uniquement avec un film qui laisse au vitrage complet au moins ${G.frontMin} % de lumière : voir [ce que dit la loi](/vitres-teintees/#loi-vitres-teintees). Le pare-brise se chiffre à part. Ce qui fait varier le prix : [prix des vitres teintées à Tours](/guides/prix-vitres-teintees-tours/).`,
   },
   {
     type: 'blocks',
@@ -142,7 +142,7 @@ export const sections = [
         title: 'Vitres arrière : le forfait 3/4 arrière',
         text: [
           'Le forfait couvre les vitres des portes arrière, les petites vitres de custode quand votre voiture en possède, et la lunette arrière. C’est l’option la plus demandée : passagers, sièges enfants et coffre passent à l’abri des regards.',
-          `Toutes les teintes sont permises, jusqu’à ${darkest} %, dès lors que le véhicule a deux rétroviseurs extérieurs. À partir de ${priceText.tintFrom} TTC selon la catégorie.`,
+          `Toutes les teintes sont permises, jusqu’à ${darkest} %, dès lors que le véhicule a deux rétroviseurs extérieurs. À partir de ${priceText.tintFrom} selon la catégorie.`,
         ],
       },
       {
@@ -305,12 +305,12 @@ export const faq = [
   {
     q: 'Combien coûte une voiture entièrement teintée ?',
     a: tint.validated
-      ? `Hors pare-brise, comptez de ${formatPrice(fullMin)} à ${formatPrice(fullMax)} TTC selon la catégorie du véhicule : le forfait vitres arrière, plus ${formatPrice(tint.frontWithRear)} pour les deux vitres avant. Le film de pare-brise se chiffre à part. À l’avant, seul un film qui laisse le vitrage à ${G.frontMin} % au moins est utilisable sur route.`
+      ? `Hors pare-brise, comptez de ${formatPrice(fullMin)} à ${formatPrice(fullMax)} selon la catégorie du véhicule : le forfait vitres arrière, plus ${formatPrice(tint.frontWithRear)} pour les deux vitres avant. Le film de pare-brise se chiffre à part. À l’avant, seul un film qui laisse le vitrage à ${G.frontMin} % au moins est utilisable sur route.`
       : `Le prix dépend de la catégorie du véhicule et des vitres traitées : il est établi sur devis. À l’avant, seul un film qui laisse le vitrage à ${G.frontMin} % au moins est utilisable sur route.`,
   },
   {
     q: 'Que comprend exactement le forfait « 3/4 arrière » ?',
-    a: `Trois zones : les deux vitres latérales arrière, les éventuelles vitres de custode et la lunette, film et pose compris, à partir de ${priceText.tintFrom} TTC. Les vitres du conducteur et du passager avant n’en font pas partie : elles s’ajoutent en option.`,
+    a: `Trois zones : les deux vitres latérales arrière, les éventuelles vitres de custode et la lunette, film et pose compris, à partir de ${priceText.tintFrom}. Les vitres du conducteur et du passager avant n’en font pas partie : elles s’ajoutent en option.`,
   },
   {
     q: 'Mes vitres arrière sont déjà surteintées d’origine : un film est-il utile ?',

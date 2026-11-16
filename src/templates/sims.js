@@ -65,7 +65,7 @@ const vehicleGroup = (pricing, legend = 'Votre véhicule', checked = 'berline') 
 /** price box; `value` = the default configuration's price, written in the page (visible before
  *  the script runs, and without it) */
 const total = (note = '', { quote = false, value = '' } = {}) => `<div class="sim__total" aria-live="polite">
-          <span class="sim__total-label">${quote ? 'Tarif' : 'Tarif indicatif TTC'}</span>
+          <span class="sim__total-label">${quote ? 'Tarif' : 'Tarif indicatif'}</span>
           <span class="sim__total-value" data-total>${quote ? 'Sur devis' : value || '—'}</span>
           <p class="sim__detail" data-detail>${esc(note)}</p>
         </div>`;
@@ -132,7 +132,7 @@ export function simTint(ctx, { hidden = false } = {}) {
         </fieldset>
         ${total('Choisissez vos vitres', { value: fmt(tint.rearPackage.coupe) })}
         ${actions('vitres-teintees', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Avant / après</button>', !!ctx.booking?.bookingRules.api)}
-        <p class="price-note">Prix TTC indicatifs, confirmés par le devis après vérification du véhicule. Rendu 3D indicatif : il ne mesure pas la transmission lumineuse réelle. Véhicules 3D présentés à titre d’illustration de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle. Crédits des modèles : <a href="/mentions-legales/">mentions légales</a>.</p>`;
+        <p class="price-note">Prix indicatifs (TVA non applicable, art. 293 B du CGI), confirmés par le devis après vérification du véhicule. Rendu 3D indicatif : il ne mesure pas la transmission lumineuse réelle. Véhicules 3D présentés à titre d’illustration de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle. Crédits des modèles : <a href="/mentions-legales/">mentions légales</a>.</p>`;
   return shell({
     kind: 'tint',
     title: 'Simulez la teinte de vos vitres et votre prix',
@@ -217,7 +217,7 @@ export function simTintSimple(ctx, pictures) {
           <div class="chips">${zones.map((z, i) => `<label class="chip"><input type="radio" name="zone" value="${z.value}"${i === 0 ? ' checked' : ''}><span>${esc(z.label)}<small>${esc(z.hint)}</small></span></label>`).join('')}</div>
         </fieldset>
         <div class="tsim__price" aria-live="polite">
-          <span>Prix TTC, pose comprise</span>
+          <span>Prix net, pose comprise</span>
           <strong data-price>—</strong>
           <small data-price-note></small>
         </div>
@@ -227,7 +227,7 @@ export function simTintSimple(ctx, pictures) {
           <a class="btn ${ctx.booking?.bookingRules.api ? 'btn--ghost' : 'btn--primary'}" href="/contact/?prestation=vitres-teintees" data-quote>Demander ce devis</a>
           <button type="button" class="btn btn--ghost" data-mode="3d">Voir en 3D</button>
         </div>
-        <p class="price-note">Prix TTC indicatifs, confirmés par le devis après vérification du véhicule. Visuels de véhicules représentatifs de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle exact.</p>
+        <p class="price-note">Prix indicatifs (TVA non applicable, art. 293 B du CGI), confirmés par le devis après vérification du véhicule. Visuels de véhicules représentatifs de chaque catégorie ; le tarif dépend de la catégorie, pas du modèle exact.</p>
       </form>
     </div>
   </div>
@@ -249,7 +249,7 @@ export function tintPriceTable(ctx) {
   <div class="container container--narrow">
     <h2 id="tarifs-title">Tarifs de pose de vitres teintées</h2>
     <table class="price-table">
-      <caption>Prix TTC par catégorie de véhicule, film posé</caption>
+      <caption>Prix par catégorie de véhicule, film posé</caption>
       <thead><tr><th scope="col">Catégorie</th><th scope="col" class="num">3/4 arrière</th><th scope="col" class="num">Véhicule complet</th></tr></thead>
       <tbody>
         ${vehicleTypes
@@ -262,7 +262,7 @@ export function tintPriceTable(ctx) {
     </table>
     <p class="price-note">Vitres avant seules (sans forfait arrière) : <strong>${fmt(tint.frontOnly)}</strong>. Avec le forfait 3/4 arrière, les vitres avant ajoutent <strong>${fmt(tint.frontWithRear)}</strong>. Toutes les teintes au même prix : ${tint.shades.join(' %, ')} % de transmission lumineuse.</p>
     <p class="price-note">Pare-brise : film athermique <strong>${fmt(tint.windshield.films.find((f) => f.id === 'athermique').price)}</strong> · film irisé effet caméléon <strong>${fmt(tint.windshield.films.find((f) => f.iridescent).price)}</strong> (${tint.windshield.colors.map((c) => c.label.toLowerCase()).join(', ')}…). Le pare-brise et les vitres avant doivent laisser passer au moins ${glazing.frontMin} % de la lumière, film compris : la conformité dépend du film et du vitrage, elle se vérifie sur le véhicule.</p>
-    <p class="price-note">« 3/4 arrière » : vitres latérales arrière et lunette arrière. Prix TTC indicatifs ; devis définitif après vérification du véhicule.</p>
+    <p class="price-note">« 3/4 arrière » : vitres latérales arrière et lunette arrière. Prix indicatifs (TVA non applicable, art. 293 B du CGI) ; devis définitif après vérification du véhicule.</p>
   </div>
 </section>`;
 }
@@ -307,12 +307,12 @@ export function simLights(ctx) {
         </fieldset>
         <div class="warning"><p><strong>Réglementation :</strong> ${esc(lightsRule)}</p></div>
         ${total('Choisissez vos feux', { value: pairPrice(L.materials[0]) })}
-        <p class="price-note">${L.materials.map((m) => `${esc(m.label)} : ${pairPrice(m)}${m.validated ? ' TTC la paire' : ''}`).join(' · ')}. Prix indicatifs selon le véhicule, confirmés par le devis.</p>
+        <p class="price-note">${L.materials.map((m) => `${esc(m.label)} : ${pairPrice(m)}${m.validated ? ' la paire' : ''}`).join(' · ')}. Prix indicatifs selon le véhicule, confirmés par le devis.</p>
         ${actions('feux-arriere-teintes', '<button type="button" class="btn btn--ghost" data-compare aria-pressed="false">Avant / après</button>', !!ctx.booking?.bookingRules.api)}`;
   return shell({
     kind: 'lights',
     title: 'Simulez vos feux fumés',
-    intro: `Covering ou PPF, feux avant ou arrière, fumé 50 % ou 80 % : voyez le rendu sur le BMW X6 du studio, allumez les feux ou freinez pour juger la visibilité, et obtenez votre tarif indicatif : covering ${pairPrice(L.materials[0])} TTC la paire.`,
+    intro: `Covering ou PPF, feux avant ou arrière, fumé 50 % ou 80 % : voyez le rendu sur le BMW X6 du studio, allumez les feux ou freinez pour juger la visibilité, et obtenez votre tarif indicatif : covering ${pairPrice(L.materials[0])} la paire.`,
     poster: 'tail',
     posterAlt: 'Feux arrière fumés sur le BMW X6 du studio',
     views: [
@@ -333,8 +333,8 @@ export function headlightsPriceTable(ctx) {
   <div class="container container--narrow">
     <h2 id="tarifs-title">Tarifs de rénovation de phares</h2>
     <table class="price-table">
-      <caption>Prix TTC, optiques traitées en place à l’atelier</caption>
-      <thead><tr><th scope="col">Prestation</th><th scope="col" class="num">Prix TTC</th></tr></thead>
+      <caption>Prix, optiques traitées en place à l’atelier</caption>
+      <thead><tr><th scope="col">Prestation</th><th scope="col" class="num">Prix</th></tr></thead>
       <tbody>
         <tr><th scope="row">Rénovation des deux phares<small>Ponçage, polissage, protection anti-UV</small></th><td class="num">${fmt(H.renovation)}</td></tr>
         ${H.options.map((o) => `<tr><th scope="row">Option : ${esc(o.label)}</th><td class="num">+${fmt(o.price)}</td></tr>`).join('')}

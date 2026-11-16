@@ -12,6 +12,7 @@
  *   GET  /stats?cle=…            the statistics page (booking/stats-page.js), key = STATS_KEY
  */
 import { utcToZoned, addDays } from './schedule.js';
+import { howHeard, howHeardKeys } from '../content/booking.js';
 
 export const TZ = 'Europe/Paris';
 const KEEP_DAYS = 761; // 25 months
@@ -28,7 +29,18 @@ export const ACTIONS = {
   itineraire: 'Itinéraires',
   demande_erreur: 'Envois du formulaire en échec',
 };
-const FROM_PAGES = new Set(['page', ...Object.keys(ACTIONS).filter((k) => k !== 'rdv')]);
+const FROM_PAGES = new Set(['page', 'connu', ...Object.keys(ACTIONS).filter((k) => k !== 'rdv')]);
+
+/** « Comment nous avez-vous connus ? » (quote form and booking page), by short name */
+export const HEARD = { internet: 'Recherche Internet', reseaux: 'Réseaux sociaux', bouche: 'Bouche-à-oreille', client: 'Déjà client', autre: 'Autre', sans: 'Sans réponse' };
+
+/** the answers of one form as rows (kind "connu"): one per ticked box (source = its short name,
+ *  detail = the « Autre » text), or one "sans" when nothing was ticked */
+export function heardRows(base, channels = [], other = '') {
+  const keys = howHeard.filter((c) => Array.isArray(channels) && channels.includes(c)).map((c) => howHeardKeys[c]);
+  const text = String(other || '').replace(/[^\p{L}\p{N} +\-'’.,&]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  return (keys.length ? keys : ['sans']).map((k) => ({ ...base, kind: 'connu', source: k, detail: k === 'autre' ? text : '' }));
+}
 
 export const SOURCES = {
   moteurs: 'Moteurs de recherche',
@@ -66,7 +78,8 @@ export function sourceOf(ref, utm = '', medium = '', ad = false) {
   return 'sites';
 }
 
-/** one hit sent by a page (JSON text), checked and bounded; null when unusable */
+/** one hit sent by a page (JSON text), checked and bounded; null when unusable (the answers of
+ *  « Comment nous avez-vous connus ? » come as several rows) */
 export function hitFromPage(text, site) {
   let h;
   try {
@@ -81,6 +94,7 @@ export function hitFromPage(text, site) {
     page: typeof h.p === 'string' && /^\/[\w\-./%]{0,150}$/.test(h.p) ? h.p.toLowerCase() : '/',
     device: h.d === 'telephone' || h.d === 'ordinateur' ? h.d : '',
   };
+  if (h.t === 'connu') return heardRows(row, Array.isArray(h.c) ? h.c.slice(0, 8) : [], typeof h.o === 'string' ? h.o.slice(0, 200) : '');
   if (h.t === 'page') {
     row.entry = h.e ? 1 : 0;
     if (row.entry) {
@@ -215,7 +229,10 @@ export class Stats {
       refs: q(`SELECT source, ref, COUNT(*) AS n FROM hits WHERE ${W} AND kind = 'page' AND entry = 1 AND ref <> '' GROUP BY source, ref ORDER BY n DESC LIMIT 12`, ...cur),
       pages: q(`SELECT page, COUNT(*) AS views, SUM(entry) AS entries FROM hits WHERE ${W} AND kind = 'page' GROUP BY page ORDER BY views DESC LIMIT 15`, ...cur),
       devices: q(`SELECT device, SUM(entry) AS visits FROM hits WHERE ${W} AND kind = 'page' GROUP BY device`, ...cur),
-      actions: q(`SELECT kind, page, COUNT(*) AS n FROM hits WHERE ${W} AND kind NOT IN ('page', 'rdv') GROUP BY kind, page ORDER BY n DESC LIMIT 60`, ...cur),
+      actions: q(`SELECT kind, page, COUNT(*) AS n FROM hits WHERE ${W} AND kind NOT IN ('page', 'rdv', 'connu') GROUP BY kind, page ORDER BY n DESC LIMIT 60`, ...cur),
+      // « Comment nous avez-vous connus ? »: each answer, how many of them came with a booking
+      heard: q(`SELECT source, COUNT(*) AS n, SUM(page = '/reservation/') AS rdv FROM hits WHERE ${W} AND kind = 'connu' GROUP BY source ORDER BY n DESC`, ...cur),
+      heardOther: q(`SELECT MIN(detail) AS detail, COUNT(*) AS n FROM hits WHERE ${W} AND kind = 'connu' AND source = 'autre' AND detail <> '' GROUP BY lower(detail) ORDER BY n DESC LIMIT 12`, ...cur),
       bookings: q(`SELECT detail, COUNT(*) AS n, SUM(value) AS value FROM hits WHERE ${W} AND kind = 'rdv' GROUP BY detail ORDER BY n DESC LIMIT 10`, ...cur),
     };
   }

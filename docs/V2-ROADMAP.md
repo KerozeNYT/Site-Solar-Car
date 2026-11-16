@@ -29,15 +29,14 @@ Statuts : À faire · En cours · Terminé et testé · Bloqué · En attente de
 | Break | 280 € (forfait arrière) | Repère V2 : 280 à 300 €. Fourchette à afficher ? |
 | Ciel étoilé | Sur devis | Repère V2 : 1 090 à 1 490 €. Afficher « indicatif, selon configuration » ? |
 | Detailing | Sur devis | Repère V2 : 590 à 1 090 €. Afficher une fourchette indicative ? |
-| TVA | Prix affichés « TTC » | Franchise en base (micro-entreprise) ? Si oui : « TVA non applicable, art. 293 B du CGI » |
-| Médiateur de la consommation | Absent | Nom et coordonnées du médiateur choisi (obligatoire pour les clients particuliers) |
-| Crédits modèles 3D | « à compléter selon la licence » | Licence et auteur de chaque modèle |
+| TVA | Fait le 16/11/2026 : micro-entreprise en franchise en base, prix nets et « TVA non applicable, art. 293 B du CGI » (pied de page, mentions légales, notes de prix, conditions de réservation, e-mails) | À reporter aussi sur les devis et factures |
+| Médiateur de la consommation | Clause prête (mentions légales, conditions de réservation) ; nom et adresse à renseigner dans `content/site.js` → `legalPage.mediator` | Adhésion à faire par l'atelier (conseillé : CM2C, généraliste, cotisation unique pour 3 ans) |
+| Crédits modèles 3D | Auteurs et licences retrouvés sur Sketchfab le 16/11/2026, crédits affichés (mentions légales, pied de page) | 4 modèles sur 6 sont sous licence **non commerciale** (Porsche 992 GT3 RS, Mercedes A45, CLA Shooting Brake, BMW X6) : licence à acheter aux auteurs ou modèles à remplacer ; Audi A5 (CC BY) et VW Crafter (Free Standard) sont utilisables |
 | Hébergeur de production | GitHub Pages (aperçu) | Hébergeur retenu pour www.solarcar37.fr |
 | Conservation des demandes | « le temps nécessaire » | Proposition : 3 ans après le dernier contact (prospects), durée légale pour les clients |
 | Covering : références | 29 films 3M™ 2080 vérifiés sur 3M France ; HG61 et S327 non intégrés (vus seulement aux États-Unis) | Confirmer la disponibilité chez le fournisseur ; autres gammes à ajouter (TeckWrap, Coverstyl') ? |
 | Covering : tarifs | « Sur devis » partout | Donner des repères (partiel, déchromage) si l'atelier le souhaite |
 | Pages locales | 8 communes (plus de 11 000 habitants), chacune avec son récit du trajet et deux réalisations ; les 6 villages voisins listés sans page | Fait le 13/11/2026 |
-| Médiateur de la consommation | Absent (`npm run check`) | Toujours à fournir |
 | Durée de conservation | Durées du référentiel CNIL (3 ans après le dernier contact, factures 10 ans) | À ajuster si l'atelier conserve moins longtemps |
 
 | Statistiques de visite (14/11/2026) | Terminé et testé | Comptage sans cookie par le serveur de réservation (pages vues, visites, sources, appareils, appels, devis, demandes, RDV payés), page `/stats` protégée par clé, comparaison avec la période précédente et l'ancien site (`docs/STATISTIQUES.md`) | 16 tests (base SQLite en mémoire), visites simulées dans Chromium (sources, rechargement, `?stats=off`, robot exclu), captures téléphone/ordinateur clair/sombre, vérification en ligne | Cloudflare Web Analytics à créer dans le tableau de bord à la mise en ligne |

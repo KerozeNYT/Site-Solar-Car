@@ -2,7 +2,7 @@
   "input": "cla.glb",
   "output": "public/models/cla.glb",
   "source": "Fichier fourni par le client (2016_mercedes-benz_cla45_amg_shooting_brake.glb).",
-  "license": "À confirmer par le client (origine probable Sketchfab : licence et crédit de l'auteur à vérifier).",
+  "license": "« 2016 Mercedes-Benz CLA45 AMG Shooting Brake » par Ddiaz Design, licence CC BY-NC-SA 4.0 — https://sketchfab.com/3d-models/2016-mercedes-benz-cla45-amg-shooting-brake-9423d22e95aa461e9cdd65039d32e75f",
   "dropExtensions": ["KHR_materials_transmission"],
   "removeNodesMatching": ["WindowInside_Geo"],
   "scale": 100,

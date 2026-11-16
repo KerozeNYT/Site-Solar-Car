@@ -46,7 +46,7 @@ export async function renderSite(out, assets) {
     .map((r) => ({ ...r, photos: (r.photos || []).filter(published).map((p) => ({ ...p, wide: wide(p) })) }))
     .filter((r) => r.photos.length || r.beforeAfter);
   // every distinct 3D model credit (tour car + simulator cars)
-  const credits = [...new Set([car, ...Object.values(vehicles).map((v) => v.config)].filter((c) => c?.credit).map((c) => c.credit.text))];
+  const credits = [...new Map([car, ...Object.values(vehicles).map((v) => v.config)].filter((c) => c?.credit).map((c) => [c.credit.text, c.credit])).values()];
   const flightTotal = flight.beats.reduce((a, b) => a + b.vh, 0);
   // scroll position (vh from the top of the tour) where each chapter starts
   const flightAt = {};

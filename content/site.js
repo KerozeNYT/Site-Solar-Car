@@ -109,7 +109,7 @@ export const home = {
   seo: {
     title: 'Vitres teintées & detailing à Vouvray (Tours) | SOLAR CAR 37',
     description:
-      `Atelier à Vouvray, près de Tours : vitres teintées dès ${P.tintFrom} TTC, feux fumés, phares ${P.headlights} la paire, detailing, covering, ciel étoilé. Simulateurs 3D.`,
+      `Atelier à Vouvray, près de Tours : vitres teintées dès ${P.tintFrom}, feux fumés, phares ${P.headlights} la paire, detailing, covering, ciel étoilé. Simulateurs 3D.`,
   },
   // the film at the top of the page (timings and video files: content/film.js)
   film: {
@@ -269,7 +269,7 @@ export const services = [
     simPitch: [
       'Comparez les teintes sur votre catégorie de véhicule et voyez le prix s’afficher.',
       'Passez de 70 % à 5 % sur la voiture 3D : le rendu et le tarif changent en direct.',
-      'Choisissez vitres arrière, avant ou pare-brise : le simulateur affiche le prix TTC.',
+      'Choisissez vitres arrière, avant ou pare-brise : le simulateur affiche le prix.',
       'Voyez votre véhicule de l’extérieur et depuis l’habitacle, teinte par teinte.',
     ],
     // header photo: a real job (content/realisations.js), used once its web version exists
@@ -281,9 +281,9 @@ export const services = [
     name: 'Vitres teintées',
     short: 'Films solaires posés sur mesure : intimité, confort thermique et protection UV, avec un conseil clair sur la réglementation.',
     seo: {
-      title: `Vitres teintées à Vouvray (Tours) dès ${P.tintFrom} TTC | SOLAR CAR 37`,
+      title: `Vitres teintées à Vouvray (Tours) dès ${P.tintFrom} | SOLAR CAR 37`,
       description:
-        `Films solaires posés à Vouvray, près de Tours : 3/4 arrière dès ${P.tintFrom} TTC, teintes de 5 à 70 %, simulateur 3D avec prix en direct et conseil sur la loi.`,
+        `Films solaires posés à Vouvray, près de Tours : 3/4 arrière dès ${P.tintFrom}, teintes de 5 à 70 %, simulateur 3D avec prix en direct et conseil sur la loi.`,
     },
     h1: 'Vitres teintées *et films solaires*',
     intro:
@@ -318,7 +318,7 @@ export const services = [
       },
       {
         q: 'Peut-on poser un film sur le pare-brise ?',
-        a: `Techniquement oui (film athermique ${P.windshield('athermique')} TTC, film irisé ${P.windshield('irise')} TTC), mais le pare-brise doit laisser passer au moins ${G.frontMin} % de la lumière, film compris. Un film annoncé à 70 % posé sur un pare-brise d’origine donne en général moins que ce seuil : la conformité dépend du film et du vitrage, et ne peut pas être promise sans mesure. Un film plus foncé n’est pas autorisé sur route. Le film irisé (effet caméléon bleu-violet, jaune doré ou rouge) réduit lui aussi la transmission : sa référence et sa transmission figurent sur le devis.`,
+        a: `Techniquement oui (film athermique ${P.windshield('athermique')}, film irisé ${P.windshield('irise')}), mais le pare-brise doit laisser passer au moins ${G.frontMin} % de la lumière, film compris. Un film annoncé à 70 % posé sur un pare-brise d’origine donne en général moins que ce seuil : la conformité dépend du film et du vitrage, et ne peut pas être promise sans mesure. Un film plus foncé n’est pas autorisé sur route. Le film irisé (effet caméléon bleu-violet, jaune doré ou rouge) réduit lui aussi la transmission : sa référence et sa transmission figurent sur le devis.`,
       },
       {
         q: 'Puis-je baisser mes vitres juste après la pose ?',
@@ -340,7 +340,7 @@ export const services = [
     seo: {
       title: `Feux teintés à Vouvray (Tours) : ${P.lightsPair} | SOLAR CAR 37`,
       description:
-        `Film fumé 50 % ou 80 % ou PPF teinté sur vos feux, posé à Vouvray près de Tours : ${P.lightsPair} TTC la paire. Simulateur 3D feux allumés et au freinage.`,
+        `Film fumé 50 % ou 80 % ou PPF teinté sur vos feux, posé à Vouvray près de Tours : ${P.lightsPair} la paire. Simulateur 3D feux allumés et au freinage.`,
     },
     h1: 'Feux arrière *teintés*',
     intro:
@@ -542,7 +542,7 @@ export const services = [
     seo: {
       title: `Rénovation de phares à Vouvray (Tours) : ${P.headlights} | SOLAR CAR 37`,
       description:
-        `Phares jaunis ou opaques : ponçage, polissage et protection à Vouvray (37), près de Tours. Rénovation des deux phares ${P.headlights} TTC, option céramique ${P.headlightsCeramic}.`,
+        `Phares jaunis ou opaques : ponçage, polissage et protection à Vouvray (37), près de Tours. Rénovation des deux phares ${P.headlights}, option céramique ${P.headlightsCeramic}.`,
     },
     h1: 'Rénovation *de phares*',
     intro:
