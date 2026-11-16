@@ -215,9 +215,9 @@ test('daily e-mails: reminder the day before, news a week after, each once, at t
   await run(week);
   assert.equal(mails.length, before + 2);
   const f = mails.at(-1);
-  assert.match(f.subject, /^Tout va bien depuis votre passage/);
-  assert.match(f.html, /Peugeot 508 \(vitres teintées, 3\/4 arrière/);
-  assert.match(f.html, /Répondez simplement à cet e-mail/);
+  assert.equal(f.subject, 'Des nouvelles de votre Peugeot 508 ?');
+  assert.match(f.html, /votre Peugeot 508 : vitres teintées \(3\/4 arrière\)\./);
+  assert.match(f.html, /répondez simplement à cet e-mail.*avec grand plaisir/s);
   assert.match(f.html, /href="https:\/\/g\.page\/r\/[^"]+\/review"/);
   await run(week);
   assert.equal(mails.length, before + 2);

@@ -178,19 +178,28 @@ export async function sendReminderMail(env, b) {
  */
 export async function sendFollowUpMail(env, b) {
   const { q, c } = b;
-  const what = q.items.map((i) => i.label).join(' et ').replace(/ — /g, ', ').toLowerCase();
+  // « vitres teintées (3/4 arrière) et feux teintés (feux arrière) »
+  const what = q.items
+    .map((i) => {
+      const [name, part] = i.label.split(' — ');
+      return part ? `${name.toLowerCase()} (${part.toLowerCase()})` : name.toLowerCase();
+    })
+    .join(' et ');
+  const me = (B.owner || '').split(' ')[0] || B.name;
+  const p = (html, last = false) => `<p style="margin:0 0 ${last ? 18 : 14}px;font-size:15px;line-height:1.5;color:#111">${html}</p>`;
   const review = B.google?.reviewUrl;
   await send(env, {
     to: [c.email],
     reply_to: B.email,
-    subject: `Tout va bien depuis votre passage chez ${B.name} ?`,
+    subject: c.vehicle ? `Des nouvelles de votre ${c.vehicle} ?` : `Tout va bien depuis votre passage chez ${B.name} ?`,
     html: shell(
-      'Alors, ça vous plaît ?',
-      `<p style="margin:0 0 14px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>il y a une semaine, nous nous sommes occupés de votre ${esc(c.vehicle || 'véhicule')} (${esc(what)}). Nous espérons que le résultat vous plaît.</p>
-<p style="margin:0 0 14px;font-size:15px;color:#111">Le moindre souci, une question ? <strong>Répondez simplement à cet e-mail</strong> ou appelez-nous au <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${esc(B.phone)}</a> : nous trouvons une solution avec vous.</p>
-${review ? `<p style="margin:0 0 18px;font-size:15px;color:#111">Et si vous avez un moment, votre avis sur Google aide beaucoup un petit atelier comme le nôtre à se faire connaître en Touraine.</p>
+      'Tout se passe bien ?',
+      `${p(`Bonjour ${esc(c.firstName)},`)}
+${p(`Cela fait une semaine que nous nous sommes occupés de votre ${esc(c.vehicle || 'véhicule')} : ${esc(what)}. Je voulais simplement prendre de vos nouvelles, et j’espère que le résultat vous plaît autant qu’à nous !`)}
+${p(`Si quelque chose vous chiffonne, ou si vous avez la moindre question, <strong>répondez simplement à cet e-mail</strong> ou appelez-moi au <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${esc(B.phone)}</a> : ce sera avec grand plaisir, et nous trouverons une solution ensemble.`)}
+${review ? `${p('Et si vous avez un petit moment, votre avis sur Google nous aiderait vraiment : pour un atelier comme le nôtre, c’est ce qui compte le plus pour se faire connaître en Touraine.', true)}
 <p style="margin:0 0 6px">${button(review, 'Donner mon avis sur Google')}</p>` : ''}
-<p style="margin:18px 0 0;font-size:14px;color:#111">Merci pour votre confiance, et à bientôt,<br>${esc(B.owner || B.name)} — ${esc(B.name)}</p>`
+<p style="margin:20px 0 0;font-size:15px;line-height:1.5;color:#111">Merci encore pour votre confiance, et à très bientôt à l’atelier,<br><strong>${esc(me)}</strong> — ${esc(B.name)}</p>`
     ),
   });
 }
