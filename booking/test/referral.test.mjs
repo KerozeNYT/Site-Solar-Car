@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, createHmac } from 'node:crypto';
 import worker, { dailyMails } from '../worker.js';
-import { Parrainage, newCode, referralFor, checkReferral, redeemReferral } from '../referral.js';
+import { Atelier, newCode, referralFor, checkCode as checkReferral, redeemReferral } from '../store.js';
 import { utcToZoned, addDays, zonedToUtc } from '../schedule.js';
 import { installFakes } from './fakes.mjs';
 import { fakeDO } from './fake-do.mjs';
@@ -32,7 +32,8 @@ const env = {
   SITE_URL: 'https://www.solarcar37.fr',
   STATS_KEY: KEY,
   STATS: fakeStats(),
-  PARRAINAGE: fakeDO(Parrainage),
+  ATELIER: fakeDO(Atelier),
+  ATELIER_SECRET: 'secret-de-test',
 };
 const { cal, sessions, mails } = installFakes({ CAR, HOME, PERSO });
 const call = (path, { method = 'GET', body, headers = {} } = {}) =>
@@ -104,23 +105,4 @@ test('a week after: the e-mail carries the client’s own code as a gift card', 
   assert.match(f.html, /20 € offerts/);
   assert.match(f.html, new RegExp(`href="https://www\\.solarcar37\\.fr/reservation/\\?code=${own}"`));
   assert.equal((await checkReferral(env, own)).owner, 'Paul');
-});
-
-test('the workshop’s page: key required, a code made for a client, a code used at the workshop', async () => {
-  const page = (q = '', init) => worker.fetch(new Request(`https://reservation.solarcar37.fr/parrainage?${q}`, init), env);
-  assert.equal((await page('cle=mauvaise')).status, 403);
-  const form = (fields) => ({ method: 'POST', body: new URLSearchParams(fields) });
-  const made = await page(`cle=${KEY}`, form({ action: 'creer', prenom: 'Luc' }));
-  assert.equal(made.status, 303);
-  const fresh = new URL(made.headers.get('location'), 'https://x').searchParams.get('nouveau');
-  assert.match(fresh, /^LUC-/);
-  const used = await page(`cle=${KEY}`, form({ action: 'utiliser', code: fresh.toLowerCase(), client: 'Ami de Luc' }));
-  assert.match(decodeURIComponent(used.headers.get('location')), /utilisé/);
-  const twice = await page(`cle=${KEY}`, form({ action: 'utiliser', code: fresh, client: 'Encore' }));
-  assert.match(new URL(twice.headers.get('location'), 'https://x').searchParams.get('err'), /déjà été utilisé/);
-  const html = await (await page(`cle=${KEY}`)).text();
-  assert.match(html, new RegExp(`${fresh}[\\s\\S]*Utilisé le[\\s\\S]*Ami de Luc · à l’atelier`));
-  assert.match(html, new RegExp(`${code}[\\s\\S]*Paul Durand · réservation en ligne`));
-  const res = await page(`cle=${KEY}`);
-  assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
 });

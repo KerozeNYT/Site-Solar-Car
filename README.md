@@ -92,4 +92,6 @@ Sécurité : `scripts/security.mjs` écrit au build la Content-Security-Policy d
 
 Statistiques de visite (sans cookie, comptées par le serveur de réservation, page `/stats` réservée à l'atelier) : `docs/STATISTIQUES.md`.
 
+Espace atelier (back-office : rendez-vous en ligne, fichier clients exportable, codes promo, bandeau du site, parrainage), sur le serveur de réservation, connexion par code e-mail : `docs/ATELIER.md`.
+
 Mise en production : `docs/MIGRATION-DOMAINE.md`. Suivi de la V2 : `docs/V2-ROADMAP.md` (tableau de bord), `docs/V2-AUDIT.md` (audit initial) et `docs/CHANGELOG.md` (journal des changements).

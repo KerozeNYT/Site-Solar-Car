@@ -5,14 +5,14 @@
 //   BOOKING_API=http://localhost:8787 npm run build  → the site calls it (serve dist on :4190)
 //
 // A few busy hours are put in the calendars so that the slots look real. Visit statistics are kept
-// in memory: http://localhost:8787/stats?cle=dev ; referral codes too: http://localhost:8787/parrainage?cle=dev
+// in memory: http://localhost:8787/stats?cle=dev ; the workshop's space: http://localhost:8787/atelier
 import http from 'node:http';
 import { generateKeyPairSync, createHmac } from 'node:crypto';
 import worker from './worker.js';
 import { installFakes } from './test/fakes.mjs';
 import { fakeStats } from './test/fake-stats.mjs';
 import { fakeDO } from './test/fake-do.mjs';
-import { Parrainage, referralFor } from './referral.js';
+import { Atelier, referralFor, db } from './store.js';
 import { zonedToUtc, addDays, utcToZoned } from './schedule.js';
 
 const PORT = Number(process.env.PORT || 8787);
@@ -31,10 +31,14 @@ const env = {
   STRIPE_WEBHOOK_SECRET: WHSEC,
   STATS: fakeStats(),
   STATS_KEY: 'dev',
-  PARRAINAGE: fakeDO(Parrainage),
+  ATELIER: fakeDO(Atelier),
+  ATELIER_SECRET: 'dev',
+  // e-mails are caught (test/fakes.mjs) and their subject printed here: the sign-in code too
+  RESEND_API_KEY: 're_dev',
+  NOTIFY_TO: 'atelier@local',
   SITE_URL: 'http://localhost:4190',
 };
-const { cal, sessions } = installFakes({ CAR, HOME, PERSO }, { checkoutUrl: (id) => `${SELF}/fake-checkout/${id}` });
+const { cal, sessions, mails } = installFakes({ CAR, HOME, PERSO }, { checkoutUrl: (id) => `${SELF}/fake-checkout/${id}` });
 
 // some busy hours over the next weeks
 const TZ = 'Europe/Paris';
@@ -90,4 +94,13 @@ http
     // a referral code to try on the booking page (…/reservation/?code=…)
     const demo = await referralFor(env, { owner: 'Demo', origin: 'dev' });
     console.log(`referral code to try: ${demo.code}`);
+    // a band on from today, to see it on the site
+    const today = utcToZoned(Date.now(), TZ).date;
+    await db(env, 'banner/save', { text: 'Noël chez SOLAR CAR 37 : −15 % sur vos vitres teintées et feux teintés réservés en ligne avec le code NOEL, jusqu’au 31 décembre.', cta: 'Réserver', code: 'NOEL', starts: today, ends: addDays(today, 30), active: true });
+    await db(env, 'promo/save', { code: 'NOELTEST', label: 'Essai', percent: 15, services: ['tint', 'lights'], starts: today, ends: addDays(today, 30) });
+    console.log('workshop space: http://localhost:' + PORT + '/atelier (the sign-in code is printed below)');
+    let seen = 0;
+    setInterval(() => {
+      for (; seen < mails.length; seen++) console.log(`[mail] ${mails[seen].subject}`);
+    }, 300);
   });

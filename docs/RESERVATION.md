@@ -142,12 +142,11 @@ webhook en mode réel).
   parrainage ») : le total baisse de 20 €, l'acompte de 30 % porte sur le reste ; le code est
   consommé quand le paiement est confirmé. Pour une prestation réservée par téléphone ou sur devis,
   l'atelier le marque « utilisé » sur la page Parrainage.
-- **Page Parrainage** de l'atelier : `https://solarcar37-reservation.contact-solarcar37.workers.dev/parrainage?cle=…`
-  (même clé que la page de statistiques) : chiffres, créer un code, vérifier ou utiliser un code,
-  liste de tous les codes et de leur état.
-- Technique : `booking/referral.js` (base de codes : Durable Object `Parrainage`, SQLite ; un code ne
-  peut pas servir deux fois), `booking/referral-page.js`, `GET /api/referral?code=…`, tests
-  `booking/test/referral.test.mjs`. Conditions : page « Conditions de réservation », section
+- **Dans l'espace atelier** (docs/ATELIER.md), onglet « Codes et promos » : chiffres, créer un
+  code, vérifier ou utiliser un code, liste de tous les codes ; et depuis la fiche d'un client.
+- Technique : `booking/store.js` (base de l'atelier : un code ne peut pas servir deux fois),
+  `GET /api/code?code=…`, tests `booking/test/referral.test.mjs`.
+- Codes promo (NOEL…) : même champ à la réservation, voir docs/ATELIER.md. Conditions : page « Conditions de réservation », section
   Parrainage.
 
 ## Au quotidien

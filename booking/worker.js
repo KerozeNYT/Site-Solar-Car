@@ -13,8 +13,10 @@
  *   GET  /stats/f/<font>.woff2                       the fonts of the statistics page
  *   cron, the 1st of each month                      the monthly e-mail (booking/stats-report.js)
  *   cron, every day at 16:00 UTC                     reminders (tomorrow) and news (a week ago) to clients
- *   GET  /api/referral?code=…                        is a referral code valid (booking page)
- *   GET  /parrainage?cle=… (POST: use, create)       the referral codes, for the workshop (booking/referral-page.js)
+ *   GET  /api/code?code=…                            is a code valid: promotion or referral (booking page)
+ *   GET  /api/promo                                  the promotion band of the site, when one is on
+ *   POST /api/demande                                a quote request sent from the site: into the client file
+ *   GET  /atelier…                                   the workshop's space (booking/atelier.js, docs/ATELIER.md)
  *   GET  /fiche-google?cle=…, /fiche-google/connexion, /fiche-google/retour, POST /fiche-google/envoyer
  *        and a cron every Tuesday                    one photo a week on the Google Business Profile
  *                                                    (booking/fiche-google.js, docs/FICHE-GOOGLE-AUTO.md)
@@ -33,10 +35,13 @@
  *   STATS_PREVIEW_ORIGINS  sites whose visits are counted apart (the preview), comma separated
  *   STATS_PAGE             address of the statistics page (link of the monthly e-mail)
  *   FICHE                  Durable Object (class Fiche): the Google Business Profile robot's state
- *   PARRAINAGE             Durable Object (class Parrainage): the referral codes
+ *   ATELIER                Durable Object (class Atelier): clients, bookings, codes, promotions, band
+ *   ATELIER_SECRET         (secret) signs the sessions of the workshop's space
+ *   ATELIER_EMAILS         who may sign in to the workshop's space (the code is e-mailed there);
+ *                          NOTIFY_TO when unset
  *   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET (secrets) its Google sign-in (OAuth client)
  */
-import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount } from '../content/booking.js';
+import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents } from './google.js';
 import { createSession, getSession, verifyWebhook } from './stripe.js';
@@ -45,15 +50,15 @@ import { record, hitFromPage, heardRows } from './stats.js';
 import { statsPage } from './stats-page.js';
 import { sendMonthly, monthRoute } from './stats-report.js';
 import { ficheRoute, runFiche, FICHE_CRON } from './fiche-google.js';
-import { referralFor, checkReferral, redeemReferral } from './referral.js';
-import { referralPage } from './referral-page.js';
+import { db, referralFor, checkCode, redeemReferral, publicBanner } from './store.js';
+import { atelier } from './atelier.js';
 
 // the Durable Object class of the statistics database (booking/wrangler.toml)
 export { Stats } from './stats.js';
 // the Durable Object class of the Google Business Profile robot
 export { Fiche } from './fiche-google.js';
-// the Durable Object class of the referral codes (booking/referral.js)
-export { Parrainage } from './referral.js';
+// the Durable Object class of the workshop's database: clients, bookings, codes, band (booking/store.js)
+export { Atelier } from './store.js';
 
 const DAY = 86400000;
 const list = (s) => (s || '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -134,7 +139,7 @@ function customerJson(c) {
 }
 
 /** the text of the appointment in the calendar */
-function eventText(q, c, { date, time, mode, paid, sessionId, code }) {
+function eventText(q, c, { date, time, mode, paid, sessionId, code, codeKind }) {
   const lines = [
     `Client : ${c.firstName} ${c.lastName}`,
     `Téléphone : ${c.phone}`,
@@ -144,7 +149,7 @@ function eventText(q, c, { date, time, mode, paid, sessionId, code }) {
     '',
     ...q.items.map((i) => `• ${i.label}${i.detail ? ` — ${i.detail}` : ''} : ${euros(i.price)} (${formatDuration(i.minutes)})`),
     '',
-    q.discount ? `Parrainage : −${euros(q.discount)} (code ${code})` : null,
+    q.discount ? (codeKind === 'promo' ? `Code promo ${code} : −${euros(q.discount)}` : `Parrainage : −${euros(q.discount)} (code ${code})`) : null,
     `Total : ${euros(q.total)} — durée ${formatDuration(q.minutes)}`,
     paid != null ? `Payé en ligne : ${euros(paid)} (${mode === 'full' ? 'totalité' : 'acompte 30 %'}) — reste à régler : ${euros(Math.max(0, q.total - paid))}` : `Paiement en cours (${mode === 'full' ? 'totalité' : 'acompte 30 %'} : ${euros(amountDue(q, mode))})`,
     c.message ? `\nMessage : ${c.message}` : '',
@@ -165,7 +170,7 @@ async function confirm(env, session) {
   const paid = (session.amount_total || 0) / 100;
   const body = {
     summary: `RDV ${titleOf(q, c)}`,
-    description: eventText(q, c, { date: m.date, time: m.time, mode: m.mode, paid, sessionId: session.id, code: m.code }),
+    description: eventText(q, c, { date: m.date, time: m.time, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind }),
     colorId: '9',
     extendedProperties: { private: { solarcarHold: '0', session: session.id, paid: String(paid) } },
   };
@@ -189,13 +194,18 @@ async function confirm(env, session) {
   const site = session.livemode ? 'site' : 'apercu';
   const heard = howHeardParse(c.source);
   await record(env, [{ site, kind: 'rdv', page: '/reservation/', detail: q.items.map((i) => i.label).join(' + ').slice(0, 120), value: paid }, ...heardRows({ site, page: '/reservation/' }, heard.channels, heard.other)]).catch((err) => console.error('[stats]', err));
-  // the referral code is used now that the booking is paid (checked when the payment opened)
-  if (m.code && env.PARRAINAGE) {
-    const r = await redeemReferral(env, m.code, { by: `${c.firstName} ${c.lastName}`, ref: session.id, where: 'réservation en ligne' }).catch((err) => ({ ok: false, error: err.message }));
-    if (!r.ok) console.error('[parrainage]', m.code, r.error);
+  if (env.ATELIER) {
+    // the code is counted now that the booking is paid (checked when the payment opened): a
+    // referral code is used up, a promotion counts one more use
+    if (m.code) {
+      const r = await (m.codeKind === 'promo' ? db(env, 'promo/use', { code: m.code }) : redeemReferral(env, m.code, { by: `${c.firstName} ${c.lastName}`, ref: session.id, where: 'réservation en ligne' })).catch((err) => ({ ok: false, error: err.message }));
+      if (!r.ok) console.error('[code]', m.code, r.error);
+    }
+    // the client file and the list of bookings of the workshop's space
+    await db(env, 'booking/add', { session: session.id, event: out?.id || m.event, date: m.date, time: m.time, minutes: q.minutes, items: q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price })), total: q.total, discount: q.discount || 0, code: m.code || '', codeKind: m.code ? m.codeKind || 'parrainage' : '', mode: m.mode, paid, customer: c, live: session.livemode !== false }).catch((err) => console.error('[atelier] booking', err.message));
   }
   // « Nouveau RDV » to the workshop, the confirmation to the client (never fails the booking)
-  await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id, code: m.code }).catch((err) => console.error('[mail]', err));
+  await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind }).catch((err) => console.error('[mail]', err));
   return out;
 }
 
@@ -225,14 +235,18 @@ async function checkout(req, env, now) {
   if (q.error) return json({ error: q.error }, 400, h);
   const c = customerOf(b.customer);
   if (c.error) return json({ error: c.error }, 400, h);
-  // a referral code: checked now, used once the payment is confirmed
+  // a code (promotion or referral): checked now, counted once the payment is confirmed
   let code = '';
+  let codeKind = '';
   if (b.code) {
-    if (!env.PARRAINAGE) return json({ error: 'Les codes de parrainage ne sont pas encore acceptés en ligne.', code: true }, 400, h);
-    const r = await checkReferral(env, b.code, now);
+    if (!env.ATELIER) return json({ error: 'Les codes ne sont pas encore acceptés en ligne.', code: true }, 400, h);
+    const r = await checkCode(env, b.code, now);
     if (!r.ok) return json({ error: r.error, code: true }, 400, h);
+    const off = discountFor(q, r);
+    if (!off) return json({ error: `Le code ${r.code} ne s’applique pas à ces prestations.`, code: true }, 400, h);
     code = r.code;
-    q = withDiscount(q, r.amount);
+    codeKind = r.kind;
+    q = withDiscount(q, off);
   }
   const mode = b.mode === 'full' ? 'full' : 'deposit';
   const { date, time } = b;
@@ -258,7 +272,7 @@ async function checkout(req, env, now) {
   const holdUntil = now + R.holdMinutes * 60000 + 120000;
   const hold = await insertEvent(env, env.CALENDAR_WRITE, {
     summary: `⏳ Paiement en cours — ${titleOf(q, c)}`,
-    description: eventText(q, c, { date, time, mode, code }),
+    description: eventText(q, c, { date, time, mode, code, codeKind }),
     colorId: '8',
     start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone },
     end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
@@ -281,7 +295,7 @@ async function checkout(req, env, now) {
             unit_amount: Math.round(due * 100),
             product_data: {
               name: `${mode === 'full' ? 'Règlement' : 'Acompte 30 %'} — ${what}`,
-              description: `RDV le ${when} à l’atelier SOLAR CAR 37, Vouvray. Total ${euros(q.total)}${q.discount ? ` (parrainage −${euros(q.discount)} déduit)` : ''}${mode === 'full' ? '' : `, reste ${euros(q.total - due)} à régler à l’atelier`}.`,
+              description: `RDV le ${when} à l’atelier SOLAR CAR 37, Vouvray. Total ${euros(q.total)}${q.discount ? ` (${codeKind === 'promo' ? `code ${code}` : 'parrainage'} −${euros(q.discount)} déduit)` : ''}${mode === 'full' ? '' : `, reste ${euros(q.total - due)} à régler à l’atelier`}.`,
             },
           },
         },
@@ -297,7 +311,7 @@ async function checkout(req, env, now) {
         mode,
         config: JSON.stringify(b.config).slice(0, 500),
         customer: customerJson(c),
-        ...(code ? { code, discount: String(q.discount) } : {}),
+        ...(code ? { code, codeKind, discount: String(q.discount) } : {}),
       },
     });
   } catch (err) {
@@ -343,6 +357,7 @@ async function booking(req, env, url) {
       total: q.total,
       discount: q.discount || 0,
       code: m.code || '',
+      codeKind: m.code ? m.codeKind || 'parrainage' : '',
       remaining: Math.max(0, q.total - paid),
       items: (q.items || []).map((i) => ({ label: i.label, detail: i.detail, price: i.price })),
     },
@@ -398,6 +413,8 @@ async function font(name) {
  */
 export async function dailyMails(env, now = Date.now()) {
   const out = { reminders: 0, followUps: 0 };
+  // the client file: clients without any contact for 3 years are removed (CNIL guidance)
+  if (env.ATELIER) out.purged = (await db(env, 'clients/purge', { now }).catch(() => ({ removed: 0 }))).removed;
   if (env.MAIL_CLIENTS !== '1' || !env.RESEND_API_KEY) return { ...out, off: true };
   const t = today(now);
   const jobs = [
@@ -421,7 +438,7 @@ export async function dailyMails(env, now = Date.now()) {
         const at = utcToZoned(start, R.timeZone);
         // a week after: the client's own referral code (a gift card to give), the same one if the
         // e-mail is sent again
-        const referral = job.flag === 'followedUp' && env.PARRAINAGE ? await referralFor(env, { owner: c.firstName, email: c.email, origin: p.session }, now).catch((err) => (console.error('[parrainage]', err.message), null)) : null;
+        const referral = job.flag === 'followedUp' && env.ATELIER ? await referralFor(env, { owner: c.firstName, email: c.email, origin: p.session }, now).catch((err) => (console.error('[parrainage]', err.message), null)) : null;
         await job.send(env, { q, c, date: at.date, time: at.time, end: Date.parse(ev.end.dateTime), paid: (session.amount_total || 0) / 100, referral });
         await patchEvent(env, env.CALENDAR_WRITE, ev.id, { extendedProperties: { private: { ...p, [job.flag]: String(now) } } });
         out[job.count]++;
@@ -433,13 +450,46 @@ export async function dailyMails(env, now = Date.now()) {
   return out;
 }
 
-/** GET /api/referral?code=…: is this referral code valid (the booking page shows the discount) */
-async function referralCheck(req, env, url, now) {
+/** GET /api/code?code=…: is this code valid, a promotion or a referral code (the booking page
+ *  shows the discount); never the referrer's e-mail */
+async function codeCheck(req, env, url, now) {
   const h = cors(req, env);
   if (!h['access-control-allow-origin']) return json({ error: 'Origine refusée' }, 403, h);
-  if (!env.PARRAINAGE) return json({ ok: false, error: 'Les codes de parrainage ne sont pas encore acceptés en ligne.' }, 200, h);
-  const r = await checkReferral(env, url.searchParams.get('code') || '', now);
-  return json(r.ok ? { ok: true, code: r.code, owner: r.owner, amount: r.amount, expires: r.expires } : { ok: false, error: r.error }, 200, h);
+  if (!env.ATELIER) return json({ ok: false, error: 'Les codes ne sont pas encore acceptés en ligne.' }, 200, h);
+  const r = await checkCode(env, url.searchParams.get('code') || '', now);
+  if (!r.ok) return json({ ok: false, error: r.error }, 200, h);
+  return json({ ok: true, kind: r.kind, code: r.code, label: r.label, owner: r.owner, amount: r.amount, percent: r.percent, services: r.services, expires: r.expires }, 200, h);
+}
+
+/** GET /api/promo: the promotion band of the site (cached a few minutes by the browser) */
+async function promoBand(req, env, now) {
+  const h = cors(req, env);
+  const r = env.ATELIER ? await publicBanner(env, now).catch(() => ({ banner: null })) : { banner: null };
+  return json(r, 200, { ...h, 'cache-control': 'public, max-age=300' });
+}
+
+/** POST /api/demande: a copy of a quote request sent from the site's form (navigator.sendBeacon,
+ *  text/plain JSON), into the client file; always a silent 204 */
+async function quoteRequest(req, env, now) {
+  const h = cors(req, env);
+  if (!h['access-control-allow-origin'] || !env.ATELIER) return new Response(null, { status: 204, headers: h });
+  const text = await req.text();
+  let d = null;
+  try {
+    d = text.length <= 8000 ? JSON.parse(text) : null;
+  } catch {}
+  const s = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+  if (d && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s(d.email, 120)) && s(d.lastName || d.firstName, 60)) {
+    const vehicle = [s(d.make, 40), s(d.model, 40), s(d.year, 4)].filter(Boolean).join(' ');
+    await db(env, 'request/add', {
+      now,
+      customer: { firstName: s(d.firstName, 60), lastName: s(d.lastName, 60), email: s(d.email, 120), phone: s(d.phone, 30), vehicle, source: howHeardText(d.source?.channels, d.source?.other).slice(0, 180) },
+      services: s(d.services, 300),
+      wish: s(d.wish, 120),
+      message: String(d.message || '').slice(0, 2000),
+    }).catch((err) => console.error('[atelier] request', err.message));
+  }
+  return new Response(null, { status: 204, headers: h });
 }
 
 export default {
@@ -466,8 +516,12 @@ export default {
       if (req.method === 'POST' && url.pathname === '/api/checkout') return await checkout(req, env, now);
       if (req.method === 'POST' && url.pathname === '/api/stripe-webhook') return await webhook(req, env);
       if (req.method === 'GET' && url.pathname === '/api/booking') return await booking(req, env, url);
-      if (req.method === 'GET' && url.pathname === '/api/referral') return await referralCheck(req, env, url, now);
-      if (url.pathname === '/parrainage' && (req.method === 'GET' || req.method === 'POST')) return await statsKeyed(req, env, url, () => referralPage(req, env, url, now));
+      if (req.method === 'GET' && (url.pathname === '/api/code' || url.pathname === '/api/referral')) return await codeCheck(req, env, url, now);
+      if (req.method === 'GET' && url.pathname === '/api/promo') return await promoBand(req, env, now);
+      if (req.method === 'POST' && url.pathname === '/api/demande') return await quoteRequest(req, env, now);
+      if (url.pathname === '/atelier' || url.pathname.startsWith('/atelier/')) return await atelier(req, env, url, now);
+      // the first referral page: now in the workshop's space
+      if (url.pathname === '/parrainage') return new Response(null, { status: 302, headers: { location: '/atelier/codes' } });
       if (req.method === 'POST' && url.pathname === '/api/stats') return await collect(req, env, ctx, now);
       if (req.method === 'GET' && url.pathname === '/stats') return await statsPage(req, env, url, now);
       if (url.pathname === '/stats/bilan' && (req.method === 'GET' || req.method === 'POST')) return await statsKeyed(req, env, url, () => monthRoute(req, env, url, now));

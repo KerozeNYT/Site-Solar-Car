@@ -386,6 +386,65 @@ document.addEventListener('click', (e) => {
 });
 addEventListener('sc37:sim', (e) => track('simulateur_3d', e.detail));
 
+// ---------------------------------------------------------------- the workshop's server
+// (booking/: the client file and the promotion band of the workshop's space, docs/ATELIER.md)
+const api = document.body.dataset.api;
+
+/** a copy of a quote request sent, into the workshop's client file (prestations and wish as the
+ *  e-mail reads them) */
+function fileRequest(d, { prestations, wish }) {
+  if (!api) return;
+  const body = JSON.stringify({
+    firstName: d.get('prenom') || '',
+    lastName: d.get('nom') || '',
+    email: d.get('email') || '',
+    phone: d.get('telephone') || '',
+    make: d.get('marque') || '',
+    model: d.get('modele') || '',
+    year: d.get('annee') || '',
+    services: prestations.join(', '),
+    wish: wish || '',
+    message: d.get('message') || '',
+    source: { channels: d.getAll('connu'), other: String(d.get('connu_autre') || '') },
+  });
+  try {
+    if (navigator.sendBeacon(`${api}/api/demande`, body)) return;
+  } catch {}
+  fetch(`${api}/api/demande`, { method: 'POST', body, keepalive: true, mode: 'no-cors' }).catch(() => {});
+}
+
+// the promotion band, set from the workshop's space: at the bottom of every page between its
+// dates; its cross hides it for the rest of the visit
+if (api && !/\/reservation\/confirmee\//.test(location.pathname)) {
+  fetch(`${api}/api/promo`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      const b = j?.banner;
+      if (!b) return;
+      try {
+        if (sessionStorage.getItem('sc37-band') === b.id) return;
+      } catch {}
+      const root = new URL(document.querySelector('.site-header__logo')?.getAttribute('href') || '/', location.href);
+      const el = document.createElement('aside');
+      el.className = 'promo-band';
+      el.setAttribute('aria-label', 'Offre du moment');
+      el.innerHTML = '<p class="promo-band__text"></p><a class="promo-band__cta"></a><button type="button" class="promo-band__close" aria-label="Fermer l’offre">×</button>';
+      el.querySelector('p').textContent = b.text;
+      const a = el.querySelector('a');
+      a.textContent = b.cta || 'Réserver';
+      a.href = new URL(`reservation/${b.code ? `?code=${encodeURIComponent(b.code)}` : ''}`, root).href;
+      el.querySelector('button').addEventListener('click', () => {
+        el.remove();
+        try {
+          sessionStorage.setItem('sc37-band', b.id);
+        } catch {}
+      });
+      document.body.append(el);
+      requestAnimationFrame(() => el.classList.add('is-in'));
+    })
+    .catch(() => {});
+}
+
 // ---------------------------------------------------------------- contact form
 /** « Comment nous avez-vous connus ? » as one line: the ticked boxes, « Autre : … » with its text */
 const howHeardLine = (d) => {
@@ -594,6 +653,7 @@ if (form) {
           remember(sig);
           track('demande_envoyee', { pieces_jointes: files.length });
           sendHit({ t: 'connu', c: d.getAll('connu'), o: String(d.get('connu_autre') || '') });
+          fileRequest(d, { prestations, wish });
           post.submit();
           return;
         }
@@ -608,6 +668,7 @@ if (form) {
       }
       remember(sig);
       const heard = new FormData(form);
+      fileRequest(heard, fields(heard));
       form.reset();
       track('demande_envoyee', { pieces_jointes: 0 });
       // the answers to « Comment nous avez-vous connus ? », counted in the statistics

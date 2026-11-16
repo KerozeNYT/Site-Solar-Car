@@ -100,6 +100,7 @@ export function quote(config = {}) {
     if (!vehicle) return { error: 'Véhicule à choisir' };
     if (!formula) return { error: 'Formule à choisir' };
     items.push({
+      kind: 'tint',
       label: `Vitres teintées — ${formula.label}`,
       detail: `${vehicle.label}, teinte choisie à l’atelier`,
       price: formula.price(vehicle.cat),
@@ -110,7 +111,7 @@ export function quote(config = {}) {
       if (!film) return { error: 'Film de pare-brise inconnu' };
       const color = film.iridescent ? tint.windshield.colors.find((x) => x.id === c.color) : null;
       if (film.iridescent && !color) return { error: 'Couleur du film irisé à choisir' };
-      items.push({ label: `Pare-brise — ${film.label}`, detail: color ? color.label : '', price: film.price, minutes: windshieldMinutes });
+      items.push({ kind: 'tint', label: `Pare-brise — ${film.label}`, detail: color ? color.label : '', price: film.price, minutes: windshieldMinutes });
     }
   }
   if (config.lights) {
@@ -118,6 +119,7 @@ export function quote(config = {}) {
     const pairs = lightsBooking.pairs.find((p) => p.id === c.pairs);
     if (!pairs) return { error: 'Feux à choisir' };
     items.push({
+      kind: 'lights',
       label: `Feux teintés — ${pairs.label}`,
       detail: `${lightsBooking.material.label}, teinte choisie à l’atelier`,
       price: lightsBooking.material.perPair.max * pairs.count,
@@ -154,8 +156,36 @@ export function howHeardParse(text = '') {
   return { channels, other: m?.[1] || '' };
 }
 
-/** a referral code as typed: capitals, digits and the dash only (e.g. JEAN-7K2QX) */
-export const referralCode = (s) => String(s || '').toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9-]/g, '').slice(0, 20);
+/** a discount code as typed (referral JEAN-7K2QX, promotion NOEL): capitals without accents,
+ *  digits and the dash only */
+export const referralCode = (s) =>
+  String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\s+/g, '')
+    .replace(/[^A-Z0-9-]/g, '')
+    .slice(0, 20);
+
+/** the bookable services a promotion can cover (quote items carry the same `kind`) */
+export const codeServices = [
+  { id: 'tint', label: 'Vitres teintées (et pare-brise)' },
+  { id: 'lights', label: 'Feux teintés' },
+];
+
+/**
+ * The discount (EUR) a checked code gives on a quote: a fixed amount (referral, or a promotion in
+ * euros) or a percentage, on the items of the services it covers (all when it names none); 0 when
+ * it covers none of them. info: { amount } or { percent, services: ['tint', …] }.
+ */
+export function discountFor(q, info) {
+  if (q.error || !info) return 0;
+  const covered = info.services?.length ? q.items.filter((i) => info.services.includes(i.kind)) : q.items;
+  const base = covered.reduce((a, i) => a + i.price, 0);
+  if (!base) return 0;
+  const d = info.percent > 0 ? Math.round(base * info.percent) / 100 : Math.min(base, Number(info.amount) || 0);
+  return Math.round(d * 100) / 100;
+}
 
 /** the price with a referral discount: the total is lowered, the deposit taken on what is left */
 export function withDiscount(q, amount) {

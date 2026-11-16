@@ -1,4 +1,4 @@
-import { bookingRules as R, quote, amountDue, formatDuration, formatEuros, withDiscount, referralCode } from '../../content/booking.js';
+import { bookingRules as R, quote, amountDue, formatDuration, formatEuros, withDiscount, referralCode, discountFor } from '../../content/booking.js';
 import { jobSpan, utcToZoned } from '../../booking/schedule.js';
 
 /**
@@ -39,8 +39,11 @@ export function startBooking(root) {
   const checked = (name) => $$(`input[name="${name}"]:checked`).map((i) => i.value);
   let slot = null; // { date, time }
   let lastKey = '';
-  let referral = null; // { code, amount }: a referral code checked by the server
-  const priced = (c) => withDiscount(quote(c), referral?.amount || 0);
+  let referral = null; // a code checked by the server: { code, kind, label, amount | percent, services }
+  const priced = (c) => {
+    const q = quote(c);
+    return withDiscount(q, discountFor(q, referral));
+  };
 
   // ------------------------------------------------------------- the configuration
   function config() {
@@ -91,6 +94,15 @@ export function startBooking(root) {
       }
     $('[data-duration]').textContent = q.error ? '—' : formatDuration(q.minutes);
     $('[data-discount-row]').hidden = !q.discount;
+    $('[data-discount-label]').textContent = referral?.kind === 'promo' ? `Code ${referral.code}` : 'Parrainage';
+    // a code that covers none of the chosen services
+    if (referral && !q.error && !q.discount) {
+      codeStatus.textContent = `Le code ${referral.code} ne s’applique pas à ces prestations.`;
+      codeStatus.classList.replace('is-ok', 'is-error');
+    } else if (referral && q.discount) {
+      codeStatus.textContent = codeText(referral);
+      codeStatus.classList.replace('is-error', 'is-ok');
+    }
     $('[data-discount]').textContent = q.discount ? `−${formatEuros(q.discount)}` : '—';
     $('[data-total]').textContent = q.error ? '—' : formatEuros(q.total);
     $('[data-deposit]').textContent = q.error ? '—' : formatEuros(q.deposit);
@@ -258,6 +270,11 @@ export function startBooking(root) {
 
   // ------------------------------------------------------------- referral code
   const codeStatus = $('[data-referral-status]');
+  const until = (ms) => new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', timeZone: R.timeZone }).format(new Date(ms));
+  const codeText = (j) =>
+    j.kind === 'promo'
+      ? `Code ${j.code} : ${j.percent ? `−${j.percent} %` : `${formatEuros(j.amount)} de remise`}, valable jusqu’au ${until(j.expires)}.`
+      : `Code de ${j.owner} : ${formatEuros(j.amount)} de remise, déduits du total.`;
   let checking = null; // the code being checked (the field's change and the button come together)
   async function applyCode() {
     const input = form.elements.code;
@@ -278,11 +295,11 @@ export function startBooking(root) {
     codeStatus.textContent = 'Vérification du code…';
     checking = code;
     try {
-      const res = await fetch(`${api}/api/referral?code=${encodeURIComponent(code)}`);
+      const res = await fetch(`${api}/api/code?code=${encodeURIComponent(code)}`);
       const j = await res.json();
       if (j.ok) {
-        referral = { code: j.code, amount: j.amount };
-        codeStatus.textContent = `Code de ${j.owner} : ${formatEuros(j.amount)} de remise, déduits du total.`;
+        referral = j;
+        codeStatus.textContent = codeText(j);
         codeStatus.classList.add('is-ok');
       } else {
         codeStatus.textContent = j.error || 'Ce code n’est pas reconnu.';
@@ -430,7 +447,7 @@ export async function startBookingDone(root) {
   lead.textContent = 'Merci ! Votre créneau est réservé à l’atelier. Un reçu de paiement vous a été envoyé par e-mail.';
   $('[data-done-when]').textContent = `${dateLabel(b.date)} · ${hour(b.time)} – ${hour(end)}`;
   $('[data-done-items]').innerHTML = b.items.map((i) => `<li><span><b>${i.label.replace(/</g, '&lt;')}</b><small>${(i.detail || '').replace(/</g, '&lt;')}</small></span><span class="booking__price">${formatEuros(i.price)}</span></li>`).join('');
-  $('[data-done-totals]').innerHTML = `${b.discount ? `<div><dt>Parrainage</dt><dd>−${formatEuros(b.discount)}</dd></div>` : ''}<div><dt>Total</dt><dd>${formatEuros(b.total)}</dd></div><div><dt>Payé en ligne</dt><dd>${formatEuros(b.amount)}</dd></div><div><dt>À régler à l’atelier</dt><dd>${b.remaining ? formatEuros(b.remaining) : 'rien'}</dd></div>`;
+  $('[data-done-totals]').innerHTML = `${b.discount ? `<div><dt>${b.codeKind === 'promo' ? `Code ${String(b.code).replace(/</g, '&lt;')}` : 'Parrainage'}</dt><dd>−${formatEuros(b.discount)}</dd></div>` : ''}<div><dt>Total</dt><dd>${formatEuros(b.total)}</dd></div><div><dt>Payé en ligne</dt><dd>${formatEuros(b.amount)}</dd></div><div><dt>À régler à l’atelier</dt><dd>${b.remaining ? formatEuros(b.remaining) : 'rien'}</dd></div>`;
   $('[data-done-card]').hidden = false;
   $('[data-done-ics]').addEventListener('click', () => {
     const stamp = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');

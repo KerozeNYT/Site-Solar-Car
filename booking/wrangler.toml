@@ -32,15 +32,20 @@ class_name = "Fiche"
 tag = "v2"
 new_sqlite_classes = ["Fiche"]
 
-# the referral codes (booking/referral.js): one Durable Object with its own SQLite database, so that
-# a code is checked and used in one step
+# the workshop's database (booking/store.js): clients, bookings, quote requests, referral codes,
+# promotions, the band of the site. One Durable Object with its own SQLite database. First made for
+# the referral codes alone (v3, class Parrainage), renamed when it became the workshop's (v4).
 [[durable_objects.bindings]]
-name = "PARRAINAGE"
-class_name = "Parrainage"
+name = "ATELIER"
+class_name = "Atelier"
 
 [[migrations]]
 tag = "v3"
 new_sqlite_classes = ["Parrainage"]
+
+[[migrations]]
+tag = "v4"
+renamed_classes = [{ from = "Parrainage", to = "Atelier" }]
 
 # the statistics e-mail, on the 1st of each month at 7:00 UTC (8:00 or 9:00 in Paris); the photo of
 # the week on the Google Business Profile, every Tuesday at 8:17 UTC (FICHE_CRON in booking/fiche-google.js);

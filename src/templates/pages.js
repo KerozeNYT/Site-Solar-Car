@@ -478,7 +478,7 @@ const CREST = '<div class="crest-wrap" data-crest data-src="/img/brand/embleme-2
 
 function page(ctx, opts, body) {
   return `${head(ctx, opts)}
-<body class="${opts.bodyClass || ''}"${ctx.business.stats?.endpoint ? ` data-stats="${esc(ctx.business.stats.endpoint)}"` : ''}>
+<body class="${opts.bodyClass || ''}"${ctx.business.stats?.endpoint ? ` data-stats="${esc(ctx.business.stats.endpoint)}"` : ''}${ctx.booking?.bookingRules?.api ? ` data-api="${esc(ctx.booking.bookingRules.api)}"` : ''}>
 <div class="ambient" data-ambient aria-hidden="true"><div class="ambient__haze" data-haze></div><div class="ambient__sweep"></div>${CREST}</div>
 ${header(ctx, opts.path)}
 <main id="contenu">
@@ -1255,6 +1255,7 @@ export function legalPage(ctx) {
       <p><strong>Responsable du traitement :</strong> ${esc(b.owner || b.name)}, ${esc(b.name)}${b.email ? `, ${esc(b.email)}` : ''}.</p>
       <p><strong>Données et finalité :</strong> les informations saisies dans le formulaire (identité, coordonnées, véhicule, prestation, message et éventuelles photos) servent uniquement à répondre à votre demande de devis ou de rendez-vous et à son suivi. Elles ne sont ni vendues ni cédées. N’envoyez que les photos utiles à la demande (inutile, par exemple, de joindre une carte grise complète).</p>
       <p><strong>Base légale :</strong> les mesures précontractuelles prises à votre demande (article 6.1.b du RGPD).</p>
+      <p><strong>Fichier clients :</strong> vos demandes de devis et vos réservations en ligne sont aussi enregistrées dans le fichier clients de l’atelier (hébergé par Cloudflare), réservé à l’atelier, pour le suivi de vos demandes et de vos rendez-vous. Une fiche sans nouveau contact pendant 3 ans est effacée automatiquement.</p>
       <p><strong>Destinataires :</strong> l’atelier uniquement.${b.formEndpoint && /formsubmit\.co/.test(b.formEndpoint) ? ' Le formulaire est acheminé par le service FormSubmit (formsubmit.co), prestataire établi hors de l’Union européenne, qui transmet votre demande par e-mail à l’atelier sans la publier.' : ''}</p>
       ${b.google?.placeId && b.google?.mapsApiKey ? '<p>Les avis Google affichés sur le site sont chargés depuis Google Maps Platform (Google Ireland Ltd) au moment de la visite ; Google reçoit alors l’adresse IP du visiteur.</p>' : ''}
       ${b.instagramFeed?.feedUrl ? '<p>Les dernières publications Instagram sont chargées depuis le service de flux qui les met à disposition ; ce service reçoit alors l’adresse IP du visiteur.</p>' : ''}
@@ -1790,8 +1791,8 @@ export function reservationPage(ctx) {
         <fieldset class="booking__step" data-step="pay" disabled>
           <legend><span class="booking__num">4</span> Paiement</legend>
           <div class="form__row referral" data-referral>
-            <label for="b-code">Code de parrainage <span class="optional">(facultatif)</span></label>
-            <div class="referral__row"><input id="b-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ex. JEAN-7K2QX"><button class="btn btn--ghost" type="button" data-referral-apply>Appliquer</button></div>
+            <label for="b-code">Code promo ou de parrainage <span class="optional">(facultatif)</span></label>
+            <div class="referral__row"><input id="b-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ex. NOEL ou JEAN-7K2QX"><button class="btn btn--ghost" type="button" data-referral-apply>Appliquer</button></div>
             <p class="referral__status" data-referral-status aria-live="polite"></p>
           </div>
           <div class="picks picks--pay">
@@ -1812,7 +1813,7 @@ export function reservationPage(ctx) {
         <ul class="booking__items" data-items><li class="booking__empty">Choisissez une prestation.</li></ul>
         <dl class="booking__totals">
           <div><dt>Durée</dt><dd data-duration>—</dd></div>
-          <div data-discount-row hidden><dt>Parrainage</dt><dd data-discount>—</dd></div>
+          <div data-discount-row hidden><dt data-discount-label>Remise</dt><dd data-discount>—</dd></div>
           <div><dt>Total</dt><dd data-total>—</dd></div>
           <div><dt>Acompte 30 %</dt><dd data-deposit>—</dd></div>
           <div><dt>Rendez-vous</dt><dd data-when>—</dd></div>
