@@ -66,6 +66,8 @@ Le build d’aperçu utilise `SITE_BASE=/Site-Solar-Car/` (préfixe de toutes le
 
 Ne publier que des photos de véhicules dont le propriétaire est d'accord.
 
+Les photos des réalisations partent aussi sur la **fiche Google**, une par semaine, automatiquement : une réalisation ajoutée en haut de la liste part dès le mardi suivant (`docs/FICHE-GOOGLE-AUTO.md`).
+
 ## Covering : ajouter une référence ou une marque
 
 Tout est décrit dans `docs/COVERING.md`. En bref :

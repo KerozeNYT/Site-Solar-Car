@@ -164,8 +164,9 @@ Tu ne peux pas choisir les fichiers toi-même : quand la fenêtre de sélection 
    Si Google demande une catégorie, aide-toi du nom du fichier : « atelier-exterieur » → Extérieur,
    « atelier-interieur » → Intérieur, « pose » → Au travail, le reste → photos de produits ou de
    services.
-4. Le dossier `2-une-par-semaine` n'est **pas** pour aujourd'hui : je les ajouterai une par une,
-   chaque semaine (Google valorise une fiche régulièrement alimentée).
+4. Le dossier `2-une-par-semaine` n'est **pas** pour toi : n'envoie aucune de ces photos. Un robot
+   les publie automatiquement, une par semaine (Google valorise une fiche régulièrement
+   alimentée) ; s'il les trouvait déjà sur la fiche, elles feraient doublon.
 
 ---
 
