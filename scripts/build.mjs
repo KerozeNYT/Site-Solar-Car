@@ -7,6 +7,7 @@ import { rebase, markPreview } from './rebase.mjs';
 import { redirects } from '../content/redirects.js';
 import { business } from '../content/site.js';
 import { addBeacon, applyCsp, htaccessBlock, writeHeadersFile, writeSecurityTxt } from './security.mjs';
+import { writeFicheGoogle } from './fiche-google.mjs';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const out = path.join(root, 'dist');
@@ -103,6 +104,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   fs.mkdirSync(out, { recursive: true });
   const res = await bundle({ minify: !dev });
   copyDir(path.join(root, 'public'), out);
+  // the photos sent to the Google Business Profile, one a week (booking/fiche-google.js)
+  console.log('fiche-google', await writeFicheGoogle(out), 'photos');
   const assets = assetsFrom(res.metafile);
   const pages = await renderSite(out, assets);
   // sub-folder hosting (GitHub Pages preview): SITE_BASE=/Site-Solar-Car/ ; PREVIEW=1 = noindex

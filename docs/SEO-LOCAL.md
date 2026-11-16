@@ -33,7 +33,8 @@ la fiche Google, les avis, les sites qui citent l'atelier. Cette liste est à su
 - **Nom, adresse, téléphone identiques partout** (fiche, site, annuaires, réseaux) :
   `SOLAR CAR 37 — 395 rue des Entrepreneurs, 37210 Vouvray — 06 12 04 57 00`.
 - **Photos** : une ou deux par semaine, de vrais chantiers (les mêmes que la galerie du site
-  conviennent), plus l'atelier, la façade et l'enseigne.
+  conviennent), plus l'atelier, la façade et l'enseigne. Le serveur de réservation publie
+  automatiquement une photo des réalisations du site chaque mardi (`docs/FICHE-GOOGLE-AUTO.md`).
 - **Avis** : en demander un à **chaque** client, le jour de la restitution (le lien direct est
   sur le site : `https://g.page/r/CV6TtSL2JvXAEAE/review` ; un QR code imprimé au comptoir
   aide beaucoup). Répondre à chaque avis, en citant naturellement la prestation et la

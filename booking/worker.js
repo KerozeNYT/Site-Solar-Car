@@ -13,6 +13,9 @@
  *   GET  /stats/f/<font>.woff2                       the fonts of the statistics page
  *   cron, the 1st of each month                      the monthly e-mail (booking/stats-report.js)
  *   cron, every day at 16:00 UTC                     reminders (tomorrow) and news (a week ago) to clients
+ *   GET  /fiche-google?cle=…, /fiche-google/connexion, /fiche-google/retour, POST /fiche-google/envoyer
+ *        and a cron every Tuesday                    one photo a week on the Google Business Profile
+ *                                                    (booking/fiche-google.js, docs/FICHE-GOOGLE-AUTO.md)
  *
  * Environment (booking/wrangler.toml, secrets with `wrangler secret put`):
  *   ALLOWED_ORIGINS        sites allowed to call the API, comma separated
@@ -27,6 +30,8 @@
  *   STATS_KEY              (secret) the key of the statistics page
  *   STATS_PREVIEW_ORIGINS  sites whose visits are counted apart (the preview), comma separated
  *   STATS_PAGE             address of the statistics page (link of the monthly e-mail)
+ *   FICHE                  Durable Object (class Fiche): the Google Business Profile robot's state
+ *   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET (secrets) its Google sign-in (OAuth client)
  */
 import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
@@ -36,9 +41,12 @@ import { sendBookingMails, sendReminderMail, sendFollowUpMail } from './mail.js'
 import { record, hitFromPage, heardRows } from './stats.js';
 import { statsPage } from './stats-page.js';
 import { sendMonthly, monthRoute } from './stats-report.js';
+import { ficheRoute, runFiche, FICHE_CRON } from './fiche-google.js';
 
 // the Durable Object class of the statistics database (booking/wrangler.toml)
 export { Stats } from './stats.js';
+// the Durable Object class of the Google Business Profile robot
+export { Fiche } from './fiche-google.js';
 
 const DAY = 86400000;
 const list = (s) => (s || '').split(',').map((x) => x.trim()).filter(Boolean);
@@ -395,11 +403,18 @@ export async function dailyMails(env, now = Date.now()) {
 }
 
 export default {
-  /** the 1st of each month: the statistics e-mail of the month that just ended; every day: the
-   *  reminders and news of the clients */
+  /** Tuesdays: the photo of the week on the Google Business Profile; every day: the reminders and
+   *  news of the clients; the 1st of each month: the statistics e-mail of the month that just ended */
   async scheduled(controller, env, ctx) {
-    if (controller.cron === '0 16 * * *') ctx.waitUntil(dailyMails(env, controller.scheduledTime).then((r) => console.log('[mail] daily', JSON.stringify(r))).catch((err) => console.error('[mail] daily', err)));
-    else ctx.waitUntil(sendMonthly(env, controller.scheduledTime).then((r) => console.log('[stats] monthly', JSON.stringify(r))).catch((err) => console.error('[stats] monthly', err)));
+    if (controller.cron === FICHE_CRON) {
+      ctx.waitUntil(runFiche(env, controller.scheduledTime).then((r) => console.log('[fiche] weekly', JSON.stringify(r))).catch((err) => console.error('[fiche] weekly', err)));
+      return;
+    }
+    if (controller.cron === '0 16 * * *') {
+      ctx.waitUntil(dailyMails(env, controller.scheduledTime).then((r) => console.log('[mail] daily', JSON.stringify(r))).catch((err) => console.error('[mail] daily', err)));
+      return;
+    }
+    ctx.waitUntil(sendMonthly(env, controller.scheduledTime).then((r) => console.log('[stats] monthly', JSON.stringify(r))).catch((err) => console.error('[stats] monthly', err)));
   },
 
   async fetch(req, env, ctx) {
@@ -415,6 +430,10 @@ export default {
       if (req.method === 'GET' && url.pathname === '/stats') return await statsPage(req, env, url, now);
       if (url.pathname === '/stats/bilan' && (req.method === 'GET' || req.method === 'POST')) return await statsKeyed(req, env, url, () => monthRoute(req, env, url, now));
       if (req.method === 'GET' && url.pathname.startsWith('/stats/f/')) return await font(url.pathname.slice(9));
+      if (url.pathname.startsWith('/fiche-google')) {
+        const r = await ficheRoute(req, env, url, now);
+        if (r) return r;
+      }
       return json({ error: 'not found' }, 404, cors(req, env));
     } catch (err) {
       console.error(err);

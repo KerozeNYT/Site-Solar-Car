@@ -6,6 +6,8 @@
 #                               npx wrangler secret put STRIPE_WEBHOOK_SECRET
 #                               npx wrangler secret put RESEND_API_KEY
 #                               npx wrangler secret put STATS_KEY   (key of the statistics page)
+#                               npx wrangler secret put GOOGLE_OAUTH_CLIENT_ID      (fiche Google robot,
+#                               npx wrangler secret put GOOGLE_OAUTH_CLIENT_SECRET   docs/FICHE-GOOGLE-AUTO.md)
 name = "solarcar37-reservation"
 main = "worker.js"
 compatibility_date = "2026-10-01"
@@ -21,11 +23,21 @@ class_name = "Stats"
 tag = "v1"
 new_sqlite_classes = ["Stats"]
 
-# the statistics e-mail, on the 1st of each month at 7:00 UTC (8:00 or 9:00 in Paris); every day at
-# 16:00 UTC (17:00 or 18:00 in Paris), the clients' reminders and news (booking/worker.js,
+# the Google Business Profile robot (booking/fiche-google.js): Google sign-in, photos sent
+[[durable_objects.bindings]]
+name = "FICHE"
+class_name = "Fiche"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Fiche"]
+
+# the statistics e-mail, on the 1st of each month at 7:00 UTC (8:00 or 9:00 in Paris); the photo of
+# the week on the Google Business Profile, every Tuesday at 8:17 UTC (FICHE_CRON in booking/fiche-google.js);
+# every day at 16:00 UTC (17:00 or 18:00 in Paris), the clients' reminders and news (booking/worker.js,
 # dailyMails: nothing is sent while MAIL_CLIENTS is "0")
 [triggers]
-crons = ["0 7 1 * *", "0 16 * * *"]
+crons = ["0 7 1 * *", "17 8 * * 2", "0 16 * * *"]
 
 # the fonts of the statistics page (booking/stats-fonts.js), uploaded as binary modules
 [[rules]]
@@ -56,3 +68,5 @@ MAIL_FROM = "SOLAR CAR 37 <onboarding@resend.dev>"
 MAIL_CLIENTS = "0"
 # where the links of the e-mails lead (the preview until the site is on solarcar37.fr)
 SITE_URL = "https://kerozenyt.github.io/Site-Solar-Car"
+# the Google Business Profile robot e-mails each photo sent ("tout") or only its problems ("erreurs")
+FICHE_MAILS = "tout"
