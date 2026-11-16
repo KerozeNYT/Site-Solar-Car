@@ -23,10 +23,10 @@ if (!business.social?.facebook) add('content/site.js → business.social.faceboo
 const credits = [car, ...Object.values(vehicles).map((v) => v.config).filter(Boolean)].map((c) => c.credit).filter(Boolean);
 const open = [...new Set(credits.filter((c) => /compléter/i.test(c.text)).map((c) => c.text.split(' — ')[0]))];
 if (open.length) add('content/car.js, content/cars/*.js → credit', `Licence et crédit des modèles 3D (${open.length}) : ${open.join(', ')}`, 'droit d’utilisation des modèles, affiché dans les mentions légales');
-// a « NC » Creative Commons licence forbids commercial use: a licence bought from the author, or
-// another model, is needed for a business site
+// a « NC » Creative Commons licence forbids commercial use: kept by decision of SOLAR CAR 37
+// (16 November 2026), credited; to be replaced (and the home film redone) if an author asks
 const nc = [...new Set(credits.filter((c) => /\bBY-NC/.test(c.text)).map((c) => c.text.match(/« ([^»]+) »/)?.[1] || c.text))];
-if (nc.length) add('content/car.js, content/cars/*.js → credit', `Modèles 3D sous licence non commerciale (${nc.length}) : ${nc.join(', ')}`, 'usage commercial interdit sans l’accord de l’auteur : licence à acheter ou modèle à remplacer');
+if (nc.length) add('content/car.js, content/cars/*.js → credit', `Modèles 3D sous licence non commerciale (${nc.length}) : ${nc.join(', ')}`, 'conservés par décision de l’atelier (16/11/2026), crédités ; à remplacer si un auteur le demande (le film d’accueil vient de la Porsche)');
 
 const photos = (realisations || []).flatMap((r) => r.photos || []);
 const missing = photos.filter((p) => !fs.existsSync(path.join(root, 'public/img/realisations', `${p.id}-960.webp`)));
