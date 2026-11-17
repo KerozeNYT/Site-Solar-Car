@@ -55,6 +55,8 @@ export const coveringPage = {
         title: 'Déchromage',
         text: 'Les pièces chromées (calandre, entourages, baguettes) passent en noir brillant, satiné ou mat, pour une ligne plus sobre et plus sportive.',
         points: ['Film noir brillant, satiné ou mat', 'Seules les pièces réellement chromées sont concernées', 'Combinable avec un covering complet ou partiel'],
+        // its own page, with the details
+        more: { label: 'Tout sur le déchromage', href: '/dechromage/' },
       },
     ],
     price: 'Sur devis',

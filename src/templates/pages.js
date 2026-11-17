@@ -1009,7 +1009,7 @@ function coveringServicePage(ctx, s) {
         <p>${esc(o.text)}</p>
         <ul class="checklist">${o.points.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
         <p class="cov-offer__price"><span>Tarif</span> <strong>${esc(CP.offers.price)}</strong></p>
-        <a class="btn btn--ghost btn--sm" href="/contact/?prestation=${s.slug}">Demander un devis</a>
+        ${o.more ? `<a class="btn btn--primary btn--sm" href="${esc(o.more.href)}">${esc(o.more.label)}</a> ` : ''}<a class="btn btn--ghost btn--sm" href="/contact/?prestation=${o.id === 'dechromage' ? 'dechromage' : s.slug}">Demander un devis</a>
       </li>`
     )
     .join('');

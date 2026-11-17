@@ -426,8 +426,10 @@ export const services = [
     // photo of the card on the home page (« Un atelier, six savoir-faire »)
     cardPhoto: { id: 'mclaren-720s-covering-noir-satine-34', focus: '50% 50%' },
     still: 'covering',
-    name: 'Covering & déchromage',
-    short: 'Covering complet ou partiel et déchromage : 3M™, Avery Dennison, TeckWrap, Oracal…, choix sur nuancier à l’atelier.',
+    // « Covering » alone: the déchromage has its own page (/dechromage/), listed right after it in
+    // the menu, the footer and the quote form (the address stays /covering-dechromage/)
+    name: 'Covering',
+    short: 'Covering complet ou partiel : 3M™, Avery Dennison, TeckWrap, Oracal…, choix sur nuancier à l’atelier.',
     seo: {
       title: 'Covering voiture à Vouvray, près de Tours | SOLAR CAR 37',
       description:
