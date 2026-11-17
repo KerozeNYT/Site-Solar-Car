@@ -1,5 +1,25 @@
 # Journal des changements
 
+## Habillage saisonnier : Néon jusqu'au 30 novembre, Noël en décembre (17 novembre 2026)
+
+- Tout le site change d'habit selon la date (jour à Paris), sans reconstruction : `content/themes.js`
+  (dates), un petit script en tête de page pose `data-saison` sur `<html>` avant l'affichage.
+  Hors des dates, le noir et or habituel. Aperçu : `?apercu-theme=neon`, `?apercu-theme=noel`,
+  `?apercu-theme=aucun` (retour aux dates).
+- **Néon** (17-30 novembre, sortie de GTA 6) : couleurs coucher de soleil (rose, orange, violet,
+  cyan), boutons dégradé coucher de soleil avec halo néon, boutons secondaires cyan, mots en
+  italique des titres en dégradé, surtitres cyan, liseré néon sous l'en-tête, néons du fond rose et
+  cyan, logo recoloré (blason en coucher de soleil, nom blanc vers rose), et en bas de chaque page un
+  soleil rayé sur une grille néon entre des palmiers. Dessin original : aucune image, aucun logo,
+  aucune police du jeu.
+- **Noël** (1er-31 décembre) : boutons rouge laqué, guirlande lumineuse qui scintille sous
+  l'en-tête, neige qui tombe, bord de neige sur le pied de page, bonnet de Noël sur le logo.
+- Logos : `node scripts/logo-saisons.mjs` (dérivés des logos `*-clair-*`, rien de redessiné) ;
+  palmiers : `node scripts/saisons-decor.mjs`. Le logo d'une saison n'est téléchargé que pendant
+  sa saison.
+- Les couleurs dorées du CSS passent par `--accent-rgb` (même rendu hors saison).
+- Mouvements (grille, neige, guirlande) coupés si l'appareil demande moins d'animations.
+
 ## Noël jusqu'au 24 décembre, compte à rebours, code dans le devis, annulation à 72 h, agenda à 6 mois (17 novembre 2026)
 
 - NOEL : −15 % sur toutes les prestations, réservations et demandes de devis du 1er au 24 décembre

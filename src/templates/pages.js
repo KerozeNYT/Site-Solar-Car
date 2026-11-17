@@ -5,6 +5,7 @@ import { priceText, vatNote } from '../../content/pricing.js';
 import { coveringPage as CP, FINISHES, EFFECTS } from '../../content/covering.js';
 import { filmTravel } from '../../content/film.js';
 import { films as coveringFilms, ranges as filmRanges } from '../../content/films/index.js';
+import { siteThemes } from '../../content/themes.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 
@@ -177,7 +178,10 @@ const ld = (obj) => `<script type="application/ld+json">${JSON.stringify(obj).re
 // ------------------------------------------------------------------------- shared chrome
 // <head> of every page. The speculation rules ask Chrome / Edge to fetch a page of the site as
 // soon as the visitor hovers its link (or presses it on a phone): the next page opens at once.
-// Both inline scripts are allowed by their hash in the Content-Security-Policy (scripts/security.mjs).
+// The inline scripts are allowed by their hash in the Content-Security-Policy (scripts/security.mjs).
+// The seasonal look (content/themes.js): data-saison on <html>, set before the first paint from the
+// day in Paris, or ?apercu-theme=<id> (kept for the visit; « aucun » goes back to the dates).
+const themeScript = `<script>(function(d,T){var id,q=/[?&]apercu-theme=([a-z]+)/.exec(location.search);try{if(q){if(q[1]==='aucun')sessionStorage.removeItem('sc37-theme');else sessionStorage.setItem('sc37-theme',q[1])}id=sessionStorage.getItem('sc37-theme')}catch(e){}if(!id){var t=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());for(var i=0;i<T.length;i++)if(t>=T[i][1]&&t<=T[i][2])id=T[i][0]}for(var j=0;j<T.length;j++)if(T[j][0]===id){d.documentElement.setAttribute('data-saison',id);var m=d.querySelector('meta[name="theme-color"]');if(m)m.content=T[j][3]}})(document,${JSON.stringify(siteThemes.map((t) => [t.id, t.starts, t.ends, t.color]))})</script>`;
 function head(ctx, { title, description, path, image = '/stills/og.jpg', preload = '', noindex = false, extra = '' }) {
   const b = ctx.business;
   return `<!doctype html>
@@ -208,12 +212,25 @@ ${(ctx.assets.fonts || [ctx.assets.font]).map((f) => `<link rel="preload" href="
 ${preload}
 <link rel="stylesheet" href="${ctx.assets.css}">
 <script>(function(d){var c=d.documentElement.classList,n=navigator.connection;c.add('js');if(!matchMedia('(prefers-reduced-motion: reduce)').matches&&!(n&&(n.saveData||/2g|3g/.test(n.effectiveType||'')))&&!/[?&]static\\b/.test(location.search))c.add('tour-live')})(document)</script>
+${themeScript}
 <script type="speculationrules">{"prefetch":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/design/*"}}]},"eagerness":"moderate"}]}</script>
 ${extra}
 </head>`;
 }
 
 const CHEVRON = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>';
+
+/** the logo of each seasonal look (content/themes.js), hidden and never downloaded outside its
+ *  dates (loading="lazy" + display: none); the Christmas one is taller (room for the hat) */
+const NOEL_PAD = { 'logo-horizontal': 0.2, 'logo-officiel': 0.1 };
+function seasonLogos(name, widths, sizes, w, h, altPrefix) {
+  return siteThemes
+    .map((t) => {
+      const hh = t.id === 'noel' ? Math.round(h * (1 + NOEL_PAD[name])) : h;
+      return `<img class="logo-saison logo-saison--${t.id}" src="/img/brand/${name}-${t.id}-${widths[0]}.webp" srcset="${widths.map((x) => `/img/brand/${name}-${t.id}-${x}.webp ${x}w`).join(', ')}" sizes="${sizes}" width="${w}" height="${hh}" alt="${altPrefix}SOLAR CAR 37" loading="lazy" decoding="async">`;
+    })
+    .join('');
+}
 
 function header(ctx, current = '') {
   const items = ctx.nav
@@ -230,7 +247,7 @@ function header(ctx, current = '') {
   const book = !!ctx.booking?.bookingRules.api;
   return `<a class="skip-link" href="#contenu">Aller au contenu</a>
 <header class="site-header" data-header>
-  <a class="site-header__logo" href="/" aria-label="${esc(ctx.business.name)} — accueil"><img src="/img/brand/logo-horizontal-clair-200.webp" srcset="/img/brand/logo-horizontal-clair-200.webp 200w, /img/brand/logo-horizontal-clair-400.webp 400w" sizes="114px" width="114" height="44" alt="${esc(ctx.business.name)}"></a>
+  <a class="site-header__logo" href="/" aria-label="${esc(ctx.business.name)} — accueil"><img class="logo-base" src="/img/brand/logo-horizontal-clair-200.webp" srcset="/img/brand/logo-horizontal-clair-200.webp 200w, /img/brand/logo-horizontal-clair-400.webp 400w" sizes="114px" width="114" height="44" alt="${esc(ctx.business.name)}">${seasonLogos('logo-horizontal', [200, 400], '114px', 114, 44, '')}</a>
   <nav class="site-nav" aria-label="Navigation principale">
     <button class="site-nav__toggle" type="button" aria-expanded="false" aria-controls="menu-principal" data-nav-toggle>
       <span class="site-nav__bars" aria-hidden="true"></span><span class="visually-hidden">Menu</span>
@@ -262,9 +279,10 @@ function footer(ctx) {
     ? `<p class="site-footer__credit">${ctx.car.credit.url ? `<a href="${esc(ctx.car.credit.url)}" rel="noopener">${esc(ctx.car.credit.text)}</a>` : esc(ctx.car.credit.text)}</p>`
     : '';
   return `<footer class="site-footer">
+  <div class="saison-horizon" aria-hidden="true"><span class="saison-horizon__sun"></span><span class="saison-horizon__grid"></span><span class="saison-horizon__palms"><img src="/img/saisons/palmier-1.svg" alt="" width="610" height="780" loading="lazy" decoding="async"><img src="/img/saisons/palmier-3.svg" alt="" width="580" height="600" loading="lazy" decoding="async"><img src="/img/saisons/palmier-2.svg" alt="" width="630" height="690" loading="lazy" decoding="async"></span></div>
   <div class="container site-footer__grid">
     <div>
-      <a class="site-footer__logo" href="/" aria-label="${esc(b.name)} — accueil"><img src="/img/brand/logo-officiel-clair-240.webp" srcset="/img/brand/logo-officiel-clair-240.webp 240w, /img/brand/logo-officiel-clair-480.webp 480w" sizes="132px" width="132" height="142" alt="Logo ${esc(b.name)}" loading="lazy"></a>
+      <a class="site-footer__logo" href="/" aria-label="${esc(b.name)} — accueil"><img class="logo-base" src="/img/brand/logo-officiel-clair-240.webp" srcset="/img/brand/logo-officiel-clair-240.webp 240w, /img/brand/logo-officiel-clair-480.webp 480w" sizes="132px" width="132" height="142" alt="Logo ${esc(b.name)}" loading="lazy">${seasonLogos('logo-officiel', [240, 480], '132px', 132, 142, 'Logo ')}</a>
       <p class="site-footer__tag">${esc(b.tagline)} — ${esc(b.address?.city || b.department)}, près de Tours (${esc(b.departmentCode)}).</p>
       ${contactLines(b)}
       ${socialLinks(b, 'social social--footer')}
@@ -486,6 +504,7 @@ ${body}
 </main>
 ${footer(ctx)}
 ${actionBar(ctx)}
+<div class="saison-fx" aria-hidden="true"></div>
 <script type="module" src="${ctx.assets.js}"></script>
 </body>
 </html>

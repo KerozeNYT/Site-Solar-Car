@@ -54,6 +54,8 @@
   /* or du blason */
   --accent: #e3c27a;
   --accent-strong: #f1dca2;
+  /* the accent as « r, g, b » (rgba(var(--accent-rgb), 0.3)): the seasonal looks change it */
+  --accent-rgb: 227, 194, 122;
   --on-accent: #0a0a0b;
   /* anciens noms (gardés pour les composants) */
   --navy-950: #050607;
@@ -61,7 +63,7 @@
   --navy-800: #111216;
   --navy-700: #c7c3ba;
   --navy-600: #24262c;
-  --gold-100: rgba(227, 194, 122, 0.14);
+  --gold-100: rgba(var(--accent-rgb), 0.14);
   --gold-200: #f3e2a8;
   --gold-300: #e9cd82;
   --gold-400: #dcb15a;
@@ -128,7 +130,7 @@ img {
 }
 a {
   color: inherit;
-  text-decoration-color: rgba(227, 194, 122, 0.55);
+  text-decoration-color: rgba(var(--accent-rgb), 0.55);
   text-decoration-thickness: 1px;
   text-underline-offset: 0.22em;
   transition: color 0.2s ease, text-decoration-color 0.2s ease;
@@ -138,7 +140,7 @@ a:hover {
   text-decoration-color: currentColor;
 }
 ::selection {
-  background: rgba(227, 194, 122, 0.32);
+  background: rgba(var(--accent-rgb), 0.32);
   color: #fff;
 }
 :focus-visible {
@@ -1543,8 +1545,8 @@ p {
 
 /* CTA band */
 .cta-band {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(227, 194, 122, 0.05));
-  border-top: 1px solid rgba(227, 194, 122, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(var(--accent-rgb), 0.05));
+  border-top: 1px solid rgba(var(--accent-rgb), 0.18);
   color: var(--on-dark);
   padding-block: clamp(40px, 6vw, 72px);
   position: relative;
@@ -2373,7 +2375,7 @@ p {
   margin: 18px 0 6px;
   padding: 16px 18px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(227, 194, 122, 0.22);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
   background: var(--bg);
   color: var(--on-dark);
   display: flex;
@@ -3253,7 +3255,7 @@ p {
   padding: 3px 9px;
   border-radius: 999px;
   background: rgba(11, 12, 15, 0.85);
-  border: 1px solid rgba(227, 194, 122, 0.5);
+  border: 1px solid rgba(var(--accent-rgb), 0.5);
   color: var(--gold-200);
   font-size: clamp(9px, 1.7cqw, 12px);
   font-weight: 700;
@@ -3272,14 +3274,14 @@ p {
   border-radius: 50%;
   background: var(--gold-300);
   border: 3px solid #0b0c0f;
-  box-shadow: 0 0 0 2px var(--gold-300), 0 0 18px rgba(227, 194, 122, 0.8);
+  box-shadow: 0 0 0 2px var(--gold-300), 0 0 18px rgba(var(--accent-rgb), 0.8);
 }
 .plan__pin i::after {
   content: '';
   position: absolute;
   inset: -12px;
   border-radius: 50%;
-  border: 2px solid rgba(227, 194, 122, 0.7);
+  border: 2px solid rgba(var(--accent-rgb), 0.7);
   animation: plan-pulse 2.4s ease-out infinite;
 }
 .plan__pin--zoom i {
@@ -3311,7 +3313,7 @@ p {
   padding: 6px 11px;
   border-radius: 10px;
   background: rgba(11, 12, 15, 0.9);
-  border: 1px solid rgba(227, 194, 122, 0.55);
+  border: 1px solid rgba(var(--accent-rgb), 0.55);
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
   text-align: right;
 }
@@ -3444,7 +3446,7 @@ p {
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: clamp(18px, 3vw, 40px);
   align-items: center;
-  background: linear-gradient(135deg, rgba(227, 194, 122, 0.06), var(--surface) 50%);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.06), var(--surface) 50%);
   border: 1px solid var(--line);
   border-radius: calc(var(--radius) + 6px);
   padding: clamp(20px, 3vw, 36px);
@@ -3940,7 +3942,7 @@ p {
   padding: 22px 24px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: linear-gradient(135deg, rgba(227, 194, 122, 0.07), var(--surface) 55%);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.07), var(--surface) 55%);
   text-decoration: none;
   transition: border-color 0.25s, transform 0.25s;
 }
@@ -4013,8 +4015,8 @@ p {
   margin-top: 28px;
   padding: 22px 24px;
   border-radius: var(--radius);
-  border: 1px solid rgba(227, 194, 122, 0.28);
-  background: linear-gradient(135deg, rgba(227, 194, 122, 0.08), var(--surface) 60%);
+  border: 1px solid rgba(var(--accent-rgb), 0.28);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.08), var(--surface) 60%);
   color: var(--on-dark);
 }
 .guide__cta strong {
@@ -4036,7 +4038,7 @@ p {
   overflow: hidden;
   pointer-events: none;
   contain: strict;
-  background: radial-gradient(120% 60% at 50% -8%, rgba(150, 160, 180, 0.11), transparent 62%), radial-gradient(80% 50% at 50% 112%, rgba(227, 194, 122, 0.08), transparent 70%), var(--bg);
+  background: radial-gradient(120% 60% at 50% -8%, rgba(150, 160, 180, 0.11), transparent 62%), radial-gradient(80% 50% at 50% 112%, rgba(var(--accent-rgb), 0.08), transparent 70%), var(--bg);
 }
 /* ceiling tubes and wet floor: drawn once in perspective by src/js/ambient.js */
 .ambient__room {
@@ -4233,12 +4235,12 @@ p {
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(140deg, rgba(227, 194, 122, 0.16), transparent 38%);
+  background: linear-gradient(140deg, rgba(var(--accent-rgb), 0.16), transparent 38%);
   opacity: 0;
   transition: opacity 0.4s ease;
 }
 .service-card__link:hover {
-  border-color: rgba(227, 194, 122, 0.45);
+  border-color: rgba(var(--accent-rgb), 0.45);
   transform: translateY(-6px);
 }
 .service-card__link:hover::after {
@@ -4361,7 +4363,7 @@ p {
   border-radius: 1px;
   transform: rotate(45deg);
   background: var(--accent);
-  box-shadow: 0 0 10px rgba(227, 194, 122, 0.55);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.55);
   outline: 0;
 }
 /* hero of the service pages: deeper fade into the page, the title larger */
@@ -4746,9 +4748,9 @@ p {
   gap: 2px;
   margin: 6px 0 14px;
   padding: 16px 18px;
-  border: 1px solid rgba(227, 194, 122, 0.35);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
   border-radius: var(--radius);
-  background: linear-gradient(135deg, rgba(227, 194, 122, 0.1), rgba(227, 194, 122, 0.02));
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.1), rgba(var(--accent-rgb), 0.02));
 }
 .tsim__price span {
   font-family: var(--font-mono);
@@ -4769,7 +4771,7 @@ p {
   margin: 0 0 14px;
   padding: 10px 14px;
   border-left: 3px solid var(--gold-400);
-  background: rgba(227, 194, 122, 0.06);
+  background: rgba(var(--accent-rgb), 0.06);
   font-size: 0.88rem;
   color: var(--text-2);
 }
@@ -4944,8 +4946,8 @@ p {
   margin-top: 18px;
   padding: 12px 16px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(227, 194, 122, 0.45);
-  background: rgba(227, 194, 122, 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.45);
+  background: rgba(var(--accent-rgb), 0.08);
   color: var(--text-2);
 }
 .booking {
@@ -5060,11 +5062,11 @@ p {
   font-weight: 600;
 }
 .pick:hover .pick__body {
-  border-color: rgba(227, 194, 122, 0.55);
+  border-color: rgba(var(--accent-rgb), 0.55);
 }
 .pick input:checked + .pick__body {
   border-color: var(--gold-300);
-  background: rgba(227, 194, 122, 0.1);
+  background: rgba(var(--accent-rgb), 0.1);
   box-shadow: inset 0 0 0 1px var(--gold-300);
 }
 .pick input:focus-visible + .pick__body {
@@ -5138,8 +5140,8 @@ p {
   color: rgba(255, 255, 255, 0.22);
 }
 button.cal__day {
-  border: 1px solid rgba(227, 194, 122, 0.45);
-  background: rgba(227, 194, 122, 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.45);
+  background: rgba(var(--accent-rgb), 0.08);
   color: var(--text);
   font-weight: 700;
   cursor: pointer;
@@ -5226,9 +5228,9 @@ button.cal__day.is-on {
   position: sticky;
   top: calc(var(--header-h, 72px) + 16px);
   padding: clamp(18px, 2vw, 24px);
-  border: 1px solid rgba(227, 194, 122, 0.3);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
   border-radius: var(--radius);
-  background: linear-gradient(160deg, rgba(227, 194, 122, 0.07), var(--surface) 45%);
+  background: linear-gradient(160deg, rgba(var(--accent-rgb), 0.07), var(--surface) 45%);
 }
 .booking__preview img {
   display: block;
@@ -5665,7 +5667,7 @@ button.cal__day.is-on {
 .booking-done__card {
   margin: 22px 0;
   padding: clamp(18px, 2.4vw, 26px);
-  border: 1px solid rgba(227, 194, 122, 0.35);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
   border-radius: var(--radius);
   background: var(--surface);
 }
@@ -5692,9 +5694,9 @@ button.cal__day.is-on {
 }
 .book-cta {
   padding: clamp(22px, 3vw, 34px);
-  border: 1px solid rgba(227, 194, 122, 0.35);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
   border-radius: var(--radius);
-  background: linear-gradient(160deg, rgba(227, 194, 122, 0.08), var(--surface) 55%);
+  background: linear-gradient(160deg, rgba(var(--accent-rgb), 0.08), var(--surface) 55%);
   text-align: center;
 }
 .book-cta h2 {
@@ -5708,4 +5710,318 @@ button.cal__day.is-on {
 .how-heard__other {
   margin-top: 10px;
   max-width: 520px;
+}
+
+/* ------------------------------------------------------------------ seasonal looks */
+/* The whole site dressed for a season (content/themes.js): data-saison="neon" | "noel" on <html>,
+   set in the <head> from the day in Paris. The look changes the tokens (colours, the buttons'
+   metal), the logo (public/img/brand/*-neon-*, *-noel-*) and adds a decoration; transforms and
+   opacity only for what moves, nothing moves for visitors who asked for less motion. */
+.logo-saison,
+.saison-fx,
+.saison-horizon {
+  display: none;
+}
+html[data-saison='neon'] .logo-base,
+html[data-saison='noel'] .logo-base {
+  display: none;
+}
+html[data-saison='neon'] .logo-saison--neon,
+html[data-saison='noel'] .logo-saison--noel {
+  display: block;
+}
+/* the Christmas logo is taller (the hat): pulled up so that the logo itself keeps its place */
+.site-header__logo img.logo-saison--noel {
+  height: 48px;
+  margin-top: -8px;
+}
+.site-footer__logo img.logo-saison--noel {
+  margin-top: -15px;
+}
+
+/* ---- neon: sunset and neon lights, for the release of GTA 6 (an original look: no image, logo
+   or lettering of the game) */
+html[data-saison='neon'] {
+  --bg: #0b0613;
+  --bg-2: #100919;
+  --surface: rgba(28, 14, 40, 0.78);
+  --surface-solid: #170d22;
+  --surface-2: #21122f;
+  --border: rgba(255, 150, 220, 0.12);
+  --border-strong: rgba(255, 150, 220, 0.3);
+  --line: rgba(255, 150, 220, 0.14);
+  --accent: #ff6fb5;
+  --accent-strong: #ffb8dc;
+  --accent-rgb: 255, 95, 170;
+  --on-accent: #1a0322;
+  --gold-200: #ffd0e8;
+  --gold-300: #ffa3d1;
+  --gold-400: #ff6fb5;
+  --gold-500: #ff4fa3;
+  --gold-600: #ff6fb5;
+  --gold-700: #ffb8dc;
+  /* the buttons: a sunset that flows (yellow, orange, pink) instead of brushed gold */
+  --gold-metal: linear-gradient(100deg, #ffd166 0%, #ff8a4c 22%, #ff4f9a 47%, #ff7a45 72%, #ffc85a 100%);
+  --gold-soft: linear-gradient(135deg, #ffc85a, #ff4f9a);
+  --neon-cyan: #52f0ff;
+  --tube-rgb: 255, 92, 190;
+  --tube-rgb-2: 82, 240, 255;
+}
+html[data-saison='neon'] .ambient {
+  background: radial-gradient(120% 60% at 50% -8%, rgba(170, 70, 255, 0.18), transparent 62%), radial-gradient(90% 55% at 50% 112%, rgba(255, 79, 163, 0.18), transparent 70%), var(--bg);
+}
+html[data-saison='neon'] .site-header {
+  background: rgba(14, 6, 24, 0.76);
+  border-bottom-color: transparent;
+}
+html[data-saison='neon'] .site-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, #52f0ff, #ff4f9a 35%, #ff8a4c 68%, #ffd166);
+  box-shadow: 0 0 12px rgba(255, 79, 163, 0.85), 0 0 26px rgba(82, 240, 255, 0.3);
+}
+html[data-saison='neon'] .logo-saison--neon {
+  filter: drop-shadow(0 0 6px rgba(255, 79, 163, 0.6));
+}
+html[data-saison='neon'] .btn--primary {
+  box-shadow: 0 0 0 1px rgba(255, 170, 215, 0.55), 0 12px 30px -12px rgba(255, 61, 139, 0.9), 0 0 22px -4px rgba(255, 79, 163, 0.7);
+}
+html[data-saison='neon'] .btn--primary:hover {
+  box-shadow: 0 0 0 1px rgba(255, 200, 230, 0.8), 0 16px 36px -12px rgba(255, 61, 139, 0.95), 0 0 34px -2px rgba(255, 79, 163, 0.9);
+}
+html[data-saison='neon'] .btn--ghost {
+  --b: rgba(82, 240, 255, 0.55);
+  background: rgba(82, 240, 255, 0.06);
+  color: #eafdff;
+  box-shadow: 0 0 16px -6px rgba(82, 240, 255, 0.7), inset 0 0 12px -6px rgba(82, 240, 255, 0.6);
+}
+html[data-saison='neon'] .btn--ghost:hover {
+  --b: var(--neon-cyan);
+  background: rgba(82, 240, 255, 0.13);
+  color: #fff;
+}
+/* the word in italics in the titles: written in the sunset */
+html[data-saison='neon'] h1 em,
+html[data-saison='neon'] h2 em,
+html[data-saison='neon'] h3 em,
+html[data-saison='neon'] .title-em {
+  background: linear-gradient(90deg, #ffd166, #ff8a4c 38%, #ff4f9a 70%, #c45bff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  padding-right: 0.12em;
+  margin-right: -0.06em;
+}
+/* the technical overlines: cyan neon */
+html[data-saison='neon'] .kicker,
+html[data-saison='neon'] .chapter__line {
+  color: var(--neon-cyan);
+  text-shadow: 0 0 10px rgba(82, 240, 255, 0.55);
+}
+html[data-saison='neon'] :focus-visible {
+  outline-color: var(--neon-cyan);
+}
+/* at the foot of every page: a sun over a neon grid, between palm trees */
+html[data-saison='neon'] .saison-horizon {
+  display: block;
+  position: relative;
+  height: clamp(170px, 21vw, 280px);
+  margin-top: calc(-1 * clamp(40px, 6vw, 72px) - 1px);
+  margin-bottom: clamp(26px, 4vw, 44px);
+  overflow: hidden;
+  pointer-events: none;
+  /* a sunset sky behind the palms, then the floor from the horizon (62 %) */
+  background: linear-gradient(180deg, rgba(11, 6, 19, 0) 0%, rgba(58, 14, 90, 0.85) 26%, #7d1d74 46%, #e2407f 57%, #ff9a50 61.8%, #160a22 62%, #0b0613 100%);
+}
+.saison-horizon__sun {
+  position: absolute;
+  left: 50%;
+  bottom: 38%;
+  height: 58%;
+  aspect-ratio: 1;
+  transform: translate(-50%, 6%);
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fff1a8 0%, #ffc04d 26%, #ff7a45 52%, #ff3d8b 76%, #b52a8f 100%);
+  box-shadow: 0 0 60px 10px rgba(255, 90, 140, 0.5);
+  -webkit-mask-image: linear-gradient(180deg, #000 0 50%, transparent 50% 53%, #000 53% 58%, transparent 58% 62%, #000 62% 66%, transparent 66% 71%, #000 71% 74%, transparent 74% 80%, #000 80% 82%, transparent 82% 100%);
+  mask-image: linear-gradient(180deg, #000 0 50%, transparent 50% 53%, #000 53% 58%, transparent 58% 62%, #000 62% 66%, transparent 66% 71%, #000 71% 74%, transparent 74% 80%, #000 80% 82%, transparent 82% 100%);
+}
+.saison-horizon__grid {
+  position: absolute;
+  left: -60%;
+  right: -60%;
+  top: 62%;
+  height: 260%;
+  transform-origin: 50% 0;
+  transform: perspective(260px) rotateX(72deg);
+  background-image: linear-gradient(90deg, rgba(255, 70, 190, 0.9) 0 2px, transparent 2px 100%), linear-gradient(0deg, rgba(255, 70, 190, 0.9) 0 2px, transparent 2px 100%);
+  background-size: 64px 64px;
+  filter: drop-shadow(0 0 4px rgba(255, 60, 200, 0.9));
+  animation: saison-grid 2.4s linear infinite;
+}
+@keyframes saison-grid {
+  from {
+    transform: perspective(260px) rotateX(72deg) translate3d(0, 0, 0);
+  }
+  to {
+    transform: perspective(260px) rotateX(72deg) translate3d(0, 64px, 0);
+  }
+}
+.saison-horizon__palms {
+  position: absolute;
+  inset: 4% 0 36% 0;
+}
+.saison-horizon__palms img {
+  position: absolute;
+  bottom: -2%;
+  width: auto;
+  max-width: none;
+}
+/* the pictures have room around the trunk for the fronds: placed by their trunk */
+.saison-horizon__palms img:nth-child(1) {
+  left: max(-60px, calc(4% - 70px));
+  height: 100%;
+}
+.saison-horizon__palms img:nth-child(2) {
+  left: calc(4% + 40px);
+  height: 64%;
+}
+.saison-horizon__palms img:nth-child(3) {
+  right: max(-40px, calc(5% - 60px));
+  height: 92%;
+}
+html[data-saison='neon'] .site-footer {
+  border-top-color: transparent;
+}
+
+/* ---- noel: red and gold, snow, garland lights; the promo band has its own Christmas look */
+html[data-saison='noel'] {
+  --bg: #0b0708;
+  --bg-2: #100a0b;
+  --surface: rgba(26, 16, 17, 0.8);
+  --surface-solid: #170f10;
+  --surface-2: #211516;
+  --border: rgba(255, 220, 200, 0.1);
+  --border-strong: rgba(255, 220, 200, 0.24);
+  /* the buttons: Christmas red, lacquered, the light sweep still passing */
+  --gold-metal: linear-gradient(100deg, #e3263f 0%, #9c0e24 22%, #ff5468 47%, #a5112a 72%, #e3263f 100%);
+  --on-accent: #fff7ea;
+  --noel-red: #e3263f;
+  --tube-rgb: 255, 228, 190;
+  --tube-rgb-2: 255, 120, 120;
+}
+html[data-saison='noel'] .ambient {
+  background: radial-gradient(120% 60% at 50% -8%, rgba(255, 210, 160, 0.1), transparent 62%), radial-gradient(90% 55% at 50% 112%, rgba(227, 38, 63, 0.14), transparent 70%), var(--bg);
+}
+html[data-saison='noel'] .btn--primary {
+  text-shadow: 0 1px 0 rgba(90, 0, 12, 0.45);
+  box-shadow: 0 14px 34px -16px rgba(227, 38, 63, 0.85), inset 0 0 0 1px rgba(255, 214, 150, 0.6), inset 0 1px 0 rgba(255, 220, 220, 0.5);
+}
+html[data-saison='noel'] .btn--primary:hover {
+  color: #fff;
+  box-shadow: 0 18px 40px -14px rgba(227, 38, 63, 0.95), inset 0 0 0 1px rgba(255, 224, 170, 0.9), inset 0 1px 0 rgba(255, 230, 230, 0.6);
+}
+html[data-saison='noel'] .logo-saison--noel {
+  filter: drop-shadow(0 0 8px rgba(255, 200, 120, 0.35));
+}
+/* garland lights under the header: red, gold, green and white bulbs on a wire, twinkling */
+html[data-saison='noel'] .site-header {
+  border-bottom-color: rgba(255, 214, 150, 0.25);
+}
+html[data-saison='noel'] .site-header::before,
+html[data-saison='noel'] .site-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -9px;
+  height: 14px;
+  pointer-events: none;
+  background-repeat: repeat-x;
+  background-size: 168px 14px;
+}
+html[data-saison='noel'] .site-header::before {
+  background-image: radial-gradient(circle at 21px 9px, #ff4b5c 0 3.5px, rgba(255, 75, 92, 0.35) 4.5px, transparent 8px), radial-gradient(circle at 105px 9px, #6fe39a 0 3.5px, rgba(111, 227, 154, 0.35) 4.5px, transparent 8px);
+}
+html[data-saison='noel'] .site-header::after {
+  background-image: radial-gradient(circle at 63px 9px, #ffd36b 0 3.5px, rgba(255, 211, 107, 0.4) 4.5px, transparent 8px), radial-gradient(circle at 147px 9px, #fff6e6 0 3.5px, rgba(255, 246, 230, 0.4) 4.5px, transparent 8px);
+  animation: saison-twinkle 1.6s ease-in-out infinite alternate;
+}
+@keyframes saison-twinkle {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.25;
+  }
+}
+/* snow over the page (under the header), two layers at different speeds */
+html[data-saison='noel'] .saison-fx {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+html[data-saison='noel'] .saison-fx::before,
+html[data-saison='noel'] .saison-fx::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -320px;
+  height: calc(100% + 320px);
+  background-image: radial-gradient(circle at 40px 60px, rgba(255, 255, 255, 0.9) 0 2px, transparent 2.6px), radial-gradient(circle at 170px 20px, rgba(255, 255, 255, 0.7) 0 1.5px, transparent 2.2px), radial-gradient(circle at 250px 190px, rgba(255, 255, 255, 0.85) 0 2.4px, transparent 3px), radial-gradient(circle at 110px 250px, rgba(255, 255, 255, 0.6) 0 1.4px, transparent 2px), radial-gradient(circle at 300px 110px, rgba(255, 255, 255, 0.75) 0 1.8px, transparent 2.4px);
+  background-size: 320px 320px;
+  opacity: 0.55;
+  animation: saison-snow 16s linear infinite;
+}
+html[data-saison='noel'] .saison-fx::after {
+  background-size: 220px 220px;
+  background-position: 60px 40px;
+  opacity: 0.35;
+  animation-duration: 24s;
+  filter: blur(0.6px);
+}
+@keyframes saison-snow {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-40px, 320px, 0);
+  }
+}
+/* snow on the edge of the footer */
+html[data-saison='noel'] .saison-horizon {
+  display: block;
+  height: 26px;
+  margin-top: calc(-1 * clamp(40px, 6vw, 72px) - 1px);
+  margin-bottom: clamp(22px, 3.5vw, 40px);
+  pointer-events: none;
+  background: radial-gradient(ellipse 34px 15px at 34px 0, #f4f1ec 96%, transparent 100%) 0 0 / 68px 26px repeat-x, radial-gradient(ellipse 22px 22px at 12px 0, #e9e4dc 96%, transparent 100%) 30px 0 / 97px 26px repeat-x;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
+}
+html[data-saison='noel'] .saison-horizon > span {
+  display: none;
+}
+html[data-saison='noel'] .site-footer {
+  border-top: 3px solid #f4f1ec;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saison-horizon__grid,
+  html[data-saison='noel'] .site-header::after {
+    animation: none;
+  }
+  html[data-saison='noel'] .saison-fx {
+    display: none;
+  }
 }

@@ -35,7 +35,13 @@ function drawGarage(c) {
     g.fill();
   };
   const rows = [-4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5].map((r) => r * 0.62);
-  for (const X of rows) {
+  // the tubes' colour: white, or the seasonal look's two colours, row by row (--tube-rgb and
+  // --tube-rgb-2 in src/styles/main.css, « seasonal looks »)
+  const css = getComputedStyle(document.documentElement);
+  const tube1 = css.getPropertyValue('--tube-rgb').trim() || '236, 242, 255';
+  const tube2 = css.getPropertyValue('--tube-rgb-2').trim() || tube1;
+  for (const [row, X] of rows.entries()) {
+    const rgb = row % 2 ? tube2 : tube1;
     for (let z = z0 * 0.8; z < 16; z += 2.4) {
       const z1 = z;
       const z2 = z + 1.65;
@@ -46,10 +52,10 @@ function drawGarage(c) {
         [0.014, 0.9],
       ]) {
         // ceiling: a soft halo, then the bright core
-        g.fillStyle = `rgba(236, 242, 255, ${(a * fade).toFixed(3)})`;
+        g.fillStyle = `rgba(${rgb}, ${(a * fade).toFixed(3)})`;
         quad(px(X - hw, z1), px(X + hw, z1), pyC(z1), px(X - hw, z2), px(X + hw, z2), pyC(z2));
         // floor: the same tube, wider and fainter (wet surface)
-        g.fillStyle = `rgba(236, 242, 255, ${(a * fade * 0.16).toFixed(3)})`;
+        g.fillStyle = `rgba(${rgb}, ${(a * fade * 0.16).toFixed(3)})`;
         quad(px(X - hw * 2.2, z1), px(X + hw * 2.2, z1), pyF(z1), px(X - hw * 2.2, z2), px(X + hw * 2.2, z2), pyF(z2));
       }
     }

@@ -32,6 +32,7 @@ npm run preview    # sert dist/ sur http://localhost:4173
 | `design/logo/official/` | Logo officiel fourni ; `scripts/logo-assets.mjs` en dérive les versions web (dont `*-clair-*`, logotype ivoire pour le fond sombre : `node scripts/logo-assets.mjs --only=reversed`) |
 | `src/styles/main.css` | Charte V3 « garage de nuit » : jetons de couleur et polices en tête de fichier, fond animé dans la section « garage ambience » |
 | `src/js/ambient.js` | Fond animé : néons, sol mouillé, fumée et poussière dessinés sur place (rien à télécharger) |
+| `content/themes.js` | Habillage saisonnier du site entier, par dates (Néon du 17 au 30 novembre, Noël en décembre) ; styles en fin de `src/styles/main.css` (« seasonal looks »), logos par `node scripts/logo-saisons.mjs`, aperçu `?apercu-theme=neon` / `noel` |
 | `content/film.js` | Vidéo d'accueil au défilement : versions (1080p, 1440p, 4K, téléphone 9:16), durée, moments de chaque prestation et onglets |
 | `content/sections/` | Sections longues des pages de prestations (forfaits, tableaux, étapes) et questions ajoutées à leur FAQ, une page par fichier ; `content/sections/dechromage.js` porte toute la page Déchromage |
 | `content/stats.js` | Chiffres de l'ancien site (local.fr), comparés sur la page de statistiques |
