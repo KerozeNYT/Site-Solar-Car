@@ -3,6 +3,37 @@
 Le domaine revient de local.fr en fin d'année. **Aucun DNS ni domaine n'a été modifié** : chaque étape
 ci-dessous se fait sur décision de SOLAR CAR 37.
 
+## 0. Méthode retenue (17 novembre 2026) : les serveurs DNS chez Cloudflare
+
+Constat : www.solarcar37.fr et solarcar37.fr pointent aujourd'hui vers un serveur de local.fr
+(213.32.5.6, serveur Apache hébergé chez OVH). Le domaine reste enregistré chez local.fr jusqu'à son
+transfert ; on peut pourtant mettre le site en ligne **avant**, en faisant pointer le domaine vers
+Cloudflare (même compte que le serveur de réservation).
+
+1. **Message à local.fr** (SOLAR CAR 37) : titulaire du domaine (doit être Nicolas MALAGA / SOLAR CAR
+   37, pas local.fr), bureau d'enregistrement, **liste complète de la zone DNS** (surtout la
+   messagerie : MX, SPF, DKIM), **boîte contact@solarcar37.fr** (hébergée chez eux ? jusqu'à quand ?
+   comment récupérer les e-mails ?), possibilité de **remplacer les serveurs DNS**, **code de
+   transfert** (AUTH-INFO) et déverrouillage.
+2. **Cloudflare** (Claude) : ajouter le domaine (offre gratuite) → Cloudflare donne **deux serveurs
+   DNS** (`xxx.ns.cloudflare.com`, `yyy.ns.cloudflare.com`) ; recopier les enregistrements de la
+   messagerie à l'identique ; publier le site de production sur **Cloudflare Pages** et le tester sur
+   son adresse technique (`….pages.dev`), avec `www` et le domaine nu (redirigé vers `www`), HTTPS.
+3. **local.fr** remplace les serveurs DNS du domaine par les deux de Cloudflare → le nouveau site
+   répond sur www.solarcar37.fr en quelques heures (jusqu'à 24-48 h pour tout le monde), l'ancien
+   s'arrête, les anciennes adresses sont redirigées (§3), l'e-mail continue de marcher.
+4. **Après** (Claude) : vérifications (pages, redirections, HTTPS, formulaire, réservation, e-mail),
+   `SITE_URL` du serveur de réservation sur le domaine, domaine vérifié dans Resend puis
+   `MAIL_CLIENTS = "1"` (confirmations, rappels, nouvelles et parrainage aux clients), Search Console,
+   lien de la fiche Google, statistiques (§5).
+5. **Avant le 27 décembre** : transfert du domaine (code AUTH-INFO) vers un bureau
+   d'enregistrement choisi par SOLAR CAR 37 (ex. OVHcloud, Gandi) ; les serveurs DNS restent ceux de
+   Cloudflare, rien ne s'interrompt. Si la boîte contact@ était chez local.fr : la remplacer avant
+   (renvoi gratuit vers Gmail par Cloudflare Email Routing, ou vraie boîte).
+
+Avant la bascule : le **médiateur de la consommation** doit être renseigné (sinon « à compléter »
+apparaît dans les mentions légales).
+
 ## 1. Avant la bascule
 
 | Étape | Détail | Qui |
