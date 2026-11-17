@@ -91,18 +91,18 @@ function gear(cx, cy, rOut, rIn, teeth, { top = 0.42, base = 0.56 } = {}) {
 
 /** a window squeegee (raclette), drawn in a 110-unit box centred on 0,0, blade down */
 const squeegee = (fill) => `
-  <rect x="-8" y="-60" width="16" height="72" rx="8" fill="${fill}"/>
-  <rect x="-52" y="6" width="104" height="19" rx="5" fill="${fill}"/>
-  <rect x="-48" y="30" width="96" height="8" rx="4" fill="${fill}"/>`;
+  <rect x="-9" y="-58" width="18" height="70" rx="9" fill="${fill}"/>
+  <rect x="-52" y="6" width="104" height="20" rx="5" fill="${fill}"/>
+  <rect x="-48" y="31" width="96" height="9" rx="4.5" fill="${fill}"/>`;
 
 const PROPOSALS = {
   // A — the plate: the shield as on the CRM, smaller, above a gold nameplate that says ATELIER
   a: () => `
     <defs>${darkTile('30%')}${goldBar('plate')}</defs>
     <rect width="512" height="512" fill="url(#tile)"/>
-    ${shield(256, 98, 192)}
-    <rect x="106" y="312" width="300" height="92" rx="16" fill="url(#plate)"/>
-    ${word('ATELIER', { cx: 256, cy: 358, size: 63, weight: 800, stretch: 'semi-condensed', ls: 2, fill: C.black })}`,
+    ${shield(256, 92, 192)}
+    <rect x="101" y="306" width="310" height="92" rx="16" fill="url(#plate)"/>
+    ${word('ATELIER', { cx: 256, cy: 352, size: 66, weight: 800, stretch: 'semi-condensed', ls: 2, fill: C.black })}`,
 
   // B — the inverted tile: gold ground, the shield on a black gear
   b: () => `
@@ -114,7 +114,7 @@ const PROPOSALS = {
     </defs>
     <rect width="512" height="512" fill="url(#ground)"/>
     <path d="${gear(256, 256, 196, 164, 10)}" fill="${C.black2}" stroke="${C.black2}" stroke-width="8" stroke-linejoin="round" filter="url(#lift)"/>
-    ${shield(256, 134, 248)}`,
+    ${shield(256, 133, 254)}`,
 
   // C — the badge: the shield, and a gold badge with the squeegee, like an app variant
   c: () => `
@@ -126,7 +126,7 @@ const PROPOSALS = {
     <rect width="512" height="512" fill="url(#tile)"/>
     ${shield(192, 98, 236)}
     <circle cx="336.6" cy="336.6" r="90" fill="url(#badge)"/>
-    <g transform="translate(336.6 336.6) rotate(-40) scale(1.12)">${squeegee(C.black)}</g>`,
+    <g transform="translate(336.6 340) rotate(-40) scale(1.2)">${squeegee(C.black)}</g>`,
 };
 
 // places every .fit word: ink box measured on a canvas with the same font, centred on (cx, cy)
