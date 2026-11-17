@@ -83,6 +83,6 @@ MAIL_FROM = "SOLAR CAR 37 <onboarding@resend.dev>"
 # "1": the client gets the confirmation too (needs the verified domain)
 MAIL_CLIENTS = "0"
 # where the links of the e-mails lead (the preview until the site is on solarcar37.fr)
-SITE_URL = "https://kerozenyt.github.io/Site-Solar-Car"
+SITE_URL = "https://www.solarcar37.fr"
 # the Google Business Profile robot e-mails each photo sent ("tout") or only its problems ("erreurs")
 FICHE_MAILS = "tout"

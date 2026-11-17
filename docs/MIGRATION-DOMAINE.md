@@ -31,6 +31,12 @@ Cloudflare (même compte que le serveur de réservation).
    Cloudflare, rien ne s'interrompt. Si la boîte contact@ était chez local.fr : la remplacer avant
    (renvoi gratuit vers Gmail par Cloudflare Email Routing, ou vraie boîte).
 
+**En ligne le 17 novembre 2026** (zone Cloudflare active à 10 h 08 UTC) : www.solarcar37.fr sert
+le site définitif ; solarcar37.fr et http:// redirigés en 301 vers https://www.solarcar37.fr ; les
+anciennes adresses de local.fr redirigées ; messagerie OVH inchangée (MX, SPF, DMARC, SRV) ;
+serveur de réservation : `SITE_URL` sur https://www.solarcar37.fr. Reste : Resend (domaine), Search
+Console, lien de la fiche Google, transfert du domaine avant le 27 décembre.
+
 État au 17 novembre 2026 :
 - **Site définitif publié sur Cloudflare Pages** (projet `solarcar37`, adresse technique
   https://solarcar37.pages.dev, non indexée) : construit par Cloudflare depuis GitHub (branche
