@@ -578,6 +578,8 @@ export default {
       if (url.pathname === '/api/devis' && req.method === 'GET') return await quotePublic(req, env, url);
       if (url.pathname === '/api/devis/accepter' && req.method === 'POST') return await quoteAccept(req, env, now);
       if (url.pathname === '/atelier' || url.pathname.startsWith('/atelier/')) return await atelier(req, env, url, now);
+      // atelier.solarcar37.fr: the workshop's space only (its address bar shows /atelier…)
+      if (url.hostname.startsWith('atelier.') && !/^\/(stats|api|fiche-google)(\/|$)/.test(url.pathname)) return new Response(null, { status: 302, headers: { location: '/atelier' } });
       // the first referral page: now in the workshop's space
       if (url.pathname === '/parrainage') return new Response(null, { status: 302, headers: { location: '/atelier/codes' } });
       if (req.method === 'POST' && url.pathname === '/api/stats') return await collect(req, env, ctx, now);

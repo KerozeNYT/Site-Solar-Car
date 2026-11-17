@@ -308,7 +308,9 @@ export async function atelier(req, env, url, now) {
   if (path === '/atelier/codes' && req.method === 'GET') return codes(env, url, now);
   if (path === '/atelier/codes' && req.method === 'POST') return codesPost(req, env, now);
   if (path === '/atelier/stats') return redirect(`/stats?cle=${encodeURIComponent(env.STATS_KEY || '')}`);
-  if (path === '/atelier/fiche') return redirect(`/fiche-google?cle=${encodeURIComponent(env.STATS_KEY || '')}`);
+  // the Google profile robot signs in to Google from the server's own address (the return address
+  // registered at Google), not from atelier.solarcar37.fr
+  if (path === '/atelier/fiche') return redirect(`${env.WORKER_URL || ''}/fiche-google?cle=${encodeURIComponent(env.STATS_KEY || '')}`);
   return page('Introuvable', '/atelier', '<h1>Page introuvable</h1><p><a href="/atelier">Retour à l’accueil</a></p>', url);
 }
 

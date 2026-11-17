@@ -12,6 +12,9 @@ name = "solarcar37-reservation"
 main = "worker.js"
 compatibility_date = "2026-10-01"
 workers_dev = true
+# the workshop's space at a simple address (DNS record and certificate made by Cloudflare); a
+# top-level key, before the first [table]
+routes = [{ pattern = "atelier.solarcar37.fr", custom_domain = true }]
 
 # visit statistics (booking/stats.js, docs/STATISTIQUES.md): one Durable Object with its own SQLite
 # database (free plan: SQLite-backed Durable Objects only)
@@ -61,6 +64,8 @@ globs = ["**/*.woff2", "**/*.webp", "**/*.png"]
 fallthrough = true
 
 [vars]
+# the server's own address (the Google profile robot signs in to Google from it)
+WORKER_URL = "https://solarcar37-reservation.contact-solarcar37.workers.dev"
 # the sites allowed to call the API (production and the GitHub Pages preview)
 # (solarcar37.pages.dev: the final site on Cloudflare Pages, before the domain points to it)
 ALLOWED_ORIGINS = "https://www.solarcar37.fr,https://solarcar37.fr,https://kerozenyt.github.io,https://solarcar37.pages.dev"

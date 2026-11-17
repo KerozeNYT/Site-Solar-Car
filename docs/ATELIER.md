@@ -1,6 +1,8 @@
 # Espace atelier — le back-office de SOLAR CAR 37
 
-Adresse : **https://solarcar37-reservation.contact-solarcar37.workers.dev/atelier**
+Adresse : **https://atelier.solarcar37.fr** (depuis le 17 novembre 2026 ; l'ancienne
+https://solarcar37-reservation.contact-solarcar37.workers.dev/atelier marche toujours ; on se
+reconnecte une fois sur la nouvelle adresse)
 (à mettre en favori, ou « Ajouter à l'écran d'accueil » sur le téléphone : il s'ouvre comme une
 application).
 
