@@ -69,8 +69,9 @@ serveur de réservation (Cloudflare Worker, dossier booking/)
     (Reply-To), et la demande citée sous la réponse est en français, sans publicité ni mention
     interne : l'e-mail ne contient rien qui ne soit destiné au client ;
   - au client (`MAIL_CLIENTS = "1"`) : l'accusé de réception, avec le récapitulatif de sa demande,
-    même objet. La réponse de l'atelier se range sous cet accusé dans la boîte du client (en-têtes
-    `Message-ID` / `References`, quand le service d'envoi les garde).
+    même objet. La réponse de l'atelier arrive chez le client en conversation séparée (« Re: » le
+    même objet, sa demande citée dessous) : Resend remplace l'identifiant (`Message-ID`) de chaque
+    e-mail, on ne peut donc pas la ranger sous l'accusé (vérifié le 17 novembre 2026).
   - Une seule fois : la même demande renvoyée dans les 30 minutes (double clic, réponse perdue) est
     répondue « reçue » sans nouvel e-mail ; le site bloque déjà un second envoi pendant 15 minutes.
     Si l'e-mail à l'atelier ne part pas, la demande n'est pas gardée et le visiteur peut la renvoyer.

@@ -74,12 +74,10 @@ test('a quote request: one clean e-mail to the workshop (photos, reply to the cl
   }
   assert.match(shop.html, /un devis pour les vitres arrière svp\./);
   assert.match(shop.html, /<br>un devis/);
-  // the client: what they asked, from the workshop; the workshop's answer joins this e-mail
+  // the client: what they asked, from the workshop, the same subject
   assert.deepEqual(ack.to, ['Lea.Petit@example.com']);
   assert.equal(ack.reply_to, 'contact@solarcar37.fr');
   assert.equal(ack.subject, shop.subject);
-  assert.equal(ack.headers['Message-ID'], shop.headers.References);
-  assert.match(ack.headers['Message-ID'], /^<devis-\d+-[a-z0-9]+@solarcar37\.fr>$/);
   assert.match(ack.html, /Bonjour Léa,<br>merci pour votre demande de devis/);
   assert.match(ack.html, /Vitres teintées/);
   assert.match(ack.html, /1 fichier reçu/);
@@ -132,16 +130,16 @@ test('the workshop e-mail cannot go out: « not sent », nothing kept, sending a
   assert.equal((await requests('zoe@')).length, 1);
 });
 
-test('a header the sending service refuses, attachments it refuses: the e-mails go out without them', async () => {
+test('attachments the sending service refuses: the request goes out without them, said in it', async () => {
   mails.length = 0;
-  resend.refuse = (m) => (m.headers?.['Message-ID'] ? 422 : m.attachments?.length ? 422 : 0);
+  resend.refuse = (m) => (m.attachments?.length ? 422 : 0);
   const res = await send(request({ email: 'max@example.com', firstName: 'Max', lastName: 'Roux', phone: '06 33 33 33 33' }));
   resend.refuse = null;
   assert.deepEqual(await res.json(), { ok: true, ack: true });
   const [shop, ack] = mails;
   assert.deepEqual(shop.attachments, []);
   assert.match(shop.text, /1 pièce jointe n’a pas pu être transmise : à redemander\./);
-  assert.equal(ack.headers, undefined);
+  assert.match(ack.text, /Bonjour Max/);
 });
 
 test('the form posted without JavaScript: e-mailed with its photo, then the thank-you page', async () => {

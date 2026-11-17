@@ -7,7 +7,10 @@
   reservation@solarcar37.fr. À l'atelier : « Prénom Nom via SOLAR CAR 37 », objet « Demande de
   devis — véhicule · prestation », photos jointes ; « Répondre » écrit au client, avec sa demande
   citée en français (plus d'e-mail en anglais, de tableau « Name / Value » ni de publicité). Au
-  client : un accusé de réception avec le récapitulatif ; la réponse de l'atelier se range dessous.
+  client : un accusé de réception avec le récapitulatif, même objet (la réponse de l'atelier arrive
+  en conversation séparée : Resend remplace l'identifiant des e-mails).
+- Essai réel le 17 novembre 2026 : les deux e-mails arrivent en boîte de réception (SPF, DKIM et
+  DMARC valides), photo jointe.
 - Une même demande n'est envoyée qu'une fois (30 minutes côté serveur, 15 côté site) ; si l'e-mail
   à l'atelier ne part pas, rien n'est gardé et le visiteur peut renvoyer.
 - Photos allégées dans le navigateur avant l'envoi (2 000 px) ; le formulaire marche aussi sans

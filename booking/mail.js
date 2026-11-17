@@ -236,7 +236,8 @@ const plain = (pairs) =>
     .join('\n');
 
 /** « Demande de devis — Mini F56 JCW 2015 · Ciel étoilé »: the same subject for the workshop and
- *  the client, so that the workshop's answer joins the client's acknowledgment in their mailbox */
+ *  the client (the workshop's answer, « Re: » the same, is easy to match with the acknowledgment;
+ *  it cannot be filed under it: the sending service replaces the Message-ID of each e-mail) */
 export const quoteSubject = (q) => `Demande de devis — ${[q.vehicle, q.services].filter(Boolean).join(' · ')}`.slice(0, 140);
 
 /**
@@ -253,9 +254,6 @@ export async function sendQuoteMails(env, q) {
   const { c } = q;
   const who = `${c.firstName} ${c.lastName}`.trim();
   const subject = quoteSubject(q);
-  // the acknowledgment's Message-ID, quoted by the workshop's e-mail: the workshop's answer then
-  // carries it, and the client's mailbox puts the answer under the acknowledgment
-  const ackId = `<devis-${q.id}-${q.at.toString(36)}@solarcar37.fr>`;
   const photos = q.files.map((f) => f.filename).join(', ');
   const received = q.files.length ? `${q.files.length} fichier${q.files.length > 1 ? 's' : ''} reçu${q.files.length > 1 ? 's' : ''}` : '';
   const tel = c.phone.replace(/[^\d+]/g, '');
@@ -270,7 +268,6 @@ export async function sendQuoteMails(env, q) {
     to: env.NOTIFY_TO.split(',').map((x) => x.trim()),
     reply_to: c.email,
     subject,
-    headers: { References: ackId },
     // no word meant for the workshop alone: answering quotes this e-mail to the client
     html: shell(
       'Demande de devis',
@@ -298,29 +295,22 @@ export async function sendQuoteMails(env, q) {
   });
   const sent = { client: false };
   if (env.MAIL_CLIENTS !== '1') return sent;
-  const ack = {
-    to: [c.email],
-    reply_to: B.email,
-    subject,
-    html: shell(
-      'Nous avons bien reçu votre demande',
-      `<p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#111">Bonjour ${esc(c.firstName)},<br>merci pour votre demande de devis. Nous l’étudions et revenons vers vous rapidement avec un devis détaillé, par e-mail ou par téléphone.</p>
+  try {
+    await send(env, {
+      to: [c.email],
+      reply_to: B.email,
+      subject,
+      html: shell(
+        'Nous avons bien reçu votre demande',
+        `<p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#111">Bonjour ${esc(c.firstName)},<br>merci pour votre demande de devis. Nous l’étudions et revenons vers vous rapidement avec un devis détaillé, par e-mail ou par téléphone.</p>
 <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([...request.map(([k, v]) => [k, v ? para(v) : '']), ['Pièces jointes', esc(received)]])}</table>
 <p style="margin:18px 0 6px;font-size:13px;color:#6b6b6b">Votre message</p>
 <p style="margin:0;padding:12px 14px;background:#faf8f4;border-radius:10px;font-size:15px;line-height:1.5;color:#111">${para(q.message)}</p>
 <p style="margin:18px 0 0;font-size:14px;line-height:1.5;color:#111">Une précision, une photo à ajouter ? Répondez simplement à cet e-mail. Pour une question urgente : <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${esc(B.phone)}</a>.</p>
 <p style="margin:18px 0 0;font-size:15px;line-height:1.5;color:#111">À très bientôt,<br><strong>${esc(B.name)}</strong></p>`
-    ),
-    text: `Bonjour ${c.firstName},\n\nmerci pour votre demande de devis. Nous l’étudions et revenons vers vous rapidement avec un devis détaillé, par e-mail ou par téléphone.\n\n${plain([...request, ['Pièces jointes', received]])}\n\nVotre message :\n${q.message}\n\nUne précision, une photo à ajouter ? Répondez simplement à cet e-mail. Pour une question urgente : ${B.phone}.\n\nÀ très bientôt,\n${B.name}\n`,
-  };
-  try {
-    try {
-      await send(env, { ...ack, headers: { 'Message-ID': ackId } });
-    } catch (err) {
-      // a header the sending service refuses (4xx, nothing sent): once more without it
-      if (!/^resend 4\d\d/.test(err.message) || /rate|quota|429/i.test(err.message)) throw err;
-      await send(env, ack);
-    }
+      ),
+      text: `Bonjour ${c.firstName},\n\nmerci pour votre demande de devis. Nous l’étudions et revenons vers vous rapidement avec un devis détaillé, par e-mail ou par téléphone.\n\n${plain([...request, ['Pièces jointes', received]])}\n\nVotre message :\n${q.message}\n\nUne précision, une photo à ajouter ? Répondez simplement à cet e-mail. Pour une question urgente : ${B.phone}.\n\nÀ très bientôt,\n${B.name}\n`,
+    });
     sent.client = true;
   } catch (err) {
     console.error('[mail] quote client', err.message);
