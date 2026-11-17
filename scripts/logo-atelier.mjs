@@ -89,20 +89,20 @@ function gear(cx, cy, rOut, rIn, teeth, { top = 0.42, base = 0.56 } = {}) {
   return d + 'Z';
 }
 
-/** a window squeegee (raclette), drawn in a 100-unit box centred on 0,0, blade down */
+/** a window squeegee (raclette), drawn in a 110-unit box centred on 0,0, blade down */
 const squeegee = (fill) => `
-  <rect x="-11" y="-50" width="22" height="58" rx="11" fill="${fill}"/>
-  <rect x="-47" y="2" width="94" height="22" rx="6" fill="${fill}"/>
-  <rect x="-43" y="30" width="86" height="11" rx="5.5" fill="${fill}"/>`;
+  <rect x="-8" y="-60" width="16" height="72" rx="8" fill="${fill}"/>
+  <rect x="-52" y="6" width="104" height="19" rx="5" fill="${fill}"/>
+  <rect x="-48" y="30" width="96" height="8" rx="4" fill="${fill}"/>`;
 
 const PROPOSALS = {
-  // A — the plate: the shield as on the CRM, smaller, above a gold plate that says ATELIER
+  // A — the plate: the shield as on the CRM, smaller, above a gold nameplate that says ATELIER
   a: () => `
     <defs>${darkTile('30%')}${goldBar('plate')}</defs>
     <rect width="512" height="512" fill="url(#tile)"/>
-    ${shield(256, 78, 214)}
-    <rect x="96" y="318" width="320" height="86" rx="12" fill="url(#plate)"/>
-    ${word('ATELIER', { cx: 256, cy: 361, size: 62, weight: 800, stretch: 'normal', ls: 4, fill: C.black })}`,
+    ${shield(256, 98, 192)}
+    <rect x="106" y="312" width="300" height="92" rx="16" fill="url(#plate)"/>
+    ${word('ATELIER', { cx: 256, cy: 358, size: 63, weight: 800, stretch: 'semi-condensed', ls: 2, fill: C.black })}`,
 
   // B — the inverted tile: gold ground, the shield on a black gear
   b: () => `
@@ -110,10 +110,11 @@ const PROPOSALS = {
       <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0" stop-color="#f5e3ad"/><stop offset=".55" stop-color="${C.gold}"/><stop offset="1" stop-color="#c99a4c"/>
       </linearGradient>
+      <filter id="lift" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#3a2508" flood-opacity=".35"/></filter>
     </defs>
     <rect width="512" height="512" fill="url(#ground)"/>
-    <path d="${gear(256, 256, 196, 164, 10)}" fill="${C.black2}" stroke="${C.black2}" stroke-width="8" stroke-linejoin="round"/>
-    ${shield(256, 140, 236)}`,
+    <path d="${gear(256, 256, 196, 164, 10)}" fill="${C.black2}" stroke="${C.black2}" stroke-width="8" stroke-linejoin="round" filter="url(#lift)"/>
+    ${shield(256, 134, 248)}`,
 
   // C — the badge: the shield, and a gold badge with the squeegee, like an app variant
   c: () => `
@@ -123,17 +124,18 @@ const PROPOSALS = {
       </linearGradient>
     </defs>
     <rect width="512" height="512" fill="url(#tile)"/>
-    ${shield(226, 84, 262)}
-    <circle cx="346" cy="346" r="84" fill="${C.black}"/>
-    <circle cx="346" cy="346" r="74" fill="url(#badge)"/>
-    <g transform="translate(346 350) rotate(-32) scale(0.92)">${squeegee(C.black)}</g>`,
+    ${shield(192, 98, 236)}
+    <circle cx="336.6" cy="336.6" r="90" fill="url(#badge)"/>
+    <g transform="translate(336.6 336.6) rotate(-40) scale(1.12)">${squeegee(C.black)}</g>`,
 };
 
 // places every .fit word: ink box measured on a canvas with the same font, centred on (cx, cy)
-function fitText() {
+async function fitText() {
   const ctx = document.createElement('canvas').getContext('2d');
   for (const t of document.querySelectorAll('text.fit')) {
     const { cx, cy, size, weight, stretch, ls } = t.dataset;
+    // nothing uses the font before this: load that very instance, or the canvas measures a fallback
+    await document.fonts.load(`${weight} ${stretch} ${size}px Archivo`, t.textContent);
     ctx.font = `${weight} ${size}px Archivo`;
     ctx.fontStretch = stretch;
     ctx.letterSpacing = `${ls}px`;
@@ -154,9 +156,8 @@ const iconPage = (svg, size) => `<!doctype html><html><head><meta charset="utf-8
 async function renderIcon(page, svg, size) {
   await page.setViewportSize({ width: size, height: size });
   await page.setContent(iconPage(svg, size));
-  await page.evaluate(() => document.fonts.ready);
   await page.evaluate(`(${fitText})()`);
-  await page.evaluate(() => Promise.all([...document.images].map((i) => i.decode?.())));
+  await page.evaluate(() => document.fonts.ready);
   const png = await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: size, height: size } });
   // opaque RGB file: the tile is full-bleed, the alpha channel only adds weight
   return sharp(png).flatten({ background: C.black }).removeAlpha().png({ compressionLevel: 9 }).toBuffer();
@@ -215,6 +216,7 @@ const sheet = await browser.newPage({ viewport: { width: 1120, height: 800 }, de
 await sheet.setContent(sheetPage(icons));
 await sheet.evaluate(() => document.fonts.ready);
 await sheet.evaluate(() => Promise.all([...document.images].map((i) => i.decode())));
-await sheet.screenshot({ path: path.join(out, 'apercu.png'), fullPage: true });
+await sheet.setViewportSize({ width: 1120, height: await sheet.evaluate(() => document.body.scrollHeight) });
+await sheet.screenshot({ path: path.join(out, 'apercu.png') });
 console.log('apercu.png');
 await browser.close();
