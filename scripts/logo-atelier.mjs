@@ -97,6 +97,7 @@ const squeegee = (fill) => `
 
 const PROPOSALS = {
   // A — the plate: the shield as on the CRM, smaller, above a gold nameplate that says ATELIER
+  // (the plate's lower corners sit on the safe circle; ATELIER's caps are 45 units high)
   a: () => `
     <defs>${darkTile('30%')}${goldBar('plate')}</defs>
     <rect width="512" height="512" fill="url(#tile)"/>
@@ -104,7 +105,7 @@ const PROPOSALS = {
     <rect x="101" y="306" width="310" height="92" rx="16" fill="url(#plate)"/>
     ${word('ATELIER', { cx: 256, cy: 352, size: 66, weight: 800, stretch: 'semi-condensed', ls: 2, fill: C.black })}`,
 
-  // B — the inverted tile: gold ground, the shield on a black gear
+  // B — the inverted tile: gold ground, the shield on a black gear (teeth inside the safe circle)
   b: () => `
     <defs>
       <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
@@ -113,10 +114,11 @@ const PROPOSALS = {
       <filter id="lift" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#3a2508" flood-opacity=".35"/></filter>
     </defs>
     <rect width="512" height="512" fill="url(#ground)"/>
-    <path d="${gear(256, 256, 196, 164, 10)}" fill="${C.black2}" stroke="${C.black2}" stroke-width="8" stroke-linejoin="round" filter="url(#lift)"/>
+    <path d="${gear(256, 256, 190, 160, 10)}" fill="${C.black2}" stroke="${C.black2}" stroke-width="8" stroke-linejoin="round" filter="url(#lift)"/>
     ${shield(256, 133, 254)}`,
 
-  // C — the badge: the shield, and a gold badge with the squeegee, like an app variant
+  // C — the badge: the shield, and a gold badge with the squeegee, like an app variant; the badge
+  // sits on the diagonal against the safe circle, the shield up-left clears it by 10 units
   c: () => `
     <defs>${darkTile('34%')}
       <linearGradient id="badge" x1="0" y1="0" x2="1" y2="1">
