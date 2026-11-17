@@ -34,7 +34,8 @@ Cloudflare (même compte que le serveur de réservation).
 État au 17 novembre 2026 :
 - **Site définitif publié sur Cloudflare Pages** (projet `solarcar37`, adresse technique
   https://solarcar37.pages.dev, non indexée) : construit par Cloudflare depuis GitHub (branche
-  `claude/solar-car-37-website-ib2326`, `npm run build`, Node 22), 9 redirections et en-têtes de
+  `claude/solar-car-37-website-ib2326`, `npm run build`, Node 22 ; chaque envoi sur cette branche
+  republie le site, l'application GitHub de Cloudflare ayant accès au dépôt), 9 redirections et en-têtes de
   sécurité acceptés. Les versions 1440p et 4K du film sont découpées en morceaux (limite de 25 Mo
   par fichier de Cloudflare Pages, `scripts/media-parts.mjs`).
 - **Domaine ajouté à Cloudflare** (offre Free, zone `solarcar37.fr`, en attente) : serveurs de noms
