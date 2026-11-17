@@ -105,10 +105,17 @@ export class Atelier {
   /** the promotions of content/promos.js, written once each (then managed from /atelier) */
   seed(now) {
     for (const p of promoSeeds) {
+      // a campaign changed in content/promos.js (`rev` raised): written once more over the database
+      const rev = Number(p.rev) || 1;
+      if (rev > 1 && this.setting(`seeded:promo:${p.code}`) && Number(this.setting(`seeded:promo:${p.code}:rev`, 1)) < rev) {
+        this.run('UPDATE promos SET label = ?, percent = ?, amount = ?, services = ?, max_uses = ?, starts = ?, expires = ?, active = 1 WHERE code = ?', p.label || '', p.percent || 0, p.amount || 0, (p.services || []).join(','), p.maxUses || 0, dayStart(p.starts), dayEnd(p.ends), p.code);
+        this.set(`seeded:promo:${p.code}:rev`, rev);
+      }
       if (this.setting(`seeded:promo:${p.code}`)) continue;
       if (!this.one('SELECT code FROM promos WHERE code = ?', p.code))
         this.run('INSERT INTO promos (code, label, percent, amount, services, max_uses, starts, expires, active, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)', p.code, p.label || '', p.percent || 0, p.amount || 0, (p.services || []).join(','), p.maxUses || 0, dayStart(p.starts), dayEnd(p.ends), now);
       this.set(`seeded:promo:${p.code}`, now);
+      this.set(`seeded:promo:${p.code}:rev`, rev);
     }
     // the single band of the first version (one setting): moved into the table
     const old = this.setting('banner', null);
@@ -118,9 +125,15 @@ export class Atelier {
       this.run('DELETE FROM settings WHERE key = ?', 'banner');
     }
     for (const x of bannerSeeds) {
+      const rev = Number(x.rev) || 1;
+      if (rev > 1 && this.setting(`seeded:banner:${x.id}`) && Number(this.setting(`seeded:banner:${x.id}:rev`, 1)) < rev) {
+        this.run('UPDATE banners SET theme = ?, title = ?, text = ?, cta = ?, code = ?, starts = ?, expires = ?, active = 1 WHERE id = ?', x.theme || 'classique', x.title || '', x.text, x.cta || 'Réserver', x.code || '', dayStart(x.starts), dayEnd(x.ends), x.id);
+        this.set(`seeded:banner:${x.id}:rev`, rev);
+      }
       if (this.setting(`seeded:banner:${x.id}`)) continue;
       this.run('INSERT OR IGNORE INTO banners (id, theme, title, text, cta, code, starts, expires, active, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)', x.id, x.theme || 'classique', x.title || '', x.text, x.cta || 'Réserver', x.code || '', dayStart(x.starts), dayEnd(x.ends), now);
       this.set(`seeded:banner:${x.id}`, now);
+      this.set(`seeded:banner:${x.id}:rev`, rev);
     }
   }
 
@@ -135,7 +148,7 @@ export class Atelier {
     if (!p) return null;
     if (!p.active) return { ok: false, error: 'Ce code promo n’est pas valable en ce moment.' };
     if (now < p.starts) {
-      const d = (ms) => new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: R.timeZone }).format(new Date(ms));
+      const d = (ms) => new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: R.timeZone }).format(new Date(ms)).replace(/ 1 (\p{L}+)$/u, ' 1er $1');
       return { ok: false, error: d(p.starts) === d(p.expires) ? `Le code ${p.code} est valable le ${d(p.starts)} seulement : réservez ce jour-là pour en profiter.` : `Le code ${p.code} sera valable à partir du ${d(p.starts)}.` };
     }
     if (p.expires < now) return { ok: false, error: 'Ce code promo a expiré.' };
@@ -273,7 +286,10 @@ export class Atelier {
       case 'banner/public': {
         // b.id: one band shown whatever its dates (« Voir sur le site » from the workshop's space)
         const x = b.id ? this.one('SELECT * FROM banners WHERE id = ?', String(b.id)) : this.one('SELECT * FROM banners WHERE active = 1 AND starts <= ? AND expires >= ? ORDER BY starts DESC, created DESC LIMIT 1', now, now);
-        return { banner: x ? { id: `${x.id}-${x.created}`, theme: x.theme, title: x.title, text: x.text, cta: x.cta, code: x.code } : null };
+        if (!x) return { banner: null };
+        // the countdown of the band: the dates of its code (until its last day 23:59), else its own
+        const p = x.code ? this.one('SELECT starts, expires FROM promos WHERE code = ? AND active = 1', x.code) : null;
+        return { banner: { id: `${x.id}-${x.created}`, theme: x.theme, title: x.title, text: x.text, cta: x.cta, code: x.code, starts: p ? p.starts : x.starts, ends: (p ? p.expires : x.expires) + 1 } };
       }
       // ------------------------------------------------ clients, bookings, requests
       case 'booking/add': {

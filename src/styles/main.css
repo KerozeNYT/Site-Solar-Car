@@ -5457,6 +5457,28 @@ button.cal__day.is-on {
   line-height: 1;
   cursor: pointer;
 }
+/* the code's deadline and the time left (src/js/countdown.js) */
+.promo-band.has-left {
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+}
+.promo-band__left {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-align: right;
+}
+.promo-band__until {
+  font-size: 0.74rem;
+  opacity: 0.85;
+}
+.promo-band__time {
+  font-weight: 800;
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
 /* Noël: red, gold, falling snow */
 .promo-band--noel {
   --band-bg: linear-gradient(110deg, #6e0710, #b3121b 25%, #e3202b 50%, #b3121b 75%, #6e0710);
@@ -5557,6 +5579,19 @@ button.cal__day.is-on {
     width: 30px;
     height: 30px;
   }
+  .promo-band.has-left {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: 'title cta close' 'left left left' 'ticker ticker ticker';
+  }
+  .promo-band__left {
+    grid-area: left;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: baseline;
+    gap: 0 8px;
+    text-align: left;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .promo-band.is-in {
@@ -5604,6 +5639,20 @@ button.cal__day.is-on {
 }
 .referral__status.is-error {
   color: var(--danger);
+}
+/* a promo code's deadline and the time left (src/js/countdown.js) */
+.referral__deadline {
+  margin: 4px 0 0;
+  font-size: 0.92rem;
+  color: var(--text-2);
+}
+.referral__deadline b {
+  color: var(--text);
+}
+.referral__deadline [role='timer'] {
+  font-weight: 700;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
 }
 [data-discount] {
   color: var(--gold-300);

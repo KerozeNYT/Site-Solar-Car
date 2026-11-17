@@ -23,12 +23,13 @@ export const bookingRules = {
   ],
   // start times every `step` minutes
   step: 15,
-  // bookable from 48 h ahead, up to about two months ahead
+  // bookable from 48 h ahead, up to about six months ahead (a client on holiday near Tours in
+  // the summer books in the winter)
   noticeHours: 48,
-  horizonDays: 62,
-  // deposit: 30 % of the total, or the total; refunded if cancelled at least 48 h before
+  horizonDays: 186,
+  // deposit: 30 % of the total, or the total; refunded if cancelled at least 72 h (3 days) before
   depositRate: 0.3,
-  cancelHours: 48,
+  cancelHours: 72,
   // a slot is held this long while the visitor pays (Stripe's minimum session life)
   holdMinutes: 30,
   // referral: each client gets a personal code (in the e-mail a week after, or from the workshop's

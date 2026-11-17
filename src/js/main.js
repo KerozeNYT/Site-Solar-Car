@@ -1,5 +1,6 @@
 // Site-wide behaviour. Everything here is progressive enhancement: pages work without it.
 import { startAmbient } from './ambient.js';
+import { deadlineText, runCountdown } from './countdown.js';
 
 const html = document.documentElement;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -354,9 +355,9 @@ function sendHit(hit) {
   // way back from the payment page
   const entry = nav === 'navigate' && bare(ref) !== bare(location.hostname) && !/(^|\.)stripe\.com$/.test(ref);
   // campaign tags of the address: utm_source (the Google profile link), utm_medium and the ad click
-  // ids Google Ads adds (only "there was one" is sent, never the id itself)
+  // ids Google Ads and TikTok ads add (only "there was one" is sent, never the id itself)
   const qs = new URLSearchParams(location.search);
-  const ad = ['gclid', 'gbraid', 'wbraid'].some((k) => qs.has(k)) ? 1 : 0;
+  const ad = ['gclid', 'gbraid', 'wbraid', 'ttclid'].some((k) => qs.has(k)) ? 1 : 0;
   const hit = entry ? { t: 'page', e: 1, r: ref, u: qs.get('utm_source') || '', m: qs.get('utm_medium') || '', g: ad } : { t: 'page', e: 0 };
   if (document.prerendering) document.addEventListener('prerenderingchange', () => sendHit(hit), { once: true });
   else sendHit(hit);
@@ -406,6 +407,8 @@ function fileRequest(d, { prestations, wish }) {
     wish: wish || '',
     message: d.get('message') || '',
     source: { channels: d.getAll('connu'), other: String(d.get('connu_autre') || '') },
+    // checked again by the server, at the time it receives the request
+    code: String(d.get('code') || ''),
   });
   try {
     if (navigator.sendBeacon(`${api}/api/demande`, body)) return;
@@ -434,6 +437,20 @@ function showBand(b, preview) {
   const a = el.querySelector('.promo-band__cta');
   a.textContent = b.cta || 'Réserver';
   a.href = new URL(`reservation/${b.code ? `?code=${encodeURIComponent(b.code)}` : ''}`, root).href;
+  // the code's deadline and the time left (« Plus que 5 jours », then to the second on the last
+  // day), once the code is valid; the band goes at the end of the offer
+  const now = Date.now();
+  if (b.ends > now && !(b.starts > now)) {
+    const left = document.createElement('p');
+    left.className = 'promo-band__left';
+    left.innerHTML = `<span class="promo-band__until">Jusqu’au ${deadlineText(b.ends)}</span> <span class="promo-band__time" role="timer"></span>`;
+    el.querySelector('.promo-band__cta').before(left);
+    el.classList.add('has-left');
+    runCountdown(left.querySelector('[role=timer]'), b.ends, () => {
+      el.classList.add('is-out');
+      setTimeout(() => el.remove(), 450);
+    });
+  }
   el.querySelector('button').addEventListener('click', () => {
     el.classList.add('is-out');
     setTimeout(() => el.remove(), 450);
@@ -491,6 +508,85 @@ if (form) {
     if (config) lines.push(config);
     if (vehicle && !(config || '').includes(vehicle)) lines.push(`Catégorie de véhicule : ${vehicle}`);
     msg.value = lines.join('\n') + '\n\n';
+  }
+  // ---- a promo or referral code (one only): checked by the booking server, said in the e-mail
+  // with the result, so that the workshop knows it was valid the day the request was sent
+  const codeBox = form.querySelector('[data-code-field]');
+  const codeInput = codeBox?.querySelector('input');
+  const codeStatus = codeBox?.querySelector('[data-code-status]');
+  const deadline = codeBox?.querySelector('[data-code-deadline]');
+  let codeInfo = null; // { code, line }: the check of the code typed, for the e-mail
+  let stopCountdown = null;
+  const cleanCode = (v) => String(v || '').toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9-]/g, '').slice(0, 20);
+  const dayFr = (ms) => new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' }).format(new Date(ms)).replace(/^1 /, '1er ');
+  const hideDeadline = () => {
+    stopCountdown?.();
+    stopCountdown = null;
+    if (deadline) deadline.hidden = true;
+  };
+  const showDeadline = (j) => {
+    hideDeadline();
+    if (!deadline || !(j.expires > Date.now())) return;
+    const end = j.expires + 1;
+    deadline.hidden = false;
+    deadline.innerHTML = `Demande à envoyer avant le <b>${deadlineText(end)}</b> · <span role="timer"></span>`;
+    stopCountdown = runCountdown(deadline.querySelector('[role=timer]'), end, () => {
+      deadline.textContent = `L’offre ${j.code} s’est terminée le ${deadlineText(end)}.`;
+      codeInfo = null;
+    });
+  };
+  const checkCode = async () => {
+    if (!codeInput) return null;
+    const code = cleanCode(codeInput.value);
+    codeInput.value = code;
+    if (code && codeInfo?.code === code) return codeInfo;
+    codeStatus.classList.remove('is-ok', 'is-error');
+    hideDeadline();
+    if (!code) {
+      codeInfo = null;
+      codeStatus.textContent = '';
+      return null;
+    }
+    const set = (line, text, ok) => {
+      codeInfo = { code, line };
+      codeStatus.textContent = text;
+      if (ok != null) codeStatus.classList.add(ok ? 'is-ok' : 'is-error');
+      return codeInfo;
+    };
+    if (!api) return set(`${code} (à vérifier par l’atelier)`, 'Votre code sera vérifié par l’atelier avec votre demande.');
+    codeStatus.textContent = 'Vérification du code…';
+    try {
+      const res = await fetch(`${api}/api/code?code=${encodeURIComponent(code)}`, { signal: AbortSignal.timeout?.(6000) });
+      const j = await res.json();
+      if (j.ok && j.kind === 'promo') {
+        showDeadline(j);
+        const off = j.percent ? `−${j.percent} %` : `−${j.amount} €`;
+        return set(`${j.code} — code promo valable le jour de la demande : ${off}${j.expires ? `, offre jusqu’au ${dayFr(j.expires)} à 23 h 59` : ''}`, `Code promo ${j.code} : ${off} appliqués à votre devis.`, true);
+      }
+      if (j.ok) return set(`${j.code} — code de parrainage de ${j.owner}, valable : ${j.amount} € de remise (à marquer utilisé dans l’espace atelier)`, `Code de ${j.owner} : ${j.amount} € de remise appliqués à votre devis.`, true);
+      return set(`${code} — non valable le jour de la demande : ${j.error || 'code inconnu'}`, j.error || 'Ce code n’est pas reconnu.', false);
+    } catch {
+      return set(`${code} (n’a pas pu être vérifié : à contrôler)`, 'Le code n’a pas pu être vérifié pour le moment : il est joint à votre demande, l’atelier le vérifiera.', false);
+    }
+  };
+  if (codeInput) {
+    codeInput.addEventListener('input', () => {
+      codeInfo = null;
+      hideDeadline();
+    });
+    codeBox.querySelector('[data-code-check]')?.addEventListener('click', () => checkCode());
+    codeInput.addEventListener('change', () => checkCode());
+    codeInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        checkCode();
+      }
+    });
+    // from a link (an ad, the band, the booking page): /contact/?code=NOEL
+    if (q.get('code')) {
+      codeInput.value = q.get('code');
+      checkCode();
+    }
   }
   // ---- what is missing, said in red under each field and listed at the top of the form
   const boxes = [...form.querySelectorAll('[data-required-group] input[type="checkbox"]')];
@@ -624,6 +720,9 @@ if (form) {
     btn.disabled = true;
     sending = true;
     status.textContent = 'Envoi en cours…';
+    // the code typed and the result of its check, done again now: valid the day the request is sent
+    codeInfo = null;
+    const code = await checkCode();
     try {
       let res;
       if (/formsubmit\.co\//.test(form.action)) {
@@ -641,6 +740,7 @@ if (form) {
           'Prestation(s)': prestations.join(', '),
           'Rendez-vous souhaité': wish || 'indifférent',
           'Nous a connus': howHeardLine(d) || 'non précisé',
+          ...(code ? { 'Code promo ou parrainage': code.line } : {}),
           Message: d.get('message') || '',
           _subject: subject,
           _template: 'table',
@@ -686,6 +786,9 @@ if (form) {
       const heard = new FormData(form);
       fileRequest(heard, fields(heard));
       form.reset();
+      codeInfo = null;
+      if (codeStatus) codeStatus.textContent = '';
+      hideDeadline();
       track('demande_envoyee', { pieces_jointes: 0 });
       // the answers to « Comment nous avez-vous connus ? », counted in the statistics
       sendHit({ t: 'connu', c: heard.getAll('connu'), o: String(heard.get('connu_autre') || '') });

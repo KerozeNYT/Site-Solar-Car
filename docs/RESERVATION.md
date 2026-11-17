@@ -10,11 +10,11 @@ acompte de 30 % ou la totalité, et le rendez-vous s'inscrit dans l'agenda **SOL
 | Prestations | Vitres teintées : 3/4 arrière (2 h), complet (2 h 30), 2 vitres avant (45 min), 2 vitres avant + 2 custodes (1 h 15, 150 €), pare-brise en option (+1 h 30). Feux teintés vinyle : 120 € la paire, 1 h par paire. PPF et Tesla : sur devis |
 | Prix | Ceux du site (`content/pricing.js`) ; le serveur recalcule tout, il ne croit jamais un montant envoyé par le navigateur |
 | Créneaux | Lundi-vendredi, 8 h-12 h et 13 h-17 h, départs toutes les 15 min, une voiture à la fois, la pause de midi ne compte pas, fin le jour même ; jours fériés fermés |
-| Délai | Au plus tôt 48 h à l'avance, au plus tard environ 2 mois |
+| Délai | Au plus tôt 48 h à l'avance, au plus tard environ 6 mois (186 jours, `horizonDays` ; 2 mois jusqu'au 17 novembre 2026) |
 | Agendas consultés | SOLAR CAR 37, SOLAR HOME 37 et PERSO : un créneau n'est proposé que s'il est libre dans les trois |
 | Rendez-vous écrit dans | SOLAR CAR 37, couleur **Myrtille** (RDV client), avec le client, le véhicule, les prestations, le montant payé et le reste à régler |
 | Paiement | Stripe Checkout (carte, Apple Pay, Google Pay) : acompte de 30 % ou totalité ; reçu envoyé par Stripe |
-| Annulation | Remboursé si annulation au moins 48 h avant ; acompte gardé en dessous ou si le client ne vient pas (`/conditions-reservation/`) |
+| Annulation | Remboursé si annulation au moins 72 h (3 jours) avant — 48 h jusqu'au 17 novembre 2026 ; acompte gardé en dessous ou si le client ne vient pas (`/conditions-reservation/`). Le droit de rétractation de 14 jours après la réservation reste prioritaire |
 | Pendant le paiement | Le créneau est retenu 30 min (événement gris « ⏳ Paiement en cours » dans SOLAR CAR 37), libéré si le paiement n'aboutit pas |
 
 Tout se règle dans `content/booking.js` (durées, horaires, délais, taux d'acompte) et
@@ -151,7 +151,7 @@ webhook en mode réel).
 
 ## Au quotidien
 
-- **Annulation ≥ 48 h** : rembourser depuis le tableau de bord Stripe (Paiements → le paiement →
+- **Annulation ≥ 72 h** : rembourser depuis le tableau de bord Stripe (Paiements → le paiement →
   Rembourser) et supprimer l'événement dans SOLAR CAR 37.
 - **Report** : déplacer l'événement dans l'agenda ; l'acompte reste valable.
 - **Bloquer une journée** (congés, salon) : un événement « occupé » dans SOLAR CAR 37, SOLAR

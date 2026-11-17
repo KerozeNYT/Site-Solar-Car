@@ -104,7 +104,7 @@ test('statistics page: key required, figures of the period, preview apart', asyn
   assert.match(html, /Demandes envoyées<\/p>\s*<p class="tile__value" data-count="1">1</);
   assert.match(html, /Appels<\/p>\s*<p class="tile__value" data-count="1">1</);
   assert.match(html, /Moteurs de recherche<\/span><span class="rank__val">67 % <small>2<\/small>/);
-  assert.doesNotMatch(html, /Publicité \(Google Ads\)<\/span>/); // shown only once there is one
+  assert.doesNotMatch(html, /Publicité<\/span>/); // shown only once there is one
   assert.match(html, /google\.fr <b>2<\/b>/);
   assert.match(html, /<p class="device__pct">67 %<\/p><p class="device__name"><span class="swatch swatch--telephone"/);
   assert.match(html, /Contacts \(demandes, RDV, appels, e-mails\)<\/span><span class="meters__val">66,7<small> \/ 100/);
