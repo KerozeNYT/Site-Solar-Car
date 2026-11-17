@@ -460,7 +460,9 @@ function fileRequest(d, { prestations, wish }) {
 
 // the promotion band, set from the workshop's space: a banner that drops in under the header of
 // every page, its message scrolling, in the look chosen (classique, noel, neon); its cross hides it
-// for the rest of the visit. ?apercu-bandeau=<id>: that band, whatever its dates (preview).
+// for the rest of the visit. It makes room for itself (the page goes down by its height, `--band-h`)
+// and scrolls away with the page: it never hides a title. ?apercu-bandeau=<id>: that band,
+// whatever its dates (preview).
 function showBand(b, preview) {
   const root = new URL(document.querySelector('.site-header__logo')?.getAttribute('href') || '/', location.href);
   const el = document.createElement('aside');
@@ -488,20 +490,28 @@ function showBand(b, preview) {
     left.innerHTML = `<span class="promo-band__until">Jusqu’au ${deadlineText(b.ends)}</span> <span class="promo-band__time" role="timer"></span>`;
     el.querySelector('.promo-band__cta').before(left);
     el.classList.add('has-left');
-    runCountdown(left.querySelector('[role=timer]'), b.ends, () => {
-      el.classList.add('is-out');
-      setTimeout(() => el.remove(), 450);
-    });
+    runCountdown(left.querySelector('[role=timer]'), b.ends, () => hide());
+  }
+  const html = document.documentElement;
+  const room = () => html.style.setProperty('--band-h', `${el.offsetHeight}px`);
+  const watch = 'ResizeObserver' in window ? new ResizeObserver(room) : null;
+  function hide() {
+    el.classList.add('is-out');
+    html.classList.remove('has-band');
+    watch?.disconnect();
+    setTimeout(() => el.remove(), 450);
   }
   el.querySelector('button').addEventListener('click', () => {
-    el.classList.add('is-out');
-    setTimeout(() => el.remove(), 450);
+    hide();
     if (!preview)
       try {
         sessionStorage.setItem('sc37-band', b.id);
       } catch {}
   });
   document.body.append(el);
+  room();
+  html.classList.add('has-band');
+  watch?.observe(el);
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
 }
 // not on the pages that close a booking or a quote

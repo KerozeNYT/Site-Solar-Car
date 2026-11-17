@@ -5291,8 +5291,16 @@ button.cal__day.is-on {
 }
 /* ------------------------------------------------------------------ promotion band
    (set from the workshop's space, docs/ATELIER.md): drops in under the header of every page, its
-   message scrolling; fixed, so the page never moves when it appears. Looks: classique (black and
-   gold), noel (red, falling snow), neon (sunset, original palm trees: no game's images or logo). */
+   message scrolling. The page makes room for it (main goes down by its height, --band-h, set by
+   src/js/main.js) and it scrolls away with the page, under the header: it never hides a title, nor
+   the sticky blocks. Looks: classique (black and gold), noel (red, falling snow), neon (sunset,
+   original palm trees: no game's images or logo). */
+#contenu {
+  transition: padding-top 0.7s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.has-band #contenu {
+  padding-top: var(--band-h, 0px);
+}
 .promo-band {
   --band-bg: linear-gradient(110deg, #0b0c0f, #1c1a14 50%, #0b0c0f);
   --band-line: rgba(233, 205, 130, 0.6);
@@ -5301,7 +5309,7 @@ button.cal__day.is-on {
   --band-title-fg: #0b0c0f;
   --band-cta-bg: var(--gold-300);
   --band-cta-fg: #0b0c0f;
-  position: fixed;
+  position: absolute;
   z-index: 49;
   top: var(--header-h);
   left: 0;
@@ -5596,6 +5604,9 @@ button.cal__day.is-on {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  #contenu {
+    transition: none;
+  }
   .promo-band.is-in {
     animation: none;
     transform: none;
