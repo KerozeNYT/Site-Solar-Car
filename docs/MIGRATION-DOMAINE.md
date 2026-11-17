@@ -34,8 +34,11 @@ Cloudflare (même compte que le serveur de réservation).
 **En ligne le 17 novembre 2026** (zone Cloudflare active à 10 h 08 UTC) : www.solarcar37.fr sert
 le site définitif ; solarcar37.fr et http:// redirigés en 301 vers https://www.solarcar37.fr ; les
 anciennes adresses de local.fr redirigées ; messagerie OVH inchangée (MX, SPF, DMARC, SRV) ;
-serveur de réservation : `SITE_URL` sur https://www.solarcar37.fr. Reste : Resend (domaine), Search
-Console, lien de la fiche Google, transfert du domaine avant le 27 décembre.
+serveur de réservation : `SITE_URL` sur https://www.solarcar37.fr. Le même jour : domaine vérifié
+dans Resend, e-mails envoyés par reservation@solarcar37.fr et e-mails aux clients activés
+(`MAIL_CLIENTS = "1"` : confirmation, rappel de la veille, nouvelles à une semaine avec la carte de
+parrainage), essai reçu dans la boîte de réception Gmail ; Search Console vérifiée (TXT
+google-site-verification). Reste : transfert du domaine avant le 27 décembre, boîte OVH.
 
 État au 17 novembre 2026 :
 - **Site définitif publié sur Cloudflare Pages** (projet `solarcar37`, adresse technique
