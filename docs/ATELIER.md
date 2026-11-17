@@ -42,6 +42,11 @@ Instrument Serif, des chiffres qui défilent à l'ouverture.
 - **Téléphone** : une barre en bas (Accueil, Devis, RDV, Clients, Plus), le **+** en haut à droite.
   « Ajouter à l'écran d'accueil » (Safari : bouton Partager ; Chrome : menu ⋮) l'installe comme une
   application. Pas de flou derrière les panneaux sur téléphone (batterie).
+- **Icône** (choisie le 17 novembre 2026) : le blason dans un engrenage noir sur fond or, pour la
+  distinguer au premier coup d'œil des autres applications au blason sur fond noir (le CRM).
+  Fabriquée par `node scripts/logo-atelier.mjs` (proposition B, `design/logo/atelier/`), copiée dans
+  `booking/assets/icone-512.png` et `icone-180.png`. Après un changement d'icône, supprimer le
+  raccourci de l'écran d'accueil et l'ajouter de nouveau (le téléphone garde l'ancienne).
 - **En direct** : la page ouverte se met à jour toute seule toutes les 30 secondes (et dès qu'on
   revient dessus) : pastilles, accueil et liste des devis redessinés quand quelque chose change
   (jamais pendant qu'on écrit : un bouton « Du nouveau : actualiser » apparaît), et une

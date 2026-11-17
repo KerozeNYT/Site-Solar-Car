@@ -143,7 +143,7 @@ const season = (now) => {
 };
 const BACKDROP = '<div class="amb" aria-hidden="true"><div class="amb__haze"></div><div class="amb__sweep"></div><div class="amb__veil"></div></div>';
 const HEAD = (title, now = Date.now()) => `<!doctype html><html lang="fr"${season(now) ? ` data-saison="${season(now)}"` : ''}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex">
-<title>${esc(title)} — Atelier ${esc(B.name)}</title><link rel="manifest" href="/atelier/manifest.webmanifest"><link rel="icon" type="image/png" href="/atelier/icone-180.png"><link rel="apple-touch-icon" href="/atelier/icone-180.png"><meta name="theme-color" content="#050608"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Atelier">
+<title>${esc(title)} — Atelier ${esc(B.name)}</title><link rel="manifest" href="/atelier/manifest.webmanifest"><link rel="icon" type="image/png" href="/atelier/icone-180.png?v=2"><link rel="apple-touch-icon" href="/atelier/icone-180.png?v=2"><meta name="theme-color" content="#050608"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Atelier">
 <link rel="preload" href="/stats/f/geist.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/atelier/app.css?v=${CSS_V}"><script src="/atelier/app.js?v=${JS_V}" defer></script></head>`;
 
 /**
@@ -218,7 +218,7 @@ async function sendLoginCode(env, now) {
 export async function atelier(req, env, url, now) {
   const path = url.pathname.replace(/\/+$/, '') || '/atelier';
   if (path === '/atelier/manifest.webmanifest')
-    return new Response(JSON.stringify({ name: `Atelier ${B.name}`, short_name: 'Atelier', start_url: '/atelier', scope: '/atelier', display: 'standalone', background_color: '#07080a', theme_color: '#07080a', icons: [{ src: '/atelier/icone-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: '/atelier/icone-180.png', sizes: '180x180', type: 'image/png', purpose: 'any' }] }), { headers: { 'content-type': 'application/manifest+json', 'cache-control': 'public, max-age=86400' } });
+    return new Response(JSON.stringify({ name: `Atelier ${B.name}`, short_name: 'Atelier', start_url: '/atelier', scope: '/atelier', display: 'standalone', background_color: '#050608', theme_color: '#050608', icons: [{ src: '/atelier/icone-512.png?v=2', sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: '/atelier/icone-512.png?v=2', sizes: '512x512', type: 'image/png', purpose: 'maskable' }, { src: '/atelier/icone-180.png?v=2', sizes: '180x180', type: 'image/png', purpose: 'any' }] }), { headers: { 'content-type': 'application/manifest+json', 'cache-control': 'public, max-age=86400' } });
   // the logo and the app icon (booking/brand.js)
   const asset = path.match(/^\/atelier\/(logo\.webp|logo\.png|icone-512\.png|icone-180\.png)$/);
   if (asset) {
