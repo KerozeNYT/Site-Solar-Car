@@ -66,16 +66,12 @@ const slotsOf = async (cfg = config) => {
 
 test('slots: busy in SOLAR HOME 37 or PERSO blocks the workshop', async () => {
   resetToken();
-  const all = await slotsOf();
-  assert.equal(all[0], '08:00');
-  assert.equal(all.at(-1), '15:00');
+  // four starts a day: 8, 10, 13 and 15 h
+  assert.deepEqual(await slotsOf(), ['08:00', '10:00', '13:00', '15:00']);
   cal[HOME].push({ id: 'h1', status: 'confirmed', start: { dateTime: new Date(zonedToUtc(day, '09:00', TZ)).toISOString() }, end: { dateTime: new Date(zonedToUtc(day, '09:30', TZ)).toISOString() } });
   cal[PERSO].push({ id: 'p1', status: 'confirmed', start: { dateTime: new Date(zonedToUtc(day, '16:00', TZ)).toISOString() }, end: { dateTime: new Date(zonedToUtc(day, '16:30', TZ)).toISOString() } });
-  const t = await slotsOf();
-  assert.ok(!t.includes('08:00') && !t.includes('09:00'));
-  assert.ok(t.includes('09:30'));
-  assert.ok(!t.includes('14:30')); // 14:30-16:30 would overlap 16:00
-  assert.ok(t.includes('14:00'));
+  // 8-10 h overlaps 9:00 (SOLAR HOME), 15-17 h overlaps 16:00 (PERSO)
+  assert.deepEqual(await slotsOf(), ['10:00', '13:00']);
 });
 
 let sessionId;
@@ -93,8 +89,7 @@ test('checkout: deposit of 30 %, slot held, Stripe page', async () => {
   assert.equal(hold.extendedProperties.private.session, s.id);
   assert.match(hold.summary, /^⏳ Paiement en cours/);
   // the held slot is no longer offered
-  const t = await slotsOf();
-  assert.ok(!t.includes('10:00') && !t.includes('11:00'));
+  assert.deepEqual(await slotsOf(), ['13:00']);
   // nor can it be booked twice
   const again = await call('/api/checkout', { method: 'POST', body: { config, date: day, time: '10:00', mode: 'full', customer, consent: { terms: true }, back: `${ORIGIN}/reservation/` } });
   assert.equal(again.status, 409);
@@ -141,23 +136,23 @@ test('webhook: bad signature refused, paid session confirms the appointment', as
 });
 
 test('expired payment: the held slot is freed', async () => {
-  const r = await call('/api/checkout', { method: 'POST', body: { config, date: day, time: '14:00', mode: 'full', customer, consent: { terms: true }, back: `https://kerozenyt.github.io/Site-Solar-Car/reservation/` } });
+  const r = await call('/api/checkout', { method: 'POST', body: { config, date: day, time: '13:00', mode: 'full', customer, consent: { terms: true }, back: `https://kerozenyt.github.io/Site-Solar-Car/reservation/` } });
   assert.equal(r.status, 200);
   const s = [...sessions.values()].at(-1);
   assert.equal(s.amount_total, 27000);
   assert.equal(s.success_url, 'https://kerozenyt.github.io/Site-Solar-Car/reservation/confirmee/?session={CHECKOUT_SESSION_ID}');
-  assert.ok(!(await slotsOf()).includes('14:00'));
+  assert.ok(!(await slotsOf()).includes('13:00'));
   s.status = 'expired';
   await hook({ type: 'checkout.session.expired', data: { object: s } });
-  assert.ok((await slotsOf()).includes('14:00'));
+  assert.ok((await slotsOf()).includes('13:00'));
 });
 
 test('a hold whose webhook never came is cleaned up', async () => {
-  await call('/api/checkout', { method: 'POST', body: { config, date: day, time: '14:00', mode: 'deposit', customer, consent: { terms: true }, back: `${ORIGIN}/reservation/` } });
+  await call('/api/checkout', { method: 'POST', body: { config, date: day, time: '13:00', mode: 'deposit', customer, consent: { terms: true }, back: `${ORIGIN}/reservation/` } });
   const s = [...sessions.values()].at(-1);
   const hold = cal[CAR].find((e) => e.id === s.metadata.event);
   hold.extendedProperties.private.holdUntil = String(Date.now() - 1000);
-  assert.ok((await slotsOf()).includes('14:00'));
+  assert.ok((await slotsOf()).includes('13:00'));
   assert.ok(!cal[CAR].includes(hold));
 });
 

@@ -33,18 +33,23 @@ test('free start times: notice, weekends, holidays, busy calendars', () => {
   const busy = [[zonedToUtc('2026-11-19', '10:00', TZ), zonedToUtc('2026-11-19', '11:00', TZ)]];
   const days = freeStarts({ from: '2026-11-16', days: 10, minutes: 120, busy, now, rules });
   const byDate = Object.fromEntries(days.map((d) => [d.date, d.times]));
-  // 48 h notice: Wednesday 18 from 09:00
+  // four starts a day (8, 10, 13, 15 h); 48 h notice: Wednesday 18 from 10:00
   assert.equal(byDate['2026-11-16'], undefined);
-  assert.equal(byDate['2026-11-18'][0], '09:00');
-  // Thursday 19: busy 10-11, a 2 h job cannot overlap it
-  assert.ok(byDate['2026-11-19'].includes('08:00'));
-  assert.ok(!byDate['2026-11-19'].includes('08:15'));
-  assert.ok(byDate['2026-11-19'].includes('11:00'));
-  // a 2 h job may start at 11:00 (11-12, 13-14) but not after 15:00
-  assert.equal(byDate['2026-11-19'].at(-1), '15:00');
+  assert.deepEqual(byDate['2026-11-18'], ['10:00', '13:00', '15:00']);
+  assert.deepEqual(byDate['2026-11-20'], ['08:00', '10:00', '13:00', '15:00']);
+  // Thursday 19: busy 10-11, a 2 h job cannot overlap it (8-10 h just fits)
+  assert.deepEqual(byDate['2026-11-19'], ['08:00', '13:00', '15:00']);
+  // a longer job takes the next slot too: a complete tint (2 h 30) booked at 8:00 ends at 10:30,
+  // so the next start is 13:00; and another 2 h 30 job cannot start at 15:00 (past 17:00)
+  const long = freeStarts({ from: '2026-11-20', days: 1, minutes: 150, busy: [[zonedToUtc('2026-11-20', '08:00', TZ), zonedToUtc('2026-11-20', '10:30', TZ)]], now, rules });
+  assert.deepEqual(long[0].times, ['13:00']);
   // weekend
   assert.equal(byDate['2026-11-21'], undefined);
   assert.equal(byDate['2026-11-22'], undefined);
+  // without fixed starts: every `step` minutes
+  const quarter = freeStarts({ from: '2026-11-19', days: 1, minutes: 120, busy, now, rules: { ...rules, starts: [] } })[0].times;
+  assert.ok(quarter.includes('08:00') && !quarter.includes('08:15') && quarter.includes('11:00'));
+  assert.equal(quarter.at(-1), '15:00');
 });
 
 test('prices and durations of the bookable services', () => {

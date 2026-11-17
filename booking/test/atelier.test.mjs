@@ -127,7 +127,7 @@ test('a promotion made in the space: on the services it names only, counted, in 
   // vitres 270 € + feux 120 €: 15 % of the window tint only, 40,50 €
   const config = { tint: { vehicle: 'berline', formula: 'rear' }, lights: { pairs: 'rear' } };
   const customer = { firstName: 'Camille', lastName: 'Roux', email: 'camille@example.com', phone: '06 22 33 44 55', vehicle: 'Audi A3' };
-  const r = await site('/api/checkout', { method: 'POST', body: JSON.stringify({ config, date: day, time: '09:00', mode: 'deposit', customer, code: 'TEST15', consent: { terms: true }, back: `${SITE}/reservation/` }) });
+  const r = await site('/api/checkout', { method: 'POST', body: JSON.stringify({ config, date: day, time: '08:00', mode: 'deposit', customer, code: 'TEST15', consent: { terms: true }, back: `${SITE}/reservation/` }) });
   assert.equal(r.status, 200, await r.clone().text());
   const s = [...sessions.values()].at(-1);
   sessionId = s.id;
@@ -145,7 +145,7 @@ test('a promotion made in the space: on the services it names only, counted, in 
   const b = await (await site(`/api/booking?session=${s.id}`)).json();
   assert.deepEqual([b.codeKind, b.discount, b.total], ['promo', 40.5, 349.5]);
   // a code on services it does not cover: refused
-  const lights = await site('/api/checkout', { method: 'POST', body: JSON.stringify({ config: { lights: { pairs: 'rear' } }, date: day, time: '14:00', mode: 'deposit', customer, code: 'TEST15', consent: { terms: true }, back: `${SITE}/reservation/` }) });
+  const lights = await site('/api/checkout', { method: 'POST', body: JSON.stringify({ config: { lights: { pairs: 'rear' } }, date: day, time: '13:00', mode: 'deposit', customer, code: 'TEST15', consent: { terms: true }, back: `${SITE}/reservation/` }) });
   assert.equal(lights.status, 400);
   assert.match((await lights.json()).error, /ne s’applique pas/);
   // pause: refused at once

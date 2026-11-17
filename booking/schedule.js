@@ -129,7 +129,9 @@ export function freeStarts({ from, days, minutes, busy, now, rules }) {
     const times = [];
     const first = minutesOf(rules.periods[0][0]);
     const last = minutesOf(rules.periods[rules.periods.length - 1][1]);
-    for (let t = first; t < last; t += rules.step) {
+    // the fixed start times of the day (rules.starts), else every `step` minutes
+    const candidates = rules.starts?.length ? rules.starts.map(minutesOf) : Array.from({ length: Math.ceil((last - first) / rules.step) }, (_, i) => first + i * rules.step);
+    for (const t of candidates) {
       const span = jobSpan(date, timeOf(t), minutes, rules);
       if (!span || span.start < earliest || span.start > latest) continue;
       if (span.segments.some(([a, b]) => overlaps(a, b, busy))) continue;

@@ -21,7 +21,12 @@ export const bookingRules = {
     ['08:00', '12:00'],
     ['13:00', '17:00'],
   ],
-  // start times every `step` minutes
+  // the start times offered, on the site and in the workshop's space: four a day, one car each,
+  // 8-10 h, 10-12 h, 13-15 h, 15-17 h (set by SOLAR CAR 37 on 17 November 2026: a start at 9:45
+  // would leave the morning unusable). The calendars are read with the job's real time: a job
+  // longer than 2 h takes the next slot too (complete tint at 8:00 → next start 13:00).
+  starts: ['08:00', '10:00', '13:00', '15:00'],
+  // start times every `step` minutes, when `starts` is empty
   step: 15,
   // bookable from 48 h ahead, up to about six months ahead (a client on holiday near Tours in
   // the summer books in the winter)

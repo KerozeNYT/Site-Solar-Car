@@ -1,5 +1,13 @@
 # Journal des changements
 
+## Réservation : 4 créneaux par jour, 8 h, 10 h, 13 h, 15 h (17 novembre 2026)
+
+- Sur le site comme dans l'espace atelier, les départs ne sont plus proposés tous les quarts
+  d'heure mais à 8 h, 10 h, 13 h et 15 h : une voiture par créneau, plus de matinée coupée par un
+  départ à 9 h 45. La durée réelle reste vérifiée : un travail de plus de 2 h prend aussi le
+  créneau suivant. Dans l'espace, « Date et heure au choix » permet toujours une autre heure.
+- Réglage : `starts` dans `content/booking.js` ; tests `booking/test/schedule.test.mjs`.
+
 ## Espace atelier : rendez-vous pris par téléphone, lien de paiement de l'acompte (17 novembre 2026)
 
 - « + Nouveau → Rendez-vous par téléphone » : fiche du client, prestations aux prix du site (vitres
