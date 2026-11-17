@@ -94,4 +94,4 @@ Statistiques de visite (sans cookie, comptées par le serveur de réservation, p
 
 Espace atelier (back-office : rendez-vous en ligne, fichier clients exportable, codes promo, bandeau du site, parrainage), sur le serveur de réservation, connexion par code e-mail : `docs/ATELIER.md`.
 
-Mise en production : `docs/MIGRATION-DOMAINE.md`. Suivi de la V2 : `docs/V2-ROADMAP.md` (tableau de bord), `docs/V2-AUDIT.md` (audit initial) et `docs/CHANGELOG.md` (journal des changements).
+Hébergement du site définitif : **Cloudflare Pages** (projet `solarcar37`, https://solarcar37.pages.dev en attendant www.solarcar37.fr), construit par Cloudflare à chaque envoi sur la branche `claude/solar-car-37-website-ib2326` ; l'aperçu GitHub Pages reste en place. Mise en production : `docs/MIGRATION-DOMAINE.md`. Suivi de la V2 : `docs/V2-ROADMAP.md` (tableau de bord), `docs/V2-AUDIT.md` (audit initial) et `docs/CHANGELOG.md` (journal des changements).
