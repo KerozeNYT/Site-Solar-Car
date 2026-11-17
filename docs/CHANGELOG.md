@@ -1,5 +1,12 @@
 # Journal des changements
 
+## Réservation : trois modèles connus pour chaque catégorie de véhicule (17 novembre 2026)
+
+- Page de réservation et « Nouveau RDV » de l'espace atelier : chaque catégorie montre trois
+  modèles courants (ex. Citadine : Audi A3, Mercedes Classe A, BMW Série 1), pour que le client
+  trouve la sienne. Liste : `models` dans `content/pricing.js` (`example` reste la voiture photographiée
+  du simulateur).
+
 ## Noël : une vraie chute de neige sur les pages (17 novembre 2026)
 
 - Thème Noël (1er-31 décembre, `content/themes.js`) : flocons à six branches et flocons ronds sur

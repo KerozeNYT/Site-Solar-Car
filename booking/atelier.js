@@ -905,7 +905,7 @@ ${error ? `<p class="msg msg--err" role="alert">${esc(error)}</p>` : ''}
 
 <section class="card"><h2>${ico('bolt')} Prestations</h2>
 <h3>Vitres teintées</h3>
-<div class="row"><div><label for="r-vt_vehicule">Catégorie du véhicule</label><select id="r-vt_vehicule" name="vt_vehicule">${opt(bookableVehicles.map((x) => [x.id, `${x.label} (${x.example})`]), cat)}</select></div>
+<div class="row"><div><label for="r-vt_vehicule">Catégorie du véhicule</label><select id="r-vt_vehicule" name="vt_vehicule">${opt(bookableVehicles.map((x) => [x.id, `${x.label} — ${(x.models || [x.example]).join(', ')}`]), cat)}</select></div>
 <div><label for="r-vt_formule">Formule</label><select id="r-vt_formule" name="vt_formule">${opt(tintFormulas.map((x) => [x.id, `${x.label} · ${eur(x.price(vehicleCat))}`]), f.get('vt_formule') || '', '— Pas de vitres —')}</select></div></div>
 <div class="row"><div><label for="r-pb_film">Pare-brise</label><select id="r-pb_film" name="pb_film">${opt(tint.windshield.films.map((x) => [x.id, `${x.label} · ${eur(x.price)}`]), f.get('pb_film') || '', '— Pas de pare-brise —')}</select></div>
 <div><label for="r-pb_couleur">Couleur du film irisé</label><select id="r-pb_couleur" name="pb_couleur">${opt(tint.windshield.colors.map((x) => [x.id, x.label]), f.get('pb_couleur') || '')}</select></div></div>

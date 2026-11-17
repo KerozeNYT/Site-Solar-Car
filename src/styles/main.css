@@ -5010,6 +5010,10 @@ p {
 .picks--pay {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
+/* each category with three well-known cars (content/pricing.js, `models`) */
+.picks--vehicles {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+}
 .picks--formulas {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
