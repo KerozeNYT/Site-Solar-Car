@@ -20,7 +20,7 @@
  * pages work without it.
  */
 import { bookingRules as R, codeServices, formatEuros, formatDuration, quote, withDiscount, withExtra, discountFor, bookableVehicles, tintFormulas, lightsBooking, atelierExtras, windshieldMinutes } from '../content/booking.js';
-import { tint } from '../content/pricing.js';
+import { tint, tintOnQuote } from '../content/pricing.js';
 // the appointments taken by the workshop (used at request time only: worker.js imports this module)
 import { atelierBooking, atelierSlots, atelierCancel } from './worker.js';
 import { business as B } from '../content/site.js';
@@ -905,6 +905,7 @@ ${error ? `<p class="msg msg--err" role="alert">${esc(error)}</p>` : ''}
 
 <section class="card"><h2>${ico('bolt')} Prestations</h2>
 <h3>Vitres teintées</h3>
+<p class="dim" style="margin:-4px 0 10px">${esc(tintOnQuote.join(', '))} : forfait spécifique, à mettre en « Autre prestation » avec le prix convenu.</p>
 <div class="row"><div><label for="r-vt_vehicule">Catégorie du véhicule</label><select id="r-vt_vehicule" name="vt_vehicule">${opt(bookableVehicles.map((x) => [x.id, `${x.label} — ${(x.models || [x.example]).join(', ')}`]), cat)}</select></div>
 <div><label for="r-vt_formule">Formule</label><select id="r-vt_formule" name="vt_formule">${opt(tintFormulas.map((x) => [x.id, `${x.label} · ${eur(x.price(vehicleCat))}`]), f.get('vt_formule') || '', '— Pas de vitres —')}</select></div></div>
 <div class="row"><div><label for="r-pb_film">Pare-brise</label><select id="r-pb_film" name="pb_film">${opt(tint.windshield.films.map((x) => [x.id, `${x.label} · ${eur(x.price)}`]), f.get('pb_film') || '', '— Pas de pare-brise —')}</select></div>

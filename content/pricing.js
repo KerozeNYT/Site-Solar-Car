@@ -35,7 +35,7 @@ export const tintVehicles = [
   { id: 'citadine', label: 'Citadine', example: 'Audi A3 Sportback', cat: 'citadine', models: ['Audi A3', 'Mercedes Classe A', 'BMW Série 1'] },
   { id: 'berline', label: 'Berline', example: 'BMW Série 3', cat: 'berline', models: ['BMW Série 3', 'Peugeot 508', 'Audi A5 Coupé'] },
   { id: 'cabriolet', label: 'Cabriolet', example: 'Audi A4 Cabriolet', cat: 'coupe', models: ['Audi A4 Cabriolet', 'BMW Série 4 Cabriolet', 'Mini Cabrio'] },
-  { id: 'coupe', label: 'Coupé', example: 'BMW Série 2 Coupé', cat: 'coupe', models: ['BMW Série 2 Coupé', 'Audi TT', 'Peugeot RCZ'] },
+  { id: 'coupe', label: 'Coupé', example: 'BMW Série 2 Coupé', cat: 'coupe', models: ['BMW Série 2 Coupé', 'Audi TT', 'Toyota GR86'] },
   { id: 'break', label: 'Break', example: 'Audi A6 Avant', cat: 'break', models: ['Audi A6 Avant', 'Peugeot 308 SW', 'BMW Série 3 Touring'] },
   { id: 'monospace', label: 'Monospace', example: 'Renault Espace', cat: 'suv', models: ['Renault Espace', 'Volkswagen Touran', 'Citroën Grand C4 SpaceTourer'] },
   { id: 'suv', label: 'SUV', example: 'BMW X5', cat: 'suv', models: ['BMW X5', 'Peugeot 3008', 'Volkswagen Tiguan'] },
@@ -43,6 +43,10 @@ export const tintVehicles = [
   { id: 'tesla', label: 'Tesla Model 3', example: 'forfait spécifique', quote: true },
   { id: 'utilitaire', label: 'Utilitaire', example: 'Volkswagen Transporter', cat: 'utilitaire', models: ['Volkswagen Transporter', 'Renault Trafic', 'Mercedes Vito'] },
 ];
+
+/** cars whose window tint is a package of its own, priced on quote (never booked online): named
+ *  under the categories of the booking page and of the workshop's « Nouveau RDV » */
+export const tintOnQuote = ['Peugeot RCZ', 'Tesla Model 3 et toit vitré'];
 
 export const tint = {
   validated: true,

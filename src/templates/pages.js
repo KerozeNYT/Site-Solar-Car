@@ -1771,7 +1771,7 @@ export function reservationPage(ctx) {
           <div class="booking__block" data-block="tint" hidden>
             <p class="booking__label">Votre véhicule</p>
             <div class="picks picks--vehicles">${bookableVehicles.map((v) => radio('vehicle', v.id, `<b>${esc(v.label)}</b>`, `<small>ex. ${esc((v.models || [v.example]).join(', '))}</small>`)).join('')}</div>
-            <p class="form__hint">Tesla Model 3 et toit vitré : <a href="/contact/">sur devis</a>.</p>
+            <p class="form__hint">${esc(ctx.pricing.tintOnQuote.join(", "))} : forfait spécifique, <a href="/contact/">sur devis</a>.</p>
             <p class="booking__label">Formule</p>
             <div class="picks picks--formulas">${tintFormulas.map((f) => radio('formula', f.id, `<b>${esc(f.label)}</b><small>${esc(f.text)}</small>`, `<span class="pick__meta"><span data-formula-price="${f.id}"></span></span>`)).join('')}</div>
             <p class="form__hint">La teinte se choisit avec vous à l’atelier, le jour du rendez-vous, en comparant les films sur votre voiture.</p>
