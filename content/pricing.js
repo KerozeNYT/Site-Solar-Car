@@ -27,13 +27,15 @@ export const vehicleTypes = [
  * The pictures are public/img/vitres/<id>-34|side-*.webp (scripts/cars/render.mjs); `example` is
  * the car of the picture. `models`: three well-known cars of the category, shown on the booking
  * page and in the workshop's « Nouveau RDV » so that a client finds their car (17 November 2026).
+ * A coupé with a large rear window (Audi A5, Mercedes Classe C Coupé…) is a « Berline » for the
+ * workshop: only small coupés are shown under « Coupé ».
  */
 export const tintVehicles = [
   { id: 'petite-citadine', label: 'Petite citadine', example: 'Fiat 500', cat: 'citadine', models: ['Fiat 500', 'Peugeot 208', 'Renault Clio'] },
   { id: 'citadine', label: 'Citadine', example: 'Audi A3 Sportback', cat: 'citadine', models: ['Audi A3', 'Mercedes Classe A', 'BMW Série 1'] },
-  { id: 'berline', label: 'Berline', example: 'BMW Série 3', cat: 'berline', models: ['BMW Série 3', 'Audi A4', 'Peugeot 508'] },
+  { id: 'berline', label: 'Berline', example: 'BMW Série 3', cat: 'berline', models: ['BMW Série 3', 'Peugeot 508', 'Audi A5 Coupé'] },
   { id: 'cabriolet', label: 'Cabriolet', example: 'Audi A4 Cabriolet', cat: 'coupe', models: ['Audi A4 Cabriolet', 'BMW Série 4 Cabriolet', 'Mini Cabrio'] },
-  { id: 'coupe', label: 'Coupé', example: 'BMW Série 2 Coupé', cat: 'coupe', models: ['BMW Série 2 Coupé', 'Audi A5 Coupé', 'Mercedes Classe C Coupé'] },
+  { id: 'coupe', label: 'Coupé', example: 'BMW Série 2 Coupé', cat: 'coupe', models: ['BMW Série 2 Coupé', 'Audi TT', 'Peugeot RCZ'] },
   { id: 'break', label: 'Break', example: 'Audi A6 Avant', cat: 'break', models: ['Audi A6 Avant', 'Peugeot 308 SW', 'BMW Série 3 Touring'] },
   { id: 'monospace', label: 'Monospace', example: 'Renault Espace', cat: 'suv', models: ['Renault Espace', 'Volkswagen Touran', 'Citroën Grand C4 SpaceTourer'] },
   { id: 'suv', label: 'SUV', example: 'BMW X5', cat: 'suv', models: ['BMW X5', 'Peugeot 3008', 'Volkswagen Tiguan'] },
