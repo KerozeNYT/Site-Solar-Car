@@ -472,5 +472,5 @@ export function buildGarage(scene, renderer, { ledLevel = 4.2, px = 3, starLevel
   bright.color.multiplyScalar(0.6);
   const glassEnvMap = pmrem.fromScene(env, 0.0, 0.05, 40, { size: 512, position: new THREE.Vector3(0, 1.0, 0) }).texture;
   pmrem.dispose();
-  return { envMap, glassEnvMap, update: (t) => stars?.update(t) };
+  return { envMap, glassEnvMap, room: ROOM, update: (t) => stars?.update(t) };
 }

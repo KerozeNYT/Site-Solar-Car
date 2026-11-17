@@ -21,6 +21,7 @@ import carConfig from '../../content/car.js';
 import { keys, effects } from './shots.js';
 import { buildGarage } from './garage.js';
 import { addLivery } from './livery.js';
+import { addChristmas } from './christmas.js';
 
 const q = new URLSearchParams(location.search);
 const W = Number(q.get('w') || 1920);
@@ -216,6 +217,10 @@ const finish = new ShaderPass({
 });
 composer.addPass(finish);
 
+// knob xmas=1: the Christmas dressing (scripts/film/christmas.js): ribbon and bow (fx.ribbon),
+// garlands, trees
+const xmas = q.get('xmas') === '1' ? addChristmas(scene, car.group, garage.room) : null;
+
 // ---------------------------------------------------------------- timeline
 const path = createPath(keys);
 const fx = createEffects(effects);
@@ -270,6 +275,7 @@ window.renderFrame = (t) => {
   finish.uniforms.uFade.value = e.fade;
   finish.uniforms.uSeed.value = (t * 24.0) % 97.0;
   garage.update(t);
+  xmas?.update(e);
   car.update(t, H, camera.fov);
   composer.render();
 };
