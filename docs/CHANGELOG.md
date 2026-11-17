@@ -11,7 +11,10 @@
   l'agenda, et les créneaux libres suivent. La page de réservation n'affiche plus de durée par
   formule (« pare-brise : dans le même créneau »). Les autres prestations de l'espace atelier
   (phares, ciel étoilé…) gardent leur durée, ajoutée aux 2 h.
-- Réglages : `starts` et `jobMinutes` dans `content/booking.js` ; tests `booking/test/schedule.test.mjs`.
+- **Feux teintés seuls : 1 h la paire**, et ils bouchent les trous : quand un créneau de 2 h est
+  déjà en partie pris (voiture rallongée 8 h-11 h), l'heure qui reste (11 h-12 h) est proposée pour
+  des feux ; un créneau entier reste à son départ fixe (pas de 9 h sur une matinée vide).
+- Réglages : `starts`, `jobMinutes` et `fill` dans `content/booking.js` ; tests `booking/test/schedule.test.mjs`.
 
 ## Espace atelier : rendez-vous pris par téléphone, lien de paiement de l'acompte (17 novembre 2026)
 

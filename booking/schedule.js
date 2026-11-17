@@ -137,6 +137,21 @@ export function freeStarts({ from, days, minutes, busy, now, rules }) {
       if (span.segments.some(([a, b]) => overlaps(a, b, busy))) continue;
       times.push(timeOf(t));
     }
+    // a shorter job also fills what is left of a slot already partly taken (rules.fill): the
+    // tinted lights at 11:00 after a car lengthened to 8:00-11:00; a whole slot stays whole
+    if (rules.starts?.length && rules.fill && rules.jobMinutes && minutes < rules.jobMinutes) {
+      for (const s of rules.starts.map(minutesOf)) {
+        const block = jobSpan(date, timeOf(s), rules.jobMinutes, rules);
+        if (block && !block.segments.some(([a, b]) => overlaps(a, b, busy))) continue;
+        for (let t = s + rules.fill; t + minutes <= s + rules.jobMinutes; t += rules.fill) {
+          const span = jobSpan(date, timeOf(t), minutes, rules);
+          if (!span || span.start < earliest || span.start > latest) continue;
+          if (span.segments.some(([a, b]) => overlaps(a, b, busy))) continue;
+          if (!times.includes(timeOf(t))) times.push(timeOf(t));
+        }
+      }
+      times.sort();
+    }
     if (times.length) out.push({ date, times });
   }
   return out;

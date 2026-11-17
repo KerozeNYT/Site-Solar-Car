@@ -43,6 +43,16 @@ test('free start times: notice, weekends, holidays, busy calendars', () => {
   // so the next start is 13:00; and another 2 h 30 job cannot start at 15:00 (past 17:00)
   const long = freeStarts({ from: '2026-11-20', days: 1, minutes: 150, busy: [[zonedToUtc('2026-11-20', '08:00', TZ), zonedToUtc('2026-11-20', '10:30', TZ)]], now, rules });
   assert.deepEqual(long[0].times, ['13:00']);
+  // tinted lights (1 h) fill what is left of a slot already partly taken: a car lengthened to
+  // 8:00-11:00 leaves 11:00-12:00; a whole slot keeps its fixed start (no 9:00 on an empty morning)
+  const at = (t) => zonedToUtc('2026-11-20', t, TZ);
+  const hour = (b) => freeStarts({ from: '2026-11-20', days: 1, minutes: 60, busy: b, now, rules })[0].times;
+  assert.deepEqual(hour([]), ['08:00', '10:00', '13:00', '15:00']);
+  assert.deepEqual(hour([[at('08:00'), at('11:00')]]), ['11:00', '13:00', '15:00']);
+  // a pair of lights booked at 8:00: the 9:00 hour is offered to another one
+  assert.deepEqual(hour([[at('08:00'), at('09:00')]]), ['09:00', '10:00', '13:00', '15:00']);
+  // a 2 h job never goes there
+  assert.deepEqual(freeStarts({ from: '2026-11-20', days: 1, minutes: 120, busy: [[at('08:00'), at('11:00')]], now, rules })[0].times, ['13:00', '15:00']);
   // weekend
   assert.equal(byDate['2026-11-21'], undefined);
   assert.equal(byDate['2026-11-22'], undefined);
@@ -66,6 +76,10 @@ test('prices and durations of the bookable services', () => {
   assert.ok(quote({ tint: { vehicle: 'berline' } }).error);
   assert.ok(quote({}).error);
   assert.equal(quote({ lights: { pairs: 'both' } }).deposit, 72);
+  // tinted lights alone: 1 h a pair; with window tint: the 2 h slot
+  assert.equal(quote({ lights: { pairs: 'rear' } }).minutes, 60);
+  assert.equal(quote({ lights: { pairs: 'both' } }).minutes, 120);
+  assert.equal(quote({ tint: { vehicle: 'berline', formula: 'rear' }, lights: { pairs: 'both' } }).minutes, 120);
   // the shade is chosen at the workshop: none is asked
   assert.match(quote({ lights: { pairs: 'rear' } }).items[0].detail, /teinte choisie à l’atelier/);
 });

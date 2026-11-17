@@ -26,10 +26,15 @@ export const bookingRules = {
   // would leave the morning unusable). The calendars are read with the job's real time: a job
   // longer than 2 h takes the next slot too (complete tint at 8:00 → next start 13:00).
   starts: ['08:00', '10:00', '13:00', '15:00'],
-  // every appointment of the catalogue (window tint, windshield, tinted lights, alone or together)
-  // takes one slot of 2 h (SOLAR CAR 37, 17 November 2026): a car that needs more is lengthened by
-  // hand in the calendar, which the free slots then follow
+  // every appointment of the catalogue with window tint (any package, the windshield, the lights
+  // with it) takes one slot of 2 h (SOLAR CAR 37, 17 November 2026): a car that needs more is
+  // lengthened by hand in the calendar, which the free slots then follow. Tinted lights alone: 1 h
+  // a pair (lightsBooking.minutesPerPair).
   jobMinutes: 120,
+  // a shorter job (tinted lights, 1 h) also fills what is left of a slot already partly taken, at
+  // the slot's start + `fill` minutes: 11:00-12:00 after a car lengthened to 8:00-11:00. A whole
+  // slot is kept for its fixed start (a pair of lights at 8:00, never at 9:00 on an empty morning).
+  fill: 60,
   // start times every `step` minutes, when `starts` is empty
   step: 15,
   // bookable from 48 h ahead, up to about six months ahead (a client on holiday near Tours in
@@ -79,6 +84,8 @@ export const windshieldMinutes = 120;
 // tinted lights: smoked vinyl only online (the tinted PPF is priced on quote)
 export const lightsBooking = {
   material: lights.materials.find((m) => m.id === 'covering'),
+  // booked alone: 1 h a pair (front and rear: one slot of 2 h)
+  minutesPerPair: 60,
   pairs: [
     { id: 'rear', label: 'Feux arrière', count: 1 },
     { id: 'front', label: 'Feux avant', count: 1 },
@@ -93,8 +100,9 @@ export const bookableVehicles = tintVehicles.filter((v) => !v.quote && tint.rear
  * Price and duration of a configuration:
  *   { tint?: { vehicle, formula, windshield?, color? }, lights?: { pairs } }
  * The shade (of the windows or of the lights) is chosen with the workshop on the day.
- * Returns { items: [{ label, detail, price }], total, minutes (one slot: bookingRules.jobMinutes),
- * deposit } (EUR, minutes) or { error } when the configuration is not bookable.
+ * Returns { items: [{ label, detail, price }], total, minutes (one slot of bookingRules.jobMinutes
+ * with window tint; tinted lights alone, 1 h a pair), deposit } (EUR, minutes) or { error } when
+ * the configuration is not bookable.
  */
 export function quote(config = {}) {
   const items = [];
@@ -131,7 +139,9 @@ export function quote(config = {}) {
   }
   if (!items.length) return { error: 'Prestation à choisir' };
   const total = items.reduce((a, i) => a + i.price, 0);
-  return { items, total, minutes: bookingRules.jobMinutes, deposit: Math.round(total * bookingRules.depositRate * 100) / 100 };
+  const pairs = config.lights ? lightsBooking.pairs.find((p) => p.id === config.lights.pairs).count : 0;
+  const minutes = config.tint ? bookingRules.jobMinutes : Math.min(bookingRules.jobMinutes, lightsBooking.minutesPerPair * pairs);
+  return { items, total, minutes, deposit: Math.round(total * bookingRules.depositRate * 100) / 100 };
 }
 
 /**
@@ -170,7 +180,7 @@ export function withExtra(q, extra = []) {
 export const atelierExtras = [
   { id: 'phares', label: 'Rénovation de phares', price: headlights.renovation, minutes: 90 },
   { id: 'phares-ceramique', label: 'Rénovation de phares + céramique', price: headlights.renovation + headlights.options[0].price, minutes: 105 },
-  { id: 'feux-ppf', label: 'Feux teintés — PPF teinté (la paire)', price: lights.materials.find((m) => m.id === 'ppf')?.perPair.max ?? null, minutes: 75, kind: 'lights' },
+  { id: 'feux-ppf', label: 'Feux teintés — PPF teinté (la paire)', price: lights.materials.find((m) => m.id === 'ppf')?.perPair.max ?? null, minutes: 60, kind: 'lights' },
   { id: 'ciel', label: 'Ciel étoilé', price: null, minutes: 480 },
   ...detailing.packages.map((p) => ({ id: `detailing-${p.id}`, label: `Detailing — ${p.label}`, price: null, minutes: { essentiel: 180, eclat: 360, signature: 480 }[p.id] || 240 })),
   { id: 'covering', label: 'Covering', price: null, minutes: 480 },
