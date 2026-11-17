@@ -8,6 +8,7 @@
  * 37 on 13 November 2026 (docs/RESERVATION.md).
  */
 import { tint, lights, tintVehicles } from './pricing.js';
+import { promos } from './promos.js';
 
 export const bookingRules = {
   // the booking server (Cloudflare Worker, booking/, deployed with `npx wrangler deploy`); ''
@@ -23,9 +24,10 @@ export const bookingRules = {
   ],
   // start times every `step` minutes
   step: 15,
-  // bookable from 48 h ahead, up to about two months ahead
+  // bookable from 48 h ahead, up to about six months ahead (a client on holiday near Tours in
+  // the summer books in the winter)
   noticeHours: 48,
-  horizonDays: 62,
+  horizonDays: 186,
   // deposit: 30 % of the total, or the total; refunded if cancelled at least 72 h (3 days) before
   depositRate: 0.3,
   cancelHours: 72,
@@ -37,16 +39,8 @@ export const bookingRules = {
   referral: { amount: 20, months: 6 },
 };
 
-/**
- * Promo codes of a campaign (an ad video, a post…): `percent` off any service of the workshop, for
- * an online booking paid (deposit or total) or a quote requested between `from` and `to` (days in
- * Paris, both included), whatever the date of the appointment. `uses`: how many times in all, the
- * online bookings and the uses noted by the workshop together (null: unlimited). Window tint and
- * tinted lights: the code is typed on the booking page; the other services: in the quote request,
- * the workshop then lowers the quote (booking/promo.js, docs/RESERVATION.md). One code per booking
- * or quote: a promo code and a referral code never add up.
- */
-export const promos = [{ code: 'NOEL15', percent: 15, from: '2026-12-01', to: '2026-12-24', uses: null, label: 'Noël 2026' }];
+// promo codes of the campaigns (content/promos.js): one code per booking, never added to a referral code
+export { promos };
 
 /** window tint packages: price (EUR, net) for a vehicle category, time (minutes) */
 export const tintFormulas = [

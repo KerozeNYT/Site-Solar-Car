@@ -8,6 +8,11 @@ import { Parrainage, referralFor } from '../referral.js';
 import { promoState, checkPromo, listPromos } from '../promo.js';
 import { promos, promoOf, percentOff, discountLabel } from '../../content/booking.js';
 import { utcToZoned, addDays, zonedToUtc } from '../schedule.js';
+import { leftText as leftNb, promoEnd, deadlineText as deadlineNb } from '../../src/js/countdown.js';
+
+// the countdown's words, with plain spaces (it keeps "23 h 59" or "7 jours" on one line)
+const leftText = (ms) => leftNb(ms).replace(/\u00a0/g, ' ');
+const deadlineText = (p) => deadlineNb(p).replace(/\u00a0/g, ' ');
 import { installFakes } from './fakes.mjs';
 import { fakeDO } from './fake-do.mjs';
 import { fakeStats } from './fake-stats.mjs';
@@ -69,13 +74,35 @@ test('NOEL15: 15 % off, for bookings made from 1 to 24 December 2026 (Paris), un
   assert.match(promoState(p, paris('2026-11-30', '23:50')).error, /valable à partir du 1er décembre 2026/);
   assert.equal(promoState(p, paris('2026-12-01', '00:05')).ok, true);
   assert.equal(promoState(p, paris('2026-12-24', '23:55'), 5000).ok, true);
-  assert.match(promoState(p, paris('2026-12-25', '00:05')).error, /n’est plus valable : l’offre s’est terminée le 24 décembre 2026/);
+  assert.match(promoState(p, paris('2026-12-25', '00:05')).error, /n’est plus valable : l’offre s’est terminée le 24 décembre 2026 à 23 h 59/);
   assert.match(promoState(null, Date.now()).error, /n’existe pas/);
   // the discount, to the cent, and its name
   assert.equal(percentOff({ total: 270 }, 15), 40.5);
   assert.equal(percentOff({ total: 72.5 }, 15), 10.88);
   assert.equal(discountLabel({ kind: 'promo', code: 'NOEL15', percent: 15 }), 'Code promo NOEL15 (−15 %)');
   assert.equal(discountLabel({ kind: 'parrainage' }), 'Parrainage');
+});
+
+test('the countdown: days left until the last day, then hours, minutes and seconds until 23:59:59', () => {
+  const p = promoOf('NOEL15');
+  const end = promoEnd(p);
+  assert.equal(end, paris('2026-12-25', '00:00'));
+  assert.equal(deadlineText(p), '24 décembre à 23 h 59');
+  assert.equal(leftText(end - paris('2026-12-01', '09:00')), 'Plus que 24 jours');
+  assert.equal(leftText(end - paris('2026-12-18', '00:00')), 'Plus que 7 jours');
+  assert.equal(leftText(end - paris('2026-12-18', '23:59')), 'Plus que 7 jours');
+  assert.equal(leftText(end - paris('2026-12-23', '10:00')), 'Plus que 2 jours');
+  assert.equal(leftText(end - paris('2026-12-24', '00:00')), 'Dernier jour : plus que 24 h 00 min 00 s');
+  assert.equal(leftText(end - paris('2026-12-24', '21:11') - 48000), 'Dernier jour : plus que 2 h 48 min 12 s');
+  assert.equal(leftText(end - paris('2026-12-24', '23:12')), 'Dernier jour : plus que 48 min 00 s');
+  assert.equal(leftText(9000), 'Dernier jour : plus que 9 s');
+  assert.equal(leftText(0), '');
+});
+
+test('the online agenda reaches about six months ahead (a client on holiday in the summer books in the winter)', async () => {
+  const slots = async (from) => (await (await call(`/api/slots?config=${encodeURIComponent(JSON.stringify(config))}&from=${from}&days=14`)).json()).slots;
+  assert.ok((await slots(addDays(today, 170))).length > 0);
+  assert.equal((await slots(addDays(today, 190))).length, 0);
 });
 
 test('/api/code: a promo code or a referral code, from the site only', async () => {

@@ -1,5 +1,6 @@
 import { bookingRules as R, quote, amountDue, formatDuration, formatEuros, withDiscount, referralCode, percentOff, discountLabel, dayText } from '../../content/booking.js';
 import { jobSpan, utcToZoned } from '../../booking/schedule.js';
+import { promoOf, deadlineText, runCountdown } from './countdown.js';
 
 /**
  * Online booking (/reservation/): 1. the service, priced as it is chosen (content/booking.js, the
@@ -97,10 +98,7 @@ export function startBooking(root) {
     $('[data-duration]').textContent = q.error ? '—' : formatDuration(q.minutes);
     $('[data-discount-row]').hidden = !q.discount;
     $('[data-discount-label]').textContent = discountLabel(referral || {});
-    // a promo code (often from an ad's link): said at the top of the page
-    const banner = $('[data-promo-banner]');
-    banner.hidden = referral?.kind !== 'promo';
-    if (referral?.kind === 'promo') banner.innerHTML = `Code <b>${referral.code}</b> appliqué : <b>−${referral.percent} %</b> sur votre réservation${referral.to ? `, jusqu’au ${dayText(referral.to)}` : ''}. Detailing, ciel étoilé, covering, phares… : <a href="${base()}contact/?code=${encodeURIComponent(referral.code)}">demandez un devis avec ce code</a>.`;
+    promoBanner();
     $('[data-discount]').textContent = q.discount ? `−${formatEuros(q.discount)}` : '—';
     $('[data-total]').textContent = q.error ? '—' : formatEuros(q.total);
     $('[data-deposit]').textContent = q.error ? '—' : formatEuros(q.deposit);
@@ -266,6 +264,37 @@ export function startBooking(root) {
     refresh();
   });
 
+  // ------------------------------------------------------------- promo code banner
+  // a promo code (often from an ad's link), said at the top of the page with its deadline and the
+  // time left; at the end of the offer the discount goes (the server would refuse it)
+  let bannerFor = '';
+  let stopCountdown = null;
+  function promoBanner() {
+    const banner = $('[data-promo-banner]');
+    const p = referral?.kind === 'promo' ? promoOf(referral.code) : null;
+    const key = referral?.kind === 'promo' ? referral.code : '';
+    if (key === bannerFor) return;
+    bannerFor = key;
+    stopCountdown?.();
+    banner.hidden = !key;
+    if (!key) return;
+    const quote = `Detailing, ciel étoilé, covering, phares… : <a href="${base()}contact/?code=${encodeURIComponent(key)}">demandez un devis avec ce code</a>.`;
+    if (!p) {
+      banner.innerHTML = `Code <b>${key}</b> appliqué : <b>−${referral.percent} %</b> sur votre réservation${referral.to ? `, jusqu’au ${dayText(referral.to)}` : ''}. ${quote}`;
+      return;
+    }
+    banner.innerHTML = `Code <b>${key}</b> appliqué : <b>−${p.percent} %</b> sur votre réservation, jusqu’au <b>${deadlineText(p)}</b> seulement. <span class="booking__promo-left" role="timer"></span><br>${quote}`;
+    stopCountdown = runCountdown(banner.querySelector('[role=timer]'), p, () => {
+      referral = null;
+      codeStatus.textContent = `L’offre ${key} s’est terminée le ${deadlineText(p)} : le code n’est plus accepté.`;
+      codeStatus.classList.remove('is-ok');
+      codeStatus.classList.add('is-error');
+      refresh();
+      banner.hidden = false;
+      banner.textContent = `L’offre ${key} s’est terminée le ${deadlineText(p)}.`;
+    });
+  }
+
   // ------------------------------------------------------------- referral code
   const codeStatus = $('[data-referral-status]');
   let checking = null; // the code being checked (the field's change and the button come together)
@@ -294,7 +323,7 @@ export function startBooking(root) {
       const j = await res.json();
       if (j.ok && j.kind === 'promo') {
         referral = { kind: 'promo', code: j.code, percent: j.percent, to: j.to };
-        codeStatus.textContent = `Code promo ${j.code} : −${j.percent} % sur le total${j.to ? `, pour une réservation faite jusqu’au ${dayText(j.to)}` : ''}.`;
+        codeStatus.textContent = `Code promo ${j.code} : −${j.percent} % sur le total, pour une réservation faite jusqu’au ${promoOf(j.code) ? deadlineText(promoOf(j.code)) : dayText(j.to)}.`;
         codeStatus.classList.add('is-ok');
       } else if (j.ok) {
         referral = { kind: 'parrainage', code: j.code, amount: j.amount };

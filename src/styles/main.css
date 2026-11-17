@@ -4963,6 +4963,104 @@ p {
 .booking__promo b {
   color: var(--accent-strong);
 }
+.booking__promo-left,
+.referral__deadline [role='timer'] {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+.referral__deadline {
+  margin: 4px 0 0;
+  font-size: 0.92rem;
+  color: var(--text-2);
+}
+.referral__deadline b {
+  color: var(--text);
+}
+
+/* the promo offer at the bottom of every page (src/js/main.js, promoBand): the code, the deadline,
+   the time left; above the phone's action bar */
+.promo-band {
+  position: fixed;
+  z-index: 55;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  max-width: min(560px, calc(100vw - 32px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 16px;
+  border: 1px solid rgba(227, 194, 122, 0.55);
+  border-radius: 16px;
+  background: rgba(10, 10, 11, 0.94);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  animation: promo-band-in 0.5s ease both;
+}
+.promo-band__text {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  color: var(--text-2);
+}
+.promo-band__off,
+.promo-band__code {
+  color: var(--accent-strong);
+}
+.promo-band__code {
+  letter-spacing: 0.06em;
+}
+.promo-band__until {
+  display: block;
+}
+.promo-band__left {
+  display: block;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.promo-band__go {
+  flex: none;
+}
+.promo-band__close {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.promo-band__close:hover,
+.promo-band__close:focus-visible {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+@keyframes promo-band-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .promo-band {
+    animation: none;
+  }
+}
+@media (max-width: 760px) {
+  /* above the action bar (Appeler, Itinéraire, Devis) */
+  .promo-band {
+    left: 10px;
+    right: 10px;
+    max-width: none;
+    bottom: calc(96px + env(safe-area-inset-bottom));
+    padding-left: 14px;
+  }
+}
 .booking__steps {
   display: grid;
   gap: 18px;

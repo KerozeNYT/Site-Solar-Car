@@ -1202,6 +1202,7 @@ export function contactPage(ctx) {
           <div class="referral__row"><input id="f-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ex. ${esc(ctx.booking?.promos?.[0]?.code || 'JEAN-7K2QX')}"><button class="btn btn--ghost" type="button" data-code-check>Vérifier</button></div>
           <p class="form__hint">Un seul code par demande (parrainage et code promo ne se cumulent pas). La remise est appliquée à votre devis si le code est valable le jour où vous envoyez la demande.</p>
           <p class="referral__status" data-code-status aria-live="polite"></p>
+          <p class="referral__deadline" data-code-deadline hidden></p>
         </div>
         ${howHeardField(ctx, 'f-connu-autre')}
         <div class="form__row form__consent">
@@ -1736,7 +1737,7 @@ export function reservationPage(ctx) {
   </section>
   <section class="section section--tight">
     <div class="container booking" data-booking data-api="${esc(R.api)}">
-      <p class="notice booking__promo" role="status" data-promo-banner hidden></p>
+      <p class="notice booking__promo" data-promo-banner hidden></p>
       <form class="booking__steps form" novalidate>
         <fieldset class="booking__step" data-step="service">
           <legend><span class="booking__num">1</span> Votre prestation</legend>
@@ -1905,7 +1906,7 @@ function promoTerms(ctx, pct) {
   if (!promos.length) return '';
   const day = (d) => new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`)).replace(/^1 /, '1er ');
   const offer = (p) =>
-    `<li><strong>${esc(p.code)}</strong>${p.label ? ` (${esc(p.label)})` : ''} : <strong>−${p.percent} %</strong> sur toutes les prestations de l’atelier, pour un rendez-vous réservé en ligne (acompte ou totalité réglé) ou une demande de devis envoyée <strong>du ${day(p.from)} au ${day(p.to)} inclus</strong>, heure de Paris, quelle que soit la date du rendez-vous${p.uses != null ? ` ; dans la limite de ${p.uses} utilisations au total, réservations en ligne et devis confondus` : ''}.</li>`;
+    `<li><strong>${esc(p.code)}</strong>${p.label ? ` (${esc(p.label)})` : ''} : <strong>−${p.percent} %</strong> sur toutes les prestations de l’atelier, pour un rendez-vous réservé en ligne (acompte ou totalité réglé) ou une demande de devis envoyée <strong>du ${day(p.from)} au ${day(p.to)} à 23 h 59</strong> (heure de Paris), quelle que soit la date du rendez-vous${p.uses != null ? ` ; dans la limite de ${p.uses} utilisations au total, réservations en ligne et devis confondus` : ''}.</li>`;
   return `<h2 id="codes-promo">Codes promo</h2>
       <ul>${promos.map(offer).join('')}</ul>
       <p>Vitres teintées et feux teintés : le code se saisit à l’étape du paiement de la réservation en ligne, la remise est déduite du total et l’acompte de ${pct} % porte sur le montant restant. Autres prestations (detailing, ciel étoilé, covering, déchromage, rénovation de phares…) : le code s’indique dans la <a href="/contact/">demande de devis</a>, et la remise s’applique au prix du devis établi pour cette demande. Un seul code par réservation ou par devis : un code promo ne se cumule ni avec un autre code promo, ni avec un code de parrainage. Il n’est ni remboursable, ni échangeable contre de l’argent.</p>`;

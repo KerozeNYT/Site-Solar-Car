@@ -1,5 +1,7 @@
 // Site-wide behaviour. Everything here is progressive enhancement: pages work without it.
 import { startAmbient } from './ambient.js';
+import { promoOf, promoStart, promoEnd, deadlineText, runCountdown } from './countdown.js';
+import { promos } from '../../content/promos.js';
 
 const html = document.documentElement;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -448,14 +450,36 @@ if (form) {
     try {
       const res = await fetch(`${api}/api/code?code=${encodeURIComponent(code)}`, { signal: AbortSignal.timeout?.(6000) });
       const j = await res.json();
-      if (j.ok && j.kind === 'promo') return set(`${j.code} — code promo valable le jour de la demande : −${j.percent} % (${j.label || 'offre'} du ${dayFr(j.from)} au ${dayFr(j.to)})`, `Code promo ${j.code} : −${j.percent} % appliqués à votre devis. Envoyez votre demande jusqu’au ${dayFr(j.to)}.`, true);
+      if (j.ok && j.kind === 'promo') {
+        const p = promoOf(j.code);
+        if (p) showDeadline(p);
+        return set(`${j.code} — code promo valable le jour de la demande : −${j.percent} % (${j.label || 'offre'} du ${dayFr(j.from)} au ${dayFr(j.to)} à 23 h 59)`, `Code promo ${j.code} : −${j.percent} % appliqués à votre devis.`, true);
+      }
       if (j.ok) return set(`${j.code} — code de parrainage de ${j.owner}, valable : ${j.amount} € de remise (à marquer « utilisé » sur la page Parrainage)`, `Code de ${j.owner} : ${j.amount} € de remise appliqués à votre devis.`, true);
       return set(`${code} — non valable le jour de la demande : ${j.error || 'code inconnu'}`, j.error || 'Ce code n’est pas reconnu.', false);
     } catch {
       return set(`${code} (n’a pas pu être vérifié : à contrôler)`, 'Le code n’a pas pu être vérifié pour le moment : il est joint à votre demande, l’atelier le vérifiera.', false);
     }
   };
+  // the offer's deadline, with the time left (counted to the second on the last day)
+  let stopDeadline = null;
+  const showDeadline = (p) => {
+    const box = codeBox.querySelector('[data-code-deadline]');
+    if (!box) return;
+    stopDeadline?.();
+    box.hidden = false;
+    box.innerHTML = `Demande à envoyer avant le <b>${deadlineText(p)}</b> · <span role="timer"></span>`;
+    stopDeadline = runCountdown(box.querySelector('[role=timer]'), p, () => {
+      box.textContent = `L’offre ${p.code} s’est terminée le ${deadlineText(p)}.`;
+    });
+  };
+  const hideDeadline = () => {
+    stopDeadline?.();
+    const box = codeBox?.querySelector('[data-code-deadline]');
+    if (box) box.hidden = true;
+  };
   if (codeInput) {
+    codeInput.addEventListener('input', hideDeadline);
     codeBox.querySelector('[data-code-check]')?.addEventListener('click', () => checkCode());
     codeInput.addEventListener('change', () => checkCode());
     codeInput.addEventListener('keydown', (e) => {
@@ -668,6 +692,7 @@ if (form) {
       form.reset();
       codeInfo = null;
       if (codeStatus) codeStatus.textContent = '';
+      hideDeadline();
       track('demande_envoyee', { pieces_jointes: 0 });
       // the answers to « Comment nous avez-vous connus ? », counted in the statistics
       sendHit({ t: 'connu', c: heard.getAll('connu'), o: String(heard.get('connu_autre') || '') });
@@ -707,3 +732,51 @@ if (form) {
     }
   });
 }
+
+// ---------------------------------------------------------------- promo countdown
+/**
+ * A promo offer under way (content/promos.js): a small band at the bottom of every page with the
+ * code, the deadline and the time left, for a visitor who came by a link carrying the code (an
+ * ad: ?code=NOEL15; remembered on this device until the end of the offer), or for everyone when the
+ * campaign says so. Not on the booking page, which says it at its top; closable (for this visit).
+ */
+(function promoBand() {
+  const now = Date.now();
+  const store = (k, v) => {
+    try {
+      if (v === undefined) return JSON.parse(localStorage.getItem(k) || 'null');
+      localStorage.setItem(k, JSON.stringify(v));
+    } catch {
+      return null;
+    }
+  };
+  const linked = promoOf(new URLSearchParams(location.search).get('code'));
+  if (linked && now < promoEnd(linked)) store('sc37:promo', { code: linked.code });
+  const kept = promoOf(store('sc37:promo')?.code);
+  const p = [kept, ...promos.filter((x) => x.everyone)].find((x) => x && now >= promoStart(x) && now < promoEnd(x));
+  if (!p || document.querySelector('[data-booking]')) return;
+  try {
+    if (sessionStorage.getItem('sc37:promo-closed') === p.code) return;
+  } catch {
+    /* storage unavailable: shown */
+  }
+  const root = new URL(document.querySelector('.site-header__logo')?.getAttribute('href') || '/', location.href);
+  const band = document.createElement('aside');
+  band.className = 'promo-band';
+  band.setAttribute('aria-label', `Offre ${p.label || p.code}`);
+  band.innerHTML = `<p class="promo-band__text"><b class="promo-band__off">−${p.percent} %</b> avec le code <b class="promo-band__code">${p.code}</b> <span class="promo-band__until">jusqu’au ${deadlineText(p)} seulement</span><span class="promo-band__left" role="timer"></span></p><a class="btn btn--primary btn--sm promo-band__go" href="${new URL(`reservation/?code=${p.code}`, root).href}">Réserver</a><button type="button" class="promo-band__close" aria-label="Fermer">×</button>`;
+  band.querySelector('.promo-band__close').addEventListener('click', () => {
+    band.remove();
+    try {
+      sessionStorage.setItem('sc37:promo-closed', p.code);
+    } catch {
+      /* storage unavailable */
+    }
+  });
+  document.body.append(band);
+  document.body.classList.add('has-promo-band');
+  runCountdown(band.querySelector('[role=timer]'), p, () => {
+    band.remove();
+    document.body.classList.remove('has-promo-band');
+  });
+})();

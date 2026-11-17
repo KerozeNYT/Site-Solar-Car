@@ -18,7 +18,7 @@ export function promoState(p, now, count = 0) {
   if (!p) return { ok: false, error: 'Ce code n’existe pas : vérifiez-le.' };
   const today = utcToZoned(now, R.timeZone).date;
   if (today < p.from) return { ok: false, error: `Le code ${p.code} sera valable à partir du ${dayText(p.from)}.` };
-  if (today > p.to) return { ok: false, error: `Le code ${p.code} n’est plus valable : l’offre s’est terminée le ${dayText(p.to)}.` };
+  if (today > p.to) return { ok: false, error: `Le code ${p.code} n’est plus valable : l’offre s’est terminée le ${dayText(p.to)} à 23 h 59.` };
   if (p.uses != null && count >= p.uses) return { ok: false, error: `Le code ${p.code} a déjà servi ${p.uses} fois : l’offre est épuisée.` };
   return { ok: true, kind: 'promo', code: p.code, percent: p.percent, label: p.label, from: p.from, to: p.to, left: p.uses == null ? null : p.uses - count };
 }

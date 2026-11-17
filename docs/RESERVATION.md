@@ -10,7 +10,7 @@ acompte de 30 % ou la totalité, et le rendez-vous s'inscrit dans l'agenda **SOL
 | Prestations | Vitres teintées : 3/4 arrière (2 h), complet (2 h 30), 2 vitres avant (45 min), 2 vitres avant + 2 custodes (1 h 15, 150 €), pare-brise en option (+1 h 30). Feux teintés vinyle : 120 € la paire, 1 h par paire. PPF et Tesla : sur devis |
 | Prix | Ceux du site (`content/pricing.js`) ; le serveur recalcule tout, il ne croit jamais un montant envoyé par le navigateur |
 | Créneaux | Lundi-vendredi, 8 h-12 h et 13 h-17 h, départs toutes les 15 min, une voiture à la fois, la pause de midi ne compte pas, fin le jour même ; jours fériés fermés |
-| Délai | Au plus tôt 48 h à l'avance, au plus tard environ 2 mois |
+| Délai | Au plus tôt 48 h à l'avance, au plus tard environ 6 mois (186 jours, `horizonDays` ; 2 mois jusqu'au 17 novembre 2026) |
 | Agendas consultés | SOLAR CAR 37, SOLAR HOME 37 et PERSO : un créneau n'est proposé que s'il est libre dans les trois |
 | Rendez-vous écrit dans | SOLAR CAR 37, couleur **Myrtille** (RDV client), avec le client, le véhicule, les prestations, le montant payé et le reste à régler |
 | Paiement | Stripe Checkout (carte, Apple Pay, Google Pay) : acompte de 30 % ou totalité ; reçu envoyé par Stripe |
@@ -152,11 +152,19 @@ webhook en mode réel).
 
 ## Codes promo (16 novembre 2026)
 
-- **Une campagne = une ligne** dans `promos` de `content/booking.js` : le code, le pourcentage, les
+- **Une campagne = une ligne** dans `content/promos.js` : le code, le pourcentage, les
   dates, le nombre d'utilisations (`null` = illimité). En place : **`NOEL15`**, **−15 %** sur
   **toutes les prestations**, illimité, pour une réservation payée (acompte ou totalité) ou une
   demande de devis envoyée **du 1er au 24 décembre 2026** (heure de Paris), **quelle que soit la
-  date du rendez-vous** (dans la limite de l'agenda en ligne, environ 2 mois).
+  date du rendez-vous** (dans la limite de l'agenda en ligne, environ 6 mois). L'offre se termine
+  le 24 décembre à 23 h 59 : à minuit, le serveur refuse le code (une page de paiement ouverte avant
+  minuit garde sa remise).
+- **Compte à rebours** (`src/js/countdown.js`) : « jusqu'au 24 décembre à 23 h 59 seulement » avec
+  « Plus que 7 jours », puis le dernier jour « plus que 2 h 48 min 12 s » à la seconde. Il s'affiche
+  en haut de la réservation et sous le champ du devis une fois le code saisi, et dans un petit
+  bandeau en bas de toutes les pages pour un visiteur arrivé par un lien avec le code (la pub),
+  retenu sur son appareil jusqu'à la fin de l'offre. `everyone: true` dans la campagne le montre à
+  tous les visiteurs pendant l'offre. À minuit, la remise disparaît de la page.
 - **Vitres et feux teintés** : le client saisit le code à l'étape 4 « Paiement » (champ « Code de
   parrainage ou code promo ») ; la remise est déduite du total, l'acompte de 30 % porte sur le
   reste ; elle figure dans l'agenda, les e-mails, la page de confirmation et le paiement Stripe.

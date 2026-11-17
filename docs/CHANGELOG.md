@@ -1,6 +1,6 @@
 # Journal des changements
 
-## Codes promo, annulation à 72 h (16 novembre 2026)
+## Codes promo, compte à rebours, annulation à 72 h, agenda à 6 mois (16-17 novembre 2026)
 
 - Codes promo de campagne (`promos` dans `content/booking.js`) : pourcentage, dates de début et de
   fin, nombre d'utilisations illimité ou plafonné. Premier code : `NOEL15`, −15 % sur toutes les
@@ -12,10 +12,15 @@
 - Demande de devis : le code est vérifié et l'e-mail dit s'il était valable le jour de la demande.
 - Page Parrainage de l'atelier : section « Codes promo » (état, utilisations en ligne et à
   l'atelier, montants, remises), utilisation d'un code promo notée pour un devis.
+- Compte à rebours de l'offre : « jusqu'au 24 décembre à 23 h 59 seulement », « Plus que 7 jours »,
+  puis le dernier jour les heures, minutes et secondes ; en haut de la réservation, sous le code du
+  devis, et en bandeau sur toutes les pages pour les visiteurs venus par le lien de la pub. À
+  minuit, la remise disparaît de la page.
+- Agenda en ligne ouvert environ 6 mois à l'avance (au lieu de 2).
 - Annulation remboursée au moins 72 h avant le rendez-vous (au lieu de 48 h).
 - Statistiques : la source « Publicité » compte aussi les annonces TikTok (`ttclid`) et les liens
   d'annonce en `utm_medium=cpc` (Instagram, Facebook).
-- Tests : 41 (dont 6 pour les codes promo) ; parcours vérifié dans le navigateur (lien d'annonce,
+- Tests : 43 (dont 8 pour les codes promo, le compte à rebours et l'agenda à 6 mois) ; parcours vérifié dans le navigateur (lien d'annonce,
   remplacement d'un code par l'autre, paiement, confirmation, devis, page de l'atelier).
 
 ## Tableau de bord des statistiques, bilan mensuel (15 novembre 2026)
