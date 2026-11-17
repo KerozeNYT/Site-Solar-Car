@@ -72,7 +72,8 @@ function writeRedirects(dir, csp) {
     path.join(dir, '_redirects'),
     // (the same page with its trailing slash is left to the host, which adds it itself: a rule
     // for it could loop)
-    ['# Netlify / Cloudflare Pages: pages of the previous site (content/redirects.js)', ...redirects.filter((r) => r.to !== r.from + '/').map((r) => `${r.from} ${r.to} 301!`), ''].join('\n')
+    // (Cloudflare Pages: plain 301, its rules come before the files; Netlify's « 301! » is refused there)
+    ['# Cloudflare Pages / Netlify: pages of the previous site (content/redirects.js)', ...redirects.filter((r) => r.to !== r.from + '/').map((r) => `${r.from} ${r.to} 301`), ''].join('\n')
   );
   fs.writeFileSync(
     path.join(dir, '.htaccess'),
