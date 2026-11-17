@@ -26,6 +26,10 @@ export const bookingRules = {
   // would leave the morning unusable). The calendars are read with the job's real time: a job
   // longer than 2 h takes the next slot too (complete tint at 8:00 → next start 13:00).
   starts: ['08:00', '10:00', '13:00', '15:00'],
+  // every appointment of the catalogue (window tint, windshield, tinted lights, alone or together)
+  // takes one slot of 2 h (SOLAR CAR 37, 17 November 2026): a car that needs more is lengthened by
+  // hand in the calendar, which the free slots then follow
+  jobMinutes: 120,
   // start times every `step` minutes, when `starts` is empty
   step: 15,
   // bookable from 48 h ahead, up to about six months ahead (a client on holiday near Tours in
@@ -43,43 +47,38 @@ export const bookingRules = {
   referral: { amount: 20, months: 6 },
 };
 
-/** window tint packages: price (EUR, net) for a vehicle category, time (minutes) */
+/** window tint packages: price (EUR, net) for a vehicle category (time: bookingRules.jobMinutes) */
 export const tintFormulas = [
   {
     id: 'rear',
     label: '3/4 arrière',
     text: 'Vitres latérales arrière, custodes et lunette arrière',
-    minutes: 120,
     price: (cat) => tint.rearPackage[cat],
   },
   {
     id: 'full',
     label: 'Complet',
     text: '3/4 arrière et les deux vitres avant',
-    minutes: 150,
     price: (cat) => tint.rearPackage[cat] + tint.frontWithRear,
   },
   {
     id: 'front',
     label: '2 vitres avant',
     text: 'Vitres du conducteur et du passager',
-    minutes: 45,
     price: () => tint.frontOnly,
   },
   {
     id: 'front-quarters',
     label: '2 vitres avant + 2 custodes',
     text: 'Vitres avant et petites vitres de custode',
-    minutes: 75,
     price: () => tint.frontQuarters,
   },
 ];
-// the windshield film, added to any package
-export const windshieldMinutes = 90;
+// the windshield film on its own (booked by the workshop, booking/atelier.js): one slot too
+export const windshieldMinutes = 120;
 // tinted lights: smoked vinyl only online (the tinted PPF is priced on quote)
 export const lightsBooking = {
   material: lights.materials.find((m) => m.id === 'covering'),
-  minutesPerPair: 60,
   pairs: [
     { id: 'rear', label: 'Feux arrière', count: 1 },
     { id: 'front', label: 'Feux avant', count: 1 },
@@ -94,8 +93,8 @@ export const bookableVehicles = tintVehicles.filter((v) => !v.quote && tint.rear
  * Price and duration of a configuration:
  *   { tint?: { vehicle, formula, windshield?, color? }, lights?: { pairs } }
  * The shade (of the windows or of the lights) is chosen with the workshop on the day.
- * Returns { items: [{ label, detail, price, minutes }], total, minutes, deposit } (EUR, minutes)
- * or { error } when the configuration is not bookable.
+ * Returns { items: [{ label, detail, price }], total, minutes (one slot: bookingRules.jobMinutes),
+ * deposit } (EUR, minutes) or { error } when the configuration is not bookable.
  */
 export function quote(config = {}) {
   const items = [];
@@ -110,14 +109,13 @@ export function quote(config = {}) {
       label: `Vitres teintées — ${formula.label}`,
       detail: `${vehicle.label}, teinte choisie à l’atelier`,
       price: formula.price(vehicle.cat),
-      minutes: formula.minutes,
     });
     if (c.windshield) {
       const film = tint.windshield.films.find((f) => f.id === c.windshield);
       if (!film) return { error: 'Film de pare-brise inconnu' };
       const color = film.iridescent ? tint.windshield.colors.find((x) => x.id === c.color) : null;
       if (film.iridescent && !color) return { error: 'Couleur du film irisé à choisir' };
-      items.push({ kind: 'tint', label: `Pare-brise — ${film.label}`, detail: color ? color.label : '', price: film.price, minutes: windshieldMinutes });
+      items.push({ kind: 'tint', label: `Pare-brise — ${film.label}`, detail: color ? color.label : '', price: film.price });
     }
   }
   if (config.lights) {
@@ -129,13 +127,11 @@ export function quote(config = {}) {
       label: `Feux teintés — ${pairs.label}`,
       detail: `${lightsBooking.material.label}, teinte choisie à l’atelier`,
       price: lightsBooking.material.perPair.max * pairs.count,
-      minutes: lightsBooking.minutesPerPair * pairs.count,
     });
   }
   if (!items.length) return { error: 'Prestation à choisir' };
   const total = items.reduce((a, i) => a + i.price, 0);
-  const minutes = items.reduce((a, i) => a + i.minutes, 0);
-  return { items, total, minutes, deposit: Math.round(total * bookingRules.depositRate * 100) / 100 };
+  return { items, total, minutes: bookingRules.jobMinutes, deposit: Math.round(total * bookingRules.depositRate * 100) / 100 };
 }
 
 /**
@@ -161,7 +157,8 @@ export function withExtra(q, extra = []) {
   if (!base) return q;
   const items = [...base, ...lines];
   const total = Math.round(items.reduce((a, i) => a + i.price, 0) * 100) / 100;
-  const minutes = items.reduce((a, i) => a + i.minutes, 0);
+  // the catalogue's slot (2 h), then each line's own time
+  const minutes = (base.length ? q.minutes : 0) + lines.reduce((a, i) => a + i.minutes, 0);
   return { items, total, minutes, deposit: Math.round(total * bookingRules.depositRate * 100) / 100 };
 }
 

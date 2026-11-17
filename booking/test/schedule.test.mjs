@@ -55,11 +55,13 @@ test('free start times: notice, weekends, holidays, busy calendars', () => {
 test('prices and durations of the bookable services', () => {
   const q = quote({ tint: { vehicle: 'berline', formula: 'full' }, lights: { pairs: 'rear' } });
   assert.equal(q.total, 270 + 50 + 120);
-  assert.equal(q.minutes, 150 + 60);
+  // one slot of 2 h for any appointment of the catalogue
+  assert.equal(q.minutes, 120);
+  assert.equal(quote({ tint: { vehicle: 'citadine', formula: 'front' } }).minutes, 120);
   assert.equal(q.deposit, 132);
   assert.equal(amountDue(q, 'full'), 440);
   assert.equal(quote({ tint: { vehicle: 'citadine', formula: 'front-quarters' } }).total, 150);
-  assert.equal(quote({ tint: { vehicle: 'suv', formula: 'rear', windshield: 'irise', color: 'rouge' } }).minutes, 210);
+  assert.equal(quote({ tint: { vehicle: 'suv', formula: 'rear', windshield: 'irise', color: 'rouge' } }).minutes, 120);
   assert.ok(quote({ tint: { vehicle: 'tesla', formula: 'rear' } }).error);
   assert.ok(quote({ tint: { vehicle: 'berline' } }).error);
   assert.ok(quote({}).error);

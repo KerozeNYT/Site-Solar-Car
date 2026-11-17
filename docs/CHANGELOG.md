@@ -6,7 +6,12 @@
   d'heure mais à 8 h, 10 h, 13 h et 15 h : une voiture par créneau, plus de matinée coupée par un
   départ à 9 h 45. La durée réelle reste vérifiée : un travail de plus de 2 h prend aussi le
   créneau suivant. Dans l'espace, « Date et heure au choix » permet toujours une autre heure.
-- Réglage : `starts` dans `content/booking.js` ; tests `booking/test/schedule.test.mjs`.
+- **2 h par rendez-vous** : vitres teintées (toutes les formules), pare-brise, feux, seuls ou
+  ensemble, prennent un créneau de 2 h ; une voiture qui demande plus se rallonge à la main dans
+  l'agenda, et les créneaux libres suivent. La page de réservation n'affiche plus de durée par
+  formule (« pare-brise : dans le même créneau »). Les autres prestations de l'espace atelier
+  (phares, ciel étoilé…) gardent leur durée, ajoutée aux 2 h.
+- Réglages : `starts` et `jobMinutes` dans `content/booking.js` ; tests `booking/test/schedule.test.mjs`.
 
 ## Espace atelier : rendez-vous pris par téléphone, lien de paiement de l'acompte (17 novembre 2026)
 

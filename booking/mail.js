@@ -68,7 +68,7 @@ export async function send(env, mail) {
  * Returns the list of e-mails sent ('workshop', 'client').
  */
 const endOf = (end) => new Intl.DateTimeFormat('fr-FR', { hour: 'numeric', minute: '2-digit', timeZone: R.timeZone }).format(new Date(end)).replace(':', ' h ');
-const itemsOf = (q) => q.items.map((i) => `${esc(i.label)}<br><span style="font-weight:400;color:#6b6b6b">${esc(i.detail)} · ${esc(formatDuration(i.minutes))} · ${euros(i.price)}</span>`).join('<br>');
+const itemsOf = (q) => q.items.map((i) => `${esc(i.label)}<br><span style="font-weight:400;color:#6b6b6b">${[i.detail ? esc(i.detail) : '', euros(i.price)].filter(Boolean).join(' · ')}</span>`).join('<br>');
 const button = (href, label) => `<a href="${esc(href)}" style="display:inline-block;background:#0b0c0f;color:#e9cd82;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px">${esc(label)}</a>`;
 
 export async function sendBookingMails(env, b) {

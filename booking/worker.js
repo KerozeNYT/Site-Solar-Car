@@ -154,7 +154,7 @@ function eventText(q, c, { date, time, mode, paid, sessionId, code, codeKind }) 
     `Véhicule : ${c.vehicle}${c.plate ? ` (${c.plate})` : ''}`,
     c.source ? `Nous a connus : ${c.source}` : null,
     '',
-    ...q.items.map((i) => `• ${i.label}${i.detail ? ` — ${i.detail}` : ''} : ${euros(i.price)} (${formatDuration(i.minutes)})`),
+    ...q.items.map((i) => `• ${i.label}${i.detail ? ` — ${i.detail}` : ''} : ${euros(i.price)}`),
     '',
     q.discount ? (codeKind === 'promo' ? `Code promo ${code} : −${euros(q.discount)}` : `Parrainage : −${euros(q.discount)} (code ${code})`) : null,
     `Total : ${euros(q.total)} — durée ${formatDuration(q.minutes)}`,

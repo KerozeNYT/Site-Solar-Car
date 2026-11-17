@@ -1773,16 +1773,16 @@ export function reservationPage(ctx) {
             <div class="picks picks--vehicles">${bookableVehicles.map((v) => radio('vehicle', v.id, `<b>${esc(v.label)}</b>`, `<small>${esc(v.example)}</small>`)).join('')}</div>
             <p class="form__hint">Tesla Model 3 et toit vitré : <a href="/contact/">sur devis</a>.</p>
             <p class="booking__label">Formule</p>
-            <div class="picks picks--formulas">${tintFormulas.map((f) => radio('formula', f.id, `<b>${esc(f.label)}</b><small>${esc(f.text)}</small>`, `<span class="pick__meta"><span data-formula-price="${f.id}"></span> · ${esc(fmtMinutes(f.minutes))}</span>`)).join('')}</div>
+            <div class="picks picks--formulas">${tintFormulas.map((f) => radio('formula', f.id, `<b>${esc(f.label)}</b><small>${esc(f.text)}</small>`, `<span class="pick__meta"><span data-formula-price="${f.id}"></span></span>`)).join('')}</div>
             <p class="form__hint">La teinte se choisit avec vous à l’atelier, le jour du rendez-vous, en comparant les films sur votre voiture.</p>
             <p class="form__hint" data-front-note hidden>Vitres avant : film clair, qui laisse au vitrage complet au moins 70 % de lumière comme l’impose la loi (<a href="/vitres-teintees/#loi-vitres-teintees">ce que dit la loi</a>).</p>
-            <p class="booking__label">Pare-brise <span class="optional">(en option, ${esc(fmtMinutes(ctx.booking.windshieldMinutes))} de plus)</span></p>
+            <p class="booking__label">Pare-brise <span class="optional">(en option, dans le même créneau)</span></p>
             <div class="picks picks--windshield">${radio('windshield', '', '<b>Sans</b>', '', true)}${windshieldFilms.map((f) => radio('windshield', f.id, `<b>${esc(f.label)}</b>`, `<span class="pick__meta">+${f.price} €</span>`)).join('')}</div>
             <div class="picks picks--colors" data-iridescent hidden>${windshieldColors.map((c, i) => radio('color', c.id, `<i class="swatch" style="background:${esc(c.swatch)}"></i><b>${esc(c.label)}</b>`, '', i === 0)).join('')}</div>
           </div>
           <div class="booking__block" data-block="lights" hidden>
             <p class="booking__label">Feux à teinter</p>
-            <div class="picks">${lightsBooking.pairs.map((p, i) => radio('pairs', p.id, `<b>${esc(p.label)}</b>`, `<span class="pick__meta">${lightsBooking.material.perPair.max * p.count} € · ${esc(fmtMinutes(lightsBooking.minutesPerPair * p.count))}</span>`, i === 0)).join('')}</div>
+            <div class="picks">${lightsBooking.pairs.map((p, i) => radio('pairs', p.id, `<b>${esc(p.label)}</b>`, `<span class="pick__meta">${lightsBooking.material.perPair.max * p.count} €</span>`, i === 0)).join('')}</div>
             <p class="form__hint">La teinte (fumé léger ou foncé) se choisit avec vous le jour du rendez-vous. PPF teinté (plus épais, protège des petits impacts) : <a href="/feux-arriere-teintes/">sur devis</a>.</p>
           </div>
         </fieldset>
@@ -1945,7 +1945,3 @@ export function bookingTermsPage(ctx) {
   return page(ctx, { title: `Conditions de réservation | ${b.name}`, description: `Acompte de ${pct} %, annulation, report et droit de rétractation pour les rendez-vous pris en ligne à l’atelier ${b.name}.`, path: '/conditions-reservation/', noindex: !R.api }, body);
 }
 
-/** "2 h 30", "45 min" */
-function fmtMinutes(m) {
-  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}` : ''}`;
-}

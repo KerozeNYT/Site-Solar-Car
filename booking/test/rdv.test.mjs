@@ -82,9 +82,10 @@ test('signed in; the form, its price and the free slots of the day', async () =>
   const page = await (await go('/atelier/rdv/nouveau')).text();
   assert.match(page, /Nouveau <em>rendez-vous<\/em>/);
   assert.match(page, /Rénovation de phares/);
-  // complete tint on a city car (270 €) + headlights (79 €): 349 €, 4 h, deposit 104,70 €
+  // complete tint on a city car (270 €, one slot of 2 h) + headlights (79 €, 1 h 30): 349 €,
+  // 3 h 30, deposit 104,70 €
   const price = await (await go('/atelier/rdv/prix', { method: 'POST', form: form() })).json();
-  assert.equal(price.minutes, 240);
+  assert.equal(price.minutes, 210);
   assert.match(price.html, /349\s€/);
   assert.match(price.html, /104,70\s€/);
   // the word for the client, drafted from the form
@@ -92,11 +93,11 @@ test('signed in; the form, its price and the free slots of the day', async () =>
   assert.match(price.draft, /régler l’acompte de 104,70\s€ avec le bouton ci-dessous ; le reste, 244,30\s€, se règle à l’atelier/);
   assert.match(price.draft, /La teinte se choisit ensemble à l’atelier[^]*À très vite,\nNicolas$/);
   // a month of free slots at once, as on the site
-  const month = await (await go(`/atelier/creneaux?from=${utcToZoned(Date.now(), TZ).date}&days=30&minutes=240`)).json();
+  const month = await (await go(`/atelier/creneaux?from=${utcToZoned(Date.now(), TZ).date}&days=30&minutes=210`)).json();
   assert.ok(month.days.length >= 15);
   assert.ok(month.days.find((x) => x.date === day).times.includes('08:00'));
-  // 4 h: from 8:00 (over the lunch break) to 9:00; HOME busy 13-15 h shuts the afternoon
-  const slots = await (await go(`/atelier/creneaux?date=${day}&minutes=240`)).json();
+  // 3 h 30: from 8:00, or 10:00 (over the lunch break); HOME busy 13-15 h shuts the afternoon
+  const slots = await (await go(`/atelier/creneaux?date=${day}&minutes=210`)).json();
   assert.ok(slots.times.includes('08:00'));
   assert.ok(!slots.times.includes('13:00'));
   // a line on quote without its price: asked
