@@ -11,3 +11,6 @@ __pycache__/
 assets-src/photos/originals/
 # Cloudflare wrangler local state (booking server)
 .wrangler/
+
+# comparison sheet of the atelier icon proposals (made again by scripts/logo-atelier.mjs)
+design/logo/atelier/apercu.png
