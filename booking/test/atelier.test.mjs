@@ -67,7 +67,7 @@ test('sign-in: a code e-mailed to the workshop, then 30 days on the device; noth
   assert.ok(where(await go('/atelier/connexion', { method: 'POST', form: { code } })).searchParams.get('err'));
   const home = await go('/atelier');
   assert.equal(home.status, 200);
-  assert.match(await home.text(), /Bonjour Nicolas/);
+  assert.match(await home.text(), /Bonjour <em>Nicolas<\/em>/);
   // a forged cookie
   assert.equal(where(await go('/atelier', { headers: { cookie: `sc37_atelier=${Date.now() + DAY}.${'0'.repeat(64)}` } })).pathname, '/atelier/connexion');
 });

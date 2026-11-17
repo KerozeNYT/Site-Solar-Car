@@ -17,6 +17,8 @@
  *   GET  /api/promo                                  the promotion band of the site, when one is on
  *   POST /api/demande                                a quote request from the site's form: e-mailed to the
  *                                                    workshop (photos attached) and to the client, in the client file
+ *   GET  /api/devis?n=&t=, POST /api/devis/accepter  the client accepts a quote (www.solarcar37.fr/devis/)
+ *   email handler                                    the replies of a quote discussion (QUOTE_REPLY, booking/store.js)
  *   GET  /atelier…                                   the workshop's space (booking/atelier.js, docs/ATELIER.md)
  *   GET  /fiche-google?cle=…, /fiche-google/connexion, /fiche-google/retour, POST /fiche-google/envoyer
  *        and a cron every Tuesday                    one photo a week on the Google Business Profile
@@ -31,6 +33,7 @@
  *   STRIPE_WEBHOOK_SECRET  (secret)
  *   RESEND_API_KEY         (secret) e-mails of a confirmed booking (booking/mail.js); none without it
  *   NOTIFY_TO, MAIL_FROM, MAIL_CLIENTS   who is told, from which address, and whether clients are
+ *   QUOTE_REPLY            the quote discussions' address (Cloudflare Email Routing → email handler)
  *   STATS                  Durable Object (class Stats) holding the visit statistics
  *   STATS_KEY              (secret) the key of the statistics page
  *   STATS_PREVIEW_ORIGINS  sites whose visits are counted apart (the preview), comma separated
@@ -498,7 +501,53 @@ async function quoteRequest(req, env, now) {
   return json(body, out.ok ? 200 : status || 502, h);
 }
 
+/** GET /api/devis?n=&t=: the quote a link of an e-mail is about (number, vehicle, amount, status) */
+async function quotePublic(req, env, url) {
+  const h = cors(req, env);
+  if (!env.ATELIER) return json({ ok: false, error: 'Indisponible.' }, 503, h);
+  const r = await db(env, 'quote/public', { n: Number(url.searchParams.get('n')) || 0, t: url.searchParams.get('t') || '' });
+  return json(r, r.ok ? 200 : 404, h);
+}
+
+/** POST /api/devis/accepter { n, t } (plain text JSON): the quote accepted, the workshop told */
+async function quoteAccept(req, env, now) {
+  const h = cors(req, env);
+  if (!h['access-control-allow-origin']) return json({ ok: false, error: 'Origine refusée.' }, 403, h);
+  if (!env.ATELIER) return json({ ok: false, error: 'Indisponible.' }, 503, h);
+  let b = {};
+  try {
+    b = JSON.parse((await req.text()).slice(0, 2000));
+  } catch {}
+  const r = await db(env, 'quote/accept', { n: Number(b.n) || 0, t: String(b.t || ''), now });
+  const { status, ...body } = r;
+  return json(body, r.ok ? 200 : status || 400, h);
+}
+
+/** an e-mail to the quote discussions' address (Cloudflare Email Routing → this worker): read,
+ *  kept and passed on by the workshop's database (booking/store.js, mail/in) */
+async function quoteMail(message, env) {
+  if (!env.ATELIER) return message.setReject('Adresse indisponible.');
+  if (message.rawSize > 25 * 1024 * 1024) return message.setReject('Message trop volumineux : 25 Mo au plus.');
+  const raw = await new Response(message.raw).arrayBuffer();
+  const auth = ['authentication-results', 'arc-authentication-results']
+    .map((k) => message.headers.get(k))
+    .filter(Boolean)
+    .join('\n');
+  const res = await env.ATELIER.get(env.ATELIER.idFromName('solarcar37')).fetch('https://atelier/mail/in', { method: 'POST', headers: { 'x-now': String(Date.now()), 'x-mail-from': message.from || '', 'x-auth': encodeURIComponent(auth) }, body: raw });
+  const out = res.ok ? await res.json() : { ok: false, reject: 'Erreur temporaire : réessayez plus tard.' };
+  if (!out.ok && out.reject) message.setReject(out.reject);
+  return out;
+}
+
 export default {
+  /** the replies to the quote discussions (docs/RESERVATION.md, « Discussions ») */
+  async email(message, env) {
+    await quoteMail(message, env).catch((err) => {
+      console.error('[mail] in', err.message);
+      message.setReject('Erreur temporaire : réessayez plus tard.');
+    });
+  },
+
   /** Tuesdays: the photo of the week on the Google Business Profile; every day: the reminders and
    *  news of the clients; the 1st of each month: the statistics e-mail of the month that just ended */
   async scheduled(controller, env, ctx) {
@@ -525,6 +574,9 @@ export default {
       if (req.method === 'GET' && (url.pathname === '/api/code' || url.pathname === '/api/referral')) return await codeCheck(req, env, url, now);
       if (req.method === 'GET' && url.pathname === '/api/promo') return await promoBand(req, env, url, now);
       if (req.method === 'POST' && url.pathname === '/api/demande') return await quoteRequest(req, env, now);
+      // the client accepts a quote (www.solarcar37.fr/devis/): what it is, then « J'accepte »
+      if (url.pathname === '/api/devis' && req.method === 'GET') return await quotePublic(req, env, url);
+      if (url.pathname === '/api/devis/accepter' && req.method === 'POST') return await quoteAccept(req, env, now);
       if (url.pathname === '/atelier' || url.pathname.startsWith('/atelier/')) return await atelier(req, env, url, now);
       // the first referral page: now in the workshop's space
       if (url.pathname === '/parrainage') return new Response(null, { status: 302, headers: { location: '/atelier/codes' } });

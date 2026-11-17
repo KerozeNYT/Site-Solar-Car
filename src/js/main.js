@@ -167,6 +167,9 @@ const bookingEl = document.querySelector('[data-booking]');
 if (bookingEl) import('./booking.js').then((m) => m.startBooking(bookingEl));
 const bookingDone = document.querySelector('[data-booking-done]');
 if (bookingDone) import('./booking.js').then((m) => m.startBookingDone(bookingDone));
+// a quote accepted from the button of its e-mail (/devis/)
+const quoteAccept = document.querySelector('[data-quote-accept]');
+if (quoteAccept) import('./quote-accept.js').then((m) => m.startQuoteAccept(quoteAccept));
 
 // ---------------------------------------------------------------- simulators
 // window tint simulator, simple mode (photos): no 3D, started at once
@@ -501,7 +504,8 @@ function showBand(b, preview) {
   document.body.append(el);
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
 }
-if (api && !/\/reservation\/confirmee\//.test(location.pathname)) {
+// not on the pages that close a booking or a quote
+if (api && !/\/(reservation\/confirmee|devis)\//.test(location.pathname)) {
   const preview = new URLSearchParams(location.search).get('apercu-bandeau');
   fetch(`${api}/api/promo${preview ? `?apercu=${encodeURIComponent(preview)}` : ''}`)
     .then((r) => (r.ok ? r.json() : null))

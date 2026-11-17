@@ -61,7 +61,7 @@ test('a quote request: one clean e-mail to the workshop (photos, reply to the cl
   assert.equal(shop.from, 'Léa Petit via SOLAR CAR 37 <reservation@solarcar37.fr>');
   assert.deepEqual(shop.to, [WORKSHOP]);
   assert.equal(shop.reply_to, 'Lea.Petit@example.com');
-  assert.equal(shop.subject, 'Demande de devis — Peugeot 208 2021 · Vitres teintées');
+  assert.match(shop.subject, /^Demande de devis n°\d+ — Peugeot 208 2021 · Vitres teintées$/);
   assert.deepEqual(shop.attachments, [{ filename: 'vitre arrière.jpg', content: PHOTO }]);
   for (const part of [shop.html, shop.text]) {
     assert.match(part, /Léa Petit/);
@@ -153,7 +153,7 @@ test('the form posted without JavaScript: e-mailed with its photo, then the than
   assert.equal(res.status, 303);
   assert.equal(res.headers.get('location'), `${SITE}/contact/merci/`);
   const [shop] = mails;
-  assert.equal(shop.subject, 'Demande de devis — Audi A3 2018 · Covering, Autre demande');
+  assert.match(shop.subject, /^Demande de devis n°\d+ — Audi A3 2018 · Covering, Autre demande$/);
   assert.deepEqual(shop.attachments, [{ filename: 'capot.jpg', content: Buffer.from('jpeg').toString('base64') }]);
   assert.match(shop.text, /Rendez-vous souhaité : à partir du 01\/12\/2026/);
   // from another site: a page saying it did not go through

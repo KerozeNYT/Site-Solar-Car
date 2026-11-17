@@ -1,5 +1,18 @@
 # Journal des changements
 
+## Espace atelier aux couleurs de l'atelier ; discussions de devis liées à Gmail (17 novembre 2026)
+
+- **Allure** : noir, or et ivoire du site, polices Geist et Instrument Serif, logo SOLAR CAR en
+  en-tête, icône de l'écusson (application sur l'écran d'accueil), barre d'onglets en bas sur
+  téléphone, bulles de discussion. Le logo apparaît aussi en tête de tous les e-mails.
+- **Devis** : un onglet, une discussion par demande (photos affichées), réponse depuis l'atelier
+  (montant, pièces jointes, bouton « J'accepte ce devis ») ou depuis Gmail (relais
+  `devis@reponse.solarcar37.fr`, en service une fois la règle Cloudflare créée). Statuts
+  automatiques : Devis envoyé à la première réponse, Validé quand le client accepte (page
+  `/devis/` du site) ou réserve en ligne la même prestation ; Sans suite à la main.
+- Les demandes portent un numéro (« Demande de devis n°12 — … »).
+- Essais : `booking/test/discussion.test.mjs` (9 scénarios), `booking/test/mime.test.mjs`.
+
 ## Demandes de devis par le serveur du site : e-mails propres, accusé de réception (17 novembre 2026)
 
 - Le formulaire de devis n'utilise plus FormSubmit : il envoie la demande au serveur de

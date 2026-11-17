@@ -17,9 +17,10 @@
  */
 import { bookingRules as R, referralCode, howHeardText } from '../content/booking.js';
 import { promoSeeds, bannerSeeds } from '../content/promos.js';
-import { services as SERVICES } from '../content/site.js';
+import { business as B, services as SERVICES } from '../content/site.js';
 import { zonedToUtc, addDays } from './schedule.js';
-import { sendQuoteMails } from './mail.js';
+import { sendQuoteMails, sendToClient, notifyWorkshop, quoteSubject } from './mail.js';
+import { parseMail, freshText, htmlToText, bytesOf } from './mime.js';
 
 // no 0/O, 1/I: easy to read out and to type
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -44,6 +45,8 @@ export const dayStart = (date) => zonedToUtc(date, '00:00', R.timeZone);
 export const dayEnd = (date) => zonedToUtc(addDays(date, 1), '00:00', R.timeZone) - 1;
 
 const stub = (env) => env.ATELIER.get(env.ATELIER.idFromName('solarcar37'));
+/** a raw request to the database (files, multipart): booking/atelier.js */
+export const atelierFetch = (env, path, init) => stub(env).fetch(`https://atelier/${path}`, init);
 /** one call to the database: POST /<path> with a JSON body, answered in JSON */
 export async function db(env, path, body = {}) {
   const res = await stub(env).fetch(`https://atelier/${path}`, { method: 'POST', body: JSON.stringify(body) });
@@ -124,12 +127,49 @@ function quoteFiles(list) {
         .slice(0, 80);
       if (!filename || filename.startsWith('.')) filename = `photo-${i + 1}`;
       if (!/\.[a-z0-9]{2,5}$/i.test(filename)) filename += `.${ext}`;
-      return { filename, content, size: Math.floor((content.length * 3) / 4) };
+      return { filename, type, content, size: Math.floor((content.length * 3) / 4) };
     })
     .filter(Boolean);
 }
 
 const digits = (p) => String(p || '').replace(/\D/g, '').slice(-9);
+
+// ---------------------------------------------------------------- quote discussions
+/** the statuses of a quote request, in the workshop's words */
+export const QUOTE_STATUS = { nouveau: 'Nouveau', envoye: 'Devis envoyé', valide: 'Validé', sans_suite: 'Sans suite' };
+/** files kept with a discussion (a SQLite value holds 2 MB at most); bigger ones are only named */
+const MAX_FILE = 1.9 * 1024 * 1024;
+/** bytes → a value for a BLOB column */
+const blob = (u8) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+const hex = (n) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(16).padStart(2, '0')).join('');
+/** the workshop's own addresses: its replies (from its Gmail) are passed on to the client */
+const ownerAddresses = (env) =>
+  String(env.ATELIER_EMAILS || env.NOTIFY_TO || '')
+    .split(',')
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+/** the receiving server checked the sender's domain (DKIM or DMARC): a forged workshop address is not passed on */
+function authenticated(lines, from) {
+  const d = from.split('@')[1]?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!d) return false;
+  return lines.some((l) => new RegExp(`dkim=pass[^;]*header\\.(d=${d}|i=[^\\s;]*@${d})\\b`, 'i').test(l) || new RegExp(`dmarc=pass[^;]*header\\.from=${d}\\b`, 'i').test(l));
+}
+const refsOf = (s) => String(s || '').split(' ').filter(Boolean);
+/** « 1 190,50 € » → 1190.5; empty → null */
+const amountOf = (v) => {
+  const n = Number(String(v ?? '').replace(/[\s€]/g, '').replace(',', '.'));
+  return String(v ?? '').trim() && Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+};
+/** the page where the client accepts the quote (www.solarcar37.fr/devis/) */
+const acceptUrl = (env, r) => `${String(env.SITE_URL || B.siteUrl).replace(/\/$/, '')}/devis/?n=${r.id}&t=${r.token}`;
+/** what a booking covers, in the words of a quote request: tint (windows, windscreen), lights */
+const kinds = (s) => {
+  const t = String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return [/vitre|pare-brise/.test(t) && 'vitres', /feux/.test(t) && 'feux'].filter(Boolean);
+};
 
 export class Atelier {
   constructor(state, env) {
@@ -153,6 +193,26 @@ export class Atelier {
     x('CREATE INDEX IF NOT EXISTS bookings_date ON bookings (date)');
     x(`CREATE TABLE IF NOT EXISTS requests (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL, services TEXT NOT NULL DEFAULT '', vehicle TEXT NOT NULL DEFAULT '', wish TEXT NOT NULL DEFAULT '', message TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '')`);
     x('CREATE INDEX IF NOT EXISTS requests_client ON requests (client_id)');
+    // the quote discussions (added later: columns of the requests, then messages and their files)
+    const have = new Set(this.all("SELECT name FROM pragma_table_info('requests')").map((c) => c.name));
+    for (const [col, def] of [
+      ['status', "TEXT NOT NULL DEFAULT 'nouveau'"],
+      ['status_at', 'INTEGER NOT NULL DEFAULT 0'],
+      ['amount', 'REAL NOT NULL DEFAULT 0'],
+      ['token', "TEXT NOT NULL DEFAULT ''"],
+      ['booking', "TEXT NOT NULL DEFAULT ''"],
+      ['unread', 'INTEGER NOT NULL DEFAULT 0'],
+      ['last_at', 'INTEGER NOT NULL DEFAULT 0'],
+      ['subject', "TEXT NOT NULL DEFAULT ''"],
+      ['refs', "TEXT NOT NULL DEFAULT ''"],
+      ['owner_refs', "TEXT NOT NULL DEFAULT ''"],
+    ])
+      if (!have.has(col)) x(`ALTER TABLE requests ADD COLUMN ${col} ${def}`);
+    x(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, request_id INTEGER NOT NULL, at INTEGER NOT NULL, dir TEXT NOT NULL, via TEXT NOT NULL DEFAULT '', text TEXT NOT NULL DEFAULT '', files TEXT NOT NULL DEFAULT '[]', msgid TEXT NOT NULL DEFAULT '', sender TEXT NOT NULL DEFAULT '')`);
+    x('CREATE INDEX IF NOT EXISTS messages_request ON messages (request_id)');
+    x('CREATE INDEX IF NOT EXISTS messages_msgid ON messages (msgid)');
+    x(`CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY AUTOINCREMENT, request_id INTEGER NOT NULL, name TEXT NOT NULL DEFAULT '', type TEXT NOT NULL DEFAULT '', size INTEGER NOT NULL DEFAULT 0, data BLOB)`);
+    x('CREATE INDEX IF NOT EXISTS files_request ON files (request_id)');
     x('CREATE TABLE IF NOT EXISTS logins (id INTEGER PRIMARY KEY AUTOINCREMENT, hash TEXT NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, used INTEGER NOT NULL DEFAULT 0)');
   }
 
@@ -272,7 +332,17 @@ export class Atelier {
     const path = new URL(req.url).pathname.slice(1);
     // a quote request from the site's form: its photos are heavy, read and sent from here
     if (path === 'quote/submit') return Response.json(await this.quote(req));
+    // the workshop's answer written in its space (multipart, with files)
+    if (path === 'quote/reply') return Response.json(await this.quoteReply(req));
+    // an e-mail to the discussion relay (booking/worker.js, email handler)
+    if (path === 'mail/in') return Response.json(await this.mailIn(req));
+    // a file of a discussion, as it is
+    if (path === 'file/raw') {
+      const f = this.one('SELECT name, type, data FROM files WHERE id = ?', Number(new URL(req.url).searchParams.get('id')));
+      return f ? new Response(f.data, { headers: { 'content-type': f.type || 'application/octet-stream', 'x-name': encodeURIComponent(f.name) } }) : new Response('not found', { status: 404 });
+    }
     const b = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    if (path === 'quote/accept') return Response.json(await this.quoteAccept(b, Number(b.now) || Date.now()));
     const now = Number(b.now) || Date.now();
     this.seed(now);
     const out = this.route(path, b, now);
@@ -342,11 +412,16 @@ export class Atelier {
     if (twice) return { ok: true, ack: false, duplicate: true };
     const { requestId } = this.route('request/add', { customer, services, wish, message: stored }, now);
     const env = this.env;
+    const drop = () => this.forget([requestId]);
     if (!env.RESEND_API_KEY || !env.NOTIFY_TO) {
-      this.run('DELETE FROM requests WHERE id = ?', requestId);
+      drop();
       console.error('[quote] no e-mail settings (RESEND_API_KEY, NOTIFY_TO)');
       return { ok: false, status: 503, error: 'Envoi indisponible.' };
     }
+    // the discussion: its number in the subject, the key of the accept link, the request as its first message
+    const subject = quoteSubject({ id: requestId, vehicle: clip(customer.vehicle, 80), services });
+    this.run('UPDATE requests SET token = ?, subject = ?, status = ?, status_at = ? WHERE id = ?', hex(16), subject, 'nouveau', now, requestId);
+    this.addMessage(requestId, { at: now, dir: 'in', via: 'site', text: stored, files: files.map((f) => ({ filename: f.filename, type: f.type, bytes: bytesOf(f.content) })) });
     const q = { id: requestId, at: now, c: customer, vehicle: customer.vehicle, services, wish, code, source: customer.source, message, files };
     try {
       let sent;
@@ -361,9 +436,170 @@ export class Atelier {
       return { ok: true, ack: sent.client };
     } catch (err) {
       console.error('[quote] workshop e-mail', err.message);
-      this.run('DELETE FROM requests WHERE id = ?', requestId);
+      drop();
       return { ok: false, status: 502, error: 'L’envoi n’a pas abouti.' };
     }
+  }
+
+  // ---------------------------------------------------------------- the discussions
+  /** the request with its client */
+  request(id) {
+    return this.one('SELECT r.*, c.first, c.last, c.email, c.phone FROM requests r LEFT JOIN clients c ON c.id = r.client_id WHERE r.id = ?', Number(id) || 0);
+  }
+  /** requests, their messages and files gone (a request not sent, a client erased) */
+  forget(ids) {
+    for (const id of ids) {
+      this.run('DELETE FROM files WHERE request_id = ?', id);
+      this.run('DELETE FROM messages WHERE request_id = ?', id);
+      this.run('DELETE FROM requests WHERE id = ?', id);
+    }
+  }
+  /** a message of a discussion; files [{ filename, type, bytes }] kept when small enough */
+  addMessage(requestId, { at, dir, via = '', text = '', files = [], msgid = '', sender = '' }) {
+    const meta = files.map((f) => {
+      const size = f.bytes?.length || 0;
+      let id = 0;
+      // kept to be shown: photos and PDF only (anything else stays in the e-mail)
+      if (size && size <= MAX_FILE && /^image\/(jpeg|png|webp|gif|avif)$|^application\/pdf$/.test(f.type)) {
+        this.run('INSERT INTO files (request_id, name, type, size, data) VALUES (?, ?, ?, ?, ?)', requestId, clip(f.filename, 120), clip(f.type, 80), size, blob(f.bytes));
+        id = this.one('SELECT last_insert_rowid() AS id').id;
+      }
+      return { id, name: clip(f.filename, 120), type: clip(f.type, 80), size };
+    });
+    this.run('INSERT INTO messages (request_id, at, dir, via, text, files, msgid, sender) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', requestId, at, dir, via, String(text).slice(0, 20000), JSON.stringify(meta), clip(msgid, 300), clip(sender, 200));
+    this.run('UPDATE requests SET last_at = ? WHERE id = ?', at, requestId);
+    return meta;
+  }
+  /** a new status, said in the discussion */
+  setStatus(id, status, now, note) {
+    this.run('UPDATE requests SET status = ?, status_at = ? WHERE id = ?', status, now, id);
+    if (note) this.addMessage(id, { at: now, dir: 'note', text: note });
+  }
+  /** a Message-ID kept to thread the next e-mails (the client's in `refs`, the workshop's in `owner_refs`) */
+  addRef(id, column, msgid) {
+    if (!msgid) return;
+    const r = this.one(`SELECT ${column} AS v FROM requests WHERE id = ?`, id);
+    const list = refsOf(r?.v).filter((x) => x !== msgid);
+    this.run(`UPDATE requests SET ${column} = ? WHERE id = ?`, [...list, msgid].slice(-10).join(' '), id);
+  }
+  /** a request made before the discussions: given its number, key and subject */
+  ready(r) {
+    if (r.token && r.subject) return r;
+    const token = r.token || hex(16);
+    const subject = r.subject || quoteSubject(r);
+    this.run('UPDATE requests SET token = ?, subject = ? WHERE id = ?', token, subject, r.id);
+    return { ...r, token, subject };
+  }
+
+  /** POST quote/reply (x-request, multipart: message, montant, accepter, fichiers): the workshop
+   *  writes to the client from its space; a copy goes to the workshop's Gmail */
+  async quoteReply(req) {
+    const now = Number(req.headers.get('x-now')) || Date.now();
+    let r = this.request(req.headers.get('x-request'));
+    if (!r) return { ok: false, status: 404, error: 'Demande introuvable.' };
+    r = this.ready(r);
+    const f = await req.formData();
+    const text = String(f.get('message') ?? '')
+      .replace(/\r\n?/g, '\n')
+      .trim()
+      .slice(0, 10000);
+    const files = [];
+    for (const v of f.getAll('fichiers')) if (v && typeof v === 'object' && v.size) files.push({ filename: v.name || 'piece-jointe', type: v.type || 'application/octet-stream', bytes: new Uint8Array(await v.arrayBuffer()) });
+    if (!text && !files.length) return { ok: false, status: 400, error: 'Écrivez un message ou joignez un fichier.' };
+    if (files.reduce((a, x) => a + x.bytes.length, 0) > 20 * 1024 * 1024) return { ok: false, status: 413, error: 'Pièces jointes trop lourdes : 20 Mo maximum.' };
+    if (!r.email) return { ok: false, status: 400, error: 'Ce client n’a pas d’adresse e-mail.' };
+    if (!this.env.RESEND_API_KEY) return { ok: false, status: 503, error: 'Envoi d’e-mail non configuré.' };
+    const amount = amountOf(f.get('montant'));
+    if (amount !== null) {
+      this.run('UPDATE requests SET amount = ? WHERE id = ?', amount, r.id);
+      r.amount = amount;
+    }
+    const accept = f.get('accepter') === '1' && r.status !== 'valide';
+    try {
+      await sendToClient(this.env, r, { text, files: files.map((x) => ({ filename: x.filename, content: toBase64(x.bytes) })), acceptUrl: accept ? acceptUrl(this.env, r) : '', bcc: ownerAddresses(this.env), refs: refsOf(r.refs) });
+    } catch (err) {
+      console.error('[quote] reply', err.message);
+      return { ok: false, status: 502, error: 'L’e-mail n’est pas parti : réessayez dans un instant.' };
+    }
+    this.addMessage(r.id, { at: now, dir: 'out', via: 'atelier', text, files });
+    this.run('UPDATE requests SET unread = 0 WHERE id = ?', r.id);
+    if (r.status === 'nouveau') this.setStatus(r.id, 'envoye', now);
+    return { ok: true };
+  }
+
+  /** the request an e-mail to the relay is about: its number in the subject, the e-mail it
+   *  answers, else the sender's latest request */
+  findRequest(m, from) {
+    const n = Number((m.subject.match(/n°\s*(\d+)/i) || [])[1]);
+    if (n && this.request(n)) return this.request(n);
+    for (const id of [...m.inReplyTo, ...m.references].reverse()) {
+      const x = this.one('SELECT request_id FROM messages WHERE msgid = ? LIMIT 1', id);
+      if (x) return this.request(x.request_id);
+    }
+    const last = this.one('SELECT r.id FROM requests r JOIN clients c ON c.id = r.client_id WHERE c.email = ? ORDER BY r.at DESC LIMIT 1', from);
+    return last ? this.request(last.id) : null;
+  }
+
+  /** POST mail/in (x-now, x-mail-from, x-auth; the raw e-mail): a reply to a quote discussion.
+   *  From the workshop's Gmail: passed on to the client (« Devis envoyé »). From the client: kept,
+   *  and told to the workshop by e-mail. { ok } or { ok: false, reject } (the sender is told) */
+  async mailIn(req) {
+    const now = Number(req.headers.get('x-now')) || Date.now();
+    const m = parseMail(new Uint8Array(await req.arrayBuffer()));
+    const from = m.from || String(req.headers.get('x-mail-from') || '').toLowerCase();
+    const auth = [...m.auth, ...decodeURIComponent(req.headers.get('x-auth') || '').split('\n')].filter(Boolean);
+    // never machines (out-of-office, bounces), never this site's own addresses: no loop
+    if (m.autoReply || !from || /@(.+\.)?solarcar37\.fr$/i.test(from) || /^(mailer-daemon|postmaster|no-?reply)/i.test(from)) return { ok: true, ignored: 'auto' };
+    const owner = ownerAddresses(this.env).includes(from);
+    const verified = owner && authenticated(auth, from);
+    const text = freshText(m.text || htmlToText(m.html));
+    const files = m.attachments.filter((a) => !a.inline && a.bytes.length).map((a) => ({ filename: a.filename, type: a.type, bytes: a.bytes }));
+    const asMail = () => files.map((x) => ({ filename: x.filename, content: toBase64(x.bytes) }));
+    let r = this.findRequest(m, from);
+    if (!r) {
+      if (owner) return { ok: false, reject: 'Aucune demande de devis ne correspond : répondez depuis l’e-mail de la demande (son objet porte le n°).' };
+      await notifyWorkshop(this.env, null, 'unknown', { text: text || m.text, files: asMail(), sender: { name: m.fromName, email: from, subject: m.subject } }).catch((err) => console.error('[quote] unknown', err.message));
+      return { ok: true, unknown: true };
+    }
+    r = this.ready(r);
+    // a discussion that floods: kept quiet
+    if (this.one('SELECT COUNT(*) AS n FROM messages WHERE request_id = ? AND at > ?', r.id, now - 86400000).n >= 40) return { ok: true, ignored: 'flood' };
+    if (owner) {
+      if (!verified) {
+        this.addMessage(r.id, { at: now, dir: 'note', text: 'Un e-mail à l’adresse de l’atelier n’a pas été transmis au client : son expéditeur n’a pas pu être vérifié. Répondez depuis l’espace atelier.' });
+        return { ok: false, reject: 'Expéditeur non vérifié : message non transmis. Répondez depuis l’espace atelier.' };
+      }
+      if (!text && !files.length) return { ok: true, ignored: 'empty' };
+      try {
+        await sendToClient(this.env, r, { text: text || 'Voir la pièce jointe.', files: asMail(), acceptUrl: r.status !== 'valide' ? acceptUrl(this.env, r) : '', refs: refsOf(r.refs) });
+      } catch (err) {
+        console.error('[quote] relay to client', err.message);
+        return { ok: false, reject: 'Le message n’a pas pu être transmis au client : réessayez, ou répondez depuis l’espace atelier.' };
+      }
+      this.addMessage(r.id, { at: now, dir: 'out', via: 'gmail', text, files, msgid: m.messageId });
+      this.addRef(r.id, 'owner_refs', m.messageId);
+      this.run('UPDATE requests SET unread = 0 WHERE id = ?', r.id);
+      if (r.status === 'nouveau') this.setStatus(r.id, 'envoye', now);
+      return { ok: true, relayed: 'client' };
+    }
+    const client = from === String(r.email || '').toLowerCase();
+    this.addMessage(r.id, { at: now, dir: 'in', via: 'mail', text: text || (files.length ? '' : '(message vide)'), files, msgid: m.messageId, sender: client ? '' : `${m.fromName ? `${m.fromName} ` : ''}<${from}>` });
+    if (client) this.addRef(r.id, 'refs', m.messageId);
+    this.run('UPDATE requests SET unread = unread + 1 WHERE id = ?', r.id);
+    this.run('UPDATE clients SET last_seen = ? WHERE id = ?', now, r.client_id);
+    await notifyWorkshop(this.env, { ...r, ...(client ? {} : { first: m.fromName || from, last: '' }) }, 'message', { text: text || '(pièce jointe)', files: asMail(), refs: refsOf(r.owner_refs) }).catch((err) => console.error('[quote] notify', err.message));
+    return { ok: true, relayed: 'workshop' };
+  }
+
+  /** quote/accept { n, t }: the client accepts the quote from the link of the e-mail */
+  async quoteAccept(b, now) {
+    const r = this.request(b.n);
+    if (!r || !r.token || String(b.t || '') !== r.token) return { ok: false, status: 404, error: 'Ce lien de devis n’est pas valable.' };
+    if (r.status === 'valide') return { ok: true, already: true, firstName: r.first };
+    this.setStatus(r.id, 'valide', now, 'Devis accepté par le client (bouton de l’e-mail).');
+    this.run('UPDATE requests SET unread = unread + 1 WHERE id = ?', r.id);
+    await notifyWorkshop(this.env, r, 'accepted', { refs: refsOf(r.owner_refs) }).catch((err) => console.error('[quote] accepted', err.message));
+    return { ok: true, firstName: r.first };
   }
 
   /** the line written above a request about the code typed in it, checked the day it arrives */
@@ -471,12 +707,62 @@ export class Atelier {
           'INSERT INTO bookings (session, client_id, event, date, time, minutes, items, total, discount, code, code_kind, mode, paid, vehicle, live, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           clip(b.session, 120), id, clip(b.event, 120), clip(b.date, 10), clip(b.time, 5), Number(b.minutes) || 0, JSON.stringify(b.items || []).slice(0, 2000), Number(b.total) || 0, Number(b.discount) || 0, referralCode(b.code), clip(b.codeKind, 20), clip(b.mode, 10), Number(b.paid) || 0, clip(b.customer?.vehicle, 80), b.live === false ? 0 : 1, Number(b.created) || now
         );
+        // the client had asked for a quote for what they booked: that quote is « Validé »
+        const booked = kinds((b.items || []).map((i) => i.label).join(' '));
+        const when = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date)) ? `${String(b.date).split('-').reverse().join('/')} à ${String(b.time).replace(':', ' h ')}` : '';
+        for (const r of this.all("SELECT id, services FROM requests WHERE client_id = ? AND status IN ('nouveau', 'envoye') AND at > ?", id, now - 180 * DAY))
+          if (kinds(r.services).some((k) => booked.includes(k))) {
+            this.run('UPDATE requests SET booking = ?, unread = unread + 1 WHERE id = ?', clip(b.session, 120), r.id);
+            this.setStatus(r.id, 'valide', now, `Rendez-vous réservé et payé en ligne${when ? ` pour le ${when}` : ''}.`);
+          }
         return { ok: true, clientId: id };
       }
       case 'request/add': {
         const id = this.upsertClient(b.customer || {}, now, 'demande de devis');
         this.run('INSERT INTO requests (client_id, at, services, vehicle, wish, message, source) VALUES (?, ?, ?, ?, ?, ?, ?)', id, now, clip(b.services, 300), clip(b.customer?.vehicle, 80), clip(b.wish, 120), String(b.message || '').trim().slice(0, 2000), clip(b.customer?.source, 180));
         return { ok: true, clientId: id, requestId: this.one('SELECT last_insert_rowid() AS id').id };
+      }
+      // ------------------------------------------------ quote discussions
+      case 'quote/public': {
+        const r = this.request(b.n);
+        if (!r || !r.token || String(b.t || '') !== r.token) return { ok: false, error: 'Ce lien de devis n’est pas valable.' };
+        return { ok: true, n: r.id, firstName: r.first, vehicle: r.vehicle, services: r.services, amount: r.amount, status: r.status, at: r.at };
+      }
+      case 'quotes/list': {
+        const st = Object.hasOwn(QUOTE_STATUS, b.status) ? b.status : '';
+        const rows = this.all(
+          `SELECT r.id, r.at, r.status, r.status_at, r.amount, r.services, r.vehicle, r.unread, r.last_at, r.client_id, c.first, c.last, c.phone, c.email,
+            (SELECT text FROM messages m WHERE m.request_id = r.id AND m.dir <> 'note' ORDER BY m.at DESC, m.id DESC LIMIT 1) AS last_text,
+            (SELECT dir FROM messages m WHERE m.request_id = r.id AND m.dir <> 'note' ORDER BY m.at DESC, m.id DESC LIMIT 1) AS last_dir
+           FROM requests r LEFT JOIN clients c ON c.id = r.client_id WHERE ? = '' OR r.status = ?
+           ORDER BY (r.unread > 0) DESC, MAX(r.at, r.last_at) DESC LIMIT 300`,
+          st,
+          st
+        );
+        const counts = Object.fromEntries(Object.keys(QUOTE_STATUS).map((k) => [k, 0]));
+        for (const x of this.all('SELECT status, COUNT(*) AS n FROM requests GROUP BY status')) counts[x.status] = x.n;
+        return { quotes: rows, counts, unread: this.one('SELECT COUNT(*) AS n FROM requests WHERE unread > 0').n };
+      }
+      case 'quote/get': {
+        const r = this.request(b.id);
+        if (!r) return { quote: null };
+        let messages = this.all('SELECT * FROM messages WHERE request_id = ? ORDER BY at, id', r.id).map((x) => ({ ...x, files: JSON.parse(x.files || '[]') }));
+        // a request made before the discussions: its message as the first one
+        if (!messages.length) messages = [{ id: 0, at: r.at, dir: 'in', via: 'site', text: r.message, files: [] }];
+        return { quote: this.ready(r), messages };
+      }
+      case 'quotes/badge':
+        return { n: this.one("SELECT COUNT(*) AS n FROM requests WHERE unread > 0 OR status = 'nouveau'").n };
+      case 'quote/seen':
+        this.run('UPDATE requests SET unread = 0 WHERE id = ?', Number(b.id) || 0);
+        return { ok: true };
+      case 'quote/status': {
+        const r = this.request(b.id);
+        if (!r) return { ok: false, error: 'Demande introuvable.' };
+        const amount = amountOf(b.amount);
+        if (amount !== null && amount !== r.amount) this.run('UPDATE requests SET amount = ? WHERE id = ?', amount, r.id);
+        if (Object.hasOwn(QUOTE_STATUS, b.status) && b.status !== r.status) this.setStatus(r.id, b.status, now, `Statut changé à l’atelier : ${QUOTE_STATUS[b.status]}.`);
+        return { ok: true };
       }
       case 'bookings/list': {
         const where = b.from ? 'WHERE b.date BETWEEN ? AND ?' : '';
@@ -507,7 +793,7 @@ export class Atelier {
       }
       case 'client/delete': {
         const id = Number(b.id);
-        this.run('DELETE FROM requests WHERE client_id = ?', id);
+        this.forget(this.all('SELECT id FROM requests WHERE client_id = ?', id).map((r) => r.id));
         this.run('UPDATE bookings SET client_id = 0 WHERE client_id = ?', id);
         this.run('UPDATE codes SET client_id = 0, email = ? WHERE client_id = ?', '', id);
         this.run('DELETE FROM clients WHERE id = ?', id);
@@ -527,6 +813,12 @@ export class Atelier {
           bookings: this.one('SELECT COUNT(*) AS n, COALESCE(SUM(paid), 0) AS paid, COALESCE(SUM(total - paid), 0) AS due, COALESCE(SUM(discount), 0) AS discount FROM bookings WHERE live = 1 AND date(created / 1000, ?) >= ? AND date(created / 1000, ?) <= ?', 'unixepoch', from, 'unixepoch', to),
           clients: this.one('SELECT COUNT(*) AS n FROM clients WHERE created BETWEEN ? AND ?', dayStart(from), dayEnd(to)).n,
           requests: this.one('SELECT COUNT(*) AS n FROM requests WHERE at BETWEEN ? AND ?', dayStart(from), dayEnd(to)).n,
+          quotes: {
+            open: this.one("SELECT COUNT(*) AS n FROM requests WHERE status = 'nouveau'").n,
+            sent: this.one("SELECT COUNT(*) AS n FROM requests WHERE status = 'envoye'").n,
+            unread: this.one('SELECT COUNT(*) AS n FROM requests WHERE unread > 0').n,
+            won: this.one("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS amount FROM requests WHERE status = 'valide' AND status_at BETWEEN ? AND ?", dayStart(from), dayEnd(to)),
+          },
           totalClients: this.one('SELECT COUNT(*) AS n FROM clients').n,
           promoUses: this.all("SELECT code, COUNT(*) AS n FROM bookings WHERE code_kind = 'promo' AND date(created / 1000, ?) BETWEEN ? AND ? GROUP BY code", 'unixepoch', from, to),
         };

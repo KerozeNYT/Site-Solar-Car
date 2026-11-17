@@ -1867,6 +1867,26 @@ export function reservationPage(ctx) {
 }
 
 /** After the payment: what was booked, read from the server (Stripe session). */
+/** /devis/?n=12&t=…: the client accepts a quote from the button of its e-mail (src/js/quote-accept.js) */
+export function quoteAcceptPage(ctx) {
+  const b = ctx.business;
+  const body = `
+  <section class="section page-intro">
+    <div class="container container--narrow booking-done" data-quote-accept data-api="${esc(ctx.booking?.bookingRules?.api || '')}">
+      <p class="kicker">Devis</p>
+      <h1 data-qa-title>Votre devis</h1>
+      <p class="lead" data-qa-lead>Chargement de votre devis…</p>
+      <noscript><p class="lead">Pour accepter votre devis ici, activez JavaScript ; ou répondez simplement à notre e-mail${b.phone ? `, ou appelez le <a href="${telHref(b.phone)}">${esc(b.phone)}</a>` : ''}.</p></noscript>
+      <div class="booking-done__card" data-qa-card hidden>
+        <ul class="booking__items" data-qa-items></ul>
+        <div class="ctas"><button class="btn btn--primary" type="button" data-qa-accept hidden>J’accepte ce devis</button></div>
+      </div>
+      <p>Une question ? ${b.phone ? `<a href="${telHref(b.phone)}">${esc(b.phone)}</a>` : ''}${b.phone && b.email ? ' · ' : ''}${b.email ? `<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>` : ''}</p>
+    </div>
+  </section>`;
+  return page(ctx, { title: 'Votre devis', description: 'Accepter votre devis SOLAR CAR 37.', path: '/devis/', noindex: true }, body);
+}
+
 export function reservationDonePage(ctx) {
   const b = ctx.business;
   const body = `

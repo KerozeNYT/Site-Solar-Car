@@ -16,7 +16,7 @@
 import { bookingRules as R, codeServices, formatEuros, quote, withDiscount } from '../content/booking.js';
 import { business as B } from '../content/site.js';
 import { report, totalsOf } from './stats.js';
-import { db, referralFor, redeemReferral, checkCode, dayStart } from './store.js';
+import { db, referralFor, redeemReferral, checkCode, dayStart, atelierFetch, QUOTE_STATUS } from './store.js';
 import { bookedEvents } from './google.js';
 import { getSession } from './stripe.js';
 import { send, shell as mailShell } from './mail.js';
@@ -41,7 +41,7 @@ const HEADERS = {
   // forms, which the origin check below would refuse
   'referrer-policy': 'same-origin',
   'x-content-type-options': 'nosniff',
-  'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+  'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
 };
 
 /** the looks of a band (src/styles/main.css, .promo-band--…) */
@@ -76,65 +76,146 @@ const redirect = (to, extra = {}) => new Response(null, { status: 303, headers: 
 const back = (path, q) => redirect(`${path}${q ? `?${new URLSearchParams(q)}` : ''}`);
 
 // ---------------------------------------------------------------- the page around
+/** stroke icons (24 × 24), drawn like the site's */
+const ICONS = {
+  home: '<path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9.5h8M8 12.5h5"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.3 3.3 0 0 1 0 6.6M18 14.6c2 .7 3.2 2.5 3.5 5.4"/>',
+  tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
+  chart: '<path d="M4 20V11M10 20V5M16 20v-7M2 20h20"/>',
+  pin: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  out: '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>',
+  phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/>',
+  send: '<path d="M4 12 20 4l-6 16-3-7z"/><path d="m11 13 3-3"/>',
+  clip: '<path d="M20 11.5 12 19.5a5 5 0 0 1-7-7l8-8a3.5 3.5 0 0 1 5 5l-8 8a2 2 0 0 1-3-3l7.5-7.5"/>',
+  back: '<path d="M15 5l-7 7 7 7"/>',
+  file: '<path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.4 4.2-6.5 8-6.5s7 2.1 8 6.5"/>',
+};
+const ico = (k) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ''}</svg>`;
+const TABS = [
+  ['/atelier', 'Accueil', 'home', 'Accueil'],
+  ['/atelier/devis', 'Devis', 'chat', 'Devis'],
+  ['/atelier/rdv', 'Rendez-vous', 'cal', 'RDV'],
+  ['/atelier/clients', 'Clients', 'users', 'Clients'],
+  ['/atelier/codes', 'Codes et promos', 'tag', 'Promos'],
+  ['/atelier/stats', 'Statistiques', 'chart', 'Stats'],
+  ['/atelier/fiche', 'Fiche Google', 'pin', 'Fiche'],
+];
+const HEAD = (title) => `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex">
+<title>${esc(title)} — Atelier ${esc(B.name)}</title><link rel="manifest" href="/atelier/manifest.webmanifest"><link rel="icon" type="image/png" href="/atelier/icone-180.png"><link rel="apple-touch-icon" href="/atelier/icone-180.png"><meta name="theme-color" content="#07080a"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Atelier">
+<link rel="preload" href="/stats/f/geist.woff2" as="font" type="font/woff2" crossorigin><style>${CSS}</style></head>`;
+
 function page(title, active, body, url) {
-  const tabs = [
-    ['/atelier', 'Accueil'],
-    ['/atelier/rdv', 'Rendez-vous'],
-    ['/atelier/clients', 'Clients'],
-    ['/atelier/codes', 'Codes et promos'],
-    ['/atelier/stats', 'Statistiques'],
-    ['/atelier/fiche', 'Fiche Google'],
-  ];
+  const badge = Number(url?.badge) || 0;
+  const link = ([href, label, icon, short], dock) => `<a href="${href}"${href === active ? ' aria-current="page"' : ''}>${ico(icon)}<span>${dock ? short : label}</span>${href === '/atelier/devis' && badge ? `<span class="badge" aria-label="${badge} à traiter">${badge}</span>` : ''}</a>`;
   const ok = url?.searchParams.get('ok');
   const err = url?.searchParams.get('err');
   return new Response(
-    `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex">
-<title>${esc(title)} — Atelier ${esc(B.name)}</title><link rel="manifest" href="/atelier/manifest.webmanifest"><link rel="icon" href="/atelier/icone.svg"><meta name="theme-color" content="#0b0c0f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Atelier">
-<style>${CSS}</style></head><body>
-<header class="top"><a class="brand" href="/atelier"><span>SOLAR CAR 37</span> Atelier</a><a class="out" href="/atelier/deconnexion">Se déconnecter</a></header>
-${active ? `<nav class="tabs" aria-label="Espace atelier">${tabs.map(([href, label]) => `<a href="${href}"${href === active ? ' aria-current="page"' : ''}>${label}</a>`).join('')}</nav>` : ''}
-<main>${ok ? `<p class="msg msg--ok">${esc(ok)}</p>` : ''}${err ? `<p class="msg msg--err">${esc(err)}</p>` : ''}${body}</main></body></html>`,
+    `${HEAD(title)}<body><div class="bg" aria-hidden="true"></div>
+<header class="top"><a class="brand" href="/atelier" aria-label="Accueil de l’espace atelier"><img src="/atelier/logo.webp" alt="SOLAR CAR" width="400" height="154"><span class="brand__tag">Atelier</span></a>
+${active ? `<nav class="tabs" aria-label="Espace atelier">${TABS.map((t) => link(t)).join('')}</nav>` : ''}<a class="out" href="/atelier/deconnexion" title="Se déconnecter" aria-label="Se déconnecter">${ico('out')}</a></header>
+<main>${ok ? `<p class="msg msg--ok" role="status">${esc(ok)}</p>` : ''}${err ? `<p class="msg msg--err" role="alert">${esc(err)}</p>` : ''}${body}</main>
+${active ? `<nav class="dock" aria-label="Espace atelier">${TABS.slice(0, 5)
+      .map((t) => link(t, true))
+      .join('')}</nav>` : ''}</body></html>`,
     { headers: HEADERS }
   );
 }
 
-const CSS = `:root{color-scheme:dark;--bg:#0b0c0f;--card:#15171c;--card2:#1b1e24;--line:#2a2d35;--gold:#e9cd82;--text:#f2efe8;--dim:#9a968c;--ok:#7fd49b;--err:#ff8a7a}
-*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:env(safe-area-inset-bottom)}
-a{color:var(--gold)}main{max-width:1000px;margin:0 auto;padding:18px 16px 56px}
-.top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;max-width:1000px;margin:0 auto}.brand{color:var(--text);text-decoration:none;font-weight:700}.brand span{color:var(--gold);letter-spacing:.08em;margin-right:4px}.out{color:var(--dim);font-size:13px}
-.tabs{display:flex;gap:6px;overflow-x:auto;padding:0 16px 10px;max-width:1000px;margin:0 auto;scrollbar-width:none}.tabs a{flex:none;color:var(--dim);text-decoration:none;padding:8px 14px;border-radius:999px;border:1px solid var(--line);font-size:14px;font-weight:600}.tabs a[aria-current]{background:var(--gold);color:#0b0c0f;border-color:var(--gold)}
-h1{font-size:22px;margin:4px 0 14px}h2{font-size:16px;margin:0 0 12px}h3{font-size:14px;margin:16px 0 8px;color:var(--dim);font-weight:600}
-.lead{color:var(--dim);margin:-6px 0 18px}.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin:0 0 14px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 14px}.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:0 0 14px}
-.fig{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}.fig b{display:block;font-size:24px;color:var(--gold);line-height:1.2}.fig span{color:var(--dim);font-size:13px}
-label{display:block;font-size:13px;color:var(--dim);margin:0 0 4px}input,select,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#0f1115;color:var(--text);font:inherit;margin:0 0 10px}textarea{min-height:90px;resize:vertical}
-.row{display:grid;gap:0 10px;grid-template-columns:1fr 1fr}.row3{display:grid;gap:0 10px;grid-template-columns:1fr 1fr 1fr}.checks{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 12px}.checks label{display:flex;gap:6px;align-items:center;color:var(--text);margin:0}.checks input{width:auto;margin:0}
-.btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}button,.btn{display:inline-block;border:0;border-radius:999px;padding:10px 16px;font:inherit;font-weight:700;cursor:pointer;background:var(--gold);color:#0b0c0f;text-decoration:none}button.ghost,.btn.ghost{background:transparent;color:var(--gold);border:1px solid var(--gold)}button.danger{background:transparent;color:var(--err);border:1px solid var(--err)}button.small,.btn.small{padding:6px 12px;font-size:13px}
-.msg{padding:12px 14px;border-radius:12px;margin:0 0 14px;font-weight:600}.msg--ok{background:#13261a;color:var(--ok)}.msg--err{background:#2a1513;color:var(--err)}
-table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--dim);font-size:12px;font-weight:600}td small,.dim{color:var(--dim);font-size:12px}td small{display:block}.acts td{border-top:0;padding-top:0}tr:has(+ .acts) td{border-bottom:0}.n{text-align:right;white-space:nowrap}
-.code{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;color:var(--gold);white-space:nowrap}.tag{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}.tag--ok{background:#13261a;color:var(--ok)}.tag--gold{background:#2a2414;color:var(--gold)}.tag--off{background:#222;color:var(--dim)}.tag--err{background:#2a1513;color:var(--err)}
-.list{list-style:none;margin:0;padding:0}.list li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.list li:last-child{border:0}
-.band{border:1px solid var(--gold);border-radius:14px;padding:12px 14px;background:#0f1115;margin:0 0 12px}.empty{color:var(--dim)}.search{display:flex;gap:8px}.search input{margin:0}
-.theme{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:4px;vertical-align:1px}.theme--classique{background:#2a2414;color:var(--gold)}.theme--noel{background:#b3121b;color:#fff}.theme--neon{background:linear-gradient(90deg,#ff2e88,#ff8a3d);color:#14001f}
-.big{font:800 26px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;color:var(--gold)}.right{float:right}
-@media (max-width:640px){.row,.row3{grid-template-columns:1fr}.hide-s{display:none}th,td{padding:9px 6px}}`;
+// the site's night garage: deep black, gold, ivory; Geist and Instrument Serif (served at /stats/f/)
+const CSS = `@font-face{font-family:'Geist';src:url('/stats/f/geist.woff2') format('woff2-variations');font-weight:100 900;font-display:swap}
+@font-face{font-family:'Geist Mono';src:url('/stats/f/geist-mono.woff2') format('woff2-variations');font-weight:100 900;font-display:swap}
+@font-face{font-family:'Instrument Serif';src:url('/stats/f/serif.woff2') format('woff2');font-style:italic;font-weight:400;font-display:swap}
+:root{color-scheme:dark;--bg:#07080a;--card:rgba(19,20,24,.78);--card2:#1a1b20;--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.16);--gold:#e3c27a;--gold2:#f1dca2;--gold-soft:rgba(227,194,122,.12);--text:#f3f0ea;--text2:#c7c3ba;--dim:#9b978e;--ok:#7fd49b;--err:#ff8a7a;--blue:#8fb8ff;--font:'Geist',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--serif:'Instrument Serif',Georgia,serif}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%;background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 var(--font);-webkit-font-smoothing:antialiased;min-height:100vh}
+.bg{position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(48% 38% at 10% -4%,rgba(227,194,122,.14),transparent 70%),radial-gradient(40% 36% at 96% 18%,rgba(57,135,229,.08),transparent 70%),radial-gradient(70% 42% at 50% 118%,rgba(227,194,122,.10),transparent 70%)}
+a{color:var(--gold2)}
+.ico{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;padding:10px 18px;padding-top:max(10px,env(safe-area-inset-top));background:rgba(7,8,10,.74);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--text);flex:none}.brand img{height:40px;width:auto;display:block}.brand__tag{font:italic 400 24px/1 var(--serif);color:var(--gold);padding-left:12px;border-left:1px solid var(--line2)}
+.tabs{display:flex;gap:2px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
+.tabs a{display:flex;align-items:center;gap:7px;color:var(--text2);text-decoration:none;padding:8px 12px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap}
+.tabs a:hover{background:var(--card2);color:var(--text)}.tabs a[aria-current]{background:var(--gold-soft);color:var(--gold2);box-shadow:inset 0 0 0 1px rgba(227,194,122,.35)}
+.badge{min-width:19px;height:19px;padding:0 6px;border-radius:999px;background:var(--gold);color:#0a0a0b;font-size:11.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.out{color:var(--dim);display:flex;padding:9px;border-radius:999px;flex:none}.out:hover{color:var(--text);background:var(--card2)}
+.dock{display:none}
+main{max-width:1080px;margin:0 auto;padding:26px 18px 60px}
+@media (max-width:900px){.tabs{display:none}.top{justify-content:space-between}.brand img{height:32px}.brand__tag{font-size:20px}main{padding:20px 16px calc(96px + env(safe-area-inset-bottom))}
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(5,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom));background:rgba(10,11,14,.9);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid var(--line)}
+.dock a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 4px;color:var(--dim);text-decoration:none;font-size:11px;font-weight:600;position:relative;border-radius:12px}
+.dock a[aria-current]{color:var(--gold2)}.dock a[aria-current] .ico{stroke:var(--gold)}.dock .badge{position:absolute;top:0;left:calc(50% + 5px)}}
+h1{font-size:31px;line-height:1.15;font-weight:650;letter-spacing:-.015em;margin:4px 0 10px}h1 em,h2 em{font:italic 400 1.14em/1 var(--serif);color:var(--gold)}
+h2{font-size:17px;margin:0 0 14px;font-weight:650;display:flex;align-items:center;gap:8px;flex-wrap:wrap}h3{font-size:11.5px;margin:20px 0 10px;color:var(--dim);font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.lead{color:var(--text2);margin:0 0 22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:20px;margin:0 0 16px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));margin:0 0 16px}.grid>.card{margin:0}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 18px}
+.fig{display:block;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.01));border:1px solid var(--line);border-radius:18px;padding:15px 16px;text-decoration:none;color:inherit}.fig b{display:block;font-size:27px;font-weight:650;color:var(--gold2);line-height:1.2;font-variant-numeric:tabular-nums}.fig span{color:var(--dim);font-size:13px}
+a.fig:hover{border-color:rgba(227,194,122,.45)}.fig--hot{border-color:rgba(227,194,122,.5);box-shadow:0 12px 30px -20px rgba(227,194,122,.7)}
+label{display:block;font-size:13px;color:var(--dim);margin:0 0 5px}
+input,select,textarea{width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--line2);background:rgba(0,0,0,.35);color:var(--text);font:inherit;margin:0 0 12px}
+input:focus,select:focus,textarea:focus{outline:2px solid rgba(227,194,122,.6);outline-offset:1px;border-color:transparent}
+input[type=file]{padding:8px;font-size:13px;color:var(--text2)}input[type=file]::file-selector-button{font:inherit;font-weight:700;border:0;border-radius:999px;padding:7px 13px;margin-right:10px;background:var(--gold-soft);color:var(--gold2);box-shadow:inset 0 0 0 1px rgba(227,194,122,.45);cursor:pointer}textarea{min-height:110px;resize:vertical;line-height:1.55}
+.row{display:grid;gap:0 12px;grid-template-columns:1fr 1fr}.row3{display:grid;gap:0 12px;grid-template-columns:1fr 1fr 1fr}
+.checks{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 14px}.checks label{display:flex;gap:9px;align-items:center;color:var(--text);margin:0;font-size:14px}.checks input{width:18px;height:18px;margin:0;accent-color:var(--gold)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:11px 19px;font:inherit;font-weight:700;cursor:pointer;background:linear-gradient(180deg,var(--gold2),var(--gold));color:#0a0a0b;text-decoration:none;box-shadow:0 8px 22px -12px rgba(227,194,122,.75)}
+button:hover,.btn:hover{filter:brightness(1.06)}button .ico,.btn .ico{width:18px;height:18px}
+button.ghost,.btn.ghost{background:transparent;color:var(--gold2);box-shadow:inset 0 0 0 1px rgba(227,194,122,.45)}
+button.danger{background:transparent;color:var(--err);box-shadow:inset 0 0 0 1px var(--err)}button.small,.btn.small{padding:7px 13px;font-size:13px}
+.msg{padding:12px 16px;border-radius:14px;margin:0 0 18px;font-weight:600}.msg--ok{background:rgba(127,212,155,.12);color:var(--ok);border:1px solid rgba(127,212,155,.28)}.msg--err{background:rgba(255,138,122,.1);color:var(--err);border:1px solid rgba(255,138,122,.28)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--dim);font-size:12px;font-weight:600}td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}.acts td{border-top:0;padding-top:0}tr:has(+ .acts) td{border-bottom:0}.n{text-align:right;white-space:nowrap}
+.code{font-family:'Geist Mono',ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;color:var(--gold2);white-space:nowrap}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}.tag--ok{background:rgba(127,212,155,.13);color:var(--ok)}.tag--gold{background:var(--gold-soft);color:var(--gold2)}.tag--off{background:rgba(255,255,255,.07);color:var(--dim)}.tag--err{background:rgba(255,138,122,.12);color:var(--err)}.tag--new{background:rgba(143,184,255,.14);color:var(--blue)}
+.list{list-style:none;margin:0;padding:0}.list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}.list li:last-child{border:0}.list a{text-decoration:none}
+.band{border:1px solid rgba(227,194,122,.45);border-radius:16px;padding:12px 14px;background:rgba(0,0,0,.3);margin:0 0 12px}.empty{color:var(--dim)}.search{display:flex;gap:8px}.search input{margin:0}
+.theme{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:4px;vertical-align:1px}.theme--classique{background:var(--gold-soft);color:var(--gold2)}.theme--noel{background:#b3121b;color:#fff}.theme--neon{background:linear-gradient(90deg,#ff2e88,#ff8a3d);color:#14001f}
+.big{font:800 26px/1.2 'Geist Mono',ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;color:var(--gold2)}.right{margin-left:auto;font-size:13px;font-weight:600}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}.chips a{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;border:1px solid var(--line2);color:var(--text2);text-decoration:none;font-size:13.5px;font-weight:600}.chips a[aria-current]{background:var(--gold-soft);border-color:rgba(227,194,122,.5);color:var(--gold2)}.chips b{font-weight:700;color:var(--dim)}
+.qlist{display:grid;gap:10px}
+.q{display:grid;grid-template-columns:auto 1fr auto;gap:2px 16px;align-items:start;padding:15px 18px;border-radius:20px;border:1px solid var(--line);background:var(--card);text-decoration:none;color:inherit}
+.q:hover{border-color:rgba(227,194,122,.45)}.q__n{font:italic 400 24px/1.1 var(--serif);color:var(--gold);min-width:52px}
+.q__who{display:block;font-weight:650}.q__what{display:block;color:var(--text2);font-size:13.5px}.q__last{grid-column:2/4;color:var(--dim);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}
+.q__side{display:grid;gap:5px;justify-items:end;text-align:right}.q__side small{color:var(--dim);font-size:12px}
+.q--unread{border-color:rgba(227,194,122,.6);box-shadow:0 0 0 1px rgba(227,194,122,.18),0 14px 34px -22px rgba(227,194,122,.8)}.q--unread .q__last{color:var(--text)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;margin-right:7px;vertical-align:2px;box-shadow:0 0 10px rgba(227,194,122,.8)}
+.crumb{display:inline-flex;align-items:center;gap:4px;color:var(--dim);text-decoration:none;font-size:14px;margin:0 0 10px}.crumb:hover{color:var(--text)}.crumb .ico{width:16px;height:16px}
+.qhead{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;margin:0 0 18px}.qhead h1{margin:0}.qhead .tag{font-size:13px;padding:5px 12px}
+.avatar{width:46px;height:46px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--gold-soft);color:var(--gold2);font-weight:700;border:1px solid rgba(227,194,122,.4)}
+.dgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}.dgrid>aside .card:last-child{margin:0}
+.thread{display:flex;flex-direction:column;gap:14px;margin:0 0 18px}
+.b{max-width:min(640px,88%);padding:13px 16px;border-radius:22px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.b--in{align-self:flex-start;background:var(--card2);border:1px solid var(--line);border-bottom-left-radius:7px}
+.b--out{align-self:flex-end;background:linear-gradient(180deg,rgba(241,220,162,.17),rgba(227,194,122,.09));border:1px solid rgba(227,194,122,.38);border-bottom-right-radius:7px}
+.b__meta{display:block;font-size:12px;color:var(--dim);margin-top:8px;white-space:normal}.b--out .b__meta{text-align:right}
+.note{align-self:center;max-width:92%;font-size:12.5px;color:var(--text2);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:999px;padding:6px 14px;text-align:center;margin:0}
+.files{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;white-space:normal}.files img{width:150px;height:112px;object-fit:cover;border-radius:14px;border:1px solid var(--line2);display:block}
+.file{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:12px;background:rgba(0,0,0,.3);border:1px solid var(--line2);color:var(--text);text-decoration:none;font-size:13px}.file .ico{width:16px;height:16px}
+.composer textarea{min-height:150px}.hint{font-size:12.5px;color:var(--dim);margin:10px 0 0}
+.facts{margin:0;display:grid;gap:10px}.facts dt{font-size:12px;color:var(--dim)}.facts dd{margin:0;font-weight:600}
+.login{max-width:420px;margin:9vh auto 0;padding:0 16px}.login__card{text-align:center;padding:30px 24px}.login__logo{width:min(260px,70%);height:auto;margin:0 auto 10px;display:block}.login form{text-align:left}.login .lead{text-align:center}
+@media (max-width:900px){.dgrid{grid-template-columns:1fr}.dgrid>aside{order:-1}}
+@media (max-width:640px){.row,.row3{grid-template-columns:1fr}.hide-s{display:none}th,td{padding:9px 6px}h1{font-size:26px}.card{padding:16px;border-radius:20px}.q{grid-template-columns:1fr auto;padding:14px}.q__n{display:none}.q__last{grid-column:1/3}.b{max-width:94%}}`;
 
 // ---------------------------------------------------------------- sign-in
 function loginPage(url, sent) {
   const err = url.searchParams.get('err');
   return new Response(
-    `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Connexion — Atelier ${esc(B.name)}</title><link rel="manifest" href="/atelier/manifest.webmanifest"><link rel="icon" href="/atelier/icone.svg"><meta name="theme-color" content="#0b0c0f"><style>${CSS}
-.login{max-width:380px;margin:12vh auto 0}</style></head><body><main class="login">
-<p class="brand"><span style="color:var(--gold);letter-spacing:.08em">SOLAR CAR 37</span> Atelier</p><h1>Connexion</h1>
-${err ? `<p class="msg msg--err">${esc(err)}</p>` : ''}
+    `${HEAD('Connexion')}<body><div class="bg" aria-hidden="true"></div><main class="login"><div class="card login__card">
+<img class="login__logo" src="/atelier/logo.webp" alt="SOLAR CAR" width="400" height="154"><h1>Espace <em>atelier</em></h1>
+${err ? `<p class="msg msg--err" role="alert">${esc(err)}</p>` : ''}
 ${
   sent
     ? `<p class="lead">Un code à 6 chiffres vient de partir par e-mail à l’atelier. Il est valable 10 minutes.</p>
-<form method="post" action="/atelier/connexion"><label for="code">Code reçu</label><input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="\\d{6}" maxlength="6" required autofocus><button>Se connecter</button></form>
-<form method="post" action="/atelier/connexion/code" style="margin-top:14px"><button class="ghost small">Renvoyer un code</button></form>`
-    : `<p class="lead">Pas de mot de passe : un code de connexion est envoyé par e-mail à l’atelier. Vous restez ensuite connecté ${SESSION_DAYS} jours sur cet appareil.</p>
-<form method="post" action="/atelier/connexion/code"><button>Recevoir mon code par e-mail</button></form>`
-}</main></body></html>`,
+<form method="post" action="/atelier/connexion"><label for="code">Code reçu</label><input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="\\d{6}" maxlength="6" required autofocus style="font:600 22px/1.2 'Geist Mono',monospace;letter-spacing:.3em;text-align:center"><button style="width:100%">Se connecter</button></form>
+<form method="post" action="/atelier/connexion/code" style="margin-top:12px;text-align:center"><button class="ghost small">Renvoyer un code</button></form>`
+    : `<p class="lead">Pas de mot de passe : un code de connexion part par e-mail à l’atelier. Vous restez ensuite connecté ${SESSION_DAYS} jours sur cet appareil.</p>
+<form method="post" action="/atelier/connexion/code"><button style="width:100%">${ico('mail')} Recevoir mon code par e-mail</button></form>`
+}</div></main></body></html>`,
     { headers: HEADERS }
   );
 }
@@ -157,7 +238,14 @@ async function sendLoginCode(env, now) {
 export async function atelier(req, env, url, now) {
   const path = url.pathname.replace(/\/+$/, '') || '/atelier';
   if (path === '/atelier/manifest.webmanifest')
-    return new Response(JSON.stringify({ name: `Atelier ${B.name}`, short_name: 'Atelier', start_url: '/atelier', scope: '/atelier', display: 'standalone', background_color: '#0b0c0f', theme_color: '#0b0c0f', icons: [{ src: '/atelier/icone.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }] }), { headers: { 'content-type': 'application/manifest+json', 'cache-control': 'public, max-age=86400' } });
+    return new Response(JSON.stringify({ name: `Atelier ${B.name}`, short_name: 'Atelier', start_url: '/atelier', scope: '/atelier', display: 'standalone', background_color: '#07080a', theme_color: '#07080a', icons: [{ src: '/atelier/icone-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }, { src: '/atelier/icone-180.png', sizes: '180x180', type: 'image/png', purpose: 'any' }] }), { headers: { 'content-type': 'application/manifest+json', 'cache-control': 'public, max-age=86400' } });
+  // the logo and the app icon (booking/brand.js)
+  const asset = path.match(/^\/atelier\/(logo\.webp|logo\.png|icone-512\.png|icone-180\.png)$/);
+  if (asset) {
+    const { BRAND } = await import('./brand.js');
+    const [data, type] = BRAND[asset[1]];
+    return new Response(data, { headers: { 'content-type': type, 'cache-control': 'public, max-age=604800' } });
+  }
   if (path === '/atelier/icone.svg')
     return new Response('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b0c0f"/><rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#e9cd82" stroke-width="10"/><text x="256" y="300" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="170" font-weight="800" fill="#e9cd82" letter-spacing="8">SC</text><text x="256" y="390" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="64" font-weight="700" fill="#f2efe8" letter-spacing="10">37</text></svg>', { headers: { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=86400' } });
   if (!env.ATELIER || !env.ATELIER_SECRET) return new Response('Espace atelier pas encore activé (ATELIER, ATELIER_SECRET).', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
@@ -183,6 +271,20 @@ export async function atelier(req, env, url, now) {
 
   if (!(await sessionOk(req, env, now))) return req.method === 'GET' ? redirect('/atelier/connexion') : new Response('Session expirée : reconnectez-vous.', { status: 401 });
 
+  // the quote discussions; reading one marks it read, before the count of the « Devis » tab
+  const dm = path.match(/^\/atelier\/devis\/(\d+)(?:\/(repondre|statut))?$/);
+  if (dm && req.method === 'GET' && !dm[2]) await db(env, 'quote/seen', { id: Number(dm[1]) });
+  if (req.method === 'GET') url.badge = (await db(env, 'quotes/badge')).n;
+  if (path === '/atelier/devis' && req.method === 'GET') return quotesPage(env, url, now);
+  if (dm && req.method === 'GET' && !dm[2]) return quotePage(env, url, Number(dm[1]), now);
+  if (dm && req.method === 'POST' && dm[2] === 'repondre') return quoteReplyPost(req, env, Number(dm[1]), now);
+  if (dm && req.method === 'POST' && dm[2] === 'statut') {
+    const f = await req.formData();
+    const r = await db(env, 'quote/status', { now, id: Number(dm[1]), status: String(f.get('statut') || ''), amount: String(f.get('montant') ?? '') });
+    return back(`/atelier/devis/${dm[1]}`, r.ok ? { ok: 'Suivi enregistré.' } : { err: r.error });
+  }
+  const fm = path.match(/^\/atelier\/fichier\/(\d+)$/);
+  if (fm && req.method === 'GET') return fileGet(env, Number(fm[1]));
   if (path === '/atelier' && req.method === 'GET') return home(env, url, now);
   if (path === '/atelier/rdv' && req.method === 'GET') return appointments(env, url, now);
   if (path === '/atelier/clients' && req.method === 'GET') return clients(env, url);
@@ -208,6 +310,121 @@ export async function atelier(req, env, url, now) {
   if (path === '/atelier/stats') return redirect(`/stats?cle=${encodeURIComponent(env.STATS_KEY || '')}`);
   if (path === '/atelier/fiche') return redirect(`/fiche-google?cle=${encodeURIComponent(env.STATS_KEY || '')}`);
   return page('Introuvable', '/atelier', '<h1>Page introuvable</h1><p><a href="/atelier">Retour à l’accueil</a></p>', url);
+}
+
+// ---------------------------------------------------------------- Devis (the quote discussions)
+const STATUS_TAG = { nouveau: 'tag--new', envoye: 'tag--gold', valide: 'tag--ok', sans_suite: 'tag--off' };
+const statusTag = (s) => `<span class="tag ${STATUS_TAG[s] || 'tag--off'}">${esc(QUOTE_STATUS[s] || s)}</span>`;
+const initials = (r) => (`${(r.first || '')[0] || ''}${(r.last || '')[0] || ''}`.toUpperCase() || '?');
+/** « aujourd’hui 13 h 47 », « hier 18 h 02 », « 12 nov. » */
+function when(ms, now) {
+  if (!ms) return '';
+  const d = paris(ms);
+  const today = paris(now).date;
+  const t = hour(d.time);
+  if (d.date === today) return `aujourd’hui ${t}`;
+  if (d.date === addDays(today, -1)) return `hier ${t}`;
+  return `${dayLabel(d.date, { day: 'numeric', month: 'short', ...(d.date.slice(0, 4) === today.slice(0, 4) ? {} : { year: 'numeric' }) })} ${t}`;
+}
+const snippet = (s, n = 140) => {
+  const t = String(s || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+};
+
+async function quotesPage(env, url, now) {
+  const st = Object.hasOwn(QUOTE_STATUS, url.searchParams.get('statut')) ? url.searchParams.get('statut') : '';
+  const r = await db(env, 'quotes/list', { status: st });
+  const total = Object.values(r.counts).reduce((a, b) => a + b, 0);
+  const chip = (k, label, n) => `<a href="/atelier/devis${k ? `?statut=${k}` : ''}"${k === st ? ' aria-current="page"' : ''}>${esc(label)} <b>${n}</b></a>`;
+  const card = (q) => `<a class="q${q.unread ? ' q--unread' : ''}" href="/atelier/devis/${q.id}"><span class="q__n">n°${q.id}</span>
+<span><span class="q__who">${q.unread ? '<span class="dot" aria-label="Nouveau message"></span>' : ''}${esc(name(q))}</span><span class="q__what">${esc([q.vehicle, q.services].filter(Boolean).join(' · ') || 'Demande de devis')}</span></span>
+<span class="q__side">${statusTag(q.status)}<small>${esc(when(Math.max(q.at, q.last_at || 0), now))}</small>${q.amount ? `<small>${eur(q.amount)}</small>` : ''}</span>
+${q.last_text ? `<span class="q__last">${q.last_dir === 'out' ? 'Vous : ' : ''}${esc(snippet(q.last_text))}</span>` : ''}</a>`;
+  const body = `<h1>Demandes de <em>devis</em></h1>
+<p class="lead">Chaque demande du site ouvre une discussion. Répondez ici, ou depuis votre Gmail : tout est rangé ici, et le statut suit tout seul (devis envoyé à votre première réponse, validé quand le client accepte ou réserve en ligne).</p>
+<nav class="chips" aria-label="Filtrer par statut">${chip('', 'Toutes', total)}${Object.entries(QUOTE_STATUS)
+    .map(([k, v]) => chip(k, v, r.counts[k] || 0))
+    .join('')}</nav>
+${r.quotes.length ? `<div class="qlist">${r.quotes.map(card).join('')}</div>` : `<section class="card"><p class="empty">${st ? 'Aucune demande avec ce statut.' : 'Les demandes de devis envoyées depuis le site arriveront ici.'}</p></section>`}`;
+  return page('Devis', '/atelier/devis', body, url);
+}
+
+const VIA = { site: 'formulaire du site', mail: 'e-mail', gmail: 'depuis Gmail', atelier: 'depuis l’atelier' };
+function filesHtml(files) {
+  if (!files?.length) return '';
+  return `<span class="files">${files
+    .map((f) =>
+      f.id && /^image\/(jpeg|png|webp|gif|avif)$/.test(f.type)
+        ? `<a href="/atelier/fichier/${f.id}" target="_blank" rel="noopener"><img src="/atelier/fichier/${f.id}" alt="${esc(f.name)}" loading="lazy"></a>`
+        : f.id
+          ? `<a class="file" href="/atelier/fichier/${f.id}" target="_blank" rel="noopener">${ico('file')}${esc(f.name)}</a>`
+          : `<span class="file" title="Trop lourd pour être gardé ici : il est dans l’e-mail">${ico('clip')}${esc(f.name)}</span>`
+    )
+    .join('')}</span>`;
+}
+
+async function quotePage(env, url, id, now) {
+  const { quote: r, messages } = await db(env, 'quote/get', { id });
+  if (!r) return page('Devis', '/atelier/devis', '<h1>Demande introuvable</h1><p><a href="/atelier/devis">Retour aux devis</a></p>', url);
+  const who = name(r);
+  const bubble = (m) => {
+    if (m.dir === 'note') return `<p class="note">${esc(m.text)} · ${esc(when(m.at, now))}</p>`;
+    const out = m.dir === 'out';
+    const by = out ? 'Vous' : m.sender || who;
+    return `<div class="b b--${out ? 'out' : 'in'}">${esc(m.text)}${filesHtml(m.files)}<span class="b__meta">${esc(by)} · ${esc(when(m.at, now))}${VIA[m.via] ? ` · ${esc(VIA[m.via])}` : ''}</span></div>`;
+  };
+  const relay = !!String(env.QUOTE_REPLY || '').trim();
+  const composer = r.email
+    ? `<form class="card composer" method="post" action="/atelier/devis/${r.id}/repondre" enctype="multipart/form-data">
+<h2>${ico('send')} Répondre à ${esc(r.first || who)}</h2>
+<label for="q-msg">Message</label><textarea id="q-msg" name="message" placeholder="Votre devis, une question…">${esc(`Bonjour ${r.first || ''},\n\n`)}</textarea>
+<div class="row"><div><label for="q-amount">Montant du devis (€)</label><input id="q-amount" name="montant" inputmode="decimal" value="${r.amount ? esc(String(r.amount).replace('.', ',')) : ''}" placeholder="ex. 1 190"></div><div><label for="q-files">Pièces jointes (devis PDF, photos)</label><input id="q-files" name="fichiers" type="file" multiple></div></div>
+<div class="checks"><label><input type="checkbox" name="accepter" value="1"${r.status === 'valide' ? '' : ' checked'}> Ajouter le bouton « J’accepte ce devis »</label></div>
+<button>${ico('send')} Envoyer à ${esc(r.first || 'le client')}</button>
+<p class="hint">Part de ${esc(B.email)}${relay ? ' ; sa réponse revient ici et dans votre Gmail' : ''}. Une copie arrive dans votre Gmail.</p></form>`
+    : '<section class="card"><p class="empty">Ce client n’a pas d’adresse e-mail : appelez-le.</p></section>';
+  const status = `<form class="card" method="post" action="/atelier/devis/${r.id}/statut"><h2>Suivi</h2>
+<label for="q-status">Statut</label><select id="q-status" name="statut">${Object.entries(QUOTE_STATUS)
+    .map(([k, v]) => `<option value="${k}"${k === r.status ? ' selected' : ''}>${esc(v)}</option>`)
+    .join('')}</select>
+<label for="q-amount2">Montant (€)</label><input id="q-amount2" name="montant" inputmode="decimal" value="${r.amount ? esc(String(r.amount).replace('.', ',')) : ''}">
+<button class="small">Enregistrer</button></form>`;
+  const facts = [
+    ['Demandée', when(r.at, now)],
+    ['Véhicule', r.vehicle],
+    ['Prestation(s)', r.services],
+    ['Rendez-vous souhaité', r.wish || 'indifférent'],
+    ['Nous a connus', r.source],
+    ['Montant', r.amount ? eur(r.amount) : ''],
+  ].filter(([, v]) => v);
+  const body = `<a class="crumb" href="/atelier/devis">${ico('back')} Tous les devis</a>
+<div class="qhead"><span class="avatar" aria-hidden="true">${esc(initials(r))}</span><div><h1>Devis <em>n°${r.id}</em></h1><span class="dim">${esc(who)} · ${esc([r.vehicle, r.services].filter(Boolean).join(' · '))}</span></div><span class="right">${statusTag(r.status)}</span></div>
+<div class="dgrid"><div><section class="thread" aria-label="Discussion">${messages.map(bubble).join('')}</section>${composer}</div>
+<aside><section class="card"><h2>${ico('user')} ${esc(who)}</h2><div class="btns" style="margin:0 0 14px">${r.phone ? `<a class="btn small" href="tel:${esc(tel(r.phone))}">${ico('phone')} ${esc(r.phone)}</a>` : ''}${r.email ? `<a class="btn ghost small" href="mailto:${esc(r.email)}">${ico('mail')} E-mail</a>` : ''}</div>
+<dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
+<p style="margin:14px 0 0"><a href="/atelier/clients/${r.client_id}">Fiche client</a></p></section>${status}</aside></div>`;
+  return page(`Devis n°${r.id}`, '/atelier/devis', body, url);
+}
+
+/** the workshop's answer, written here: passed as it is (multipart, files) to the database, which sends it */
+async function quoteReplyPost(req, env, id, now) {
+  const res = await atelierFetch(env, 'quote/reply', { method: 'POST', headers: { 'content-type': req.headers.get('content-type') || '', 'x-request': String(id), 'x-now': String(now) }, body: await req.arrayBuffer() });
+  const out = res.ok ? await res.json() : { ok: false, error: 'Erreur du serveur : réessayez.' };
+  return back(`/atelier/devis/${id}`, out.ok ? { ok: 'Message envoyé au client.' } : { err: out.error });
+}
+
+/** a photo or a document of a discussion; never run as a page (sandbox, no sniffing) */
+async function fileGet(env, id) {
+  const res = await atelierFetch(env, `file/raw?id=${id}`, { method: 'GET' });
+  if (!res.ok) return new Response('Fichier introuvable', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+  const type = res.headers.get('content-type') || 'application/octet-stream';
+  const name = decodeURIComponent(res.headers.get('x-name') || 'fichier');
+  const inline = /^image\/(jpeg|png|webp|gif|avif)$|^application\/pdf$/.test(type);
+  const image = type.startsWith('image/') && inline;
+  // anything else than a photo or a PDF is only downloaded, never shown
+  return new Response(res.body, { headers: { 'content-type': inline ? type : 'application/octet-stream', 'content-disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(name)}`, 'cache-control': 'private, max-age=3600', 'x-content-type-options': 'nosniff', 'x-robots-tag': 'noindex', ...(image ? { 'content-security-policy': "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox" } : {}) } });
 }
 
 // ---------------------------------------------------------------- appointments from the calendar
@@ -277,7 +494,7 @@ function apptRow(x, { withDate = true } = {}) {
 async function home(env, url, now) {
   const today = paris(now).date;
   const from = `${today.slice(0, 8)}01`;
-  const [sum, next, band, visits] = await Promise.all([
+  const [sum, next, band, visits, todo] = await Promise.all([
     db(env, 'summary', { from, to: today }),
     calendarBookings(env, today, addDays(today, 14)),
     db(env, 'banner/get'),
@@ -286,6 +503,7 @@ async function home(env, url, now) {
           .then((r) => totalsOf(r.totals))
           .catch(() => null)
       : null,
+    db(env, 'quotes/list', {}).then((r) => r.quotes.filter((q) => q.unread || q.status === 'nouveau').slice(0, 6)),
   ]);
   const month = new Intl.DateTimeFormat('fr-FR', { month: 'long', timeZone: 'UTC' }).format(new Date(`${from}T12:00:00Z`));
   const figs = [
@@ -299,10 +517,16 @@ async function home(env, url, now) {
   const nextHtml = next === null ? '<p class="empty">Agenda indisponible pour le moment.</p>' : next.length ? `<table><tbody>${next.map((x) => apptRow(x)).join('')}</tbody></table>` : '<p class="empty">Aucun RDV en ligne dans les 14 prochains jours.</p>';
   const b = band.banner;
   const bandNow = !b ? 'aucun bandeau prévu' : now < b.starts ? `prochain bandeau : du ${dateOf(b.starts)} au ${dateOf(b.expires)}` : `affiché jusqu’au ${dateOf(b.expires)}`;
-  const body = `<h1>Bonjour ${esc((B.owner || '').split(' ')[0] || '')}</h1>
+  const qf = sum.quotes;
+  const quoteFigs = `<div class="figs"><a class="fig${qf.open + qf.unread ? ' fig--hot' : ''}" href="/atelier/devis?statut=nouveau"><b>${qf.open}</b><span>devis à faire</span></a><a class="fig" href="/atelier/devis"><b>${qf.unread}</b><span>discussion${qf.unread > 1 ? 's' : ''} avec un message non lu</span></a><a class="fig" href="/atelier/devis?statut=envoye"><b>${qf.sent}</b><span>devis envoyés, en attente</span></a><a class="fig" href="/atelier/devis?statut=valide"><b>${qf.won.n}</b><span>validés en ${esc(new Intl.DateTimeFormat('fr-FR', { month: 'long', timeZone: 'UTC' }).format(new Date(`${from}T12:00:00Z`)))}${qf.won.amount ? ` · ${eur(qf.won.amount)}` : ''}</span></a></div>`;
+  const todoHtml = todo.length
+    ? `<section class="card"><h2>${ico('chat')} À traiter <a class="right" href="/atelier/devis">Tous les devis</a></h2><ul class="list">${todo.map((q) => `<li><a href="/atelier/devis/${q.id}"><b>${q.unread ? '<span class="dot"></span>' : ''}n°${q.id} · ${esc(name(q))}</b><br><span class="dim">${esc([q.vehicle, q.services].filter(Boolean).join(' · '))}</span></a>${statusTag(q.status)}</li>`).join('')}</ul></section>`
+    : '';
+  const body = `<h1>Bonjour <em>${esc((B.owner || '').split(' ')[0] || '')}</em></h1>
 <p class="lead">${esc(dayLabel(today, { weekday: 'long', day: 'numeric', month: 'long' }))} · ${sum.totalClients} client${sum.totalClients > 1 ? 's' : ''} dans le fichier</p>
+<h3>Devis</h3>${quoteFigs}${todoHtml}
 <h3>En ${esc(month)}</h3><div class="figs">${figs.map(([v, l]) => `<div class="fig"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('')}</div>
-<section class="card"><h2>Prochains rendez-vous en ligne <a class="right small" href="/atelier/rdv">Tout voir</a></h2>${nextHtml}</section>
+<section class="card"><h2>${ico('cal')} Prochains rendez-vous en ligne <a class="right" href="/atelier/rdv">Tout voir</a></h2>${nextHtml}</section>
 <div class="grid">
 <section class="card"><h2>Bandeau du site</h2>${b ? `<div class="band"><span class="theme theme--${esc(b.theme)}">${esc(THEMES[b.theme] || '')}</span> <b>${esc(b.title)}</b><br>${esc(b.text)}</div>` : ''}<p class="dim">${esc(bandNow)}${sum.promoUses.length ? ` · ce mois-ci : ${sum.promoUses.map((p) => `${esc(p.code)} utilisé ${p.n} fois`).join(', ')}` : ''}</p><a class="btn ghost small" href="/atelier/codes">Régler le bandeau et les codes</a></section>
 <section class="card"><h2>Raccourcis</h2><div class="btns"><a class="btn small" href="/atelier/clients/nouveau">Ajouter un client</a><a class="btn ghost small" href="/atelier/codes#parrainage">Donner un code de parrainage</a><a class="btn ghost small" href="/atelier/clients.csv">Exporter les clients</a><a class="btn ghost small" href="/atelier/stats">Statistiques détaillées</a></div></section>
@@ -354,7 +578,7 @@ ${field('source', 'Nous a connus', v.source, 'placeholder="Instagram, bouche-à-
 <div class="btns"><button>Enregistrer</button><a class="btn ghost" href="/atelier/clients">Annuler</a></div></form>`;
   if (!c) return page('Nouveau client', '/atelier/clients', `<h1>Ajouter un client</h1>${form}`, url);
   const bookings = c.bookings.length ? `<table><tbody>${c.bookings.map((b) => `<tr><td><b>${esc(dayLabel(b.date, { day: 'numeric', month: 'short', year: '2-digit' }))}</b><small>${esc(hour(b.time))}</small></td><td>${esc(itemsOf(b).map((i) => i.label).join(' + '))}${b.code ? `<small>code <span class="code">${esc(b.code)}</span> −${eur(b.discount)}</small>` : ''}</td><td class="n">${eur(b.total)}<small>payé ${eur(b.paid)}</small></td></tr>`).join('')}</tbody></table>` : '<p class="empty">Aucun RDV réservé en ligne.</p>';
-  const requests = c.requests.length ? `<ul class="list">${c.requests.map((r) => `<li><span><b>${esc(dateOf(r.at))}</b> · ${esc(r.services || 'devis')}${r.vehicle ? ` · ${esc(r.vehicle)}` : ''}${r.message ? `<br><span class="dim">${esc(r.message)}</span>` : ''}</span></li>`).join('')}</ul>` : '<p class="empty">Aucune demande de devis.</p>';
+  const requests = c.requests.length ? `<ul class="list">${c.requests.map((r) => `<li><a href="/atelier/devis/${r.id}"><b>n°${r.id} · ${esc(dateOf(r.at))}</b> · ${esc(r.services || 'devis')}${r.vehicle ? ` · ${esc(r.vehicle)}` : ''}${r.message ? `<br><span class="dim">${esc(snippet(r.message, 160))}</span>` : ''}</a>${statusTag(r.status || 'nouveau')}</li>`).join('')}</ul>` : '<p class="empty">Aucune demande de devis.</p>';
   const codes = c.codes.length
     ? `<ul class="list">${c.codes.map((k) => `<li><span class="code">${esc(k.code)}</span><span>${k.used ? `<span class="tag tag--gold">utilisé le ${esc(dateOf(k.used))}</span>` : k.expires < Date.now() ? '<span class="tag tag--off">expiré</span>' : `<span class="tag tag--ok">valable jusqu’au ${esc(dateOf(k.expires))}</span>`}</span></li>`).join('')}</ul>`
     : `<form method="post" action="/atelier/clients/${c.id}/code"><p class="dim">Pas encore de code de parrainage.</p><button class="small">Créer son code (${R.referral.amount} € à offrir)</button></form>`;

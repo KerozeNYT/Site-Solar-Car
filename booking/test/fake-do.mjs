@@ -9,7 +9,9 @@ export function fakeDO(Class, env) {
   const db = new DatabaseSync(':memory:');
   const cursor = (rows) => ({ toArray: () => rows, one: () => rows[0], [Symbol.iterator]: () => rows[Symbol.iterator]() });
   const sql = {
-    exec(query, ...bindings) {
+    exec(query, ...raw) {
+      // Cloudflare takes an ArrayBuffer for a BLOB; node:sqlite a Uint8Array
+      const bindings = raw.map((b) => (b instanceof ArrayBuffer ? new Uint8Array(b) : b));
       const st = db.prepare(query);
       if (/^\s*(select|with)\b/i.test(query)) return cursor(st.all(...bindings).map((r) => ({ ...r })));
       st.run(...bindings);

@@ -18,14 +18,48 @@ lui-même, aucune page indexée.
 | Onglet | Ce qu'on y fait |
 |---|---|
 | **Accueil** | Le mois en chiffres (RDV en ligne, encaissé, reste à encaisser, demandes de devis, nouveaux clients, visites), les RDV des 14 prochains jours, l'état du bandeau, des raccourcis |
+| **Devis** | Les demandes de devis en discussions : répondre (montant, PDF, bouton « J'accepte »), statuts Nouveau / Devis envoyé / Validé / Sans suite (voir plus bas) |
 | **Rendez-vous** | Les RDV réservés en ligne : à venir (lus dans l'agenda, à l'heure où ils y sont), retirés de l'agenda (penser au remboursement Stripe), passés |
 | **Clients** | Le fichier clients : recherche (nom, téléphone, e-mail, véhicule, immatriculation), fiche de chaque client (coordonnées, véhicules, notes, RDV, demandes de devis, code de parrainage), ajout à la main, suppression, **export pour Excel** |
 | **Codes et promos** | Le **bandeau** du site, les **codes promo**, le **parrainage** |
 | **Statistiques** | La page de statistiques détaillée (docs/STATISTIQUES.md) |
 | **Fiche Google** | Le robot qui publie une photo chaque mardi (docs/FICHE-GOOGLE-AUTO.md) |
 
+## L'allure
+
+Aux couleurs du site : noir profond, or et ivoire, polices Geist et Instrument Serif, logo
+SOLAR CAR en haut, l'écusson comme icône. Sur téléphone, les onglets passent en barre en bas de
+l'écran, comme une application : « Ajouter à l'écran d'accueil » (Safari : bouton Partager ;
+Chrome : menu ⋮) installe l'icône de l'écusson. Les images de marque viennent de
+`public/img/brand/` (copies dans `booking/assets/`).
+
+## Devis : les discussions
+
+Onglet **Devis** (pastille = demandes nouvelles ou avec un message non lu) :
+
+- Chaque demande de devis du site ouvre une **discussion** numérotée (n°12), avec les photos du
+  client affichées. Filtres par statut : **Nouveau**, **Devis envoyé**, **Validé**, **Sans suite**.
+- **Répondre** depuis la discussion : message, montant du devis (facultatif), pièces jointes (devis
+  PDF, photos), case « bouton J'accepte ce devis » (cochée tant que le devis n'est pas validé).
+  L'e-mail part de contact@solarcar37.fr, mis en page aux couleurs de l'atelier, avec un rappel de
+  la demande ; une copie arrive dans le Gmail de l'atelier.
+- **Ou depuis Gmail**, comme avant : répondre à l'e-mail « Demande de devis n°… » (ou à une
+  notification « Message de … ») passe par le site, qui envoie au client un e-mail propre et range
+  la réponse dans la discussion. Les réponses du client arrivent dans la discussion **et** dans
+  Gmail (« Message de Prénom Nom »), dans la même conversation que votre réponse.
+- **Statuts automatiques** : « Devis envoyé » à votre première réponse (atelier ou Gmail) ;
+  « Validé » quand le client clique « J'accepte ce devis » (vous recevez « Devis n°… accepté »
+  avec son téléphone) ou quand il réserve et paie en ligne la même prestation (vitres, feux).
+  « Sans suite » et les corrections : à la main, encadré « Suivi » de la discussion.
+- L'accueil montre les devis à faire, les messages non lus, les devis en attente de réponse et
+  ceux validés dans le mois (avec leur montant), et une liste « À traiter ».
+- Les réponses par Gmail passent par l'adresse `devis@reponse.solarcar37.fr` (réglage
+  `QUOTE_REPLY`, docs/RESERVATION.md) ; tant qu'elle n'est pas en service, répondre depuis Gmail
+  écrit directement au client (comme avant) et seule la réponse depuis l'atelier est suivie.
+
 ## Le fichier clients
 
+- Sa fiche liste ses demandes de devis (avec leur statut, un clic ouvre la discussion).
 - Il se remplit **tout seul** : chaque réservation payée en ligne et chaque demande de devis envoyée
   depuis le site y ajoute le client (ou complète sa fiche : un même client est reconnu à son e-mail,
   sinon à son téléphone ; un nouveau véhicule s'ajoute à sa liste).

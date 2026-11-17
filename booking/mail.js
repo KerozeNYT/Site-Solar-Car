@@ -48,7 +48,7 @@ const rows = (pairs) =>
 export const shell = (title, body) => `<!doctype html><html lang="fr"><body style="margin:0;background:#f4f2ee;font-family:Arial,Helvetica,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f2ee;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden">
-<tr><td style="background:#0b0c0f;padding:20px 24px;color:#e9cd82;font-size:18px;font-weight:800;letter-spacing:.08em">SOLAR CAR 37</td></tr>
+<tr><td style="background:#0b0c0f;padding:18px 24px"><img src="${String(R.api || '').replace(/\/$/, '')}/atelier/logo.png" width="140" height="54" alt="SOLAR CAR 37" style="display:block;border:0;width:140px;height:auto;color:#e9cd82;font-size:18px;font-weight:800;letter-spacing:.08em"></td></tr>
 <tr><td style="padding:24px"><h1 style="margin:0 0 16px;font-size:20px;color:#111">${esc(title)}</h1>${body}</td></tr>
 <tr><td style="padding:16px 24px;background:#faf8f4;color:#6b6b6b;font-size:12px">${esc(B.name)} · ${esc(address)} · ${esc(B.phone)}</td></tr>
 </table></td></tr></table></body></html>`;
@@ -60,6 +60,7 @@ export async function send(env, mail) {
     body: JSON.stringify({ from: env.MAIL_FROM || `${B.name} <onboarding@resend.dev>`, ...mail }),
   });
   if (!res.ok) throw new Error(`resend ${res.status} ${(await res.text()).slice(0, 200)}`);
+  return (await res.json().catch(() => ({}))).id || '';
 }
 
 /**
@@ -235,10 +236,27 @@ const plain = (pairs) =>
     .map(([k, v]) => `${k} : ${String(v).replace(/\n/g, '\n  ')}`)
     .join('\n');
 
-/** « Demande de devis — Mini F56 JCW 2015 · Ciel étoilé »: the same subject for the workshop and
- *  the client (the workshop's answer, « Re: » the same, is easy to match with the acknowledgment;
- *  it cannot be filed under it: the sending service replaces the Message-ID of each e-mail) */
-export const quoteSubject = (q) => `Demande de devis — ${[q.vehicle, q.services].filter(Boolean).join(' · ')}`.slice(0, 140);
+/** « Demande de devis n°12 — Mini F56 JCW 2015 · Ciel étoilé »: the same subject for the workshop
+ *  and the client; its number tells the replies apart (booking/store.js, mail/in) */
+export const quoteSubject = (q) => `Demande de devis n°${q.id} — ${[q.vehicle, q.services].filter(Boolean).join(' · ')}`.slice(0, 140);
+/** the address the replies of a quote discussion go to (Cloudflare Email Routing → this worker's
+ *  email handler); empty: no discussion relay, the workshop answers the client directly */
+export const relayAddress = (env) => String(env.QUOTE_REPLY || '').trim();
+/** « "Léa Petit (devis n°12)" <devis@…> » */
+const named = (name, address) => `"${displayName(name).replace(/"/g, '')}" <${address}>`;
+const whoOf = (r) => [r.first ?? r.c?.firstName, r.last ?? r.c?.lastName].filter(Boolean).join(' ') || 'Client';
+/** the booking server's own address (the workshop's space) */
+const serverUrl = () => String(R.api || '').replace(/\/$/, '');
+const dateFr = (ms) => new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: R.timeZone }).format(new Date(ms));
+/** « 1 190 € », « 1 190,50 € » (French spacing) */
+const money = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(n);
+const threadHeaders = (ids = []) => (ids.length ? { 'In-Reply-To': ids.at(-1), References: ids.slice(-10).join(' ') } : undefined);
+const paragraphs = (text) =>
+  String(text || '')
+    .split(/\n{2,}/)
+    .map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#111">${para(p)}</p>`)
+    .join('');
+const filesLine = (files) => (files.length ? `Pièce${files.length > 1 ? 's' : ''} jointe${files.length > 1 ? 's' : ''} : ${files.map((f) => f.filename).join(', ')}` : '');
 
 /**
  * A quote request sent from the site's form (booking/store.js, quote/submit):
@@ -266,7 +284,8 @@ export async function sendQuoteMails(env, q) {
   await send(env, {
     from: `${displayName(`${who} via ${B.name}`)} <${fromAddress(env)}>`,
     to: env.NOTIFY_TO.split(',').map((x) => x.trim()),
-    reply_to: c.email,
+    // through the discussion relay when there is one: the answer is kept in the workshop's space
+    reply_to: relayAddress(env) ? named(`${who} (devis n°${q.id})`, relayAddress(env)) : c.email,
     subject,
     // no word meant for the workshop alone: answering quotes this e-mail to the client
     html: shell(
@@ -298,7 +317,7 @@ export async function sendQuoteMails(env, q) {
   try {
     await send(env, {
       to: [c.email],
-      reply_to: B.email,
+      reply_to: relayAddress(env) ? named(B.name, relayAddress(env)) : B.email,
       subject,
       html: shell(
         'Nous avons bien reçu votre demande',
@@ -316,4 +335,99 @@ export async function sendQuoteMails(env, q) {
     console.error('[mail] quote client', err.message);
   }
   return sent;
+}
+
+/**
+ * The workshop's message to a client about their request (written in the workshop's space, or a
+ * reply from the workshop's Gmail passed on by the relay): from contact@, answers back into the
+ * discussion, the accept button while the quote is open, a reminder of the request below.
+ * r: the request with its client (first, last, email); x: { text, files [{ filename, content }],
+ * acceptUrl, bcc, refs (the client's own Message-IDs: the answer joins their conversation) }
+ */
+export async function sendToClient(env, r, x) {
+  const files = x.files || [];
+  const amount = Number(r.amount) > 0 ? money(Number(r.amount)) : '';
+  const accept = x.acceptUrl
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 18px;background:#0b0c0f;border:1px solid #e9cd82;border-radius:14px"><tr><td style="padding:18px 20px">
+<p style="margin:0 0 4px;color:#e9cd82;font-size:12px;font-weight:700;letter-spacing:.14em">DEVIS N°${r.id}${amount ? ` · ${esc(amount)}` : ''}</p>
+<p style="margin:0 0 14px;color:#ffffff;font-size:16px;line-height:1.45">Ce devis vous convient ? Un clic suffit : nous vous appelons ensuite pour fixer la date.</p>
+<a href="${esc(x.acceptUrl)}" style="display:inline-block;background:#e9cd82;color:#0b0c0f;text-decoration:none;font-weight:800;padding:12px 22px;border-radius:999px">J’accepte ce devis</a></td></tr></table>`
+    : '';
+  const recap = `${dateFr(r.at)} : ${[r.vehicle, r.services].filter(Boolean).join(' · ')}`;
+  return send(env, {
+    from: `${B.name} <${B.email}>`,
+    to: [r.email],
+    ...(x.bcc?.length ? { bcc: x.bcc } : {}),
+    reply_to: relayAddress(env) ? named(B.name, relayAddress(env)) : B.email,
+    subject: `Re: ${r.subject || quoteSubject(r)}`,
+    ...(threadHeaders(x.refs) ? { headers: threadHeaders(x.refs) } : {}),
+    html: shell(
+      `Votre demande de devis n°${r.id}`,
+      `${paragraphs(x.text)}${files.length ? `<p style="margin:0 0 14px;font-size:13px;color:#6b6b6b">${esc(filesLine(files))}</p>` : ''}${accept}
+<p style="margin:0 0 6px;font-size:13px;line-height:1.5;color:#6b6b6b">Une question ? Répondez simplement à cet e-mail, ou appelez le <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${esc(B.phone)}</a>.</p>
+<p style="margin:14px 0 0;padding-top:12px;border-top:1px solid #eee;font-size:12px;line-height:1.5;color:#8a8a8a">Votre demande n°${r.id} du ${esc(recap)}</p>`
+    ),
+    text: `${x.text}\n\n${files.length ? `${filesLine(files)}\n\n` : ''}${x.acceptUrl ? `Ce devis vous convient ? Acceptez-le en un clic : ${x.acceptUrl}\n\n` : ''}Une question ? Répondez simplement à cet e-mail, ou appelez le ${B.phone}.\n\n—\nVotre demande n°${r.id} du ${recap}\n`,
+    attachments: files.map((f) => ({ filename: f.filename, content: f.content })),
+  });
+}
+
+/**
+ * To the workshop's Gmail, about a quote discussion: kind 'message' (the client wrote: answering
+ * this e-mail answers the client, through the relay), 'accepted' (the client accepted the quote),
+ * 'unknown' (an e-mail to the relay that belongs to no request: answering writes to its sender).
+ * x: { text, files, refs (the workshop's own Message-IDs: the e-mail joins its conversation),
+ *      sender (unknown: { name, email, subject }) }
+ */
+export async function notifyWorkshop(env, r, kind, x = {}) {
+  const to = String(env.NOTIFY_TO || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!to.length) return null;
+  const files = x.files || [];
+  const open = `${serverUrl()}/atelier/devis/${r?.id}`;
+  const button = (label) => `<p style="margin:18px 0 0"><a href="${esc(open)}" style="display:inline-block;background:#0b0c0f;color:#e9cd82;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px">${esc(label)}</a></p>`;
+  if (kind === 'unknown') {
+    const s = x.sender || {};
+    return send(env, {
+      from: `${displayName(`${s.name || s.email} via ${B.name}`)} <${fromAddress(env)}>`,
+      to,
+      reply_to: s.email,
+      subject: `Message reçu sans numéro de devis — ${s.subject || 'sans objet'}`.slice(0, 160),
+      html: shell('Message reçu sur l’adresse des devis', `<p style="margin:0 0 14px;font-size:13px;color:#6b6b6b">De ${esc(s.name ? `${s.name} <${s.email}>` : s.email)} · aucune demande de devis ne correspond. Répondre à cet e-mail écrit à l’expéditeur.</p>${paragraphs(x.text)}${files.length ? `<p style="font-size:13px;color:#6b6b6b">${esc(filesLine(files))}</p>` : ''}`),
+      text: `De ${s.email}, aucune demande de devis ne correspond.\n\n${x.text}\n`,
+      attachments: files.map((f) => ({ filename: f.filename, content: f.content })),
+    });
+  }
+  const who = whoOf(r);
+  const tel = String(r.phone || '').replace(/[^\d+]/g, '');
+  const contact = r.phone ? `<p style="margin:0;font-size:14px;color:#111">${esc(who)} · <a href="tel:${esc(tel)}" style="color:#111;font-weight:700">${esc(r.phone)}</a></p>` : '';
+  if (kind === 'accepted') {
+    return send(env, {
+      from: `${B.name} <${fromAddress(env)}>`,
+      to,
+      ...(relayAddress(env) ? { reply_to: named(`${who} (devis n°${r.id})`, relayAddress(env)) } : { reply_to: r.email }),
+      subject: `Devis n°${r.id} accepté — ${who}`,
+      ...(threadHeaders(x.refs) ? { headers: threadHeaders(x.refs) } : {}),
+      html: shell(
+        'Devis accepté',
+        `<p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#111"><strong>${esc(who)}</strong> vient d’accepter le devis n°${r.id}${Number(r.amount) > 0 ? ` (${esc(money(Number(r.amount)))})` : ''} : ${esc([r.vehicle, r.services].filter(Boolean).join(' · '))}.</p><p style="margin:0 0 14px;font-size:15px;color:#111">Appelez-le pour fixer la date du rendez-vous :</p>${contact}${button('Ouvrir le devis')}`
+      ),
+      text: `${who} vient d’accepter le devis n°${r.id}. Appelez-le pour fixer la date : ${r.phone || r.email}.\n${open}\n`,
+    });
+  }
+  return send(env, {
+    from: `${displayName(`${who} via ${B.name}`)} <${fromAddress(env)}>`,
+    to,
+    reply_to: relayAddress(env) ? named(`${who} (devis n°${r.id})`, relayAddress(env)) : r.email,
+    subject: `Re: ${r.subject || quoteSubject(r)}`,
+    ...(threadHeaders(x.refs) ? { headers: threadHeaders(x.refs) } : {}),
+    html: shell(
+      `Message de ${who}`,
+      `<p style="margin:0 0 14px;font-size:13px;color:#6b6b6b">Devis n°${r.id} · ${esc([r.vehicle, r.services].filter(Boolean).join(' · '))}</p>${paragraphs(x.text)}${files.length ? `<p style="margin:0 0 14px;font-size:13px;color:#6b6b6b">${esc(filesLine(files))}</p>` : ''}${contact}${button('Ouvrir la discussion')}`
+    ),
+    text: `${who}, devis n°${r.id} :\n\n${x.text}\n\n${files.length ? `${filesLine(files)}\n\n` : ''}Répondre à cet e-mail répond au client. Discussion : ${open}\n`,
+    attachments: files.map((f) => ({ filename: f.filename, content: f.content })),
+  });
 }

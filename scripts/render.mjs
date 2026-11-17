@@ -74,6 +74,7 @@ export async function renderSite(out, assets) {
     ['mentions-legales/index.html', T.legalPage(ctx)],
     ['reservation/index.html', T.reservationPage(ctx)],
     ['reservation/confirmee/index.html', T.reservationDonePage(ctx)],
+    ['devis/index.html', T.quoteAcceptPage(ctx)],
     ['conditions-reservation/index.html', T.bookingTermsPage(ctx)],
     ['404.html', T.notFoundPage(ctx)],
     ['design/style-tile/index.html', styleTile.styleTilePage(ctx)],

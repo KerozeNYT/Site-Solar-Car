@@ -57,7 +57,7 @@ crons = ["0 7 1 * *", "17 8 * * 2", "0 16 * * *"]
 # the fonts of the statistics page (booking/stats-fonts.js), uploaded as binary modules
 [[rules]]
 type = "Data"
-globs = ["**/*.woff2"]
+globs = ["**/*.woff2", "**/*.webp", "**/*.png"]
 fallthrough = true
 
 [vars]
@@ -84,5 +84,11 @@ MAIL_FROM = "SOLAR CAR 37 <reservation@solarcar37.fr>"
 MAIL_CLIENTS = "1"
 # where the links of the e-mails lead
 SITE_URL = "https://www.solarcar37.fr"
+# the quote discussions' address (docs/RESERVATION.md, « Discussions de devis »): the replies of the
+# workshop (from its Gmail) and of the clients come back to this worker (Cloudflare Email Routing,
+# subdomain reponse.solarcar37.fr, rule devis@ → worker). Set it only once that rule exists:
+# without it, the replies to this address would bounce. Empty: the workshop answers the client
+# directly, as before.
+# QUOTE_REPLY = "devis@reponse.solarcar37.fr"
 # the Google Business Profile robot e-mails each photo sent ("tout") or only its problems ("erreurs")
 FICHE_MAILS = "tout"

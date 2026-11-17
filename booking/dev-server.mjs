@@ -6,6 +6,7 @@
 //
 // A few busy hours are put in the calendars so that the slots look real. Visit statistics are kept
 // in memory: http://localhost:8787/stats?cle=dev ; the workshop's space: http://localhost:8787/atelier
+import fs from 'node:fs';
 import http from 'node:http';
 import { generateKeyPairSync, createHmac } from 'node:crypto';
 import worker from './worker.js';
@@ -37,6 +38,8 @@ const env = {
   RESEND_API_KEY: 're_dev',
   // the client's e-mails too (acknowledgment of a quote request, confirmation of a booking)
   MAIL_CLIENTS: '1',
+  // the quote discussions' address (here: the e-mails « received » are posted to /dev/mail-in)
+  QUOTE_REPLY: 'devis@reponse.solarcar37.fr',
   NOTIFY_TO: 'atelier@local',
   SITE_URL: 'http://localhost:4190',
 };
@@ -80,6 +83,20 @@ http
       Object.assign(s, { status: 'expired' });
       await webhook('checkout.session.expired', s);
       return res.writeHead(303, { location: s.cancel_url || '/' }).end();
+    }
+    // the binary files the worker bundles (fonts, logo, icons): read from the disk here (Node cannot import them)
+    const files = { '/stats/f/geist.woff2': ['node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2', 'font/woff2'], '/stats/f/geist-mono.woff2': ['node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2', 'font/woff2'], '/stats/f/serif.woff2': ['node_modules/@fontsource/instrument-serif/files/instrument-serif-latin-400-italic.woff2', 'font/woff2'], '/atelier/logo.webp': ['booking/assets/logo-clair-400.webp', 'image/webp'], '/atelier/logo.png': ['booking/assets/logo-clair-280.png', 'image/png'], '/atelier/icone-512.png': ['booking/assets/icone-512.png', 'image/png'], '/atelier/icone-180.png': ['booking/assets/icone-180.png', 'image/png'] };
+    if (files[url.pathname]) return res.writeHead(200, { 'content-type': files[url.pathname][1] }).end(fs.readFileSync(new URL(`../${files[url.pathname][0]}`, import.meta.url)));
+    // an e-mail « received » by the quote discussions' address: POST the raw message here
+    if (url.pathname === '/dev/mail-in' && req.method === 'POST') {
+      const raw = await new Promise((r) => {
+        const parts = [];
+        req.on('data', (c) => parts.push(c));
+        req.on('end', () => r(Buffer.concat(parts)));
+      });
+      const rejected = [];
+      await worker.email({ from: url.searchParams.get('from') || 'dev@local', to: env.QUOTE_REPLY, rawSize: raw.length, raw: new Response(raw).body, headers: new Headers(), setReject: (x) => rejected.push(x) }, env);
+      return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ rejected }));
     }
     if (url.pathname === '/dev/calendar') return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(cal[CAR].filter((e) => e.extendedProperties), null, 1));
     // the e-mails caught: the list (attachments as name and size), and each one as it would show

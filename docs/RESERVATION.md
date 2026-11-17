@@ -81,6 +81,39 @@ serveur de réservation (Cloudflare Worker, dossier booking/)
   - Essai en local : `npm run booking:dev`, puis `BOOKING_API=http://localhost:8787 npm run build`
     et `npm run preview` ; les e-mails attrapés sont listés sur `http://localhost:8787/dev/mails`
     et chacun s'affiche sur `/dev/mail/<n>`.
+- **Discussions de devis** (17 novembre 2026, espace atelier → Devis, docs/ATELIER.md) : chaque
+  demande est une discussion (tables `messages` et `files` de la base de l'atelier : les photos et
+  PDF de moins de 1,9 Mo y sont gardés, les autres restent dans l'e-mail). Statuts : `nouveau`,
+  `envoye`, `valide`, `sans_suite` (`QUOTE_STATUS`, `booking/store.js`).
+  - **Relais** : l'adresse `QUOTE_REPLY` (`devis@reponse.solarcar37.fr`) reçoit les réponses ;
+    elle est le « Répondre à » des e-mails de devis. Cloudflare Email Routing, activé **pour le
+    sous-domaine `reponse.solarcar37.fr` seulement** (3 MX `route*.mx.cloudflare.net` et un SPF
+    sur ce sous-domaine, le 17 novembre 2026 ; les MX OVH de `solarcar37.fr` ne bougent pas), la
+    remet au gestionnaire `email` du worker. Une règle de routage est nécessaire (le jeton
+    Cloudflare utilisé ici n'a pas le droit de la créer) : tableau de bord Cloudflare →
+    solarcar37.fr → Email → Email Routing → Règles de routage → Créer une adresse : `devis` sur
+    `reponse.solarcar37.fr`, action « Envoyer à un Worker », `solarcar37-reservation`. Ne rien
+    changer aux MX de `solarcar37.fr` (la messagerie OVH en dépend). Puis décommenter
+    `QUOTE_REPLY` dans `booking/wrangler.toml` et `npx wrangler deploy`.
+  - Le message reçu est rattaché à sa demande par le n° de l'objet (« Demande de devis n°12 »),
+    sinon par l'e-mail auquel il répond, sinon par l'adresse du client. Venu du Gmail de l'atelier
+    (`ATELIER_EMAILS`, sinon `NOTIFY_TO`) **et** signé par Gmail (DKIM vérifié par Cloudflare) :
+    transmis au client (seul le nouveau texte, sans la citation ; pièces jointes ; bouton
+    « J'accepte ») et le statut passe à « Devis envoyé ». Une adresse de l'atelier imitée n'est
+    jamais transmise. Venu du client : gardé, marqué non lu, et envoyé au Gmail de l'atelier
+    (« Message de … », dans la conversation de sa réponse). Réponses automatiques (absence),
+    adresses de solarcar37.fr et plus de 40 messages par jour sur une demande : ignorés. Un e-mail
+    sans demande : transmis à l'atelier (« Message reçu sans numéro de devis »).
+  - Lecture des e-mails : `booking/mime.js` (écrit pour le site, sans dépendance ; essais
+    `booking/test/mime.test.mjs`).
+  - **Accepter** : `www.solarcar37.fr/devis/?n=…&t=…` (clé aléatoire par demande ; la page montre
+    le devis et ne l'accepte qu'au clic, pour qu'un antivirus qui ouvre les liens n'accepte rien),
+    `GET /api/devis`, `POST /api/devis/accepter`.
+  - **Réservation en ligne** : à l'enregistrement d'une réservation payée, les demandes ouvertes
+    du même client (6 mois) qui portent sur la même prestation (vitres et pare-brise, feux) passent
+    à « Validé ».
+  - Essais : `booking/test/discussion.test.mjs` ; en local, `POST http://localhost:8787/dev/mail-in`
+    simule un e-mail reçu (le corps est l'e-mail brut).
 - E-mails automatiques aux clients (`dailyMails` de `booking/worker.js`, tous les jours à 16 h UTC,
   soit 17 h l'hiver et 18 h l'été) : **la veille**, un rappel (heure, adresse, itinéraire, reste à
   régler) ; **une semaine après**, des nouvelles : « un souci ? répondez à cet e-mail », puis le
