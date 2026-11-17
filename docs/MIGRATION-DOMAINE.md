@@ -40,6 +40,18 @@ dans Resend, e-mails envoyés par reservation@solarcar37.fr et e-mails aux clien
 parrainage), essai reçu dans la boîte de réception Gmail ; Search Console vérifiée (TXT
 google-site-verification). Reste : transfert du domaine avant le 27 décembre, boîte OVH.
 
+**Domaine rendu à SOLAR CAR 37 le 17 novembre 2026 (15 h 11)** : local.fr a remplacé ses contacts OVH
+(`gs16071-ovh`) par le compte OVH de l'atelier (`mn455732-ovh`, contact.solarcar37@gmail.com) comme
+contact **administrateur, technique et facturation** des trois services `solarcar37.fr` chez OVH :
+nom de domaine, zone DNS (inutilisée : la zone active est chez Cloudflare) et e-mails (boîte
+contact@). Le bureau d'enregistrement reste OVH : pas de transfert à faire. À vérifier dans l'espace
+client OVH : le contact **propriétaire** (titulaire) du domaine = SOLAR CAR / Nicolas MALAGA, la date
+d'expiration et le renouvellement automatique (domaine et e-mails, désormais facturés à l'atelier),
+le mot de passe de la boîte contact@ (à changer : local.fr l'a créée), la double authentification.
+Restes de local.fr ou d'outils inconnus dans la zone Cloudflare : `ftp` (ancien serveur 213.32.5.6),
+`crm` (51.15.66.28, Scaleway), Brevo (DKIM `brevo1/brevo2`, `brevo-code`, rapports DMARC envoyés
+à Brevo) : à supprimer une fois confirmé qu'ils ne servent pas à l'atelier.
+
 État au 17 novembre 2026 :
 - **Site définitif publié sur Cloudflare Pages** (projet `solarcar37`, adresse technique
   https://solarcar37.pages.dev, non indexée) : construit par Cloudflare depuis GitHub (branche
