@@ -489,7 +489,7 @@ function render({ r, env, key, per, site, from, to, pfrom, pto, now, nonce }) {
       <li>Sans cookie et sans rien enregistrer sur l’appareil des visiteurs : ni adresse IP ni identifiant ne sont gardés. Une <strong>visite</strong> = une arrivée sur le site depuis l’extérieur (moteur de recherche, réseau social, autre site, application, adresse tapée).</li>
       <li>Les robots et les outils de test ne sont pas comptés. Les RDV sont comptés par le serveur au moment du paiement.</li>
       ${siteUrl ? `<li><strong>Vos propres visites</strong> : ouvrez <a href="${esc(siteUrl)}/?stats=off">${esc(siteUrl.replace(/^https?:\/\//, ''))}/?stats=off</a> une fois sur chacun de vos appareils pour ne plus être compté.</li>` : ''}
-      <li>« Fiche Google » : visiteurs venus par le bouton « Site web » de la fiche, si son lien se termine par <code>?utm_source=fiche-google</code>. « Publicité » : clics sur une annonce Google Ads.</li>
+      <li>« Fiche Google » : visiteurs venus par le bouton « Site web » de la fiche, si son lien se termine par <code>?utm_source=fiche-google</code>. « Publicité » : clics sur une annonce Google Ads ou TikTok, ou sur un lien d’annonce terminé par <code>utm_medium=cpc</code> (Instagram, Facebook).</li>
       <li>Les données sont effacées au bout de 25 mois.</li>
     </ul>
   </details>

@@ -44,7 +44,7 @@ export function heardRows(base, channels = [], other = '') {
 
 export const SOURCES = {
   moteurs: 'Moteurs de recherche',
-  pub: 'Publicité (Google Ads)',
+  pub: 'Publicité',
   fiche: 'Fiche Google',
   direct: 'Accès direct',
   reseaux: 'Réseaux sociaux',
@@ -62,8 +62,8 @@ export function hostOf(h) {
   return s.replace(/^(www|m|l|lm|mobile)\./, '');
 }
 
-// an ad click: Google Ads adds gclid (or gbraid / wbraid) to the address; other campaigns are
-// tagged utm_medium=cpc
+// an ad click: Google Ads adds gclid (or gbraid / wbraid) to the address, TikTok ads ttclid; other
+// campaigns (Instagram, Facebook) are tagged utm_medium=cpc in the ad's link
 const PAID = /^(cpc|ppc|paid|ads?|sea|paid[-_ ]?search)$/i;
 
 /** where a visit comes from (utm = utm_source, medium = utm_medium, ad = an ad click id was there) */

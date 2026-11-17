@@ -5,7 +5,9 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync, createHmac } from 'node:crypto';
 import worker from '../worker.js';
 import { Atelier, db, checkCode } from '../store.js';
-import { utcToZoned, addDays } from '../schedule.js';
+import { utcToZoned, addDays, zonedToUtc } from '../schedule.js';
+import { bookingRules as R } from '../../content/booking.js';
+import { leftText as leftNb, deadlineText as deadlineNb } from '../../src/js/countdown.js';
 import { installFakes } from './fakes.mjs';
 import { fakeDO } from './fake-do.mjs';
 import { fakeStats } from './fake-stats.mjs';
@@ -79,11 +81,13 @@ test('GTA 6 and Noël: codes and bands planned, each on its dates', async () => 
   assert.equal((await checkCode(env, 'GTA6', at('2026-11-18T23:30:00Z'))).ok, true); // 0:30 in Paris
   assert.equal((await checkCode(env, 'GTA6', at('2026-11-19T22:30:00Z'))).ok, true); // 23:30 in Paris, still the 19th
   assert.equal((await checkCode(env, 'GTA6', at('2026-11-19T23:30:00Z'))).ok, false); // 0:30 on the 20th
-  // NOEL: all December
+  // NOEL: every service, bookings and quote requests from 1 December to 24 December 23:59 (Paris)
   assert.equal((await checkCode(env, 'Noël', at('2026-11-30T12:00:00Z'))).ok, false);
   const r = await checkCode(env, 'noel', at('2026-12-05T10:00:00Z'));
-  assert.deepEqual([r.ok, r.kind, r.percent, r.services], [true, 'promo', 15, ['tint', 'lights']]);
-  assert.equal((await checkCode(env, 'NOEL', at('2027-01-01T10:00:00Z'))).ok, false);
+  assert.deepEqual([r.ok, r.kind, r.percent, r.services], [true, 'promo', 15, []]);
+  assert.equal((await checkCode(env, 'NOEL', at('2026-12-24T22:58:00Z'))).ok, true); // 23:58 in Paris
+  assert.equal((await checkCode(env, 'NOEL', at('2026-12-24T23:00:00Z'))).ok, false); // midnight, the 25th
+  assert.equal(r.expires + 1, at('2026-12-24T23:00:00Z'));
   // the bands: the GTA 6 one from 17 to 19 November (neon look), then Noël (red) in December
   assert.equal((await db(env, 'banner/public', { now: at('2026-11-10T12:00:00Z') })).banner, null);
   const gta = (await db(env, 'banner/public', { now: at('2026-11-18T12:00:00Z') })).banner;
@@ -92,6 +96,26 @@ test('GTA 6 and Noël: codes and bands planned, each on its dates', async () => 
   assert.equal((await db(env, 'banner/public', { now: at('2026-11-25T12:00:00Z') })).banner, null);
   const noel = (await db(env, 'banner/public', { now: at('2026-12-05T10:00:00Z') })).banner;
   assert.deepEqual([noel.theme, noel.code, noel.title], ['noel', 'NOEL', 'Offre de Noël · −15 %']);
+  assert.match(noel.text, /Jusqu’au 24 décembre à 23 h 59 seulement : −15 % sur toutes les prestations/);
+  // the countdown of the band: the code's dates, up to 24 December 23:59
+  assert.deepEqual([noel.starts, noel.ends], [at('2026-11-30T23:00:00Z'), at('2026-12-24T23:00:00Z')]);
+  assert.equal((await db(env, 'banner/public', { now: at('2026-12-26T10:00:00Z') })).banner, null);
+});
+
+test('a campaign changed in content/promos.js (rev raised) is written once over the database', async () => {
+  const at = (iso) => Date.parse(iso);
+  // the database as the first version left it: NOEL in December on window tint and lights only
+  const sql = env.ATELIER.db;
+  sql.prepare("UPDATE promos SET services = 'tint,lights', expires = ? WHERE code = 'NOEL'").run(at('2026-12-31T22:59:59.999Z'));
+  sql.prepare("UPDATE banners SET expires = ?, text = 'Tout le mois de décembre' WHERE id = 'noel-2026'").run(at('2026-12-31T22:59:59.999Z'));
+  sql.prepare("DELETE FROM settings WHERE key IN ('seeded:promo:NOEL:rev', 'seeded:banner:noel-2026:rev')").run();
+  const r = await checkCode(env, 'NOEL', at('2026-12-05T10:00:00Z'));
+  assert.deepEqual([r.services, r.expires + 1], [[], at('2026-12-24T23:00:00Z')]);
+  assert.match((await db(env, 'banner/public', { now: at('2026-12-05T10:00:00Z') })).banner.text, /^Jusqu’au 24 décembre/);
+  // then the workshop's own changes are kept
+  sql.prepare("UPDATE promos SET percent = 20 WHERE code = 'NOEL'").run();
+  assert.equal((await checkCode(env, 'NOEL', at('2026-12-05T10:00:00Z'))).percent, 20);
+  sql.prepare("UPDATE promos SET percent = 15 WHERE code = 'NOEL'").run();
 });
 
 let sessionId;
@@ -144,6 +168,15 @@ test('the client file: bookings and quote requests come in by themselves, one ca
   assert.equal(lea.vehicles, 'Peugeot 208 2021 · Peugeot 3008 2021');
   assert.equal(lea.n_requests, 2);
   assert.equal(lea.source, 'Bouche-à-oreille');
+  // a quote request with a code: checked by the server the day it arrives, written with the request
+  await db(env, 'promo/save', { code: 'DEVIS10', label: 'Essai devis', percent: 10, starts: today, ends: addDays(today, 3), services: [] });
+  await req({ firstName: 'Zoé', lastName: 'Martin', email: 'zoe@example.com', phone: '0622222222', code: 'devis10', message: 'Ciel étoilé avec le code' });
+  await req({ firstName: 'Zoé', lastName: 'Martin', email: 'zoe@example.com', phone: '0622222222', code: 'NOPE9', message: 'Un code inventé' });
+  const zoe = (await db(env, 'clients/list', { q: 'zoe@' })).clients[0];
+  const asked = db(env, 'client/get', { id: zoe.id });
+  const msgs = (await asked).client.requests.map((x) => x.message).join('\n---\n');
+  assert.match(msgs, /Code promo DEVIS10 valable le jour de la demande : −10 %\n\nCiel étoilé avec le code/);
+  assert.match(msgs, /Code NOPE9 non valable le jour de la demande : Ce code n’existe pas/);
   // the card: edit, a referral code, then delete
   const card = await (await go(`/atelier/clients/${lea.id}`)).text();
   assert.match(card, /Et pour ma deuxième voiture/);
@@ -190,4 +223,28 @@ test('appointments, the band, the purge after 3 years', async () => {
   const r = await db(env, 'clients/purge', { now: Date.now() + 4 * 365 * DAY });
   assert.ok(r.removed >= 2);
   assert.equal((await db(env, 'clients/list', {})).total, 0);
+});
+
+test('the countdown of a code: days left, then hours, minutes and seconds on the last day', () => {
+  const nb = (t) => t.replace(/\u00a0/g, ' ');
+  const end = Date.parse('2026-12-24T23:00:00Z'); // 25 December 0:00 in Paris
+  const paris = (d, t) => zonedToUtc(d, t, TZ);
+  assert.equal(nb(deadlineNb(end)), '24 décembre à 23 h 59');
+  assert.equal(nb(deadlineNb(Date.parse('2026-11-19T23:00:00Z'))), '19 novembre à 23 h 59');
+  assert.equal(nb(leftNb(end - paris('2026-12-01', '09:00'))), 'Plus que 24 jours');
+  assert.equal(nb(leftNb(end - paris('2026-12-18', '00:00'))), 'Plus que 7 jours');
+  assert.equal(nb(leftNb(end - paris('2026-12-18', '23:59'))), 'Plus que 7 jours');
+  assert.equal(nb(leftNb(end - paris('2026-12-23', '10:00'))), 'Plus que 2 jours');
+  assert.equal(nb(leftNb(end - paris('2026-12-24', '21:11') - 48000)), 'Dernier jour : plus que 2 h 48 min 12 s');
+  assert.equal(nb(leftNb(end - paris('2026-12-24', '23:12'))), 'Dernier jour : plus que 48 min 00 s');
+  assert.equal(nb(leftNb(9000)), 'Dernier jour : plus que 9 s');
+  assert.equal(leftNb(0), '');
+});
+
+test('the online agenda reaches about six months ahead; refund if cancelled 72 h before', async () => {
+  const cfg = encodeURIComponent(JSON.stringify({ tint: { vehicle: 'berline', formula: 'rear' } }));
+  const slots = async (from) => (await (await site(`/api/slots?config=${cfg}&from=${from}&days=14`)).json()).slots;
+  assert.ok((await slots(addDays(today, 170))).length > 0);
+  assert.equal((await slots(addDays(today, 190))).length, 0);
+  assert.equal(R.cancelHours, 72);
 });

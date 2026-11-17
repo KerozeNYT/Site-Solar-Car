@@ -57,9 +57,22 @@ lui-même, aucune page indexée.
   teintées et les feux teintés, pour toute réservation en ligne **faite le jeudi 19 novembre 2026**
   (de 0 h à minuit) ; bandeau Néon du 17 au 19 novembre. Avant le 19, le code répond « valable le
   jeudi 19 novembre seulement ».
-- **Noël 2026** : code **NOEL**, −15 % sur les vitres teintées et les feux teintés réservés en
-  ligne, du **1er au 31 décembre 2026**, utilisations illimitées ; bandeau Noël sur la même période.
-  Tout se modifie dans l'espace.
+- **Noël 2026** (réglé le 17 novembre 2026) : code **NOEL**, **−15 % sur toutes les prestations**,
+  utilisations illimitées, pour une réservation en ligne réglée ou une demande de devis envoyée **du
+  1er décembre au 24 décembre à 23 h 59**, quelle que soit la date du rendez-vous (l'agenda en
+  ligne va jusqu'à environ 6 mois). Vitres et feux teintés : code saisi au paiement ; autres
+  prestations : code saisi dans la demande de devis, vérifié par le serveur le jour de la demande et
+  noté en tête de la demande dans le fichier clients (et dans l'e-mail FormSubmit). Bandeau Noël du
+  1er au 24 décembre. Tout se modifie dans l'espace.
+- **Compte à rebours** (`src/js/countdown.js`) : le bandeau affiche « Jusqu'au 24 décembre à
+  23 h 59 » et « Plus que 7 jours », puis le dernier jour « plus que 2 h 48 min 12 s » à la seconde
+  (les dates du code du bandeau, sinon celles du bandeau) ; même chose sous le champ du code à la
+  réservation et dans la demande de devis. À minuit, le bandeau s'en va et la remise disparaît de la
+  page de réservation.
+- **Changer une campagne déjà écrite dans la base** depuis `content/promos.js` : modifier la
+  campagne et augmenter son `rev` ; au déploiement suivant, elle est réécrite une fois (une
+  modification faite entre-temps dans l'espace est alors remplacée). NOEL est en `rev: 2` (passage
+  du réglage « tout décembre, vitres et feux » au réglage ci-dessus).
 - Les bandeaux et les codes servent sur le **nouveau site** : tant qu'il n'est pas sur
   www.solarcar37.fr, le partager par son lien (réseaux sociaux, SMS) pour que les clients en
   profitent.

@@ -1,5 +1,22 @@
 # Journal des changements
 
+## Noël jusqu'au 24 décembre, compte à rebours, code dans le devis, annulation à 72 h, agenda à 6 mois (17 novembre 2026)
+
+- NOEL : −15 % sur toutes les prestations, réservations et demandes de devis du 1er au 24 décembre
+  à 23 h 59, illimité ; bandeau Noël sur ces dates. Réécrit une fois dans la base de l'atelier
+  (`rev` dans `content/promos.js`).
+- Compte à rebours : « Jusqu'au 24 décembre à 23 h 59 », « Plus que 7 jours », puis le dernier jour
+  les heures, minutes et secondes ; dans le bandeau, sous le code de la réservation et du devis. À
+  minuit, le bandeau s'en va et la remise disparaît de la page.
+- Demande de devis : champ « Code de parrainage ou code promo » ; le code est vérifié, son état le
+  jour de la demande est écrit dans l'e-mail et dans le fichier clients.
+- Réservation : « Code de parrainage ou code promo », un seul code (rappel sous le champ).
+- Annulation remboursée au moins 72 h avant (au lieu de 48 h) ; créneaux proposés environ 6 mois à
+  l'avance (au lieu de 2).
+- Statistiques : « Publicité » compte aussi les annonces TikTok (`ttclid`) et les liens d'annonce en
+  `utm_medium=cpc` (Instagram, Facebook).
+- Conditions de réservation : section Codes promo.
+
 ## Tableau de bord des statistiques, bilan mensuel (15 novembre 2026)
 
 - Page `/stats` refaite dans le style « garage de nuit » du site : fond animé (lueurs dorées, sol

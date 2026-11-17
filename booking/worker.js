@@ -41,7 +41,7 @@
  *                          NOTIFY_TO when unset
  *   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET (secrets) its Google sign-in (OAuth client)
  */
-import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor } from '../content/booking.js';
+import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor, referralCode } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents } from './google.js';
 import { createSession, getSession, verifyWebhook } from './stripe.js';
@@ -483,12 +483,25 @@ async function quoteRequest(req, env, now) {
   const s = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
   if (d && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s(d.email, 120)) && s(d.lastName || d.firstName, 60)) {
     const vehicle = [s(d.make, 40), s(d.model, 40), s(d.year, 4)].filter(Boolean).join(' ');
+    // a promo or referral code typed in the request: checked now, the day the request arrives
+    const code = referralCode(d.code);
+    let codeLine = '';
+    if (code) {
+      const r = await checkCode(env, code, now).catch(() => null);
+      codeLine = !r
+        ? `Code ${code} : à vérifier`
+        : r.ok
+          ? r.kind === 'promo'
+            ? `Code promo ${r.code} valable le jour de la demande : ${r.percent ? `−${r.percent} %` : `−${r.amount} €`}`
+            : `Code de parrainage ${r.code} (${r.owner}) valable le jour de la demande : −${r.amount} €`
+          : `Code ${code} non valable le jour de la demande : ${r.error}`;
+    }
     await db(env, 'request/add', {
       now,
       customer: { firstName: s(d.firstName, 60), lastName: s(d.lastName, 60), email: s(d.email, 120), phone: s(d.phone, 30), vehicle, source: howHeardText(d.source?.channels, d.source?.other).slice(0, 180) },
       services: s(d.services, 300),
       wish: s(d.wish, 120),
-      message: String(d.message || '').slice(0, 2000),
+      message: `${codeLine ? `${codeLine}\n\n` : ''}${String(d.message || '').slice(0, 2000)}`,
     }).catch((err) => console.error('[atelier] request', err.message));
   }
   return new Response(null, { status: 204, headers: h });

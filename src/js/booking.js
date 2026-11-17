@@ -1,5 +1,6 @@
 import { bookingRules as R, quote, amountDue, formatDuration, formatEuros, withDiscount, referralCode, discountFor } from '../../content/booking.js';
 import { jobSpan, utcToZoned } from '../../booking/schedule.js';
+import { deadlineText, runCountdown } from './countdown.js';
 
 /**
  * Online booking (/reservation/): 1. the service, priced as it is chosen (content/booking.js, the
@@ -275,6 +276,31 @@ export function startBooking(root) {
     j.kind === 'promo'
       ? `Code ${j.code} : ${j.percent ? `−${j.percent} %` : `${formatEuros(j.amount)} de remise`}, valable jusqu’au ${until(j.expires)}.`
       : `Code de ${j.owner} : ${formatEuros(j.amount)} de remise, déduits du total.`;
+  // a promo code: its deadline and the time left under the field (to the second on the last day);
+  // at the end of the offer the discount goes (the server would refuse the code)
+  const deadline = $('[data-code-deadline]');
+  let stopCountdown = null;
+  function hideDeadline() {
+    stopCountdown?.();
+    stopCountdown = null;
+    if (deadline) deadline.hidden = true;
+  }
+  function showDeadline(j) {
+    hideDeadline();
+    if (!deadline || j.kind !== 'promo' || !(j.expires > Date.now())) return;
+    const end = j.expires + 1;
+    deadline.hidden = false;
+    deadline.innerHTML = `Réservation à faire avant le <b>${deadlineText(end)}</b> · <span role="timer"></span>`;
+    stopCountdown = runCountdown(deadline.querySelector('[role=timer]'), end, () => {
+      referral = null;
+      deadline.textContent = '';
+      deadline.hidden = true;
+      codeStatus.textContent = `L’offre ${j.code} s’est terminée le ${deadlineText(end)} : le code n’est plus accepté.`;
+      codeStatus.classList.remove('is-ok');
+      codeStatus.classList.add('is-error');
+      refresh();
+    });
+  }
   let checking = null; // the code being checked (the field's change and the button come together)
   async function applyCode() {
     const input = form.elements.code;
@@ -283,6 +309,7 @@ export function startBooking(root) {
     if (code && (checking === code || referral?.code === code)) return;
     codeStatus.classList.remove('is-ok', 'is-error');
     referral = null;
+    hideDeadline();
     store.set('booking-code', code);
     if (!code) {
       codeStatus.textContent = '';
@@ -301,6 +328,7 @@ export function startBooking(root) {
         referral = j;
         codeStatus.textContent = codeText(j);
         codeStatus.classList.add('is-ok');
+        showDeadline(j);
       } else {
         codeStatus.textContent = j.error || 'Ce code n’est pas reconnu.';
         codeStatus.classList.add('is-error');
@@ -364,6 +392,7 @@ export function startBooking(root) {
       // the code is no longer valid (used meanwhile, expired): the full price again
       if (j.code) {
         referral = null;
+        hideDeadline();
         codeStatus.textContent = j.error || '';
         codeStatus.classList.remove('is-ok');
         codeStatus.classList.add('is-error');

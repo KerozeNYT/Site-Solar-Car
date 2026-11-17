@@ -5,7 +5,11 @@
  * (they are never written again). New ones are made there directly.
  *
  * Dates are days in Paris, inclusive: from `starts` 00:00 to `ends` 23:59. A code is valid for the
- * bookings MADE between those dates (whatever the day of the appointment).
+ * bookings MADE between those dates (whatever the day of the appointment), and for the quote
+ * requests sent between them (the other services: the workshop lowers the quote).
+ *
+ * `rev`: raise it to write a seed again ONCE over what the database holds (a campaign changed
+ * here after it was first written; a change made meanwhile in the workshop's space is replaced).
  */
 export const promoSeeds = [
   {
@@ -19,13 +23,16 @@ export const promoSeeds = [
     ends: '2026-11-19',
   },
   {
+    // Christmas (decided on 16-17 November 2026): 15 % off every service, as many times as wanted,
+    // for the bookings made and the quotes requested from 1 to 24 December 23:59
     code: 'NOEL',
     label: 'Noël 2026',
     percent: 15,
-    services: ['tint', 'lights'],
+    services: [], // none named: every service (online: tint and lights; the others on quote)
     maxUses: 0,
     starts: '2026-12-01',
-    ends: '2026-12-31',
+    ends: '2026-12-24',
+    rev: 2,
   },
 ];
 
@@ -49,10 +56,11 @@ export const bannerSeeds = [
     id: 'noel-2026',
     theme: 'noel',
     title: 'Offre de Noël · −15 %',
-    text: 'Tout le mois de décembre : −15 % sur vos vitres teintées et feux teintés réservés en ligne avec le code NOEL. Offrez-vous (ou offrez) une voiture qui a du style pour les fêtes !',
+    text: 'Jusqu’au 24 décembre à 23 h 59 seulement : −15 % sur toutes les prestations avec le code NOEL. Vitres et feux teintés : réservez en ligne, même pour un rendez-vous dans plusieurs mois ; detailing, ciel étoilé, covering, phares : demandez votre devis avec le code. Offrez-vous (ou offrez) une voiture qui a du style pour les fêtes !',
     cta: 'J’en profite',
     code: 'NOEL',
     starts: '2026-12-01',
-    ends: '2026-12-31',
+    ends: '2026-12-24',
+    rev: 2,
   },
 ];
