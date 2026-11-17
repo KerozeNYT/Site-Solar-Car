@@ -79,13 +79,14 @@ export const business = {
   nearby: ['Tours', 'Rochecorbon', 'Vernou-sur-Brenne', 'Montlouis-sur-Loire', 'Saint-Pierre-des-Corps', 'Parçay-Meslay', 'Monnaie', 'Saint-Cyr-sur-Loire', 'Amboise'],
   siret: '890 162 761 00039',
   priceRange: '€€',
-  // Where the contact form posts. FormSubmit (formsubmit.co, free, no account) forwards each
-  // request by e-mail to the address in the URL; the very first request sends an "Activate
-  // Form" e-mail to that address, to click once. The URL holds FormSubmit's random alias of
-  // contact@solarcar37.fr (given in that e-mail, activated on www.solarcar37.fr on 17/11/2026),
-  // so the address itself is not in the form. Used by the quote form only (/contact/).
-  // When null the form opens the visitor's e-mail app.
-  formEndpoint: 'https://formsubmit.co/6bb4ebd41a3a47ac2b9774aaa2f26386',
+  // The quote form (/contact/) goes to the site's own server (content/booking.js → api,
+  // /api/demande): one e-mail to the workshop with the photos, answering it writes to the client,
+  // and an acknowledgment to the client (booking/mail.js). `formEndpoint` is only used when there
+  // is no such server: FormSubmit (formsubmit.co, free, no account) forwards each request by
+  // e-mail; its alias of contact@solarcar37.fr, activated on www.solarcar37.fr on 17/11/2026, is
+  // https://formsubmit.co/6bb4ebd41a3a47ac2b9774aaa2f26386. When both are missing the form opens
+  // the visitor's e-mail app.
+  formEndpoint: null,
   // Online booking: content/booking.js (the site's own booking page and server)
   // Visit statistics (docs/STATISTIQUES.md), without cookie: each page sends its view and the
   // visitor's actions to the booking server (`endpoint`), read on its /stats page.

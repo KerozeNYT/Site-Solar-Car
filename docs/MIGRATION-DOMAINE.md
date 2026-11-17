@@ -127,8 +127,8 @@ Prévoir aussi : `solarcar37.fr` → `https://www.solarcar37.fr` et `http://` �
 2. Modifier les DNS (enregistrements `A`/`AAAA` ou `CNAME` de `www` et de la racine) **sans toucher
    aux enregistrements e-mail**.
 3. Activer le certificat HTTPS de l'hébergeur et forcer HTTPS.
-4. Vérifier : pages principales, redirections, formulaire (FormSubmit activé sur
-   contact@solarcar37.fr, via son alias), pièces jointes, téléphone, itinéraire.
+4. Vérifier : pages principales, redirections, formulaire de devis (serveur de réservation depuis
+   le 17 novembre 2026), pièces jointes, téléphone, itinéraire.
 
 ## 5. Après la bascule
 

@@ -15,9 +15,11 @@
  * Each call is one request to the object, run on its own: a code checked and used, a client found
  * or added, can never be done twice at the same time.
  */
-import { bookingRules as R, referralCode } from '../content/booking.js';
+import { bookingRules as R, referralCode, howHeardText } from '../content/booking.js';
 import { promoSeeds, bannerSeeds } from '../content/promos.js';
+import { services as SERVICES } from '../content/site.js';
 import { zonedToUtc, addDays } from './schedule.js';
+import { sendQuoteMails } from './mail.js';
 
 // no 0/O, 1/I: easy to read out and to type
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -60,10 +62,79 @@ export const redeemReferral = (env, code, { by, ref, where }, now = Date.now()) 
 export const publicBanner = (env, now = Date.now()) => db(env, 'banner/public', { now });
 
 const clip = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+
+/** bytes → base64 (native when the runtime has it) */
+function toBase64(u8) {
+  if (typeof u8.toBase64 === 'function') return u8.toBase64();
+  let s = '';
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+/**
+ * The request as the site's script sends it (JSON: { v: 2, firstName, …, files: [{ name, type,
+ * data (base64) }] }), or the form itself posted without JavaScript (multipart, the same names
+ * as its fields).
+ */
+async function readQuote(req) {
+  const type = req.headers.get('content-type') || '';
+  if (!/multipart\/form-data|application\/x-www-form-urlencoded/i.test(type)) return JSON.parse(await req.text());
+  const f = await req.formData();
+  const get = (k) => String(f.get(k) ?? '');
+  const files = [];
+  for (const v of f.getAll('attachment')) if (v && typeof v === 'object' && v.size) files.push({ name: v.name, type: v.type, data: toBase64(new Uint8Array(await v.arrayBuffer())) });
+  const date = get('date_souhaitee');
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(date) ? `à partir du ${date.split('-').reverse().join('/')}` : '';
+  return {
+    v: 2,
+    firstName: get('prenom'),
+    lastName: get('nom'),
+    email: get('email'),
+    phone: get('telephone'),
+    make: get('marque'),
+    model: get('modele'),
+    year: get('annee'),
+    services: f
+      .getAll('prestations')
+      .map((slug) => (slug === 'autre' ? 'Autre demande' : SERVICES.find((s) => s.slug === slug)?.name || String(slug)))
+      .join(', '),
+    wish: [day, get('moment')].filter(Boolean).join(', '),
+    message: get('message'),
+    source: { channels: f.getAll('connu').map(String), other: get('connu_autre') },
+    code: get('code'),
+    consent: get('consentement') === 'on',
+    trap: get('_gotcha'),
+    files,
+  };
+}
+
+/** the photos and PDF of a request, ready to attach: at most 10, a safe name each */
+function quoteFiles(list) {
+  return (Array.isArray(list) ? list : [])
+    .slice(0, 10)
+    .map((f, i) => {
+      const type = String(f?.type || '').toLowerCase();
+      const content = String(f?.data || '').replace(/^data:[^,]*,/, '');
+      if (!content || !(/^image\/[a-z0-9.+-]+$/.test(type) || type === 'application/pdf')) return null;
+      const ext = type === 'application/pdf' ? 'pdf' : type.split('/')[1].replace('jpeg', 'jpg').replace(/[^a-z0-9]/g, '').slice(0, 5) || 'jpg';
+      let filename = String(f.name || '')
+        .normalize('NFC')
+        .replace(/[^\p{L}\p{N}._ -]/gu, '')
+        .trim()
+        .slice(0, 80);
+      if (!filename || filename.startsWith('.')) filename = `photo-${i + 1}`;
+      if (!/\.[a-z0-9]{2,5}$/i.test(filename)) filename += `.${ext}`;
+      return { filename, content, size: Math.floor((content.length * 3) / 4) };
+    })
+    .filter(Boolean);
+}
+
 const digits = (p) => String(p || '').replace(/\D/g, '').slice(-9);
 
 export class Atelier {
-  constructor(state) {
+  constructor(state, env) {
+    // env: the server's settings and secrets (the e-mails of a quote request, quote/submit)
+    this.env = env || {};
     this.sql = state.storage.sql;
     const x = (q) => this.sql.exec(q);
     x(`CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, owner TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', origin TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL, expires INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0, used_by TEXT NOT NULL DEFAULT '', used_ref TEXT NOT NULL DEFAULT '', used_where TEXT NOT NULL DEFAULT '')`);
@@ -199,11 +270,112 @@ export class Atelier {
   // ---------------------------------------------------------------- requests
   async fetch(req) {
     const path = new URL(req.url).pathname.slice(1);
+    // a quote request from the site's form: its photos are heavy, read and sent from here
+    if (path === 'quote/submit') return Response.json(await this.quote(req));
     const b = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
     const now = Number(b.now) || Date.now();
     this.seed(now);
     const out = this.route(path, b, now);
     return out === undefined ? new Response('not found', { status: 404 }) : Response.json(out);
+  }
+
+  /**
+   * POST quote/submit (booking/worker.js, /api/demande): a quote request from the site's form.
+   * Checked, written into the client file, then e-mailed (booking/mail.js): to the workshop, with
+   * its photos, and an acknowledgment to the client. The same request sent again within 30 minutes
+   * is answered « received » without a second e-mail. The request is removed again when the
+   * workshop's e-mail cannot go out: the visitor is told so and can send it again.
+   * Copies sent by an older page (no `v`, the form then went through FormSubmit): written only.
+   * Answer: { ok, ack (the client got their acknowledgment), duplicate } or { ok: false, status, error }.
+   */
+  async quote(req) {
+    const now = Number(req.headers.get('x-now')) || Date.now();
+    this.seed(now);
+    let d;
+    try {
+      d = await readQuote(req);
+    } catch {
+      return { ok: false, status: 400, error: 'Demande illisible.' };
+    }
+    if (!d || typeof d !== 'object') return { ok: false, status: 400, error: 'Demande illisible.' };
+    // the field hidden from people, filled by robots: « received », nothing done
+    if (String(d.trap || '').trim()) return { ok: true, ack: false };
+    const email = clip(d.email, 120);
+    const customer = { firstName: clip(d.firstName, 60), lastName: clip(d.lastName, 60), email, phone: clip(d.phone, 30), vehicle: [clip(d.make, 40), clip(d.model, 40), clip(d.year, 4)].filter(Boolean).join(' '), source: howHeardText(d.source?.channels, d.source?.other).slice(0, 180) };
+    const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+    if (!d.v) {
+      if (validEmail && (customer.lastName || customer.firstName)) {
+        const codeLine = await this.codeLine(d.code, now);
+        this.route('request/add', { customer, services: d.services, wish: d.wish, message: `${codeLine ? `${codeLine}\n\n` : ''}${String(d.message || '').slice(0, 2000)}` }, now);
+      }
+      return { ok: true, silent: true };
+    }
+    const message = String(d.message ?? '').replace(/\r\n?/g, '\n').trim().slice(0, 2000);
+    const services = clip(d.services, 300);
+    const missing = [
+      [customer.lastName, 'votre nom'],
+      [customer.firstName, 'votre prénom'],
+      [validEmail, 'une adresse e-mail valide'],
+      [customer.phone.replace(/\D/g, '').length >= 10, 'un numéro de téléphone'],
+      [clip(d.make, 40) && clip(d.model, 40), 'la marque et le modèle du véhicule'],
+      [services, 'la prestation souhaitée'],
+      [message, 'votre message'],
+      [d.consent === true || d.consent === 'on', 'votre accord pour l’utilisation de vos données'],
+    ]
+      .filter(([ok]) => !ok)
+      .map(([, what]) => what);
+    if (missing.length) return { ok: false, status: 400, error: `Il manque ${missing.join(', ')}.` };
+    const files = quoteFiles(d.files);
+    if (files.reduce((a, f) => a + f.size, 0) > 10.5 * 1024 * 1024) return { ok: false, status: 413, error: 'Pièces jointes trop lourdes : 10 Mo maximum au total.' };
+    const code = await this.codeLine(d.code, now);
+    const wish = clip(d.wish, 120);
+    const stored = `${code ? `${code}\n\n` : ''}${message}`.slice(0, 2000);
+    // the same request again (a second tap, a retry after an answer that got lost): already here
+    const twice = this.one(
+      'SELECT r.id FROM requests r JOIN clients c ON c.id = r.client_id WHERE c.email = ? AND r.vehicle = ? AND r.services = ? AND r.message = ? AND r.at > ? LIMIT 1',
+      email.toLowerCase(),
+      clip(customer.vehicle, 80),
+      services,
+      stored,
+      now - 30 * 60000
+    );
+    if (twice) return { ok: true, ack: false, duplicate: true };
+    const { requestId } = this.route('request/add', { customer, services, wish, message: stored }, now);
+    const env = this.env;
+    if (!env.RESEND_API_KEY || !env.NOTIFY_TO) {
+      this.run('DELETE FROM requests WHERE id = ?', requestId);
+      console.error('[quote] no e-mail settings (RESEND_API_KEY, NOTIFY_TO)');
+      return { ok: false, status: 503, error: 'Envoi indisponible.' };
+    }
+    const q = { id: requestId, at: now, c: customer, vehicle: customer.vehicle, services, wish, code, source: customer.source, message, files };
+    try {
+      let sent;
+      try {
+        sent = await sendQuoteMails(env, q);
+      } catch (err) {
+        // attachments the sending service refuses: the request goes out without them
+        if (!files.length || !/^resend 4\d\d/.test(err.message) || /429/.test(err.message)) throw err;
+        console.error('[quote] attachments refused', err.message);
+        sent = await sendQuoteMails(env, { ...q, files: [], message: `${message}\n\n(${files.length} pièce${files.length > 1 ? 's' : ''} jointe${files.length > 1 ? 's' : ''} n’${files.length > 1 ? 'ont' : 'a'} pas pu être transmise${files.length > 1 ? 's' : ''} : à redemander.)` });
+      }
+      return { ok: true, ack: sent.client };
+    } catch (err) {
+      console.error('[quote] workshop e-mail', err.message);
+      this.run('DELETE FROM requests WHERE id = ?', requestId);
+      return { ok: false, status: 502, error: 'L’envoi n’a pas abouti.' };
+    }
+  }
+
+  /** the line written above a request about the code typed in it, checked the day it arrives */
+  async codeLine(raw, now) {
+    const code = referralCode(raw);
+    if (!code) return '';
+    const r = this.route('code/check', { code, now }, now);
+    if (!r) return `Code ${code} : à vérifier`;
+    if (!r.ok) return `Code ${code} non valable le jour de la demande : ${r.error}`;
+    return r.kind === 'promo'
+      ? `Code promo ${r.code} valable le jour de la demande : ${r.percent ? `−${r.percent} %` : `−${r.amount} €`}`
+      : `Code de parrainage ${r.code} (${r.owner}) valable le jour de la demande : −${r.amount} €`;
   }
 
   route(path, b, now) {
@@ -304,7 +476,7 @@ export class Atelier {
       case 'request/add': {
         const id = this.upsertClient(b.customer || {}, now, 'demande de devis');
         this.run('INSERT INTO requests (client_id, at, services, vehicle, wish, message, source) VALUES (?, ?, ?, ?, ?, ?, ?)', id, now, clip(b.services, 300), clip(b.customer?.vehicle, 80), clip(b.wish, 120), String(b.message || '').trim().slice(0, 2000), clip(b.customer?.source, 180));
-        return { ok: true, clientId: id };
+        return { ok: true, clientId: id, requestId: this.one('SELECT last_insert_rowid() AS id').id };
       }
       case 'bookings/list': {
         const where = b.from ? 'WHERE b.date BETWEEN ? AND ?' : '';

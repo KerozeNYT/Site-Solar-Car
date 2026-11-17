@@ -15,7 +15,8 @@
  *   cron, every day at 16:00 UTC                     reminders (tomorrow) and news (a week ago) to clients
  *   GET  /api/code?code=…                            is a code valid: promotion or referral (booking page)
  *   GET  /api/promo                                  the promotion band of the site, when one is on
- *   POST /api/demande                                a quote request sent from the site: into the client file
+ *   POST /api/demande                                a quote request from the site's form: e-mailed to the
+ *                                                    workshop (photos attached) and to the client, in the client file
  *   GET  /atelier…                                   the workshop's space (booking/atelier.js, docs/ATELIER.md)
  *   GET  /fiche-google?cle=…, /fiche-google/connexion, /fiche-google/retour, POST /fiche-google/envoyer
  *        and a cron every Tuesday                    one photo a week on the Google Business Profile
@@ -41,7 +42,8 @@
  *                          NOTIFY_TO when unset
  *   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET (secrets) its Google sign-in (OAuth client)
  */
-import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor, referralCode } from '../content/booking.js';
+import { business as B } from '../content/site.js';
+import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents } from './google.js';
 import { createSession, getSession, verifyWebhook } from './stripe.js';
@@ -470,41 +472,30 @@ async function promoBand(req, env, url, now) {
   return json(r, 200, { ...h, 'cache-control': id ? 'no-store' : 'public, max-age=300' });
 }
 
-/** POST /api/demande: a copy of a quote request sent from the site's form (navigator.sendBeacon,
- *  text/plain JSON), into the client file; always a silent 204 */
+/** POST /api/demande: a quote request sent from the site's form. Read, checked and e-mailed by the
+ *  workshop's database (booking/store.js, quote/submit; its photos are too heavy for this worker's
+ *  share of computing time). From the site's script: JSON in, { ok, … } out. The form posted
+ *  without JavaScript: the thank-you page, or a short page saying it did not go through. */
 async function quoteRequest(req, env, now) {
   const h = cors(req, env);
-  if (!h['access-control-allow-origin'] || !env.ATELIER) return new Response(null, { status: 204, headers: h });
-  const text = await req.text();
-  let d = null;
-  try {
-    d = text.length <= 8000 ? JSON.parse(text) : null;
-  } catch {}
-  const s = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
-  if (d && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s(d.email, 120)) && s(d.lastName || d.firstName, 60)) {
-    const vehicle = [s(d.make, 40), s(d.model, 40), s(d.year, 4)].filter(Boolean).join(' ');
-    // a promo or referral code typed in the request: checked now, the day the request arrives
-    const code = referralCode(d.code);
-    let codeLine = '';
-    if (code) {
-      const r = await checkCode(env, code, now).catch(() => null);
-      codeLine = !r
-        ? `Code ${code} : à vérifier`
-        : r.ok
-          ? r.kind === 'promo'
-            ? `Code promo ${r.code} valable le jour de la demande : ${r.percent ? `−${r.percent} %` : `−${r.amount} €`}`
-            : `Code de parrainage ${r.code} (${r.owner}) valable le jour de la demande : −${r.amount} €`
-          : `Code ${code} non valable le jour de la demande : ${r.error}`;
-    }
-    await db(env, 'request/add', {
-      now,
-      customer: { firstName: s(d.firstName, 60), lastName: s(d.lastName, 60), email: s(d.email, 120), phone: s(d.phone, 30), vehicle, source: howHeardText(d.source?.channels, d.source?.other).slice(0, 180) },
-      services: s(d.services, 300),
-      wish: s(d.wish, 120),
-      message: `${codeLine ? `${codeLine}\n\n` : ''}${String(d.message || '').slice(0, 2000)}`,
-    }).catch((err) => console.error('[atelier] request', err.message));
-  }
-  return new Response(null, { status: 204, headers: h });
+  const type = req.headers.get('content-type') || '';
+  const native = /multipart\/form-data|application\/x-www-form-urlencoded/i.test(type);
+  const site = (env.SITE_URL || B.siteUrl).replace(/\/$/, '');
+  const failed = (status, why = '') =>
+    new Response(
+      `<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Demande non envoyée</title><body style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:40px auto;padding:0 16px;line-height:1.5"><h1>Votre demande n’est pas partie</h1><p>${why ? why.replace(/[<>&"]/g, '') : 'L’envoi n’a pas abouti.'} Revenez en arrière pour la ${why ? 'compléter' : 'renvoyer dans un instant'}, ou appelez-nous au <a href="tel:${B.phone.replace(/[^\d+]/g, '')}">${B.phone}</a>.</p><p><a href="${site}/contact/">Retour au formulaire</a></p></body></html>`,
+      { status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } }
+    );
+  // from another site, or no database: nothing done
+  if (!h['access-control-allow-origin'] || !env.ATELIER) return native ? failed(403) : new Response(null, { status: 204, headers: h });
+  if (Number(req.headers.get('content-length')) > 15 * 1024 * 1024) return native ? failed(413) : json({ ok: false, error: 'Pièces jointes trop lourdes : 10 Mo maximum au total.' }, 413, h);
+  const res = await env.ATELIER.get(env.ATELIER.idFromName('solarcar37')).fetch('https://atelier/quote/submit', { method: 'POST', headers: { 'content-type': type, 'x-now': String(now) }, body: await req.arrayBuffer() });
+  const out = res.ok ? await res.json() : { ok: false, status: 502, error: 'L’envoi n’a pas abouti.' };
+  if (native) return out.ok ? Response.redirect(`${site}/contact/merci/`, 303) : failed(out.status || 502, out.status === 400 || out.status === 413 ? out.error : '');
+  // a copy sent by an older page of the site: written, silently
+  if (out.silent) return new Response(null, { status: 204, headers: h });
+  const { status, ...body } = out;
+  return json(body, out.ok ? 200 : status || 502, h);
 }
 
 export default {

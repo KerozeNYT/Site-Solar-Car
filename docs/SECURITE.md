@@ -4,7 +4,7 @@
 
 | Protection | Où | Effet |
 |---|---|---|
-| Content-Security-Policy dans chaque page | `scripts/security.mjs` (balise meta, ajoutée par `npm run build`) | Le navigateur refuse tout script, style, image ou connexion qui ne vient pas du site, de FormSubmit, de Google (avis), du serveur de réservation ou de Cloudflare Web Analytics (statistiques, `docs/STATISTIQUES.md`). Le seul script écrit dans les pages est autorisé par son empreinte. |
+| Content-Security-Policy dans chaque page | `scripts/security.mjs` (balise meta, ajoutée par `npm run build`) | Le navigateur refuse tout script, style, image ou connexion qui ne vient pas du site, de Google (avis), du serveur de réservation (réservations, demandes de devis) ou de Cloudflare Web Analytics (statistiques, `docs/STATISTIQUES.md`). Le seul script écrit dans les pages est autorisé par son empreinte. |
 | En-têtes HTTP complets | `_headers` (Netlify, Cloudflare Pages) et `.htaccess` (Apache, OVH), écrits par le build de production | HTTPS imposé (HSTS), interdiction d'afficher le site dans un cadre (clickjacking), `nosniff`, `Referrer-Policy`, caméra / micro / géolocalisation désactivés, isolation de la fenêtre (COOP), CSP complète. |
 | `/.well-known/security.txt` | build de production | Indique où signaler un problème de sécurité (RFC 9116), valable un an après chaque build. |
 | Contenus externes échappés | `src/js/reviews.js`, `src/js/instagram.js` | Un avis ou une légende piégés ne peuvent pas injecter de code. |
@@ -38,10 +38,11 @@ Si le site ajoute un service externe (réservation en ligne, flux Instagram…),
    - quota journalier plafonné et alerte de budget (Facturation → Budgets et alertes).
    Vérifié le 13 novembre 2026 : depuis l'adresse de l'aperçu, les avis se chargent bien
    (note 5,0, 302 avis).
-5. **FormSubmit** : fait le 17 novembre 2026. `formEndpoint` (`content/site.js`) contient
-   l'alias aléatoire donné par FormSubmit dans son e-mail d'activation, à la place de l'adresse :
-   l'adresse e-mail n'apparaît plus dans le formulaire et ne peut plus être réutilisée par des
-   robots via FormSubmit.
+5. **Formulaire de devis** : depuis le 17 novembre 2026, il ne passe plus par FormSubmit mais par
+   le serveur de réservation (`docs/RESERVATION.md`, « Demandes de devis ») : champ piège contre
+   les robots, contrôle de chaque champ, une même demande envoyée une seule fois, e-mails envoyés
+   par reservation@solarcar37.fr. L'alias FormSubmit de contact@solarcar37.fr reste noté dans
+   `content/site.js` (`formEndpoint`), au cas où le site devrait se passer du serveur.
 6. **Après la mise en ligne** : tester `https://www.solarcar37.fr` sur
    [securityheaders.com](https://securityheaders.com) et
    [MDN HTTP Observatory](https://developer.mozilla.org/fr/observatory). Une fois sûr que tous

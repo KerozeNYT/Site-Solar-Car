@@ -1,5 +1,20 @@
 # Journal des changements
 
+## Demandes de devis par le serveur du site : e-mails propres, accusé de réception (17 novembre 2026)
+
+- Le formulaire de devis n'utilise plus FormSubmit : il envoie la demande au serveur de
+  réservation, qui l'écrit dans le fichier clients et envoie deux e-mails depuis
+  reservation@solarcar37.fr. À l'atelier : « Prénom Nom via SOLAR CAR 37 », objet « Demande de
+  devis — véhicule · prestation », photos jointes ; « Répondre » écrit au client, avec sa demande
+  citée en français (plus d'e-mail en anglais, de tableau « Name / Value » ni de publicité). Au
+  client : un accusé de réception avec le récapitulatif ; la réponse de l'atelier se range dessous.
+- Une même demande n'est envoyée qu'une fois (30 minutes côté serveur, 15 côté site) ; si l'e-mail
+  à l'atelier ne part pas, rien n'est gardé et le visiteur peut renvoyer.
+- Photos allégées dans le navigateur avant l'envoi (2 000 px) ; le formulaire marche aussi sans
+  JavaScript ; mentions légales : le serveur et le service d'envoi Resend à la place de FormSubmit.
+- Tests : `booking/test/quote.test.mjs` (7 scénarios) ; en local, les e-mails attrapés se lisent sur
+  `http://localhost:8787/dev/mails`.
+
 ## Formulaire de devis : une demande = un e-mail ; Cloudflare Web Analytics (17 novembre 2026)
 
 - FormSubmit : le formulaire envoie à l'alias aléatoire de contact@solarcar37.fr (e-mail

@@ -3,7 +3,9 @@
 // SQLite-backed Durable Object (like fake-stats.mjs, for any class).
 import { DatabaseSync } from 'node:sqlite';
 
-export function fakeDO(Class) {
+// env: the settings the object is given (a function: read at each use, for an env object that
+// holds the namespace itself)
+export function fakeDO(Class, env) {
   const db = new DatabaseSync(':memory:');
   const cursor = (rows) => ({ toArray: () => rows, one: () => rows[0], [Symbol.iterator]: () => rows[Symbol.iterator]() });
   const sql = {
@@ -14,7 +16,8 @@ export function fakeDO(Class) {
       return cursor([]);
     },
   };
-  const object = new Class({ storage: { sql } });
+  const settings = typeof env === 'function' ? new Proxy({}, { get: (_, k) => env()?.[k], has: (_, k) => k in (env() || {}) }) : env;
+  const object = new Class({ storage: { sql } }, settings);
   return {
     db,
     idFromName: (name) => name,

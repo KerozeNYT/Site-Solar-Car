@@ -60,6 +60,26 @@ serveur de réservation (Cloudflare Worker, dossier booking/)
   payée. La confirmation au client (`MAIL_CLIENTS = "1"`) attend la vérification du domaine
   solarcar37.fr dans Resend : le domaine est chez local.fr jusqu'à la fin du contrat (décembre
   2026) ; ensuite `MAIL_FROM = "SOLAR CAR 37 <reservation@solarcar37.fr>"` et redéployer.
+- **Demandes de devis** (formulaire de la page Contact, depuis le 17 novembre 2026 ; avant :
+  FormSubmit) : envoyées au serveur (`POST /api/demande`), traitées par la base de l'atelier
+  (`booking/store.js`, `quote/submit` : un Durable Object, qui a le temps de calcul nécessaire aux
+  photos). Deux e-mails (`sendQuoteMails` de `booking/mail.js`) :
+  - à l'atelier (`NOTIFY_TO`), de « Prénom Nom via SOLAR CAR 37 », objet « Demande de devis —
+    véhicule · prestation », les photos et PDF en pièces jointes. **Répondre** écrit au client
+    (Reply-To), et la demande citée sous la réponse est en français, sans publicité ni mention
+    interne : l'e-mail ne contient rien qui ne soit destiné au client ;
+  - au client (`MAIL_CLIENTS = "1"`) : l'accusé de réception, avec le récapitulatif de sa demande,
+    même objet. La réponse de l'atelier se range sous cet accusé dans la boîte du client (en-têtes
+    `Message-ID` / `References`, quand le service d'envoi les garde).
+  - Une seule fois : la même demande renvoyée dans les 30 minutes (double clic, réponse perdue) est
+    répondue « reçue » sans nouvel e-mail ; le site bloque déjà un second envoi pendant 15 minutes.
+    Si l'e-mail à l'atelier ne part pas, la demande n'est pas gardée et le visiteur peut la renvoyer.
+  - Photos allégées par le navigateur avant l'envoi (2 000 px, JPEG ; position GPS retirée au
+    passage) : une photo de téléphone de 9 Mo arrive à environ 1 Mo. 10 Mo maximum au total.
+  - Sans JavaScript, le formulaire est envoyé tel quel au serveur, puis la page « Merci ».
+  - Essai en local : `npm run booking:dev`, puis `BOOKING_API=http://localhost:8787 npm run build`
+    et `npm run preview` ; les e-mails attrapés sont listés sur `http://localhost:8787/dev/mails`
+    et chacun s'affiche sur `/dev/mail/<n>`.
 - E-mails automatiques aux clients (`dailyMails` de `booking/worker.js`, tous les jours à 16 h UTC,
   soit 17 h l'hiver et 18 h l'été) : **la veille**, un rappel (heure, adresse, itinéraire, reste à
   régler) ; **une semaine après**, des nouvelles : « un souci ? répondez à cet e-mail », puis le

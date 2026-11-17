@@ -4,6 +4,8 @@ export function installFakes(calendars, { checkoutUrl = () => 'https://checkout.
   const cal = Object.fromEntries(Object.values(calendars).map((id) => [id, []]));
   const sessions = new Map();
   const mails = [];
+  // resend.fail: the next n e-mails answered 500; resend.refuse(mail): a 4xx status to answer it with
+  const resend = { fail: 0, refuse: null };
   let nextId = 1;
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (input, init = {}) => {
@@ -55,6 +57,12 @@ export function installFakes(calendars, { checkoutUrl = () => 'https://checkout.
     }
     if (url.host === 'api.resend.com') {
       if (!/^Bearer re_/.test(init.headers.authorization)) return ok({ message: 'API key is invalid' }, 401);
+      if (resend.fail > 0) {
+        resend.fail--;
+        return ok({ message: 'Internal error' }, 500);
+      }
+      const refused = resend.refuse?.(JSON.parse(body));
+      if (refused) return ok({ message: 'Refused' }, refused);
       mails.push(JSON.parse(body));
       return ok({ id: `mail${mails.length}` });
     }
@@ -86,5 +94,5 @@ export function installFakes(calendars, { checkoutUrl = () => 'https://checkout.
     }
     return realFetch(input, init);
   };
-  return { cal, sessions, mails };
+  return { cal, sessions, mails, resend };
 }

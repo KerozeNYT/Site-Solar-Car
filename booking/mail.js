@@ -221,3 +221,109 @@ function giftCard(env, r) {
 <tr><td style="padding:16px 22px 22px;color:#8f8a7d;font-size:12px;line-height:1.5">À utiliser une seule fois, jusqu’au ${esc(until)} : en réservant en ligne avec ce code, ou en le donnant à l’atelier. Non cumulable, non remboursable.</td></tr>
 </table>`;
 }
+
+// ---------------------------------------------------------------- quote requests
+/** a display name for a From header: no quote, angle bracket or line break */
+const displayName = (s) => String(s || '').replace(/["<>\\\r\n,;]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 70);
+/** the address part of env.MAIL_FROM ("SOLAR CAR 37 <reservation@solarcar37.fr>") */
+const fromAddress = (env) => (String(env.MAIL_FROM || '').match(/<([^>]+)>/) || [])[1] || String(env.MAIL_FROM || '').trim() || 'onboarding@resend.dev';
+const whenFr = (ms) => new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: R.timeZone }).format(new Date(ms)).replace(':', ' h ');
+const para = (s) => esc(s).replace(/\n/g, '<br>');
+const plain = (pairs) =>
+  pairs
+    .filter(([, v]) => v)
+    .map(([k, v]) => `${k} : ${String(v).replace(/\n/g, '\n  ')}`)
+    .join('\n');
+
+/** « Demande de devis — Mini F56 JCW 2015 · Ciel étoilé »: the same subject for the workshop and
+ *  the client, so that the workshop's answer joins the client's acknowledgment in their mailbox */
+export const quoteSubject = (q) => `Demande de devis — ${[q.vehicle, q.services].filter(Boolean).join(' · ')}`.slice(0, 140);
+
+/**
+ * A quote request sent from the site's form (booking/store.js, quote/submit):
+ *   - to the workshop (env.NOTIFY_TO), from « Prénom Nom via SOLAR CAR 37 », Reply-To the client:
+ *     answering it writes to the client, with their request quoted below, in French; the photos
+ *     are attached;
+ *   - to the client (when env.MAIL_CLIENTS is "1"): the acknowledgment, with what they asked.
+ * q: { id, at, c: { firstName, lastName, email, phone }, vehicle, services, wish, code, source,
+ *      message, files: [{ filename, content (base64), size }] }
+ * The workshop's e-mail must go out (it throws otherwise); the client's is a courtesy: { client }.
+ */
+export async function sendQuoteMails(env, q) {
+  const { c } = q;
+  const who = `${c.firstName} ${c.lastName}`.trim();
+  const subject = quoteSubject(q);
+  // the acknowledgment's Message-ID, quoted by the workshop's e-mail: the workshop's answer then
+  // carries it, and the client's mailbox puts the answer under the acknowledgment
+  const ackId = `<devis-${q.id}-${q.at.toString(36)}@solarcar37.fr>`;
+  const photos = q.files.map((f) => f.filename).join(', ');
+  const received = q.files.length ? `${q.files.length} fichier${q.files.length > 1 ? 's' : ''} reçu${q.files.length > 1 ? 's' : ''}` : '';
+  const tel = c.phone.replace(/[^\d+]/g, '');
+  const request = [
+    ['Véhicule', q.vehicle],
+    ['Prestation(s)', q.services],
+    ['Rendez-vous souhaité', q.wish || 'indifférent'],
+    ['Code', q.code],
+  ];
+  await send(env, {
+    from: `${displayName(`${who} via ${B.name}`)} <${fromAddress(env)}>`,
+    to: env.NOTIFY_TO.split(',').map((x) => x.trim()),
+    reply_to: c.email,
+    subject,
+    headers: { References: ackId },
+    // no word meant for the workshop alone: answering quotes this e-mail to the client
+    html: shell(
+      'Demande de devis',
+      `<p style="margin:0 0 16px;font-size:14px;color:#6b6b6b">Envoyée depuis ${esc((env.SITE_URL || B.siteUrl).replace(/^https?:\/\//, ''))} le ${esc(whenFr(q.at))}.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
+        ['Client', esc(who)],
+        ['Téléphone', `<a href="tel:${esc(tel)}" style="color:#111">${esc(c.phone)}</a>`],
+        ['E-mail', `<a href="mailto:${esc(c.email)}" style="color:#111">${esc(c.email)}</a>`],
+        ...request.map(([k, v]) => [k, v ? para(v) : '']),
+        ['Nous a connus', q.source ? esc(q.source) : ''],
+        ['Pièces jointes', photos ? esc(photos) : ''],
+      ])}</table>
+<p style="margin:18px 0 6px;font-size:13px;color:#6b6b6b">Message</p>
+<p style="margin:0;padding:12px 14px;background:#faf8f4;border-radius:10px;font-size:15px;line-height:1.5;color:#111">${para(q.message)}</p>`
+    ),
+    text: `Demande de devis, envoyée depuis ${(env.SITE_URL || B.siteUrl).replace(/^https?:\/\//, '')} le ${whenFr(q.at)}.\n\n${plain([
+      ['Client', who],
+      ['Téléphone', c.phone],
+      ['E-mail', c.email],
+      ...request,
+      ['Nous a connus', q.source],
+      ['Pièces jointes', photos],
+    ])}\n\nMessage :\n${q.message}\n`,
+    attachments: q.files.map((f) => ({ filename: f.filename, content: f.content })),
+  });
+  const sent = { client: false };
+  if (env.MAIL_CLIENTS !== '1') return sent;
+  const ack = {
+    to: [c.email],
+    reply_to: B.email,
+    subject,
+    html: shell(
+      'Nous avons bien reçu votre demande',
+      `<p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#111">Bonjour ${esc(c.firstName)},<br>merci pour votre demande de devis. Nous l’étudions et revenons vers vous rapidement avec un devis détaillé, par e-mail ou par téléphone.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([...request.map(([k, v]) => [k, v ? para(v) : '']), ['Pièces jointes', esc(received)]])}</table>
+<p style="margin:18px 0 6px;font-size:13px;color:#6b6b6b">Votre message</p>
+<p style="margin:0;padding:12px 14px;background:#faf8f4;border-radius:10px;font-size:15px;line-height:1.5;color:#111">${para(q.message)}</p>
+<p style="margin:18px 0 0;font-size:14px;line-height:1.5;color:#111">Une précision, une photo à ajouter ? Répondez simplement à cet e-mail. Pour une question urgente : <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${esc(B.phone)}</a>.</p>
+<p style="margin:18px 0 0;font-size:15px;line-height:1.5;color:#111">À très bientôt,<br><strong>${esc(B.name)}</strong></p>`
+    ),
+    text: `Bonjour ${c.firstName},\n\nmerci pour votre demande de devis. Nous l’étudions et revenons vers vous rapidement avec un devis détaillé, par e-mail ou par téléphone.\n\n${plain([...request, ['Pièces jointes', received]])}\n\nVotre message :\n${q.message}\n\nUne précision, une photo à ajouter ? Répondez simplement à cet e-mail. Pour une question urgente : ${B.phone}.\n\nÀ très bientôt,\n${B.name}\n`,
+  };
+  try {
+    try {
+      await send(env, { ...ack, headers: { 'Message-ID': ackId } });
+    } catch (err) {
+      // a header the sending service refuses (4xx, nothing sent): once more without it
+      if (!/^resend 4\d\d/.test(err.message) || /rate|quota|429/i.test(err.message)) throw err;
+      await send(env, ack);
+    }
+    sent.client = true;
+  } catch (err) {
+    console.error('[mail] quote client', err.message);
+  }
+  return sent;
+}

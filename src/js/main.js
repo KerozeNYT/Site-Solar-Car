@@ -393,6 +393,45 @@ const api = document.body.dataset.api;
 
 /** a copy of a quote request sent, into the workshop's client file (prestations and wish as the
  *  e-mail reads them) */
+/**
+ * An attachment ready to send to the site's server: a photo made lighter (2000 px on its longest
+ * side, JPEG; its position and camera details dropped with it), a PDF as it is. A photo the
+ * browser cannot draw (HEIC on some browsers) goes as it is. { name, type, data (base64), size }
+ */
+async function prepareFile(file) {
+  let blob = file;
+  let { name, type } = file;
+  if (/^image\/(jpeg|png|webp|heic|heif|avif|bmp)$/i.test(type) && typeof createImageBitmap === 'function') {
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bmp.width * scale));
+      canvas.height = Math.max(1, Math.round(bmp.height * scale));
+      const g = canvas.getContext('2d');
+      g.fillStyle = '#fff';
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      g.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      bmp.close?.();
+      const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+      if (out && out.size < file.size) {
+        blob = out;
+        type = 'image/jpeg';
+        name = `${name.replace(/\.[^.]+$/, '') || 'photo'}.jpg`;
+      }
+    } catch {
+      /* sent as it is */
+    }
+  }
+  const data = await new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1] || '');
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+  return { name, type, data, size: blob.size };
+}
+
 function fileRequest(d, { prestations, wish }) {
   if (!api) return;
   const body = JSON.stringify({
@@ -707,11 +746,13 @@ if (form) {
     const btn = form.querySelector('[type="submit"]');
     // bots fill the hidden field: pretend nothing happened
     if (form.elements._honey?.value || form.elements._gotcha?.value) return;
-    // optional attachments: images or PDF, 10 MB in all
+    // optional attachments: images or PDF, 10 MB in all (to the site's server: once the photos
+    // are made lighter, see prepareFile)
     const fileInput = form.querySelector('input[type="file"]');
     const files = fileInput ? [...fileInput.files] : [];
     const maxMb = Number(fileInput?.dataset.maxMb || 10);
-    if (files.reduce((a, f) => a + f.size, 0) > maxMb * 1024 * 1024 || files.some((f) => !/^image\/|pdf$/.test(f.type))) {
+    const direct = /\/api\/demande$/.test(form.action);
+    if ((!direct && files.reduce((a, f) => a + f.size, 0) > maxMb * 1024 * 1024) || files.some((f) => !/^image\/|pdf$/.test(f.type))) {
       status.textContent = `Pièces jointes : images ou PDF uniquement, ${maxMb} Mo maximum au total.`;
       status.classList.add('is-error');
       fileInput.focus();
@@ -723,9 +764,54 @@ if (form) {
     // the code typed and the result of its check, done again now: valid the day the request is sent
     codeInfo = null;
     const code = await checkCode();
+    let acked = false;
+    let reason = '';
     try {
       let res;
-      if (/formsubmit\.co\//.test(form.action)) {
+      if (direct) {
+        // the site's own server (booking/store.js, quote/submit): one e-mail to the workshop, the
+        // photos attached, answering it writes to the visitor; an acknowledgment to the visitor
+        const d = new FormData(form);
+        const { prestations, wish } = fields(d);
+        if (files.length) status.textContent = 'Préparation des photos…';
+        const prepared = [];
+        for (const f of files) prepared.push(await prepareFile(f));
+        if (prepared.reduce((a, f) => a + f.size, 0) > maxMb * 1024 * 1024) {
+          reason = `Pièces jointes trop lourdes : ${maxMb} Mo maximum au total. Retirez un fichier, ou envoyez-le en répondant à notre e-mail.`;
+          throw new Error('too heavy');
+        }
+        status.textContent = 'Envoi en cours…';
+        res = await fetch(form.action, {
+          method: 'POST',
+          // plain text: no preflight request; the server reads it as JSON
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          body: JSON.stringify({
+            v: 2,
+            firstName: d.get('prenom') || '',
+            lastName: d.get('nom') || '',
+            email: d.get('email') || '',
+            phone: d.get('telephone') || '',
+            make: d.get('marque') || '',
+            model: d.get('modele') || '',
+            year: d.get('annee') || '',
+            services: prestations.join(', '),
+            wish,
+            message: d.get('message') || '',
+            source: { channels: d.getAll('connu'), other: String(d.get('connu_autre') || '') },
+            code: String(d.get('code') || ''),
+            consent: !!d.get('consentement'),
+            trap: String(d.get('_gotcha') || ''),
+            files: prepared.map(({ name, type, data }) => ({ name, type, data })),
+          }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.ok) {
+          // a field the server finds missing, files too heavy: said as it is
+          if (res.status === 400 || res.status === 413) reason = json.error || '';
+          throw new Error(json.error || String(res.status));
+        }
+        acked = !!json.ack;
+      } else if (/formsubmit\.co\//.test(form.action)) {
         // FormSubmit AJAX endpoint: readable labels in the e-mail, reply-to = the visitor
         const d = new FormData(form);
         const { prestations, wish, subject } = fields(d);
@@ -789,7 +875,8 @@ if (form) {
       }
       remember(sig);
       const heard = new FormData(form);
-      fileRequest(heard, fields(heard));
+      // the site's server files the request itself
+      if (!direct) fileRequest(heard, fields(heard));
       form.reset();
       codeInfo = null;
       if (codeStatus) codeStatus.textContent = '';
@@ -797,7 +884,9 @@ if (form) {
       track('demande_envoyee', { pieces_jointes: 0 });
       // the answers to « Comment nous avez-vous connus ? », counted in the statistics
       sendHit({ t: 'connu', c: heard.getAll('connu'), o: String(heard.get('connu_autre') || '') });
-      status.textContent = 'Merci ! Votre demande a bien été envoyée, nous revenons vers vous rapidement.';
+      status.textContent = acked
+        ? 'Merci ! Votre demande a bien été envoyée : un e-mail de confirmation vient de vous être adressé. Nous revenons vers vous rapidement.'
+        : 'Merci ! Votre demande a bien été envoyée, nous revenons vers vous rapidement.';
       status.classList.add('is-ok');
       status.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
     } catch (err) {
@@ -809,7 +898,9 @@ if (form) {
       const phone = document.querySelector('a[href^="tel:"]');
       status.innerHTML = '';
       const p = document.createElement('p');
-      p.textContent = 'L’envoi n’a pas abouti (connexion ou service momentanément indisponible). Votre demande est toujours là : réessayez dans un instant, ou appelez-nous.';
+      p.textContent = reason
+        ? `Votre demande n’est pas partie. ${reason}`
+        : 'L’envoi n’a pas abouti (connexion ou service momentanément indisponible). Votre demande est toujours là : réessayez dans un instant, ou appelez-nous.';
       const actions = document.createElement('p');
       actions.className = 'form__fallback';
       const retry = document.createElement('button');

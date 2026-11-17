@@ -1170,7 +1170,11 @@ const field = (id, label, open, error, tag = 'input') =>
 
 export function contactPage(ctx) {
   const { contactPage: c, business: b, services } = ctx;
-  const formsubmit = /formsubmit\.co/.test(b.formEndpoint || '');
+  // the site's server when there is one (booking/store.js: e-mails to the workshop and to the
+  // visitor), otherwise the form service of content/site.js
+  const api = ctx.booking?.bookingRules?.api;
+  const action = api ? `${api}/api/demande` : b.formEndpoint || '';
+  const formsubmit = !api && /formsubmit\.co/.test(b.formEndpoint || '');
   const body = `
   <section class="section page-intro">
     <div class="container container--narrow">
@@ -1181,7 +1185,7 @@ export function contactPage(ctx) {
   </section>
   <section class="section section--tight">
     <div class="container contact-grid">
-      <form class="form" data-form action="${esc(b.formEndpoint || '')}" method="post" novalidate>
+      <form class="form" data-form action="${esc(action)}" method="post"${api ? ' enctype="multipart/form-data"' : ''} novalidate>
         <p class="form__req">Champs obligatoires marqués d’un <span class="req" aria-hidden="true">*</span> ; la photo et le rendez-vous sont facultatifs.</p>
         <div class="form__summary" role="alert" data-form-summary hidden></div>
         <div class="form__row form__row--2">
@@ -1208,7 +1212,7 @@ export function contactPage(ctx) {
         ${`<div class="form__row">
           <label for="f-files">Photos ou documents <span class="optional">(facultatif)</span></label>
           <input id="f-files" name="attachment" type="file" accept="image/*,.pdf" multiple data-max-mb="10">
-          <p class="form__hint">Photos du véhicule, des vitres, des phares ou de la carrosserie. Images (JPG, PNG, HEIC…) ou PDF, 10 Mo maximum au total. Inutile d’envoyer une carte grise complète.</p>
+          <p class="form__hint">Photos du véhicule, des vitres, des phares ou de la carrosserie. Images (JPG, PNG, HEIC…) ou PDF, 10 Mo maximum au total${api ? ' (les photos sont allégées avant l’envoi)' : ''}. Inutile d’envoyer une carte grise complète.</p>
         </div>`}
         <fieldset class="form__row form__row--2 form__slot">
           <legend>Rendez-vous souhaité <span class="optional">(facultatif)</span></legend>
@@ -1282,7 +1286,7 @@ export function legalPage(ctx) {
       <p><strong>Données et finalité :</strong> les informations saisies dans le formulaire (identité, coordonnées, véhicule, prestation, message et éventuelles photos) servent uniquement à répondre à votre demande de devis ou de rendez-vous et à son suivi. Elles ne sont ni vendues ni cédées. N’envoyez que les photos utiles à la demande (inutile, par exemple, de joindre une carte grise complète).</p>
       <p><strong>Base légale :</strong> les mesures précontractuelles prises à votre demande (article 6.1.b du RGPD).</p>
       <p><strong>Fichier clients :</strong> vos demandes de devis et vos réservations en ligne sont aussi enregistrées dans le fichier clients de l’atelier (hébergé par Cloudflare), réservé à l’atelier, pour le suivi de vos demandes et de vos rendez-vous. Une fiche sans nouveau contact pendant 3 ans est effacée automatiquement.</p>
-      <p><strong>Destinataires :</strong> l’atelier uniquement.${b.formEndpoint && /formsubmit\.co/.test(b.formEndpoint) ? ' Le formulaire est acheminé par le service FormSubmit (formsubmit.co), prestataire établi hors de l’Union européenne, qui transmet votre demande par e-mail à l’atelier sans la publier.' : ''}</p>
+      <p><strong>Destinataires :</strong> l’atelier uniquement.${ctx.booking?.bookingRules?.api ? ' Le formulaire de devis est transmis au serveur du site (hébergé par Cloudflare), qui envoie votre demande par e-mail à l’atelier et vous en adresse un accusé de réception. Les e-mails du site (accusé de réception d’une demande, confirmation et rappel d’un rendez-vous) passent par le service d’envoi Resend (Resend, Inc.), prestataire établi hors de l’Union européenne, qui ne les utilise pas à d’autres fins.' : b.formEndpoint && /formsubmit\.co/.test(b.formEndpoint) ? ' Le formulaire est acheminé par le service FormSubmit (formsubmit.co), prestataire établi hors de l’Union européenne, qui transmet votre demande par e-mail à l’atelier sans la publier.' : ''}</p>
       ${b.google?.placeId && b.google?.mapsApiKey ? '<p>Les avis Google affichés sur le site sont chargés depuis Google Maps Platform (Google Ireland Ltd) au moment de la visite ; Google reçoit alors l’adresse IP du visiteur.</p>' : ''}
       ${b.instagramFeed?.feedUrl ? '<p>Les dernières publications Instagram sont chargées depuis le service de flux qui les met à disposition ; ce service reçoit alors l’adresse IP du visiteur.</p>' : ''}
       <p><strong>Durée de conservation :</strong> ${l.retention ? esc(l.retention) : 'le temps nécessaire pour répondre à votre demande et en assurer le suivi'}.</p>

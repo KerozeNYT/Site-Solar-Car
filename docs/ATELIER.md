@@ -62,7 +62,7 @@ lui-même, aucune page indexée.
   1er décembre au 24 décembre à 23 h 59**, quelle que soit la date du rendez-vous (l'agenda en
   ligne va jusqu'à environ 6 mois). Vitres et feux teintés : code saisi au paiement ; autres
   prestations : code saisi dans la demande de devis, vérifié par le serveur le jour de la demande et
-  noté en tête de la demande dans le fichier clients (et dans l'e-mail FormSubmit). Bandeau Noël du
+  noté en tête de la demande dans le fichier clients (et dans l'e-mail de la demande). Bandeau Noël du
   1er au 24 décembre. Tout se modifie dans l'espace.
 - **Compte à rebours** (`src/js/countdown.js`) : le bandeau affiche « Jusqu'au 24 décembre à
   23 h 59 » et « Plus que 7 jours », puis le dernier jour « plus que 2 h 48 min 12 s » à la seconde

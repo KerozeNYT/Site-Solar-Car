@@ -69,7 +69,8 @@ export function policy(business, hashes) {
     'worker-src': ["'self'", 'blob:'],
     'frame-src': ["'none'"],
     'manifest-src': ["'self'"],
-    'form-action': ["'self'", form],
+    // the quote form posted without JavaScript goes to the booking server (/api/demande)
+    'form-action': ["'self'", form, booking],
     'base-uri': ["'self'"],
     'object-src': ["'none'"],
   };

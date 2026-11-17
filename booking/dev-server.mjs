@@ -31,10 +31,12 @@ const env = {
   STRIPE_WEBHOOK_SECRET: WHSEC,
   STATS: fakeStats(),
   STATS_KEY: 'dev',
-  ATELIER: fakeDO(Atelier),
+  ATELIER: fakeDO(Atelier, () => env),
   ATELIER_SECRET: 'dev',
   // e-mails are caught (test/fakes.mjs) and their subject printed here: the sign-in code too
   RESEND_API_KEY: 're_dev',
+  // the client's e-mails too (acknowledgment of a quote request, confirmation of a booking)
+  MAIL_CLIENTS: '1',
   NOTIFY_TO: 'atelier@local',
   SITE_URL: 'http://localhost:4190',
 };
@@ -80,6 +82,10 @@ http
       return res.writeHead(303, { location: s.cancel_url || '/' }).end();
     }
     if (url.pathname === '/dev/calendar') return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(cal[CAR].filter((e) => e.extendedProperties), null, 1));
+    // the e-mails caught: the list (attachments as name and size), and each one as it would show
+    if (url.pathname === '/dev/mails') return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(mails.map(({ html, text, attachments, ...m }, i) => ({ n: i, ...m, attachments: (attachments || []).map((a) => ({ filename: a.filename, bytes: Math.floor((String(a.content).length * 3) / 4) })), page: `/dev/mail/${i}` })), null, 1));
+    const shown = /^\/dev\/mail\/(\d+)$/.exec(url.pathname);
+    if (shown && mails[shown[1]]) return res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(mails[shown[1]].html);
     const body = ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? undefined : await new Promise((r) => {
       const parts = [];
       req.on('data', (c) => parts.push(c));
