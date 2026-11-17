@@ -776,8 +776,13 @@ if (form) {
         const url = form.action.replace('formsubmit.co/', 'formsubmit.co/ajax/');
         res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(payload) });
         const json = await res.json().catch(() => ({}));
-        // only a confirmed success counts (the service answers success: "true" or true)
-        if (!res.ok || String(json.success) !== 'true') throw new Error(json.message || String(res.status));
+        // a form not activated yet ("This form needs Activation"): FormSubmit keeps the request
+        // and delivers it once the workshop clicks "Activate Form". It counts as sent: asking the
+        // visitor to try again made every attempt arrive as one more copy (5 on 17/11/2026)
+        const held = /activat/i.test(String(json.message || ''));
+        if (held) console.warn('[form] FormSubmit en attente d’activation : la demande sera transmise après activation');
+        // otherwise only a confirmed success counts (the service answers success: "true" or true)
+        else if (!res.ok || String(json.success) !== 'true') throw new Error(json.message || String(res.status));
       } else {
         res = await fetch(form.action, { method: 'POST', body: new FormData(form), headers: { Accept: 'application/json' } });
         if (!res.ok) throw new Error(String(res.status));

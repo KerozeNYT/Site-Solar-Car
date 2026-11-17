@@ -81,9 +81,11 @@ export const business = {
   priceRange: '€€',
   // Where the contact form posts. FormSubmit (formsubmit.co, free, no account) forwards each
   // request by e-mail to the address in the URL; the very first request sends an "Activate
-  // Form" e-mail to that address, to click once. After activation FormSubmit e-mails a random
-  // alias: it can replace the address below. When null the form opens the visitor's e-mail app.
-  formEndpoint: 'https://formsubmit.co/contact@solarcar37.fr',
+  // Form" e-mail to that address, to click once. The URL holds FormSubmit's random alias of
+  // contact@solarcar37.fr (given in that e-mail, activated on www.solarcar37.fr on 17/11/2026),
+  // so the address itself is not in the form. Used by the quote form only (/contact/).
+  // When null the form opens the visitor's e-mail app.
+  formEndpoint: 'https://formsubmit.co/6bb4ebd41a3a47ac2b9774aaa2f26386',
   // Online booking: content/booking.js (the site's own booking page and server)
   // Visit statistics (docs/STATISTIQUES.md), without cookie: each page sends its view and the
   // visitor's actions to the booking server (`endpoint`), read on its /stats page.

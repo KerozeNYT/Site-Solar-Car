@@ -38,8 +38,8 @@ Si le site ajoute un service externe (réservation en ligne, flux Instagram…),
    - quota journalier plafonné et alerte de budget (Facturation → Budgets et alertes).
    Vérifié le 13 novembre 2026 : depuis l'adresse de l'aperçu, les avis se chargent bien
    (note 5,0, 302 avis).
-5. **FormSubmit** : après activation, FormSubmit envoie un alias aléatoire (une suite de
-   caractères à la place de l'adresse). Le mettre dans `formEndpoint` (`content/site.js`) :
+5. **FormSubmit** : fait le 17 novembre 2026. `formEndpoint` (`content/site.js`) contient
+   l'alias aléatoire donné par FormSubmit dans son e-mail d'activation, à la place de l'adresse :
    l'adresse e-mail n'apparaît plus dans le formulaire et ne peut plus être réutilisée par des
    robots via FormSubmit.
 6. **Après la mise en ligne** : tester `https://www.solarcar37.fr` sur

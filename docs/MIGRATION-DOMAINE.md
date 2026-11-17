@@ -128,7 +128,7 @@ Prévoir aussi : `solarcar37.fr` → `https://www.solarcar37.fr` et `http://` �
    aux enregistrements e-mail**.
 3. Activer le certificat HTTPS de l'hébergeur et forcer HTTPS.
 4. Vérifier : pages principales, redirections, formulaire (FormSubmit activé sur
-   contact@solarcar37.fr), pièces jointes, téléphone, itinéraire.
+   contact@solarcar37.fr, via son alias), pièces jointes, téléphone, itinéraire.
 
 ## 5. Après la bascule
 

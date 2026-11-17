@@ -1,5 +1,19 @@
 # Journal des changements
 
+## Formulaire de devis : une demande = un e-mail ; Cloudflare Web Analytics (17 novembre 2026)
+
+- FormSubmit : le formulaire envoie à l'alias aléatoire de contact@solarcar37.fr (e-mail
+  d'activation) au lieu de l'adresse. Il ne sert qu'au formulaire de devis (`/contact/`).
+- Avant l'activation, FormSubmit garde chaque demande et la transmet après le clic sur
+  « Activate Form » ; le site affichait pourtant « L'envoi n'a pas abouti, réessayez », et chaque
+  nouvel essai arrivait en un exemplaire de plus (5 copies d'une même demande et 4 e-mails
+  d'activation le 17 novembre). Cette réponse compte maintenant comme un envoi réussi : le
+  visiteur voit le message de remerciement et ne renvoie rien. Une demande identique renvoyée
+  dans les 15 minutes reste bloquée comme avant.
+- Cloudflare Web Analytics : jeton dans `content/site.js`, script ajouté par le build de
+  production et autorisé par la Content-Security-Policy (plus d'erreur dans la console) ;
+  l'installation automatique de Cloudflare reste à couper (`docs/STATISTIQUES.md`).
+
 ## Habillage saisonnier : Néon jusqu'au 30 novembre, Noël en décembre (17 novembre 2026)
 
 - Tout le site change d'habit selon la date (jour à Paris), sans reconstruction : `content/themes.js`
