@@ -80,19 +80,31 @@ Effacement au bout de 25 mois. Les mentions légales (`/mentions-legales/#confid
 décrivent le comptage. C'est le cadre des mesures d'audience que la CNIL dispense de consentement ;
 le faire relire en même temps que les autres mentions si besoin.
 
-## Cloudflare Web Analytics (à faire à la mise en ligne)
+## Cloudflare Web Analytics (en place depuis le 17 novembre 2026)
 
 En complément, pour la **vitesse réelle des pages** chez les visiteurs (Core Web Vitals), les pays
-et les navigateurs. Gratuit, sans cookie. Le jeton Cloudflare utilisé ici ne permet pas de le
-créer : à faire dans le tableau de bord du compte contact.solarcar37@gmail.com.
+et les navigateurs. Gratuit, sans cookie. Les chiffres se lisent dans le tableau de bord
+Cloudflare du compte contact.solarcar37@gmail.com (Analytics & Logs → Web Analytics, ou
+Workers et Pages → `solarcar37` → Metrics).
 
-1. Cloudflare → Analytics & Logs → Web Analytics → Add a site → `www.solarcar37.fr`.
-2. Choisir l'extrait JavaScript manuel ; copier le jeton (`"token": "…"` dans le code affiché).
-3. Le coller dans `content/site.js` → `business.stats.cloudflareToken`, puis `npm run build`.
-   Le script n'est ajouté qu'au build de production (jamais à l'aperçu) et la
-   Content-Security-Policy l'autorise d'elle-même.
-4. Ne pas activer l'installation automatique de Cloudflare Pages : la politique de sécurité la
-   bloquerait, et les visites seraient comptées deux fois.
+- Le jeton du site est dans `content/site.js` → `business.stats.cloudflareToken` (c'est celui que
+  l'installation automatique de Cloudflare mettait dans son propre script ; il est public par
+  nature, il figure dans chaque page). Le build de production ajoute le script
+  `beacon.min.js` dans chaque page (jamais à l'aperçu) et la Content-Security-Policy l'autorise
+  d'elle-même (`static.cloudflareinsights.com`, `cloudflareinsights.com`).
+- L'**installation automatique** de Cloudflare doit rester **coupée** : sinon Cloudflare ajoute
+  un second script et les visites risquent d'être comptées deux fois. Elle se coupe dans le
+  tableau de bord (le jeton Cloudflare utilisé ici ne le permet pas) : Analytics & Logs → Web
+  Analytics → le site → Manage site → Advanced options → « JS Snippet injection » sur Off (ou
+  « Disable » si c'est la seule option), ou Workers et Pages → `solarcar37` → Metrics → Web
+  Analytics. Si ce réglage supprime le site et son jeton, recréer un site `www.solarcar37.fr`
+  avec l'extrait JavaScript manuel et coller le nouveau jeton dans `content/site.js`.
+- Contrôle : sur `https://www.solarcar37.fr/`, la console du navigateur ne montre aucune erreur
+  Content-Security-Policy et le code source de la page ne contient qu'un seul script
+  `cloudflareinsights`.
+- Ne plus s'en servir : remettre `cloudflareToken: null` (le script et l'autorisation
+  disparaissent au build suivant, la phrase des mentions légales aussi) et laisser
+  l'installation automatique coupée.
 
 ## Technique
 

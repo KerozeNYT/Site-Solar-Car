@@ -88,11 +88,12 @@ export const business = {
   // Visit statistics (docs/STATISTIQUES.md), without cookie: each page sends its view and the
   // visitor's actions to the booking server (`endpoint`), read on its /stats page.
   // `cloudflareToken`: Cloudflare Web Analytics (cookieless; real page speed, countries), added to
-  // the production build only; the token of the "www.solarcar37.fr" site created in the
-  // Cloudflare dashboard (Analytics & Logs → Web Analytics → Add a site → manual JS snippet).
+  // the production build only, and allowed by the Content-Security-Policy; the site token of
+  // www.solarcar37.fr (the one Cloudflare's automatic setup put in its own script). Cloudflare's
+  // automatic injection must stay off: the build adds the script itself (docs/STATISTIQUES.md).
   stats: {
     endpoint: 'https://solarcar37-reservation.contact-solarcar37.workers.dev/api/stats',
-    cloudflareToken: null,
+    cloudflareToken: '4a0b5421049446689e639957a1658ebd',
   },
 };
 

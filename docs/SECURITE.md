@@ -4,7 +4,7 @@
 
 | Protection | Où | Effet |
 |---|---|---|
-| Content-Security-Policy dans chaque page | `scripts/security.mjs` (balise meta, ajoutée par `npm run build`) | Le navigateur refuse tout script, style, image ou connexion qui ne vient pas du site, de FormSubmit ou de Google (avis). Le seul script écrit dans les pages est autorisé par son empreinte. |
+| Content-Security-Policy dans chaque page | `scripts/security.mjs` (balise meta, ajoutée par `npm run build`) | Le navigateur refuse tout script, style, image ou connexion qui ne vient pas du site, de FormSubmit, de Google (avis), du serveur de réservation ou de Cloudflare Web Analytics (statistiques, `docs/STATISTIQUES.md`). Le seul script écrit dans les pages est autorisé par son empreinte. |
 | En-têtes HTTP complets | `_headers` (Netlify, Cloudflare Pages) et `.htaccess` (Apache, OVH), écrits par le build de production | HTTPS imposé (HSTS), interdiction d'afficher le site dans un cadre (clickjacking), `nosniff`, `Referrer-Policy`, caméra / micro / géolocalisation désactivés, isolation de la fenêtre (COOP), CSP complète. |
 | `/.well-known/security.txt` | build de production | Indique où signaler un problème de sécurité (RFC 9116), valable un an après chaque build. |
 | Contenus externes échappés | `src/js/reviews.js`, `src/js/instagram.js` | Un avis ou une légende piégés ne peuvent pas injecter de code. |
