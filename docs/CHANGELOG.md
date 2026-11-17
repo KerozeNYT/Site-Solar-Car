@@ -1,5 +1,13 @@
 # Journal des changements
 
+## Noël : une vraie chute de neige sur les pages (17 novembre 2026)
+
+- Thème Noël (1er-31 décembre, `content/themes.js`) : flocons à six branches et flocons ronds sur
+  trois profondeurs, qui tombent en se balançant, par-dessus les pages (sous l'en-tête, sans gêner
+  les clics). `src/js/snow.js` : une seule toile, lancée une fois la page chargée, moins de flocons
+  sur téléphone, en pause quand l'onglet est caché, rien pour les visiteurs qui réduisent les
+  animations. Aperçu : `?apercu-theme=noel`.
+
 ## Réservation : 4 créneaux par jour, 8 h, 10 h, 13 h, 15 h (17 novembre 2026)
 
 - Sur le site comme dans l'espace atelier, les départs ne sont plus proposés tous les quarts

@@ -6002,6 +6002,22 @@ html[data-saison='noel'] .saison-fx::after {
   animation-duration: 24s;
   filter: blur(0.6px);
 }
+/* the snowfall drawn by src/js/snow.js (crystals and round flakes): the dots above give way to it */
+.saison-fx__snow {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: saison-snow-in 2.4s ease forwards;
+}
+html[data-saison='noel'] .saison-fx.is-snowing::before,
+html[data-saison='noel'] .saison-fx.is-snowing::after {
+  display: none;
+}
+@keyframes saison-snow-in {
+  to {
+    opacity: 1;
+  }
+}
 @keyframes saison-snow {
   from {
     transform: translate3d(0, 0, 0);

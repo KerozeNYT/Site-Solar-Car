@@ -1,5 +1,6 @@
 // Site-wide behaviour. Everything here is progressive enhancement: pages work without it.
 import { startAmbient } from './ambient.js';
+import { startSnow } from './snow.js';
 import { deadlineText, runCountdown } from './countdown.js';
 
 const html = document.documentElement;
@@ -7,6 +8,8 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ---------------------------------------------------------------- garage ambience (backdrop)
 startAmbient();
+// December (look « noel »): snow over the pages
+startSnow();
 {
   // the backdrop rests while the 3D tour fills the screen (it is hidden behind it anyway)
   const ambient = document.querySelector('[data-ambient]');
