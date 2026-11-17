@@ -46,11 +46,11 @@
  *   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET (secrets) its Google sign-in (OAuth client)
  */
 import { business as B } from '../content/site.js';
-import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor } from '../content/booking.js';
+import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor, withExtra } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents } from './google.js';
-import { createSession, getSession, verifyWebhook } from './stripe.js';
-import { sendBookingMails, sendReminderMail, sendFollowUpMail } from './mail.js';
+import { createSession, getSession, expireSession, verifyWebhook } from './stripe.js';
+import { sendBookingMails, sendReminderMail, sendFollowUpMail, sendPaymentLink } from './mail.js';
 import { record, hitFromPage, heardRows } from './stats.js';
 import { statsPage } from './stats-page.js';
 import { sendMonthly, monthRoute } from './stats-report.js';
@@ -79,8 +79,9 @@ function cors(req, env) {
 }
 const json = (data, status, headers) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers } });
 
-/** the price of a booking from its payment session's metadata, with its referral discount */
-const priced = (m) => withDiscount(quote(JSON.parse(m.config || '{}')), Number(m.discount) || 0);
+/** the price of a booking from its payment session's metadata, with its referral discount (and
+ *  the lines added by the workshop for an appointment taken on the phone: `extra`) */
+const priced = (m) => withDiscount(withExtra(quote(JSON.parse(m.config || '{}')), JSON.parse(m.extra || '[]')), Number(m.discount) || 0);
 
 /** today in Paris */
 const today = (now) => utcToZoned(now, R.timeZone).date;
@@ -199,7 +200,9 @@ async function confirm(env, session) {
   // with the answers to « Comment nous avez-vous connus ? »
   const site = session.livemode ? 'site' : 'apercu';
   const heard = howHeardParse(c.source);
-  await record(env, [{ site, kind: 'rdv', page: '/reservation/', detail: q.items.map((i) => i.label).join(' + ').slice(0, 120), value: paid }, ...heardRows({ site, page: '/reservation/' }, heard.channels, heard.other)]).catch((err) => console.error('[stats]', err));
+  // an appointment taken by the workshop on the phone is counted apart from the site's bookings
+  const from = m.origin === 'atelier' ? '/atelier/rdv/' : '/reservation/';
+  await record(env, [{ site, kind: 'rdv', page: from, detail: q.items.map((i) => i.label).join(' + ').slice(0, 120), value: paid }, ...heardRows({ site, page: from }, heard.channels, heard.other)]).catch((err) => console.error('[stats]', err));
   if (env.ATELIER) {
     // the code is counted now that the booking is paid (checked when the payment opened): a
     // referral code is used up, a promotion counts one more use
@@ -339,8 +342,151 @@ async function webhook(req, env) {
     const id = s?.metadata?.event;
     const ev = id ? await getEvent(env, env.CALENDAR_WRITE, id).catch(() => null) : null;
     if (ev && ev.extendedProperties?.private?.solarcarHold === '1') await deleteEvent(env, env.CALENDAR_WRITE, id).catch(() => {});
+    // a link sent by the workshop: no longer waiting
+    if (s?.metadata?.origin === 'atelier' && env.ATELIER) await db(env, 'link/status', { session: s.id, status: 'expire' }).catch(() => {});
   }
   return json({ received: true }, 200);
+}
+
+// ---------------------------------------------------------------- appointments taken by the workshop
+/** the workshop's own opening for an appointment taken on the phone: no 48 h notice */
+const atelierRules = { ...R, noticeHours: 0 };
+
+/** free start times of one day for a job of `minutes` (the space's « Nouveau RDV »), busy times of
+ *  all the calendars of CALENDARS_BUSY; { times } or { error } */
+export async function atelierSlots(env, date, minutes, now) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return { error: 'Date à choisir' };
+  const fromMs = zonedToUtc(date, '00:00', R.timeZone);
+  const toMs = zonedToUtc(addDays(date, 1), '00:00', R.timeZone);
+  await releaseStaleHolds(env, fromMs, toMs, now).catch(() => {});
+  const busy = await busyIntervals(env, list(env.CALENDARS_BUSY), fromMs, toMs);
+  const day = freeStarts({ from: date, days: 1, minutes: Math.max(15, Number(minutes) || 60), busy, now, rules: atelierRules })[0];
+  return { times: day?.times || [], busy: busy.filter(([a, b]) => b > fromMs && a < toMs).map(([a, b]) => [utcToZoned(Math.max(a, fromMs), R.timeZone).time, b >= toMs ? '24:00' : utcToZoned(b, R.timeZone).time]) };
+}
+
+/**
+ * An appointment taken by the workshop (on the phone, at the counter), from its space:
+ *   b: { customer: { firstName, lastName, email, phone, vehicle, plate }, config (as online),
+ *        extra: [{ label, price, minutes }], date, time, force, mode: 'deposit' | 'full' | 'none',
+ *        code, note, hours (life of the payment link, 1 to 24) }
+ * With a payment (deposit or full): the slot held in the calendar, a Stripe payment page valid
+ * `hours` hours, e-mailed to the client; once paid, the same path as an online booking (the
+ * appointment confirmed in the calendar, the e-mails, the client file). Without (or nothing left to
+ * pay, a 100 % code): the appointment written in the calendar at once, the client e-mailed.
+ * Returns { ok, id (the link), url, confirmed } or { error, taken }.
+ */
+export async function atelierBooking(env, b, now) {
+  const base = quote(b.config || {});
+  let q = withExtra(base, b.extra);
+  if (q.error) return { error: q.error === 'Prestation à choisir' ? 'Choisissez au moins une prestation.' : q.error };
+  const s = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+  const c = { firstName: s(b.customer?.firstName, 60), lastName: s(b.customer?.lastName, 60), email: s(b.customer?.email, 120).toLowerCase(), phone: s(b.customer?.phone, 30), vehicle: s(b.customer?.vehicle, 80), plate: s(b.customer?.plate, 15).toUpperCase(), message: s(b.note, 400), source: s(b.customer?.source, 180) };
+  if (!c.firstName && !c.lastName) return { error: 'Indiquez le nom du client.' };
+  const mode = ['deposit', 'full', 'none'].includes(b.mode) ? b.mode : 'deposit';
+  if (c.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email)) return { error: 'Adresse e-mail à vérifier.' };
+  if (mode !== 'none' && !c.email) return { error: 'Il faut l’e-mail du client pour lui envoyer le lien de paiement.' };
+  if (c.phone && c.phone.replace(/\D/g, '').length < 9) return { error: 'Numéro de téléphone à vérifier.' };
+  // a code: checked as online, counted once the appointment is confirmed
+  let code = '';
+  let codeKind = '';
+  if (b.code) {
+    const r = await checkCode(env, b.code, now);
+    if (!r.ok) return { error: r.error };
+    const off = discountFor(q, r);
+    if (!off) return { error: `Le code ${r.code} ne s’applique pas à ces prestations.` };
+    code = r.code;
+    codeKind = r.kind;
+    q = withDiscount(q, off);
+  }
+  const { date, time } = b;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '') || !/^\d{2}:\d{2}$/.test(time || '')) return { error: 'Choisissez la date et l’heure.' };
+  // in the opening hours (the lunch break skipped), else exactly the time typed
+  const span = jobSpan(date, time, q.minutes, R) || { start: zonedToUtc(date, time, R.timeZone), end: zonedToUtc(date, time, R.timeZone) + q.minutes * 60000 };
+  span.segments ||= [[span.start, span.end]];
+  if (span.end < now) return { error: 'Ce créneau est déjà passé.' };
+  if (!b.force) {
+    await releaseStaleHolds(env, span.start - DAY, span.end + DAY, now).catch(() => {});
+    const busy = await busyIntervals(env, list(env.CALENDARS_BUSY), span.start, span.end);
+    if (span.segments.some(([a, z]) => busy.some(([x, y]) => a < y && x < z))) return { error: 'Ce créneau chevauche un autre rendez-vous de l’agenda. Choisissez-en un autre, ou cochez « Garder ce créneau quand même ».', taken: true };
+  }
+  const configText = JSON.stringify(b.config || {}).slice(0, 500);
+  // the lines beyond the online catalogue, for the payment's metadata (priced() reads them back)
+  const extraText = JSON.stringify(q.items.slice(base.error ? 0 : base.items.length).map((i) => ({ kind: i.kind, label: i.label, price: i.price, minutes: i.minutes })));
+  if (extraText.length > 500) return { error: 'Libellés des prestations trop longs : raccourcissez-les.' };
+  const due = mode === 'none' ? 0 : amountDue(q, mode);
+  const items = q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price }));
+
+  // no payment online: the appointment is written at once
+  if (mode === 'none' || due < 0.5) {
+    const id = `atelier-${now.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    const ev = await insertEvent(env, env.CALENDAR_WRITE, {
+      summary: `RDV ${titleOf(q, c)}`,
+      description: eventText(q, c, { date, time, mode: 'none', paid: 0, code, codeKind }).replace(/Payé en ligne : 0 € \([^)]*\)/, 'Pris à l’atelier, à régler sur place'),
+      colorId: '9',
+      start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone },
+      end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
+      extendedProperties: { private: { solarcarHold: '0', session: id, atelier: '1' } },
+    });
+    if (code) await (codeKind === 'promo' ? db(env, 'promo/use', { code }) : redeemReferral(env, code, { by: `${c.firstName} ${c.lastName}`, ref: id, where: 'à l’atelier' })).catch(() => {});
+    await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: 'none', paid: 0, customer: c });
+    const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: 0, mode: 'none', status: 'confirme', customer: c });
+    if (c.email) await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: 'none', paid: 0, sessionId: id, code, codeKind }).catch((err) => console.error('[mail] atelier booking', err.message));
+    return { ok: true, id: link.id, confirmed: true };
+  }
+
+  // a payment link: the slot held while the client pays (Stripe: 30 minutes to 24 hours)
+  const hours = Math.max(1, Math.min(24, Math.round(Number(b.hours) || 24)));
+  const expires = now + hours * 3600000 - 60000;
+  const hold = await insertEvent(env, env.CALENDAR_WRITE, {
+    summary: `⏳ Paiement en cours — ${titleOf(q, c)}`,
+    description: eventText(q, c, { date, time, mode, code, codeKind }),
+    colorId: '8',
+    start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone },
+    end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
+    extendedProperties: { private: { solarcarHold: '1', holdUntil: String(expires + 120000), atelier: '1' } },
+  });
+  const what = q.items.map((i) => i.label).join(' + ');
+  const when = longDate(date, time);
+  const site = String(env.SITE_URL || B.siteUrl).replace(/\/$/, '');
+  let session;
+  try {
+    session = await createSession(env, {
+      mode: 'payment',
+      locale: 'fr',
+      customer_email: c.email,
+      line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(due * 100), product_data: { name: `${mode === 'full' ? 'Règlement' : 'Acompte 30 %'} — ${what}`.slice(0, 250), description: `RDV le ${when} à l’atelier SOLAR CAR 37, Vouvray. Total ${euros(q.total)}${q.discount ? ` (code ${code} −${euros(q.discount)} déduit)` : ''}${mode === 'full' ? '' : `, reste ${euros(q.total - due)} à régler à l’atelier`}.` } } }],
+      payment_intent_data: { description: `SOLAR CAR 37 — ${what} — ${when}`.slice(0, 250), receipt_email: c.email },
+      expires_at: Math.floor(expires / 1000),
+      success_url: `${site}/reservation/confirmee/?session={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${site}/`,
+      metadata: { event: hold.id, date, time, mode, origin: 'atelier', config: configText, extra: extraText, customer: customerJson(c), ...(code ? { code, codeKind, discount: String(q.discount) } : {}) },
+    });
+  } catch (err) {
+    await deleteEvent(env, env.CALENDAR_WRITE, hold.id).catch(() => {});
+    console.error('[atelier] stripe', err.message);
+    return { error: 'Stripe n’a pas pu créer le lien de paiement : réessayez dans un instant.' };
+  }
+  await patchEvent(env, env.CALENDAR_WRITE, hold.id, { extendedProperties: { private: { solarcarHold: '1', holdUntil: String(expires + 120000), session: session.id, atelier: '1' } } });
+  const link = await db(env, 'link/add', { now, session: session.id, event: hold.id, date, time, minutes: q.minutes, items, total: q.total, due, mode, url: session.url, expires, customer: c });
+  const mailed = await sendPaymentLink(env, { q, c, date, time, start: span.start, end: span.end, due, mode, url: session.url, expires, note: c.message, code, codeKind })
+    .then(() => true)
+    .catch((err) => (console.error('[mail] payment link', err.message), false));
+  return { ok: true, id: link.id, url: session.url, mailed };
+}
+
+/** a link the workshop takes back: the payment page closed, the slot freed */
+export async function atelierCancel(env, id) {
+  const { link } = await db(env, 'link/get', { id });
+  if (!link) return { error: 'Lien introuvable.' };
+  if (link.status !== 'attente') return { error: 'Ce lien n’est plus en attente.' };
+  if (link.session) {
+    const sess = await getSession(env, link.session).catch(() => null);
+    if (sess?.payment_status === 'paid') return { error: 'Le client vient de payer : le rendez-vous est confirmé.' };
+    if (sess?.status === 'open') await expireSession(env, link.session).catch(() => {});
+  }
+  if (link.event) await deleteEvent(env, env.CALENDAR_WRITE, link.event).catch(() => {});
+  await db(env, 'link/status', { id, status: 'annule' });
+  return { ok: true };
 }
 
 async function booking(req, env, url) {

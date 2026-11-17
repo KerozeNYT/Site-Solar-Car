@@ -11,6 +11,8 @@
  *   bookings    the online bookings (paid), with their client
  *   requests    the quote requests sent from the site's form
  *   logins      the one-time codes e-mailed to sign in to the workshop's space
+ *   links       the appointments taken by the workshop (on the phone): the payment link sent to
+ *               the client, waiting, paid, expired or cancelled
  *
  * Each call is one request to the object, run on its own: a code checked and used, a client found
  * or added, can never be done twice at the same time.
@@ -221,6 +223,9 @@ export class Atelier {
     x(`CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY AUTOINCREMENT, request_id INTEGER NOT NULL, name TEXT NOT NULL DEFAULT '', type TEXT NOT NULL DEFAULT '', size INTEGER NOT NULL DEFAULT 0, data BLOB)`);
     x('CREATE INDEX IF NOT EXISTS files_request ON files (request_id)');
     x('CREATE TABLE IF NOT EXISTS logins (id INTEGER PRIMARY KEY AUTOINCREMENT, hash TEXT NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, used INTEGER NOT NULL DEFAULT 0)');
+    // status: attente (the link sent, the slot held), paye, expire, annule, confirme (no payment online)
+    x(`CREATE TABLE IF NOT EXISTS links (id INTEGER PRIMARY KEY AUTOINCREMENT, session TEXT NOT NULL DEFAULT '', client_id INTEGER NOT NULL DEFAULT 0, event TEXT NOT NULL DEFAULT '', date TEXT NOT NULL DEFAULT '', time TEXT NOT NULL DEFAULT '', minutes INTEGER NOT NULL DEFAULT 0, items TEXT NOT NULL DEFAULT '[]', total REAL NOT NULL DEFAULT 0, due REAL NOT NULL DEFAULT 0, mode TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '', expires INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'attente', vehicle TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL)`);
+    x('CREATE INDEX IF NOT EXISTS links_session ON links (session)');
   }
 
   all(q, ...b) {
@@ -764,6 +769,8 @@ export class Atelier {
           'INSERT INTO bookings (session, client_id, event, date, time, minutes, items, total, discount, code, code_kind, mode, paid, vehicle, live, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           clip(b.session, 120), id, clip(b.event, 120), clip(b.date, 10), clip(b.time, 5), Number(b.minutes) || 0, JSON.stringify(b.items || []).slice(0, 2000), Number(b.total) || 0, Number(b.discount) || 0, referralCode(b.code), clip(b.codeKind, 20), clip(b.mode, 10), Number(b.paid) || 0, clip(b.customer?.vehicle, 80), b.live === false ? 0 : 1, Number(b.created) || now
         );
+        // a link sent by the workshop, now paid
+        this.run("UPDATE links SET status = 'paye' WHERE session = ? AND session <> ''", clip(b.session, 120));
         // the client had asked for a quote for what they booked: that quote is « Validé »
         const booked = kinds((b.items || []).map((i) => i.label).join(' '));
         const when = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date)) ? `${String(b.date).split('-').reverse().join('/')} à ${String(b.time).replace(':', ' h ')}` : '';
@@ -827,7 +834,7 @@ export class Atelier {
           now,
           remind * DAY
         );
-        const v = this.one(`SELECT (SELECT COALESCE(MAX(id), 0) FROM requests) || '.' || (SELECT COALESCE(MAX(id), 0) FROM messages) || '.' || (SELECT COUNT(*) FROM requests) || '.' || (SELECT COUNT(*) FROM bookings) || '.' || (SELECT COALESCE(SUM(unread), 0) FROM requests) || '.' || (SELECT COALESCE(MAX(status_at), 0) FROM requests) || '.' || (SELECT COUNT(*) FROM clients) AS v`).v;
+        const v = this.one(`SELECT (SELECT COALESCE(MAX(id), 0) FROM requests) || '.' || (SELECT COALESCE(MAX(id), 0) FROM messages) || '.' || (SELECT COUNT(*) FROM requests) || '.' || (SELECT COUNT(*) FROM bookings) || '.' || (SELECT COALESCE(SUM(unread), 0) FROM requests) || '.' || (SELECT COALESCE(MAX(status_at), 0) FROM requests) || '.' || (SELECT COUNT(*) FROM clients) || '.' || (SELECT COUNT(*) FROM links) || '.' || (SELECT COUNT(*) FROM links WHERE status = 'attente') AS v`).v;
         return {
           v,
           closed,
@@ -971,6 +978,25 @@ export class Atelier {
         this.run('DELETE FROM logins WHERE created < ?', now - 7 * DAY);
         return { ok: true };
       }
+      // ------------------------------------------------ appointments taken by the workshop (links)
+      case 'link/add': {
+        const clientId = this.upsertClient(b.customer || {}, now, 'RDV pris à l’atelier');
+        this.run(
+          'INSERT INTO links (session, client_id, event, date, time, minutes, items, total, due, mode, url, expires, status, vehicle, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          clip(b.session, 120), clientId, clip(b.event, 200), clip(b.date, 10), clip(b.time, 5), Number(b.minutes) || 0, JSON.stringify(b.items || []).slice(0, 2000), Number(b.total) || 0, Number(b.due) || 0, clip(b.mode, 10), clip(b.url, 1000), Number(b.expires) || 0, clip(b.status, 12) || 'attente', clip(b.customer?.vehicle, 80), now
+        );
+        return { ok: true, id: this.one('SELECT last_insert_rowid() AS id').id, clientId };
+      }
+      case 'link/get':
+        return { link: this.one('SELECT l.*, c.first, c.last, c.email, c.phone FROM links l LEFT JOIN clients c ON c.id = l.client_id WHERE l.id = ?', Number(b.id) || 0) };
+      case 'links/list': {
+        // the waiting links past their time: expired (the slot was freed by Stripe's notice)
+        this.run("UPDATE links SET status = 'expire' WHERE status = 'attente' AND expires > 0 AND expires < ?", now);
+        return { links: this.all('SELECT l.*, c.first, c.last, c.email, c.phone FROM links l LEFT JOIN clients c ON c.id = l.client_id ORDER BY l.created DESC LIMIT ?', Math.min(200, Number(b.limit) || 50)) };
+      }
+      case 'link/status':
+        this.run('UPDATE links SET status = ? WHERE (id = ? OR (session = ? AND session <> \'\')) AND status = \'attente\'', clip(b.status, 12), Number(b.id) || 0, clip(b.session, 120));
+        return { ok: true };
       case 'setting/get':
         return { value: this.setting(String(b.key), null) };
       case 'setting/set':

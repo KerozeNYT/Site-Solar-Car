@@ -290,6 +290,34 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 .tile .ico{width:22px;height:22px;color:var(--gold);margin-top:2px}
 .tile b{display:block;font-weight:650}.tile span{display:block;color:var(--dim);font-size:13px;margin-top:2px}
 
+/* ---------------------------------------------------------------- Nouveau RDV */
+.rdvgrid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.rdvgrid>aside{position:sticky;top:20px}
+.rdvgrid h3{margin-top:18px}
+.xrow{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.6fr) 96px 84px;gap:8px}
+.xrow input,.xrow select{margin-bottom:8px}
+.slots__list{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.slot{padding:7px 12px;font-size:13px;font-weight:650;border-radius:999px;background:rgba(0,0,0,.3);color:var(--text-2);box-shadow:inset 0 0 0 1px var(--line-2)}
+.slot:hover{color:var(--text);box-shadow:inset 0 0 0 1px rgba(var(--gold-rgb),.5)}
+.slot.is-on{background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#0a0a0b;box-shadow:0 8px 20px -10px rgba(var(--gold-rgb),.9)}
+.slots .dim{margin:0 0 10px}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 16px}
+.seg label{margin:0;cursor:pointer}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:block;padding:12px 14px;border-radius:16px;border:1px solid var(--line-2);background:rgba(0,0,0,.28);transition:border-color .2s,background .2s}
+.seg b{display:block;color:var(--text);font-size:14px}.seg small{color:var(--dim);font-size:12px}
+.seg input:checked+span{border-color:rgba(var(--gold-rgb),.6);background:rgba(var(--gold-rgb),.1);box-shadow:inset 0 0 0 1px rgba(var(--gold-rgb),.3)}
+.seg input:checked+span b{color:var(--gold-2)}
+.seg input:focus-visible+span{outline:2px solid rgba(var(--gold-rgb),.6);outline-offset:2px}
+.recap{list-style:none;margin:0;padding:0}
+.recap li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.recap li small{display:block;color:var(--dim);font-size:12px}.recap li b{white-space:nowrap}
+.recap__tot,.recap__due{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-top:12px}
+.recap__tot b{font-size:24px;color:var(--gold-2);letter-spacing:-.02em}
+.recap__due{color:var(--text-2);font-size:14px;padding-top:6px}.recap__due b{color:var(--text)}
+@media (max-width:1000px){.rdvgrid{grid-template-columns:1fr}.rdvgrid>aside{position:static}}
+@media (max-width:640px){.xrow{grid-template-columns:1fr 1fr;padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:8px}.xrow select,.xrow [name=x_label]{grid-column:1/3}.seg{grid-template-columns:1fr}}
+
 /* ---------------------------------------------------------------- toasts */
 .toasts{position:fixed;right:22px;bottom:22px;z-index:60;display:grid;gap:10px;width:min(380px,calc(100vw - 32px))}
 .toast{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center;padding:14px 16px;border-radius:18px;text-decoration:none;color:var(--text);background:rgba(18,19,24,.94);border:1px solid color-mix(in srgb,var(--c,var(--gold)) 45%,transparent);box-shadow:0 24px 60px -18px rgba(0,0,0,.95),0 0 30px -12px var(--c,var(--gold));-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);animation:toast-in .5s var(--ease)}
@@ -565,10 +593,98 @@ export const JS = String.raw`(function () {
       .then(function () { busy = false; });
   }
 
+  // ------------------------------------------------------------ « Nouveau RDV »: price and free slots as the form is filled
+  function rdvForm() {
+    var form = d.getElementById('rdv');
+    if (!form) return;
+    var recap = d.getElementById('recap'), slots = d.getElementById('slots'), t = 0, lastSlots = '';
+    var presets = JSON.parse(form.getAttribute('data-presets') || '{}');
+    var prices = JSON.parse(form.getAttribute('data-prices') || '{}');
+    var el = function (n) { return form.elements[n]; };
+    function mark() {
+      Array.prototype.forEach.call(slots.querySelectorAll('.slot'), function (b) { b.classList.toggle('is-on', b.getAttribute('data-t') === el('heure').value); });
+    }
+    function say(text) { slots.innerHTML = ''; var p = d.createElement('p'); p.className = 'dim'; p.textContent = text; slots.appendChild(p); }
+    function loadSlots() {
+      var date = el('date').value, m = Number(form.getAttribute('data-minutes')) || 0;
+      if (!date) return;
+      if (!m) { say('Choisissez d’abord les prestations : les créneaux libres dépendent de la durée.'); return; }
+      var key = date + '/' + m;
+      if (key === lastSlots) return;
+      lastSlots = key;
+      say('Lecture de vos agendas…');
+      fetch('/atelier/creneaux?date=' + encodeURIComponent(date) + '&minutes=' + m, { credentials: 'same-origin', cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j.error) return say(j.error);
+          if (!j.times.length) return say('Aucun créneau libre ce jour-là pour cette durée. Tapez l’heure vous-même si besoin (et cochez « Garder ce créneau »).');
+          say('Créneaux libres ce jour-là :');
+          var box = d.createElement('div');
+          box.className = 'slots__list';
+          j.times.forEach(function (tm) {
+            var b = d.createElement('button');
+            b.type = 'button'; b.className = 'slot'; b.textContent = tm.replace(/^0/, '').replace(':', ' h ');
+            b.setAttribute('data-t', tm);
+            b.onclick = function () { el('heure').value = tm; mark(); };
+            box.appendChild(b);
+          });
+          slots.appendChild(box);
+          mark();
+        })
+        .catch(function () { say('Agenda indisponible : tapez l’heure vous-même.'); });
+    }
+    function price() {
+      fetch('/atelier/rdv/prix', { method: 'POST', body: new FormData(form), credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j) return;
+          recap.innerHTML = j.html;
+          if (String(j.minutes) !== form.getAttribute('data-minutes')) { form.setAttribute('data-minutes', String(j.minutes)); lastSlots = ''; }
+          loadSlots();
+        })
+        .catch(function () {});
+    }
+    function relabel() {
+      var p = prices[el('vt_vehicule').value] || {};
+      Array.prototype.forEach.call(el('vt_formule').options, function (o) {
+        if (o.value && p[o.value] != null) o.textContent = o.textContent.replace(/ · .*$/, '') + ' · ' + euro(p[o.value], 0);
+      });
+    }
+    form.addEventListener('change', function (e) {
+      var x = e.target;
+      if (x.hasAttribute('data-preset')) {
+        var row = x.parentNode, o = presets[x.value];
+        if (o) {
+          row.querySelector('[name=x_label]').value = o.label;
+          row.querySelector('[name=x_prix]').value = o.price == null ? '' : String(o.price).replace('.', ',');
+          row.querySelector('[name=x_min]').value = o.minutes;
+          if (o.price == null || !o.label) row.querySelector(o.label ? '[name=x_prix]' : '[name=x_label]').focus();
+        }
+      }
+      if (x.name === 'vt_vehicule') relabel();
+      if (x.name === 'heure') { mark(); return; }
+      clearTimeout(t); t = setTimeout(price, 120);
+    });
+    form.addEventListener('input', function (e) {
+      if (e.target.name === 'heure' || e.target.tagName === 'SELECT') return;
+      clearTimeout(t); t = setTimeout(price, 400);
+    });
+    loadSlots();
+  }
+  // a link to copy (the payment link of an appointment)
+  d.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-copy]');
+    if (!b) return;
+    var text = b.getAttribute('data-copy'), done = function () { b.textContent = 'Copié ✓'; setTimeout(function () { b.textContent = 'Copier le lien'; }, 2500); };
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(function () {});
+  });
+  d.addEventListener('focusin', function (e) { if (e.target.hasAttribute && e.target.hasAttribute('data-select')) e.target.select(); });
+
   // ------------------------------------------------------------ start
   function boot(root, first) { countUp(root, first); tick(); }
   backdrop();
   boot(d, true);
+  rdvForm();
   setInterval(tick, 20000);
   // a message shown once: not again when the page is redrawn or reloaded
   if (/[?&](ok|err)=/.test(location.search) && w.history.replaceState) {

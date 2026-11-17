@@ -2,7 +2,10 @@
  * The workshop's space (docs/ATELIER.md): /atelier, on the booking server.
  *
  *   /atelier                 Accueil: the month in figures, the next appointments, the promotion
- *   /atelier/rdv             the appointments booked online: to come, past
+ *   /atelier/rdv             the appointments: links waiting for payment, to come, past
+ *   /atelier/rdv/nouveau     an appointment taken on the phone: client, services, slot, payment
+ *                            link (Stripe) e-mailed; /atelier/rdv/lien/<n> its page (copy, SMS,
+ *                            WhatsApp, cancel); /atelier/creneaux the free slots of a day
  *   /atelier/clients         the client file: search, card of each client, add, edit, delete,
  *                            export for Excel (/atelier/clients.csv)
  *   /atelier/codes           the band of the site, the promotion codes, the referral codes
@@ -16,7 +19,10 @@
  * of this server (booking/atelier-look.js) draws the garage and keeps the pages live, and the
  * pages work without it.
  */
-import { bookingRules as R, codeServices, formatEuros, quote, withDiscount } from '../content/booking.js';
+import { bookingRules as R, codeServices, formatEuros, formatDuration, quote, withDiscount, withExtra, discountFor, bookableVehicles, tintFormulas, lightsBooking, atelierExtras, windshieldMinutes } from '../content/booking.js';
+import { tint } from '../content/pricing.js';
+// the appointments taken by the workshop (used at request time only: worker.js imports this module)
+import { atelierBooking, atelierSlots, atelierCancel } from './worker.js';
 import { business as B } from '../content/site.js';
 import { report, totalsOf } from './stats.js';
 import { db, referralFor, redeemReferral, checkCode, dayStart, atelierFetch, QUOTE_STATUS } from './store.js';
@@ -131,6 +137,7 @@ const DOCK = [...TABS.slice(0, 4), ['/atelier/plus', 'Plus', 'grid', 'Plus']];
 const UNDER_PLUS = new Set(['/atelier/codes', '/atelier/stats', '/atelier/fiche', '/atelier/plus']);
 /** « + Nouveau »: what is made most often */
 const NEW = [
+  ['/atelier/rdv/nouveau', 'cal', 'Rendez-vous par téléphone', 'Créneau, lien de paiement de l’acompte'],
   ['/atelier/clients/nouveau', 'user', 'Nouveau client', 'Venu par téléphone ou à l’atelier'],
   ['/atelier/codes#promo', 'tag', 'Code promo', 'Remise en % ou en €, dates, prestations'],
   ['/atelier/codes#parrainage', 'gift', 'Code de parrainage', `${R.referral.amount} € à offrir à un client`],
@@ -159,7 +166,7 @@ function page(title, active, body, url, opts = {}) {
   const ok = url?.searchParams.get('ok');
   const err = url?.searchParams.get('err');
   const liveLabel = '<span class="live" data-live-label><i></i><span>En direct</span></span>';
-  const newMenu = (where) => `<details class="pop"><summary class="newbtn" aria-label="Nouveau">${ico('plus')}<span>Nouveau</span></summary><div class="pop__menu" role="menu">${NEW.map(([href, icon, label, hint]) => `<a href="${href}" role="menuitem">${ico(icon)}<span>${esc(label)}<small>${esc(hint)}</small></span></a>`).join('')}<a class="soon" aria-disabled="true">${ico('cal')}<span>Rendez-vous par téléphone<small>Bientôt : créneau et lien de paiement</small></span></a></div></details>`;
+  const newMenu = (where) => `<details class="pop"><summary class="newbtn" aria-label="Nouveau">${ico('plus')}<span>Nouveau</span></summary><div class="pop__menu" role="menu">${NEW.map(([href, icon, label, hint]) => `<a href="${href}" role="menuitem">${ico(icon)}<span>${esc(label)}<small>${esc(hint)}</small></span></a>`).join('')}</div></details>`;
   const signed = !!active;
   return new Response(
     `${HEAD(title, now)}<body${signed ? ' data-live' : ''}${opts.refresh ? ' data-refresh' : ''}>${BACKDROP}
@@ -310,6 +317,33 @@ export async function atelier(req, env, url, now) {
   if (path === '/atelier' && req.method === 'GET') return home(env, url, now);
   if (path === '/atelier/plus' && req.method === 'GET') return morePage(env, url, now);
   if (path === '/atelier/rdv' && req.method === 'GET') return appointments(env, url, now);
+  if (path === '/atelier/rdv/nouveau' && req.method === 'GET') return bookingForm(env, url, now);
+  if (path === '/atelier/rdv/nouveau' && req.method === 'POST') {
+    const f = await req.formData();
+    const kept = new URLSearchParams([...f].filter(([, x]) => typeof x === 'string'));
+    const b = bookingOf(f);
+    const unpriced = b.extra.find((x) => x.price === null);
+    const r = unpriced ? { error: `Tapez le prix convenu pour « ${unpriced.label} ».` } : await atelierBooking(env, b, now).catch((err) => (console.error('[atelier] booking', err), { error: `Le rendez-vous n’a pas pu être créé : ${err.message}` }));
+    if (r.error) return bookingForm(env, url, now, kept, r.error);
+    return back(`/atelier/rdv/lien/${r.id}`, { ok: r.confirmed ? `Rendez-vous inscrit dans l’agenda${b.customer.email ? ', confirmation envoyée au client' : ''}.` : r.mailed ? `Lien de paiement envoyé à ${b.customer.email}. Le créneau est bloqué dans l’agenda.` : 'Lien créé, mais l’e-mail n’est pas parti : envoyez-le par SMS ou WhatsApp ci-dessous.' });
+  }
+  if (path === '/atelier/rdv/prix' && req.method === 'POST') {
+    const b = bookingOf(await req.formData());
+    const p = await bookingPrice(env, b, now);
+    return new Response(JSON.stringify({ html: recapHtml(p, b.mode), minutes: p.minutes || 0 }), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+  }
+  if (path === '/atelier/creneaux' && req.method === 'GET') {
+    const r = await atelierSlots(env, url.searchParams.get('date'), Number(url.searchParams.get('minutes')) || 60, now).catch(() => ({ error: 'Agenda indisponible : tapez l’heure vous-même.' }));
+    return new Response(JSON.stringify(r), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+  }
+  const lm = path.match(/^\/atelier\/rdv\/lien\/(\d+)(\/annuler)?$/);
+  if (lm && req.method === 'GET' && !lm[2]) return linkPage(env, url, Number(lm[1]), now);
+  if (lm && req.method === 'POST' && lm[2]) {
+    const f = await req.formData();
+    if (!f.get('confirme')) return back(`/atelier/rdv/lien/${lm[1]}`, { err: 'Cochez la case pour confirmer.' });
+    const r = await atelierCancel(env, Number(lm[1]));
+    return back(`/atelier/rdv/lien/${lm[1]}`, r.ok ? { ok: 'Lien annulé, créneau libéré.' } : { err: r.error });
+  }
   if (path === '/atelier/clients' && req.method === 'GET') return clients(env, url);
   if (path === '/atelier/clients.csv' && req.method === 'GET') return clientsCsv(env, now);
   if (path === '/atelier/clients/nouveau' && req.method === 'GET') return clientCard(env, url, null);
@@ -748,21 +782,178 @@ async function morePage(env, url, now) {
   return page('Plus', '/atelier/plus', body, url, { now });
 }
 
+// ---------------------------------------------------------------- Nouveau RDV (taken on the phone)
+const LINK_STATUS = { attente: ['tag--warn', 'En attente du paiement'], paye: ['tag--ok', 'Payé · confirmé'], confirme: ['tag--ok', 'Confirmé · à régler sur place'], expire: ['tag--off', 'Lien expiré'], annule: ['tag--off', 'Annulé'] };
+const linkTag = (s) => `<span class="tag ${LINK_STATUS[s]?.[0] || 'tag--off'}">${esc(LINK_STATUS[s]?.[1] || s)}</span>`;
+const EXTRA_ROWS = 3;
+
+/** the form as the booking server reads it (worker.js, atelierBooking) */
+function bookingOf(f) {
+  const g = (k) => String(f.get(k) ?? '').trim();
+  const vehicle = [g('vehicule'), g('annee') ? `(${g('annee')})` : ''].filter(Boolean).join(' ');
+  const config = {};
+  const extra = [];
+  if (g('vt_formule')) config.tint = { vehicle: g('vt_vehicule'), formula: g('vt_formule'), ...(g('pb_film') ? { windshield: g('pb_film'), color: g('pb_couleur') } : {}) };
+  else if (g('pb_film')) {
+    // the windshield alone: a line of its own (online it comes with a package)
+    const film = tint.windshield.films.find((x) => x.id === g('pb_film'));
+    const color = film?.iridescent ? tint.windshield.colors.find((x) => x.id === g('pb_couleur')) : null;
+    if (film) extra.push({ kind: 'tint', label: `Pare-brise — ${film.label}`, detail: color?.label || '', price: film.price, minutes: windshieldMinutes });
+  }
+  if (g('feux')) config.lights = { pairs: g('feux') };
+  const labels = f.getAll('x_label').map(String);
+  const prices = f.getAll('x_prix').map(String);
+  const mins = f.getAll('x_min').map(String);
+  const presets = f.getAll('x_preset').map(String);
+  for (let i = 0; i < Math.max(labels.length, presets.length); i++) {
+    const p = atelierExtras.find((x) => x.id === presets[i]);
+    const label = (labels[i] || '').trim() || p?.label || '';
+    if (!label) continue;
+    const typed = (prices[i] ?? '').trim();
+    extra.push({ kind: p?.kind || 'other', label, price: typed !== '' ? typed : (p?.price ?? null), minutes: Number(mins[i]) || p?.minutes || 60 });
+  }
+  return {
+    customer: { firstName: g('prenom'), lastName: g('nom'), email: g('email'), phone: g('tel'), vehicle, plate: g('plaque') },
+    config,
+    extra,
+    date: g('date'),
+    time: g('heure'),
+    force: !!f.get('force'),
+    mode: g('mode') || 'deposit',
+    code: g('code'),
+    note: g('note'),
+    hours: g('duree'),
+  };
+}
+
+/** the price of what is ticked, for the recap (the same sums as the server's) */
+async function bookingPrice(env, b, now) {
+  let q = withExtra(quote(b.config), b.extra);
+  if (q.error) return { error: q.error === 'Prestation à choisir' ? '' : q.error };
+  let codeNote = '';
+  if (b.code) {
+    const r = await checkCode(env, b.code, now).catch(() => ({ ok: false, error: 'Code à vérifier' }));
+    const off = r.ok ? discountFor(q, r) : 0;
+    if (off) q = withDiscount(q, off);
+    codeNote = r.ok ? (off ? `Code ${r.code} : −${eur(off)}` : `Le code ${r.code} ne s’applique pas à ces prestations`) : r.error;
+  }
+  const due = b.mode === 'none' ? 0 : b.mode === 'full' ? q.total : q.deposit;
+  return { items: q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price, minutes: i.minutes })), total: q.total, minutes: q.minutes, duration: formatDuration(q.minutes), deposit: q.deposit, due, codeNote };
+}
+
+function recapHtml(p, mode) {
+  if (!p || p.error || !p.items?.length) return `<p class="empty">${esc(p?.error || 'Choisissez les prestations : le total s’affiche ici.')}</p>`;
+  return `<ul class="recap">${p.items.map((i) => `<li><span>${esc(i.label)}${i.detail ? `<small>${esc(i.detail)}</small>` : ''}</span><b>${eur(i.price)}</b></li>`).join('')}</ul>
+${p.codeNote ? `<p class="dim" style="margin:8px 0 0">${esc(p.codeNote)}</p>` : ''}
+<div class="recap__tot"><span>Total · ${esc(p.duration)}</span><b>${eur(p.total)}</b></div>
+<div class="recap__due"><span>${mode === 'none' ? 'Réglé sur place' : mode === 'full' ? 'À payer en ligne' : 'Acompte en ligne (30 %)'}</span><b>${mode === 'none' ? '—' : eur(p.due)}</b></div>`;
+}
+
+async function bookingForm(env, url, now, values = null, error = '') {
+  const f = values || new URLSearchParams();
+  const v = (k, d = '') => esc(f.get(k) ?? d);
+  // from a client's card: the client filled in
+  if (!values && url.searchParams.get('client')) {
+    const c = (await db(env, 'client/get', { id: Number(url.searchParams.get('client')) })).client;
+    if (c) for (const [k, x] of [['prenom', c.first], ['nom', c.last], ['tel', c.phone], ['email', c.email], ['vehicule', (c.vehicles || '').split(' · ')[0]], ['plaque', c.plate]]) f.set(k, x || '');
+  }
+  const opt = (list, cur, empty) => `${empty ? `<option value="">${esc(empty)}</option>` : ''}${list.map(([id, label]) => `<option value="${esc(id)}"${String(cur) === String(id) ? ' selected' : ''}>${esc(label)}</option>`).join('')}`;
+  const cat = f.get('vt_vehicule') || 'citadine';
+  const vehicleCat = bookableVehicles.find((x) => x.id === cat)?.cat || 'citadine';
+  const field = (n, label, attrs = '', d = '') => `<div><label for="r-${n}">${label}</label><input id="r-${n}" name="${n}" value="${v(n, d)}" ${attrs}></div>`;
+  const extras = Array.from({ length: EXTRA_ROWS }, (_, i) => {
+    const pre = f.getAll('x_preset')[i] || '';
+    return `<div class="xrow"><select name="x_preset" aria-label="Prestation ${i + 1}" data-preset>${opt(atelierExtras.map((x) => [x.id, x.label || 'Autre (à écrire)']), pre, '— Autre prestation —')}</select><input name="x_label" placeholder="Libellé" value="${esc(f.getAll('x_label')[i] || '')}" aria-label="Libellé"><input name="x_prix" inputmode="decimal" placeholder="Prix €" value="${esc(f.getAll('x_prix')[i] || '')}" aria-label="Prix en euros"><input name="x_min" type="number" min="15" max="600" step="15" placeholder="Min." value="${esc(f.getAll('x_min')[i] || '')}" aria-label="Durée en minutes"></div>`;
+  }).join('');
+  const b = values ? bookingOf(values) : null;
+  const price = b ? await bookingPrice(env, b, now) : null;
+  const today = paris(now).date;
+  const body = `<a class="crumb" href="/atelier/rdv">${ico('back')} Rendez-vous</a>
+<h1>Nouveau <em>rendez-vous</em></h1><p class="lead">Un client au téléphone : sa fiche, ses prestations, le créneau. Il reçoit tout de suite un e-mail avec le récapitulatif et le lien de paiement de l’acompte ; dès qu’il a payé, le RDV est confirmé dans l’agenda et vous recevez l’e-mail « Nouveau RDV ».</p>
+${error ? `<p class="msg msg--err" role="alert">${esc(error)}</p>` : ''}
+<form method="post" action="/atelier/rdv/nouveau" id="rdv" class="rdvgrid" novalidate data-presets="${esc(JSON.stringify(Object.fromEntries(atelierExtras.map((x) => [x.id, { label: x.label, price: x.price, minutes: x.minutes }]))))}" data-prices="${esc(JSON.stringify(Object.fromEntries(bookableVehicles.map((x) => [x.id, Object.fromEntries(tintFormulas.map((t) => [t.id, t.price(x.cat)]))]))))}" data-minutes="${price?.minutes || 0}">
+<div>
+<section class="card"><h2>${ico('user')} Client</h2>
+<div class="row">${field('prenom', 'Prénom', 'autocomplete="off" required')}${field('nom', 'Nom', 'autocomplete="off"')}</div>
+<div class="row">${field('tel', 'Téléphone', 'type="tel" inputmode="tel" autocomplete="off"')}${field('email', 'E-mail (pour le lien de paiement)', 'type="email" inputmode="email" autocomplete="off"')}</div>
+<div class="row3">${field('vehicule', 'Véhicule (marque et modèle)', 'placeholder="ex. Peugeot 3008" autocomplete="off"')}${field('annee', 'Année', 'inputmode="numeric" maxlength="4" placeholder="2021"')}${field('plaque', 'Immatriculation', 'autocomplete="off" style="text-transform:uppercase"')}</div></section>
+
+<section class="card"><h2>${ico('bolt')} Prestations</h2>
+<h3>Vitres teintées</h3>
+<div class="row"><div><label for="r-vt_vehicule">Catégorie du véhicule</label><select id="r-vt_vehicule" name="vt_vehicule">${opt(bookableVehicles.map((x) => [x.id, `${x.label} (${x.example})`]), cat)}</select></div>
+<div><label for="r-vt_formule">Formule</label><select id="r-vt_formule" name="vt_formule">${opt(tintFormulas.map((x) => [x.id, `${x.label} · ${eur(x.price(vehicleCat))}`]), f.get('vt_formule') || '', '— Pas de vitres —')}</select></div></div>
+<div class="row"><div><label for="r-pb_film">Pare-brise</label><select id="r-pb_film" name="pb_film">${opt(tint.windshield.films.map((x) => [x.id, `${x.label} · ${eur(x.price)}`]), f.get('pb_film') || '', '— Pas de pare-brise —')}</select></div>
+<div><label for="r-pb_couleur">Couleur du film irisé</label><select id="r-pb_couleur" name="pb_couleur">${opt(tint.windshield.colors.map((x) => [x.id, x.label]), f.get('pb_couleur') || '')}</select></div></div>
+<h3>Feux teintés (vinyle fumé)</h3>
+<div><select name="feux" aria-label="Feux teintés">${opt(lightsBooking.pairs.map((x) => [x.id, `${x.label} · ${eur(lightsBooking.material.perPair.max * x.count)}`]), f.get('feux') || '', '— Pas de feux —')}</select></div>
+<h3>Autres prestations</h3>
+<p class="dim" style="margin:-4px 0 10px">Choisissez dans la liste (prix et durée se remplissent, modifiables) ou écrivez la vôtre. Les prestations sur devis : tapez le prix convenu.</p>
+${extras}</section>
+
+<section class="card"><h2>${ico('cal')} Créneau</h2>
+<div class="row"><div><label for="r-date">Date</label><input id="r-date" name="date" type="date" min="${today}" value="${v('date')}" required></div><div><label for="r-heure">Heure</label><input id="r-heure" name="heure" type="time" step="900" value="${v('heure')}" required></div></div>
+<div id="slots" class="slots" aria-live="polite"><p class="dim">Choisissez la date : les créneaux libres de vos trois agendas s’affichent ici. Vous pouvez aussi taper l’heure vous-même.</p></div>
+<div class="checks"><label><input type="checkbox" name="force" value="1"${f.get('force') ? ' checked' : ''}> Garder ce créneau même s’il chevauche l’agenda</label></div></section>
+
+<section class="card"><h2>${ico('card')} Paiement</h2>
+<div class="seg" role="radiogroup" aria-label="Paiement">${[['deposit', 'Acompte 30 %', 'lien de paiement'], ['full', 'Totalité', 'lien de paiement'], ['none', 'Sur place', 'sans paiement en ligne']].map(([id, label, hint]) => `<label><input type="radio" name="mode" value="${id}"${(f.get('mode') || 'deposit') === id ? ' checked' : ''}><span><b>${label}</b><small>${hint}</small></span></label>`).join('')}</div>
+<div class="row"><div><label for="r-code">Code promo ou parrainage</label><input id="r-code" name="code" value="${v('code')}" autocomplete="off" style="text-transform:uppercase" placeholder="facultatif"></div>
+<div><label for="r-duree">Lien valable</label><select id="r-duree" name="duree">${opt([['2', '2 heures'], ['6', '6 heures'], ['24', '24 heures (le maximum de Stripe)']], f.get('duree') || '24')}</select></div></div>
+<label for="r-note">Mot pour le client (dans l’e-mail, facultatif)</label><textarea id="r-note" name="note" style="min-height:80px" placeholder="Merci pour votre appel ! À jeudi.">${v('note')}</textarea></section>
+</div>
+<aside><section class="card recapcard"><h2>${ico('check')} Récapitulatif</h2><div id="recap">${recapHtml(price, f.get('mode') || 'deposit')}</div>
+<button style="width:100%;margin-top:16px">${ico('send')} Enregistrer et envoyer</button>
+<p class="hint">Acompte ou totalité : l’e-mail part avec le lien de paiement, le créneau est bloqué dans l’agenda pendant la durée du lien. Sur place : le RDV est inscrit tout de suite dans l’agenda et le client reçoit sa confirmation.</p></section></aside>
+</form>`;
+  return page('Nouveau RDV', '/atelier/rdv', body, url, { now });
+}
+
+async function linkPage(env, url, id, now) {
+  const { link: l } = await db(env, 'link/get', { id });
+  if (!l) return page('Rendez-vous', '/atelier/rdv', '<h1>Lien introuvable</h1><p><a href="/atelier/rdv">Retour aux rendez-vous</a></p>', url);
+  if (l.status === 'attente' && l.expires && l.expires < now) l.status = 'expire';
+  const who = name(l);
+  const items = itemsOf(l);
+  const when = l.date ? `${cap(dayLabel(l.date, { weekday: 'long', day: 'numeric', month: 'long' }))} à ${hour(l.time)}` : '';
+  const intl = tel(l.phone).replace(/^0/, '33').replace(/^\+/, '');
+  const msg = `Bonjour ${l.first || ''}, voici le lien pour confirmer votre rendez-vous du ${when.toLowerCase()} chez SOLAR CAR 37 (${l.mode === 'full' ? 'règlement' : 'acompte'} de ${eur(l.due)}) : ${l.url}`;
+  const share =
+    l.status === 'attente' && l.url
+      ? `<section class="card"><h2>${ico('send')} Le lien de paiement</h2><p class="dim" style="margin:-6px 0 12px">Parti par e-mail à ${esc(l.email)}. Vous pouvez aussi l’envoyer par SMS ou WhatsApp.</p>
+<input readonly value="${esc(l.url)}" aria-label="Lien de paiement" data-select>
+<div class="btns"><button type="button" class="small" data-copy="${esc(l.url)}">Copier le lien</button>${l.phone ? `<a class="btn ghost small" href="sms:${esc(tel(l.phone))}?&body=${encodeURIComponent(msg)}">${ico('chat')} SMS</a><a class="btn ghost small" href="https://wa.me/${esc(intl)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</div>
+<p class="hint">Valable jusqu’au ${esc(dateOf(l.expires))} à ${esc(hour(paris(l.expires).time))} (<time data-until="${l.expires}">bientôt</time>). Ensuite le créneau se libère tout seul.</p></section>
+<form class="card" method="post" action="/atelier/rdv/lien/${l.id}/annuler"><details><summary class="danger-link">${ico('trash')} Annuler ce lien</summary><p class="hint">Le lien ne marche plus et le créneau est libéré dans l’agenda.</p><div class="checks"><label><input type="checkbox" name="confirme" value="1" required> Je confirme</label></div><button class="danger small">Annuler le lien</button></details></form>`
+      : '';
+  const body = `<a class="crumb" href="/atelier/rdv">${ico('back')} Rendez-vous</a>
+<div class="qhead"><span class="avatar" aria-hidden="true">${esc(initials(l))}</span><div><h1>${esc(who)}</h1><span class="dim">${esc(l.vehicle || '')}</span></div><span class="right">${linkTag(l.status)}</span></div>
+<div class="grid"><section class="card"><h2>${ico('cal')} ${esc(when)}</h2><ul class="recap">${items.map((i) => `<li><span>${esc(i.label)}${i.detail ? `<small>${esc(i.detail)}</small>` : ''}</span><b>${eur(i.price)}</b></li>`).join('')}</ul>
+<div class="recap__tot"><span>Total · ${esc(formatDuration(l.minutes))}</span><b>${eur(l.total)}</b></div>${l.mode !== 'none' ? `<div class="recap__due"><span>${l.mode === 'full' ? 'Totalité en ligne' : 'Acompte en ligne'}</span><b>${eur(l.due)}</b></div>` : ''}
+<div class="btns" style="margin-top:16px">${l.phone ? `<a class="btn small" href="tel:${esc(tel(l.phone))}">${ico('phone')} ${esc(l.phone)}</a>` : ''}<a class="btn ghost small" href="/atelier/clients/${l.client_id}">Fiche client</a></div></section>
+${share ? `<div>${share}</div>` : `<section class="card"><h2>${ico('check')} ${esc(LINK_STATUS[l.status]?.[1] || '')}</h2><p class="dim">${l.status === 'paye' ? 'Le client a payé : le rendez-vous est confirmé dans l’agenda, et il a reçu sa confirmation.' : l.status === 'confirme' ? 'Le rendez-vous est dans l’agenda ; le client a reçu sa confirmation par e-mail.' : l.status === 'expire' ? 'Le client n’a pas payé à temps : le créneau a été libéré. Refaites un rendez-vous pour lui envoyer un nouveau lien.' : 'Le lien a été annulé et le créneau libéré.'}</p>${['expire', 'annule'].includes(l.status) ? `<a class="btn small" href="/atelier/rdv/nouveau?client=${l.client_id}">${ico('plus')} Nouveau RDV pour ${esc(l.first || 'ce client')}</a>` : ''}</section>`}</div>`;
+  return page(`RDV ${who}`, '/atelier/rdv', body, url, { refresh: true, now });
+}
+
 // ---------------------------------------------------------------- Rendez-vous
 async function appointments(env, url, now) {
   await backfill(env, now).catch((err) => console.error('[atelier] backfill', err.message));
   const today = paris(now).date;
-  const [next, past] = await Promise.all([calendarBookings(env, today, addDays(today, R.horizonDays + 1)), db(env, 'bookings/list', { from: addDays(today, -730), to: addDays(today, -1), desc: true, limit: 150 })]);
+  const [next, past, links] = await Promise.all([calendarBookings(env, today, addDays(today, R.horizonDays + 1)), db(env, 'bookings/list', { from: addDays(today, -730), to: addDays(today, -1), desc: true, limit: 150 }), db(env, 'links/list', { now, limit: 30 })]);
   // online bookings to come that are no longer in the calendar: cancelled by the workshop
   const shown = new Set((next || []).map((x) => x.b?.session).filter(Boolean));
   const gone = next ? (await db(env, 'bookings/list', { from: today, to: addDays(today, 90), limit: 200 })).bookings.filter((b) => !shown.has(b.session)) : [];
   const nextHtml = next === null ? '<p class="empty">Agenda indisponible pour le moment.</p>' : next.length ? `<table><thead><tr><th>Quand</th><th>Client</th><th class="hide-s">Prestations</th><th class="n">Montant</th></tr></thead><tbody>${next.map((x) => apptRow(x)).join('')}</tbody></table>` : '<p class="empty">Aucun RDV en ligne à venir.</p>';
   const pastRow = (b) => `<tr><td><b>${esc(dayLabel(b.date, { day: 'numeric', month: 'short', year: '2-digit' }))}</b><small>${esc(hour(b.time))}</small></td><td><a href="/atelier/clients/${b.client_id}">${esc(name(b))}</a>${b.live ? '' : ' <span class="tag tag--off">test</span>'}</td><td class="hide-s">${esc(itemsOf(b).map((i) => i.label).join(' + '))}${b.code ? `<small>code <span class="code">${esc(b.code)}</span></small>` : ''}</td><td class="n">${eur(b.total)}<small>payé ${eur(b.paid)}</small></td></tr>`;
-  const body = `<h1>Rendez-vous réservés en ligne</h1><p class="lead">Les RDV que vous notez vous-même restent dans votre agenda Google. Déplacer ou supprimer un RDV : directement dans l’agenda SOLAR CAR 37 ; rembourser : dans Stripe.</p>
+  // the links sent lately: waiting first, then the last ones settled (two weeks)
+  const shownLinks = links.links.filter((l) => l.status === 'attente' || now - l.created < 14 * DAY);
+  const linkRow = (l) => `<tr><td><a href="/atelier/rdv/lien/${l.id}"><b>${esc(name(l))}</b></a><small>${esc(l.vehicle || '')}</small></td><td class="hide-s">${l.date ? `<b>${esc(dayLabel(l.date))}</b><small>${esc(hour(l.time))}</small>` : ''}</td><td>${linkTag(l.status === 'attente' && l.expires < now ? 'expire' : l.status)}${l.status === 'attente' ? `<small>expire <time data-until="${l.expires}">bientôt</time></small>` : ''}</td><td class="n">${eur(l.total)}${l.mode !== 'none' ? `<small>${l.mode === 'full' ? 'totalité' : 'acompte'} ${eur(l.due)}</small>` : '<small>sur place</small>'}</td></tr>`;
+  const linksHtml = shownLinks.length ? `<section class="card"><h2>${ico('send')} Pris par téléphone</h2><table><tbody>${shownLinks.map(linkRow).join('')}</tbody></table></section>` : '';
+  const body = `<div class="qhead"><h1>Rendez-<em>vous</em></h1><a class="btn right" href="/atelier/rdv/nouveau">${ico('plus')} Nouveau RDV</a></div><p class="lead">Un client au téléphone : « Nouveau RDV » lui envoie le lien de paiement de l’acompte, et le RDV se confirme tout seul dans l’agenda quand il a payé. Déplacer ou supprimer un RDV : dans l’agenda SOLAR CAR 37 ; rembourser : dans Stripe.</p>
+${linksHtml}
 <section class="card"><h2>À venir</h2>${nextHtml}</section>
 ${gone.length ? `<section class="card"><h2>Retirés de l’agenda</h2><p class="dim">Réservés et payés en ligne, mais supprimés de l’agenda : pensez au remboursement dans Stripe si le client a annulé.</p><table><tbody>${gone.map(pastRow).join('')}</tbody></table></section>` : ''}
 <section class="card"><h2>Passés</h2>${past.bookings.length ? `<table><tbody>${past.bookings.map(pastRow).join('')}</tbody></table>` : '<p class="empty">Aucun RDV en ligne passé pour l’instant.</p>'}</section>`;
-  return page('Rendez-vous', '/atelier/rdv', body, url);
+  return page('Rendez-vous', '/atelier/rdv', body, url, { refresh: true, now });
 }
 
 // ---------------------------------------------------------------- Clients
@@ -797,7 +988,7 @@ ${field('source', 'Nous a connus', v.source, 'placeholder="Instagram, bouche-à-
     ? `<ul class="list">${c.codes.map((k) => `<li><span class="code">${esc(k.code)}</span><span>${k.used ? `<span class="tag tag--gold">utilisé le ${esc(dateOf(k.used))}</span>` : k.expires < Date.now() ? '<span class="tag tag--off">expiré</span>' : `<span class="tag tag--ok">valable jusqu’au ${esc(dateOf(k.expires))}</span>`}</span></li>`).join('')}</ul>`
     : `<form method="post" action="/atelier/clients/${c.id}/code"><p class="dim">Pas encore de code de parrainage.</p><button class="small">Créer son code (${R.referral.amount} € à offrir)</button></form>`;
   const body = `<h1>${esc(name(c))}</h1><p class="lead">Client depuis le ${esc(dateOf(c.created))} · ${esc(c.origin || '')}</p>
-<div class="btns" style="margin:0 0 14px">${c.phone ? `<a class="btn small" href="tel:${esc(tel(c.phone))}">Appeler</a>` : ''}${c.email ? `<a class="btn ghost small" href="mailto:${esc(c.email)}">Écrire</a>` : ''}</div>
+<div class="btns" style="margin:0 0 14px">${c.phone ? `<a class="btn small" href="tel:${esc(tel(c.phone))}">${ico('phone')} Appeler</a>` : ''}<a class="btn small" href="/atelier/rdv/nouveau?client=${c.id}">${ico('cal')} Nouveau RDV</a>${c.email ? `<a class="btn ghost small" href="mailto:${esc(c.email)}">Écrire</a>` : ''}</div>
 ${form}
 <div class="grid"><section class="card"><h2>Rendez-vous en ligne</h2>${bookings}</section><section class="card"><h2>Demandes de devis</h2>${requests}</section></div>
 <section class="card" id="parrainage"><h2>Parrainage</h2>${codes}</section>

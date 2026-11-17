@@ -86,7 +86,7 @@ export async function sendBookingMails(env, b) {
         reply_to: c.email,
         subject: `Nouveau RDV — ${c.firstName} ${c.lastName} — ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)}`,
         html: shell(
-          'Nouveau rendez-vous réservé en ligne',
+          b.mode === 'none' ? 'Nouveau rendez-vous pris à l’atelier' : 'Nouveau rendez-vous réservé en ligne',
           `<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
             ['Quand', esc(when)],
             ['Client', esc(`${c.firstName} ${c.lastName}`)],
@@ -96,7 +96,7 @@ export async function sendBookingMails(env, b) {
             ['Prestations', items],
             [b.codeKind === 'promo' ? 'Code promo' : 'Parrainage', q.discount ? `−${euros(q.discount)} (code ${esc(b.code || '')})` : ''],
             ['Total', euros(q.total)],
-            ['Payé en ligne', `${euros(paid)} (${b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`],
+            ['Payé en ligne', b.mode === 'none' ? '' : `${euros(paid)} (${b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`],
             ['Reste à régler', due ? euros(due) : 'rien'],
             ['Nous a connus', c.source ? esc(c.source) : ''],
             ['Message', c.message ? esc(c.message) : ''],
@@ -125,17 +125,17 @@ export async function sendBookingMails(env, b) {
             ['Prestations', items],
             [b.codeKind === 'promo' ? `Code ${esc(b.code || '')}` : 'Parrainage', q.discount ? `−${euros(q.discount)}` : ''],
             ['Total', `${euros(q.total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
-            ['Payé en ligne', euros(paid)],
+            ['Payé en ligne', b.mode === 'none' ? '' : euros(paid)],
             ['À régler à l’atelier', due ? euros(due) : 'rien'],
           ])}</table>
 <p style="margin:18px 0 0;font-size:14px;color:#111">La teinte se choisit avec vous à l’atelier, le jour du rendez-vous. Prévoyez de déposer le véhicule à l’heure indiquée.</p>
-<p style="margin:12px 0 0;font-size:13px;color:#6b6b6b">Un empêchement ? Prévenez-nous au moins ${R.cancelHours} h avant au ${esc(B.phone)} : l’acompte vous est remboursé ou reporté. En dessous de ${R.cancelHours} h, il reste acquis à l’atelier (<a href="${esc(env.SITE_URL || B.siteUrl)}/conditions-reservation/" style="color:#9a7a2c">conditions de réservation</a>).</p>
+<p style="margin:12px 0 0;font-size:13px;color:#6b6b6b">${b.mode === 'none' ? `Un empêchement ? Prévenez-nous au plus vite au ${esc(B.phone)}.` : `Un empêchement ? Prévenez-nous au moins ${R.cancelHours} h avant au ${esc(B.phone)} : l’acompte vous est remboursé ou reporté. En dessous de ${R.cancelHours} h, il reste acquis à l’atelier (<a href="${esc(env.SITE_URL || B.siteUrl)}/conditions-reservation/" style="color:#9a7a2c">conditions de réservation</a>).`}</p>
 <p style="margin:12px 0 0;font-size:13px;color:#6b6b6b">Le rendez-vous est joint à cet e-mail : ouvrez le fichier pour l’ajouter à votre agenda.</p>`
         ),
         attachments: [
           {
             filename: 'rendez-vous-solar-car-37.ics',
-            content: btoa(unescape(encodeURIComponent(ics({ id: b.sessionId, start, end, title, text: `Payé en ligne : ${euros(paid)}. Reste à régler : ${euros(due)}. ${B.phone}` })))),
+            content: btoa(unescape(encodeURIComponent(ics({ id: b.sessionId, start, end, title, text: `${b.mode === 'none' ? '' : `Payé en ligne : ${euros(paid)}. `}Reste à régler : ${euros(due)}. ${B.phone}` })))),
           },
         ],
       });
@@ -145,6 +145,40 @@ export async function sendBookingMails(env, b) {
     }
   }
   return sent;
+}
+
+/**
+ * An appointment taken by the workshop (on the phone): the client gets the recap and the button to
+ * pay the deposit (or the whole) online, which confirms the slot, held until `expires`.
+ * b: { q, c, date, time, end, due, mode, url, expires, note, code, codeKind }
+ */
+export async function sendPaymentLink(env, b) {
+  if (!env.RESEND_API_KEY) throw new Error('mail not set');
+  const { q, c, date, time, end, due, mode, url, expires, note } = b;
+  const until = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: R.timeZone }).format(new Date(expires)).replace(':', ' h ');
+  const what = mode === 'full' ? 'le règlement' : 'l’acompte de 30 %';
+  await send(env, {
+    to: [c.email],
+    reply_to: B.email,
+    subject: `Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)} : confirmez-le en ligne`,
+    html: shell(
+      'Votre rendez-vous vous attend',
+      `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>comme convenu au téléphone, voici votre rendez-vous à l’atelier. Il est confirmé dès que ${what} est réglé en ligne.</p>
+${note ? `<p style="margin:0 0 16px;font-size:14px;color:#111;white-space:pre-wrap">${esc(note)}</p>` : ''}<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
+        ['Quand', esc(`${dayLabel(date)}, ${hour(time)} – ${endOf(end)}`)],
+        ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
+        ['Véhicule', esc(`${c.vehicle || ''}${c.plate ? ` (${c.plate})` : ''}`)],
+        ['Prestations', itemsOf(q)],
+        [b.codeKind === 'promo' ? `Code ${esc(b.code || '')}` : 'Parrainage', q.discount ? `−${euros(q.discount)}` : ''],
+        ['Total', `${euros(q.total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
+        [mode === 'full' ? 'À régler en ligne' : 'Acompte en ligne', euros(due)],
+        ['À régler à l’atelier', q.total - due > 0 ? euros(q.total - due) : 'rien'],
+      ])}</table>
+<p style="margin:22px 0 8px">${button(url, `Régler ${euros(due)} et confirmer`)}</p>
+<p style="margin:0;font-size:13px;color:#6b6b6b">Paiement sécurisé par Stripe. Le créneau vous est gardé jusqu’au ${esc(until)} ; passé ce délai, il est libéré : rappelez-nous au ${esc(B.phone)}.</p>
+<p style="margin:12px 0 0;font-size:13px;color:#6b6b6b">L’acompte est remboursé ou reporté si vous prévenez au moins ${R.cancelHours} h avant le rendez-vous (<a href="${esc(env.SITE_URL || B.siteUrl)}/conditions-reservation/" style="color:#9a7a2c">conditions de réservation</a>).</p>`
+    ),
+  });
 }
 
 /**

@@ -7,7 +7,7 @@
  * Prices come from content/pricing.js (tax included); durations and rules were set by SOLAR CAR
  * 37 on 13 November 2026 (docs/RESERVATION.md).
  */
-import { tint, lights, tintVehicles } from './pricing.js';
+import { tint, lights, tintVehicles, headlights, detailing } from './pricing.js';
 
 export const bookingRules = {
   // the booking server (Cloudflare Worker, booking/, deployed with `npx wrangler deploy`); ''
@@ -132,6 +132,49 @@ export function quote(config = {}) {
   const minutes = items.reduce((a, i) => a + i.minutes, 0);
   return { items, total, minutes, deposit: Math.round(total * bookingRules.depositRate * 100) / 100 };
 }
+
+/**
+ * The services booked by the workshop itself (an appointment taken on the phone, booking/atelier.js)
+ * beyond the online catalogue: a line with its own label, price and time, added to quote()'s
+ * result. Never read from a visitor: only the workshop's space sets them (Stripe's metadata
+ * `extra`). Returns the quote with these lines, or the quote as it was when there are none.
+ */
+export function withExtra(q, extra = []) {
+  const lines = (Array.isArray(extra) ? extra : [])
+    .map((x) => ({
+      kind: ['lights', 'tint'].includes(x?.kind) ? x.kind : 'other',
+      label: String(x?.label ?? '').replace(/\s+/g, ' ').trim().slice(0, 80),
+      detail: String(x?.detail ?? '').replace(/\s+/g, ' ').trim().slice(0, 80),
+      price: Math.max(0, Math.round((Number(String(x?.price ?? '').replace(',', '.')) || 0) * 100) / 100),
+      minutes: Math.max(15, Math.min(600, Math.round(Number(x?.minutes) || 60))),
+    }))
+    .filter((x) => x.label)
+    .slice(0, 6);
+  if (!lines.length) return q;
+  // the online catalogue may hold nothing (only these lines): that is fine here
+  const base = q.error === 'Prestation à choisir' ? [] : q.error ? null : q.items;
+  if (!base) return q;
+  const items = [...base, ...lines];
+  const total = Math.round(items.reduce((a, i) => a + i.price, 0) * 100) / 100;
+  const minutes = items.reduce((a, i) => a + i.minutes, 0);
+  return { items, total, minutes, deposit: Math.round(total * bookingRules.depositRate * 100) / 100 };
+}
+
+/**
+ * The services the workshop books by hand besides the windows and the lights (« Nouveau RDV »):
+ * a label, a price (null: to type, priced on quote) and a time, all changed in the form. The times
+ * are a first estimate, to adjust with the workshop.
+ */
+export const atelierExtras = [
+  { id: 'phares', label: 'Rénovation de phares', price: headlights.renovation, minutes: 90 },
+  { id: 'phares-ceramique', label: 'Rénovation de phares + céramique', price: headlights.renovation + headlights.options[0].price, minutes: 105 },
+  { id: 'feux-ppf', label: 'Feux teintés — PPF teinté (la paire)', price: lights.materials.find((m) => m.id === 'ppf')?.perPair.max ?? null, minutes: 75, kind: 'lights' },
+  { id: 'ciel', label: 'Ciel étoilé', price: null, minutes: 480 },
+  ...detailing.packages.map((p) => ({ id: `detailing-${p.id}`, label: `Detailing — ${p.label}`, price: null, minutes: { essentiel: 180, eclat: 360, signature: 480 }[p.id] || 240 })),
+  { id: 'covering', label: 'Covering', price: null, minutes: 480 },
+  { id: 'dechromage', label: 'Déchromage', price: null, minutes: 240 },
+  { id: 'autre', label: '', price: null, minutes: 60 },
+];
 
 /** « Comment nous avez-vous connus ? »: the answers offered on the quote form and the booking
  * page (several can be ticked; « Autre » opens a short text) */
