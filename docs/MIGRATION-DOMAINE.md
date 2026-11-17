@@ -31,6 +31,18 @@ Cloudflare (même compte que le serveur de réservation).
    Cloudflare, rien ne s'interrompt. Si la boîte contact@ était chez local.fr : la remplacer avant
    (renvoi gratuit vers Gmail par Cloudflare Email Routing, ou vraie boîte).
 
+État au 17 novembre 2026 :
+- **Site définitif publié sur Cloudflare Pages** (projet `solarcar37`, adresse technique
+  https://solarcar37.pages.dev, non indexée) : construit par Cloudflare depuis GitHub (branche
+  `claude/solar-car-37-website-ib2326`, `npm run build`, Node 22), 9 redirections et en-têtes de
+  sécurité acceptés. Les versions 1440p et 4K du film sont découpées en morceaux (limite de 25 Mo
+  par fichier de Cloudflare Pages, `scripts/media-parts.mjs`).
+- **Domaine pas encore ajouté à Cloudflare** : la clé d'API de Claude n'a pas le droit de créer un
+  domaine. Ajouter au jeton : Zone · Zone · Modifier, Zone · DNS · Modifier, Zone · Paramètres de
+  zone · Modifier, Zone · Redirection unique · Modifier, sur « Toutes les zones du compte ». Ensuite
+  Claude ajoute le domaine, recopie la messagerie, branche www et le domaine nu sur le projet Pages,
+  et donne les deux serveurs DNS à transmettre à local.fr.
+
 Avant la bascule : le **médiateur de la consommation** doit être renseigné (sinon « à compléter »
 apparaît dans les mentions légales).
 
