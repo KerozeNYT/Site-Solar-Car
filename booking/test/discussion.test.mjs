@@ -257,6 +257,8 @@ test('no news from the client: « à relancer » after 7 days, « Sans suite » 
   assert.match(home, /Paul Martin/);
   assert.match(home, /Paul a écrit · n°/);
   assert.match(home, /data-refresh/);
+  // signed out: said plainly, not redirected to the sign-in page
+  assert.equal((await worker.fetch(new Request(`${SELF}/atelier/live`), env)).status, 401);
   const live = await (await go('/atelier/live')).json();
   assert.ok(live.badge >= 1);
   assert.equal(live.counts.reponse >= 1, true);

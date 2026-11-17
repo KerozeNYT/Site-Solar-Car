@@ -260,7 +260,8 @@ export async function atelier(req, env, url, now) {
     return new Response(`<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=${esc(to)}"><title>Gmail</title><p style="font-family:system-ui;padding:24px"><a href="${esc(to)}">Continuer vers l’espace atelier</a></p>`, { headers: HEADERS });
   }
 
-  if (!(await sessionOk(req, env, now))) return req.method === 'GET' ? redirect('/atelier/connexion') : new Response('Session expirée : reconnectez-vous.', { status: 401 });
+  // (the live updates are told plainly: the page then says « Session expirée »)
+  if (!(await sessionOk(req, env, now))) return req.method === 'GET' && path !== '/atelier/live' ? redirect('/atelier/connexion') : new Response('Session expirée : reconnectez-vous.', { status: 401, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
 
   // Gmail: connect (a link: a form could not lead to Google, the pages only post to themselves),
   // read now, forget
