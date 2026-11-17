@@ -756,6 +756,37 @@ export class Atelier {
       case 'quote/seen':
         this.run('UPDATE requests SET unread = 0 WHERE id = ?', Number(b.id) || 0);
         return { ok: true };
+      // a request deleted from the space (its messages and files with it; the client stays)
+      case 'quote/delete': {
+        const r = this.request(b.id);
+        if (!r) return { ok: false, error: 'Demande introuvable.' };
+        this.forget([r.id]);
+        return { ok: true };
+      }
+      // ------------------------------------------------ Gmail (booking/gmail.js)
+      // the quotes whose e-mails are read in Gmail: not closed, of the last 90 days, with an
+      // e-mail address; and the Message-IDs already in their discussion
+      case 'gmail/open': {
+        const rows = this.all("SELECT r.id, r.at, c.email FROM requests r JOIN clients c ON c.id = r.client_id WHERE r.status <> 'sans_suite' AND r.at > ? AND c.email <> '' ORDER BY r.at DESC LIMIT 40", now - 90 * DAY);
+        return { requests: rows.map((r) => ({ ...r, known: this.all("SELECT msgid FROM messages WHERE request_id = ? AND msgid <> ''", r.id).map((x) => x.msgid) })) };
+      }
+      // e-mails found in Gmail: into their discussion once each; a reply written from Gmail moves a
+      // new quote to « Devis envoyé », an answer of the client is unread
+      case 'gmail/import': {
+        let imported = 0;
+        for (const it of Array.isArray(b.items) ? b.items.slice(0, 200) : []) {
+          const r = this.request(it.requestId);
+          if (!r) continue;
+          const key = clip(it.msgid, 300) || `gmail:${clip(it.gid, 60)}`;
+          if (this.one('SELECT id FROM messages WHERE request_id = ? AND (msgid = ? OR msgid = ?)', r.id, key, `gmail:${clip(it.gid, 60)}`)) continue;
+          const dir = it.dir === 'out' ? 'out' : 'in';
+          this.addMessage(r.id, { at: Number(it.at) || now, dir, via: 'gmail', text: String(it.text || '').slice(0, 10000) || '(message sans texte)', msgid: key });
+          imported++;
+          if (dir === 'out' && r.status === 'nouveau') this.setStatus(r.id, 'envoye', now, 'Réponse envoyée depuis Gmail : devis passé en « Devis envoyé ».');
+          if (dir === 'in') this.run('UPDATE requests SET unread = unread + 1 WHERE id = ?', r.id);
+        }
+        return { ok: true, imported };
+      }
       case 'quote/status': {
         const r = this.request(b.id);
         if (!r) return { ok: false, error: 'Demande introuvable.' };

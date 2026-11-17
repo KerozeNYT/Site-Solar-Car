@@ -17,6 +17,7 @@ import { bookingRules as R, codeServices, formatEuros, quote, withDiscount } fro
 import { business as B } from '../content/site.js';
 import { report, totalsOf } from './stats.js';
 import { db, referralFor, redeemReferral, checkCode, dayStart, atelierFetch, QUOTE_STATUS } from './store.js';
+import { gmailReady, gmailState, gmailSync, consentUrl, callback as gmailCallback, disconnect as gmailDisconnect } from './gmail.js';
 import { bookedEvents } from './google.js';
 import { getSession } from './stripe.js';
 import { send, shell as mailShell } from './mail.js';
@@ -93,6 +94,7 @@ const ICONS = {
   back: '<path d="M15 5l-7 7 7 7"/>',
   file: '<path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.4 4.2-6.5 8-6.5s7 2.1 8 6.5"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
 };
 const ico = (k) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ''}</svg>`;
 const TABS = [
@@ -166,7 +168,7 @@ input[type=file]{padding:8px;font-size:13px;color:var(--text2)}input[type=file]:
 button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:11px 19px;font:inherit;font-weight:700;cursor:pointer;background:linear-gradient(180deg,var(--gold2),var(--gold));color:#0a0a0b;text-decoration:none;box-shadow:0 8px 22px -12px rgba(227,194,122,.75)}
 button:hover,.btn:hover{filter:brightness(1.06)}button .ico,.btn .ico{width:18px;height:18px}
 button.ghost,.btn.ghost{background:transparent;color:var(--gold2);box-shadow:inset 0 0 0 1px rgba(227,194,122,.45)}
-button.danger{background:transparent;color:var(--err);box-shadow:inset 0 0 0 1px var(--err)}button.small,.btn.small{padding:7px 13px;font-size:13px}
+button.danger{background:transparent;color:var(--err);box-shadow:inset 0 0 0 1px var(--err)}.danger-link{cursor:pointer;color:var(--err);font-weight:600;list-style:none}.danger-link::-webkit-details-marker{display:none}details[open] .danger-link{margin-bottom:8px}.gmail p{margin:0 0 6px}.gmail .btns form{margin:0}.err{color:var(--err)}button.small,.btn.small{padding:7px 13px;font-size:13px}
 .msg{padding:12px 16px;border-radius:14px;margin:0 0 18px;font-weight:600}.msg--ok{background:rgba(127,212,155,.12);color:var(--ok);border:1px solid rgba(127,212,155,.28)}.msg--err{background:rgba(255,138,122,.1);color:var(--err);border:1px solid rgba(255,138,122,.28)}
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--dim);font-size:12px;font-weight:600}td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}.acts td{border-top:0;padding-top:0}tr:has(+ .acts) td{border-bottom:0}.n{text-align:right;white-space:nowrap}
 .code{font-family:'Geist Mono',ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;color:var(--gold2);white-space:nowrap}
@@ -269,15 +271,43 @@ export async function atelier(req, env, url, now) {
   }
   if (path === '/atelier/deconnexion') return redirect('/atelier/connexion', { 'set-cookie': `${COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict` });
 
+  // Google's answer to « Connecter Gmail »: checked by its signed state (the browser comes back from
+  // Google without the session cookie, kept « Strict »), then a page that goes on to the space
+  if (path === '/atelier/gmail/retour' && req.method === 'GET') {
+    const r = gmailReady(env) ? await gmailCallback(env, url, now) : { ok: false, error: 'Connexion Gmail pas encore configurée.' };
+    const to = `/atelier/devis?${new URLSearchParams(r.ok ? { ok: `Gmail connecté${r.email ? ` (${r.email})` : ''} : vos échanges avec les clients arrivent dans les devis.` } : { err: r.error })}`;
+    return new Response(`<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=${esc(to)}"><title>Gmail</title><p style="font-family:system-ui;padding:24px"><a href="${esc(to)}">Continuer vers l’espace atelier</a></p>`, { headers: HEADERS });
+  }
+
   if (!(await sessionOk(req, env, now))) return req.method === 'GET' ? redirect('/atelier/connexion') : new Response('Session expirée : reconnectez-vous.', { status: 401 });
 
+  // Gmail: connect (a link: a form could not lead to Google, the pages only post to themselves),
+  // read now, forget
+  if (path === '/atelier/gmail/connexion' && req.method === 'GET') return gmailReady(env) ? redirect(await consentUrl(env, url, now)) : back('/atelier/devis', { err: 'Connexion Gmail pas encore configurée (identifiants Google à ajouter au serveur).' });
+  if (path === '/atelier/gmail/sync' && req.method === 'POST') {
+    const r = await gmailSync(env, now, { force: true });
+    return back('/atelier/devis', r.error ? { err: `Gmail : ${r.error}` } : r.off ? { err: 'Gmail n’est pas connecté.' } : { ok: r.imported ? `${r.imported} message${r.imported > 1 ? 's' : ''} de Gmail ajouté${r.imported > 1 ? 's' : ''} aux devis.` : 'Gmail est à jour : aucun nouveau message.' });
+  }
+  if (path === '/atelier/gmail/deconnexion' && req.method === 'POST') {
+    await gmailDisconnect(env);
+    return back('/atelier/devis', { ok: 'Gmail déconnecté. (Pour retirer aussi l’accès chez Google : myaccount.google.com → Sécurité → Applications tierces.)' });
+  }
+  // the pages of the quotes and the home: Gmail read first (once a minute at most, 4 s at most)
+  if (req.method === 'GET' && (path === '/atelier' || path.startsWith('/atelier/devis'))) await Promise.race([gmailSync(env, now).catch(() => null), new Promise((ok) => setTimeout(ok, 4000))]);
+
   // the quote discussions; reading one marks it read, before the count of the « Devis » tab
-  const dm = path.match(/^\/atelier\/devis\/(\d+)(?:\/(repondre|statut))?$/);
+  const dm = path.match(/^\/atelier\/devis\/(\d+)(?:\/(repondre|statut|supprimer))?$/);
   if (dm && req.method === 'GET' && !dm[2]) await db(env, 'quote/seen', { id: Number(dm[1]) });
   if (req.method === 'GET') url.badge = (await db(env, 'quotes/badge')).n;
   if (path === '/atelier/devis' && req.method === 'GET') return quotesPage(env, url, now);
   if (dm && req.method === 'GET' && !dm[2]) return quotePage(env, url, Number(dm[1]), now);
   if (dm && req.method === 'POST' && dm[2] === 'repondre') return quoteReplyPost(req, env, Number(dm[1]), now);
+  if (dm && req.method === 'POST' && dm[2] === 'supprimer') {
+    const f = await req.formData();
+    if (!f.get('confirme')) return back(`/atelier/devis/${dm[1]}`, { err: 'Cochez la case pour confirmer la suppression.' });
+    const r = await db(env, 'quote/delete', { id: Number(dm[1]) });
+    return back('/atelier/devis', r.ok ? { ok: `Demande n°${dm[1]} supprimée.` } : { err: r.error });
+  }
   if (dm && req.method === 'POST' && dm[2] === 'statut') {
     const f = await req.formData();
     const r = await db(env, 'quote/status', { now, id: Number(dm[1]), status: String(f.get('statut') || ''), amount: String(f.get('montant') ?? '') });
@@ -337,7 +367,11 @@ const snippet = (s, n = 140) => {
 
 async function quotesPage(env, url, now) {
   const st = Object.hasOwn(QUOTE_STATUS, url.searchParams.get('statut')) ? url.searchParams.get('statut') : '';
-  const r = await db(env, 'quotes/list', { status: st });
+  const [r, gm] = await Promise.all([db(env, 'quotes/list', { status: st }), gmailReady(env) ? gmailState(env) : { connected: false, unset: true }]);
+  // Gmail: connected (read at each visit, « Actualiser » to read now) or to connect
+  const gmailBox = gm.connected
+    ? `<section class="card gmail"><p><b>${ico('mail')} Gmail connecté</b>${gm.email ? ` · ${esc(gm.email)}` : ''} · lu ${esc(when(gm.lastSync || now, now))}${gm.error ? ` · <span class="err">${esc(gm.error)}</span>` : ''}</p><p class="hint">Vos réponses écrites depuis Gmail et les réponses des clients arrivent dans leur devis, et le statut suit.</p><div class="btns"><form method="post" action="/atelier/gmail/sync"><button class="small">Actualiser</button></form><form method="post" action="/atelier/gmail/deconnexion"><button class="ghost small">Déconnecter</button></form></div></section>`
+    : `<section class="card gmail"><p><b>${ico('mail')} Connecter votre Gmail</b></p><p class="hint">Pour que vos réponses envoyées depuis Gmail (et celles des clients) arrivent ici, et que le statut passe tout seul à « Devis envoyé ». Seuls les e-mails échangés avec vos clients en attente de devis sont lus.</p>${gm.unset ? '<p class="hint">À activer : identifiants Google à ajouter au serveur (docs/ATELIER.md).</p>' : '<a class="btn small" href="/atelier/gmail/connexion">Connecter Gmail</a>'}</section>`;
   const total = Object.values(r.counts).reduce((a, b) => a + b, 0);
   const chip = (k, label, n) => `<a href="/atelier/devis${k ? `?statut=${k}` : ''}"${k === st ? ' aria-current="page"' : ''}>${esc(label)} <b>${n}</b></a>`;
   const card = (q) => `<a class="q${q.unread ? ' q--unread' : ''}" href="/atelier/devis/${q.id}"><span class="q__n">n°${q.id}</span>
@@ -349,6 +383,7 @@ ${q.last_text ? `<span class="q__last">${q.last_dir === 'out' ? 'Vous : ' : ''}$
 <nav class="chips" aria-label="Filtrer par statut">${chip('', 'Toutes', total)}${Object.entries(QUOTE_STATUS)
     .map(([k, v]) => chip(k, v, r.counts[k] || 0))
     .join('')}</nav>
+${gmailBox}
 ${r.quotes.length ? `<div class="qlist">${r.quotes.map(card).join('')}</div>` : `<section class="card"><p class="empty">${st ? 'Aucune demande avec ce statut.' : 'Les demandes de devis envoyées depuis le site arriveront ici.'}</p></section>`}`;
   return page('Devis', '/atelier/devis', body, url);
 }
@@ -392,7 +427,10 @@ async function quotePage(env, url, id, now) {
     .map(([k, v]) => `<option value="${k}"${k === r.status ? ' selected' : ''}>${esc(v)}</option>`)
     .join('')}</select>
 <label for="q-amount2">Montant (€)</label><input id="q-amount2" name="montant" inputmode="decimal" value="${r.amount ? esc(String(r.amount).replace('.', ',')) : ''}">
-<button class="small">Enregistrer</button></form>`;
+<button class="small">Enregistrer</button></form>
+<form class="card" method="post" action="/atelier/devis/${r.id}/supprimer"><details><summary class="danger-link">${ico('trash')} Supprimer cette demande</summary>
+<p class="hint">La demande, ses messages et ses photos sont effacés ; la fiche du client reste.</p>
+<div class="checks"><label><input type="checkbox" name="confirme" value="1" required> Je confirme</label></div><button class="danger small">Supprimer définitivement</button></details></form>`;
   const facts = [
     ['Demandée', when(r.at, now)],
     ['Véhicule', r.vehicle],

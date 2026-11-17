@@ -57,6 +57,7 @@ import { sendMonthly, monthRoute } from './stats-report.js';
 import { ficheRoute, runFiche, FICHE_CRON } from './fiche-google.js';
 import { db, referralFor, checkCode, redeemReferral } from './store.js';
 import { atelier } from './atelier.js';
+import { gmailSync } from './gmail.js';
 
 // the Durable Object class of the statistics database (booking/wrangler.toml)
 export { Stats } from './stats.js';
@@ -556,7 +557,13 @@ export default {
       return;
     }
     if (controller.cron === '0 16 * * *') {
-      ctx.waitUntil(dailyMails(env, controller.scheduledTime).then((r) => console.log('[mail] daily', JSON.stringify(r))).catch((err) => console.error('[mail] daily', err)));
+      // the clients' e-mails, and the quotes' e-mails in Gmail (even on a day the space is not opened)
+      ctx.waitUntil(
+        Promise.all([
+          dailyMails(env, controller.scheduledTime).then((r) => console.log('[mail] daily', JSON.stringify(r))).catch((err) => console.error('[mail] daily', err)),
+          gmailSync(env, controller.scheduledTime, { force: true }).catch((err) => console.error('[gmail] daily', err)),
+        ])
+      );
       return;
     }
     ctx.waitUntil(sendMonthly(env, controller.scheduledTime).then((r) => console.log('[stats] monthly', JSON.stringify(r))).catch((err) => console.error('[stats] monthly', err)));

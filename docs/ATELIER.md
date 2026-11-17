@@ -59,6 +59,33 @@ Onglet **Devis** (pastille = demandes nouvelles ou avec un message non lu) :
   `QUOTE_REPLY`, docs/RESERVATION.md) ; tant qu'elle n'est pas en service, répondre depuis Gmail
   écrit directement au client (comme avant) et seule la réponse depuis l'atelier est suivie.
 
+## Gmail dans l'espace (onglet Devis)
+
+« Connecter Gmail » (onglet Devis) relie le Gmail de l'atelier : les réponses écrites **depuis
+Gmail** à un client dont le devis est ouvert, et les réponses du client, arrivent dans la
+discussion du devis (« depuis Gmail »), et le statut passe à « Devis envoyé » à la première réponse.
+Gmail est relu à chaque ouverture de l'onglet Devis ou de l'accueil (une fois par minute au plus),
+avec « Actualiser », et chaque jour à 16 h UTC. Seuls les e-mails échangés avec l'adresse d'un client
+dont la demande a moins de 90 jours et n'est pas « Sans suite » sont lus (`in:sent to:…` et
+`from:…`, après la date de la demande) ; chaque e-mail une seule fois (son Message-ID).
+« Déconnecter » oublie l'accès (le retirer aussi chez Google : myaccount.google.com → Sécurité →
+Applications tierces). Code : `booking/gmail.js`, tests `booking/test/gmail.test.mjs`.
+
+Mise en service (une fois) :
+1. Projet Google Cloud de l'atelier (celui du compte de service des agendas) : activer **Gmail API** ;
+   écran de consentement OAuth « Externe », **publié en production** (en mode Test, Google coupe
+   l'accès tous les 7 jours), accès `https://www.googleapis.com/auth/gmail.readonly` (et
+   `business.manage` pour le robot de la fiche Google) ; identifiant **ID client OAuth**,
+   « Application Web », URI de redirection `https://atelier.solarcar37.fr/atelier/gmail/retour` et
+   `https://solarcar37-reservation.contact-solarcar37.workers.dev/fiche-google/retour`.
+2. Cloudflare → Workers → `solarcar37-reservation` → Paramètres → Variables et secrets : secrets
+   `GOOGLE_OAUTH_CLIENT_ID` et `GOOGLE_OAUTH_CLIENT_SECRET` (les mêmes servent au robot de la fiche).
+3. Espace atelier → Devis → « Connecter Gmail » → compte contact.solarcar37@gmail.com → Google
+   affiche « application non validée » → « Paramètres avancés » → « Accéder à… » → autoriser.
+
+Supprimer une demande : dans la discussion, colonne de droite, « Supprimer cette demande » (case
+de confirmation) ; la demande, ses messages et ses photos sont effacés, la fiche client reste.
+
 ## Le fichier clients
 
 - Sa fiche liste ses demandes de devis (avec leur statut, un clic ouvre la discussion).
