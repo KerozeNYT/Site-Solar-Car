@@ -1,5 +1,12 @@
 # Journal des changements
 
+## Espace atelier : notifications sur l'iPhone et l'ordinateur (17 novembre 2026)
+
+- Réglages → Notifications → « Activer sur cet appareil » : nouvelle demande de devis, message
+  d'un client, devis accepté, RDV ou acompte payé, même l'espace fermé (iPhone : l'espace posé sur
+  l'écran d'accueil, iOS 16.4+). Web Push signé et chiffré par le serveur lui-même
+  (`booking/push.js`), sans service extérieur. Tests : `booking/test/push.test.mjs`.
+
 ## Réservation : trois modèles connus pour chaque catégorie de véhicule (17 novembre 2026)
 
 - Page de réservation et « Nouveau RDV » de l'espace atelier : chaque catégorie montre trois

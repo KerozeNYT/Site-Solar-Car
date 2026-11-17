@@ -318,6 +318,7 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 .recap__tot b{font-size:24px;color:var(--gold-2);letter-spacing:-.02em}
 .recap__due{color:var(--text-2);font-size:14px;padding-top:6px}.recap__due b{color:var(--text)}
 .seg--2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.push__state{font-weight:650;margin:0 0 14px}
 .notehead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 6px}.notehead label{margin:0}
 html:not(.js) #note-auto{display:none}
 /* the slot: the agenda's free slots, as on the site's booking page, or a date and a time typed
@@ -813,11 +814,65 @@ export const JS = String.raw`(function () {
   });
   d.addEventListener('focusin', function (e) { if (e.target.hasAttribute && e.target.hasAttribute('data-select')) e.target.select(); });
 
+  // ------------------------------------------------------------ notifications on this device (booking/push.js)
+  function pushSetup() {
+    var box = d.querySelector('[data-push]');
+    if (!box) return;
+    var key = box.getAttribute('data-push');
+    var state = box.querySelector('[data-push-state]'), on = box.querySelector('[data-push-on]'), off = box.querySelector('[data-push-off]'), test = box.querySelector('[data-push-test]');
+    var say = function (t) { state.textContent = t; };
+    var ua = navigator.userAgent;
+    var ios = /iPhone|iPad|iPod/.test(ua);
+    var standalone = navigator.standalone || (w.matchMedia && w.matchMedia('(display-mode: standalone)').matches);
+    if (!('serviceWorker' in navigator) || !('PushManager' in w) || !('Notification' in w)) {
+      say(ios && !standalone ? 'Sur iPhone : ajoutez d’abord l’espace à l’écran d’accueil (Safari → Partager → « Sur l’écran d’accueil »), puis ouvrez-le depuis son icône.' : 'Ce navigateur ne gère pas les notifications : essayez Chrome, Edge, Firefox ou Safari à jour.');
+      on.hidden = true;
+      return;
+    }
+    var label = ios ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'PC Windows' : 'Ordinateur';
+    var bytes = function (s) { var p = s.replace(/-/g, '+').replace(/_/g, '/'); var raw = atob(p + '==='.slice((p.length + 3) % 4)); var out = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i); return out; };
+    var post = function (path, body) { return fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) }).then(function (r) { return r.json(); }); };
+    function show(sub) {
+      on.hidden = !!sub;
+      off.hidden = test.hidden = !sub;
+      say(sub ? '✓ Activées sur cet appareil (' + label + ').' : Notification.permission === 'denied' ? 'Bloquées par ce navigateur : autorisez les notifications pour ce site dans ses réglages, puis réessayez.' : 'Pas encore activées sur cet appareil.');
+    }
+    navigator.serviceWorker.register('/atelier/sw.js', { scope: '/atelier/' }).catch(function () {});
+    navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(show).catch(function () {});
+    on.onclick = function () {
+      say('Activation…');
+      Notification.requestPermission().then(function (perm) {
+        if (perm !== 'granted') return show(null);
+        return navigator.serviceWorker.ready
+          .then(function (reg) { return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes(key) }); })
+          .then(function (sub) {
+            var j = sub.toJSON();
+            return post('/atelier/push/abonner', { endpoint: j.endpoint, keys: j.keys, label: label }).then(function (r) {
+              if (!r.ok) throw new Error(r.error || 'refusé');
+              show(sub);
+              return post('/atelier/push/test');
+            });
+          });
+      }).catch(function (e) { say('Activation impossible : ' + (e && e.message ? e.message : 'réessayez')); });
+    };
+    test.onclick = function () {
+      say('Envoi de l’essai…');
+      post('/atelier/push/test').then(function (r) { say(r.sent ? '✓ Essai envoyé à ' + r.sent + ' appareil' + (r.sent > 1 ? 's' : '') + '.' : 'L’essai n’est pas parti : désactivez puis réactivez.'); });
+    };
+    off.onclick = function () {
+      navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
+        if (!sub) return show(null);
+        return post('/atelier/push/desabonner', { endpoint: sub.endpoint }).then(function () { return sub.unsubscribe(); }).then(function () { show(null); });
+      });
+    };
+  }
+
   // ------------------------------------------------------------ start
   function boot(root, first) { countUp(root, first); tick(); }
   backdrop();
   boot(d, true);
   rdvForm();
+  pushSetup();
   setInterval(tick, 20000);
   // a message shown once: not again when the page is redrawn or reloaded
   if (/[?&](ok|err)=/.test(location.search) && w.history.replaceState) {

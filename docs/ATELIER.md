@@ -58,6 +58,22 @@ Instrument Serif, des chiffres qui défilent à l'ouverture.
   (copies dans `booking/assets/`).
 - Essai avec des exemples : `DEMO=1 npm run booking:dev`, puis http://localhost:8787/atelier.
 
+## Notifications sur le téléphone et l'ordinateur
+
+**Réglages** (« Plus » sur téléphone) → **Notifications** → « Activer sur cet appareil » : une
+notification arrive pour chaque **nouvelle demande de devis**, **message d'un client** (relais
+e-mail ou lu dans Gmail), **devis accepté** et **RDV payé** (en ligne ou acompte d'un RDV pris par
+téléphone), même l'espace fermé ; la toucher ouvre la bonne page de l'espace.
+
+- **iPhone** (iOS 16.4 ou plus récent) : ouvrir l'espace dans Safari → Partager → « Sur l'écran
+  d'accueil », l'ouvrir depuis son icône, puis « Activer » et accepter. Apple n'autorise les
+  notifications qu'aux applications web posées sur l'écran d'accueil.
+- **Ordinateur** : « Activer » et accepter dans le navigateur (Chrome, Edge, Firefox, Safari).
+- « Envoyer un essai » vérifie ; « Désactiver ici » arrête sur cet appareil ; 10 appareils au plus.
+- Technique : `booking/push.js` (Web Push : clés VAPID faites une fois et gardées dans la base,
+  messages chiffrés pour chaque appareil, aucun service extérieur), service worker
+  `/atelier/sw.js`, table `push_subs`. Tests : `booking/test/push.test.mjs`.
+
 ## Rendez-vous par téléphone (« Nouveau RDV »)
 
 Un client appelle : **+ Nouveau → Rendez-vous par téléphone** (ou Rendez-vous → « Nouveau RDV »,

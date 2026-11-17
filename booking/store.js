@@ -13,6 +13,7 @@
  *   logins      the one-time codes e-mailed to sign in to the workshop's space
  *   links       the appointments taken by the workshop (on the phone): the payment link sent to
  *               the client, waiting, paid, expired or cancelled
+ *   push_subs   the workshop's devices that receive its notifications (booking/push.js)
  *
  * Each call is one request to the object, run on its own: a code checked and used, a client found
  * or added, can never be done twice at the same time.
@@ -164,6 +165,11 @@ function authenticated(lines, from) {
   return lines.some((l) => new RegExp(`dkim=pass[^;]*header\\.(d=${d}|i=[^\\s;]*@${d})\\b`, 'i').test(l) || new RegExp(`dmarc=pass[^;]*header\\.from=${d}\\b`, 'i').test(l));
 }
 const refsOf = (s) => String(s || '').split(' ').filter(Boolean);
+/** the first words of a message, on one line (a notification) */
+const snippetOf = (t) => {
+  const s = String(t || '').replace(/\s+/g, ' ').trim();
+  return s.length > 120 ? `${s.slice(0, 119)}…` : s;
+};
 /** « 1 190,50 € » → 1190.5; empty → null */
 const amountOf = (v) => {
   const n = Number(String(v ?? '').replace(/[\s€]/g, '').replace(',', '.'));
@@ -226,6 +232,7 @@ export class Atelier {
     // status: attente (the link sent, the slot held), paye, expire, annule, confirme (no payment online)
     x(`CREATE TABLE IF NOT EXISTS links (id INTEGER PRIMARY KEY AUTOINCREMENT, session TEXT NOT NULL DEFAULT '', client_id INTEGER NOT NULL DEFAULT 0, event TEXT NOT NULL DEFAULT '', date TEXT NOT NULL DEFAULT '', time TEXT NOT NULL DEFAULT '', minutes INTEGER NOT NULL DEFAULT 0, items TEXT NOT NULL DEFAULT '[]', total REAL NOT NULL DEFAULT 0, due REAL NOT NULL DEFAULT 0, mode TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '', expires INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'attente', vehicle TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL)`);
     x('CREATE INDEX IF NOT EXISTS links_session ON links (session)');
+    x(`CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, p256dh TEXT NOT NULL, auth TEXT NOT NULL, label TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL)`);
   }
 
   all(q, ...b) {
@@ -445,7 +452,7 @@ export class Atelier {
         console.error('[quote] attachments refused', err.message);
         sent = await sendQuoteMails(env, { ...q, files: [], message: `${message}\n\n(${files.length} pièce${files.length > 1 ? 's' : ''} jointe${files.length > 1 ? 's' : ''} n’${files.length > 1 ? 'ont' : 'a'} pas pu être transmise${files.length > 1 ? 's' : ''} : à redemander.)` });
       }
-      return { ok: true, ack: sent.client };
+      return { ok: true, ack: sent.client, n: requestId, who: [customer.firstName, customer.lastName].filter(Boolean).join(' '), services };
     } catch (err) {
       console.error('[quote] workshop e-mail', err.message);
       drop();
@@ -650,7 +657,7 @@ export class Atelier {
     this.run('UPDATE clients SET last_seen = ? WHERE id = ?', now, r.client_id);
     this.follow(r.id, now);
     await notifyWorkshop(this.env, { ...r, ...(client ? {} : { first: m.fromName || from, last: '' }) }, 'message', { text: text || '(pièce jointe)', files: asMail(), refs: refsOf(r.owner_refs) }).catch((err) => console.error('[quote] notify', err.message));
-    return { ok: true, relayed: 'workshop' };
+    return { ok: true, relayed: 'workshop', n: r.id, who: client ? r.first || r.email : m.fromName || from, text: snippetOf(text) };
   }
 
   /** quote/accept { n, t }: the client accepts the quote from the link of the e-mail */
@@ -875,6 +882,8 @@ export class Atelier {
       // new quote to « Devis envoyé », an answer of the client is unread
       case 'gmail/import': {
         let imported = 0;
+        // the clients' messages found: told to the workshop's devices (booking/push.js)
+        const incoming = [];
         const items = (Array.isArray(b.items) ? b.items.slice(0, 200) : []).sort((x, y) => (Number(x.at) || 0) - (Number(y.at) || 0));
         for (const it of items) {
           const r = this.request(it.requestId);
@@ -884,10 +893,13 @@ export class Atelier {
           const dir = it.dir === 'out' ? 'out' : 'in';
           this.addMessage(r.id, { at: Number(it.at) || now, dir, via: 'gmail', text: String(it.text || '').slice(0, 10000) || '(message sans texte)', msgid: key });
           imported++;
-          if (dir === 'in') this.run('UPDATE requests SET unread = unread + 1 WHERE id = ?', r.id);
+          if (dir === 'in') {
+            this.run('UPDATE requests SET unread = unread + 1 WHERE id = ?', r.id);
+            incoming.push({ n: r.id, who: r.first || r.email, text: snippetOf(it.text) });
+          }
           this.follow(r.id, now, { out: 'Réponse envoyée depuis Gmail : devis passé en « Devis envoyé ».', in: 'Réponse du client lue dans Gmail : « Réponse reçue ».' });
         }
-        return { ok: true, imported };
+        return { ok: true, imported, incoming };
       }
       case 'quote/status': {
         const r = this.request(b.id);
@@ -996,6 +1008,20 @@ export class Atelier {
       }
       case 'link/status':
         this.run('UPDATE links SET status = ? WHERE (id = ? OR (session = ? AND session <> \'\')) AND status = \'attente\'', clip(b.status, 12), Number(b.id) || 0, clip(b.session, 120));
+        return { ok: true };
+      // ------------------------------------------------ the workshop's devices (notifications)
+      case 'push/add': {
+        const endpoint = String(b.endpoint || '');
+        if (!/^https:\/\/[^\s]+$/.test(endpoint) || endpoint.length > 1000 || !/^[A-Za-z0-9_-]{60,120}$/.test(String(b.p256dh || '')) || !/^[A-Za-z0-9_-]{12,40}$/.test(String(b.auth || ''))) return { ok: false, error: 'Abonnement illisible.' };
+        this.run('INSERT INTO push_subs (endpoint, p256dh, auth, label, created) VALUES (?, ?, ?, ?, ?) ON CONFLICT (endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, label = excluded.label', endpoint, String(b.p256dh), String(b.auth), clip(b.label, 60), now);
+        // 10 devices at most: the oldest go
+        this.run('DELETE FROM push_subs WHERE endpoint NOT IN (SELECT endpoint FROM push_subs ORDER BY created DESC LIMIT 10)');
+        return { ok: true, n: this.one('SELECT COUNT(*) AS n FROM push_subs').n };
+      }
+      case 'push/list':
+        return { subs: this.all('SELECT * FROM push_subs ORDER BY created DESC') };
+      case 'push/remove':
+        this.run('DELETE FROM push_subs WHERE endpoint = ?', String(b.endpoint || ''));
         return { ok: true };
       case 'setting/get':
         return { value: this.setting(String(b.key), null) };

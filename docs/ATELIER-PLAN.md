@@ -13,7 +13,7 @@ phase ; chaque phase est mise en ligne dès qu'elle est prête.
 | 4. Le jour J | Carte « En cours » ; attestation de pose des vitres teintées (film, référence, % par vitre) ; information et décharge feux teintés signée au doigt (pas de « certificat de conformité » pour des feux teintés : le site dit lui-même qu'un film peut les rendre non conformes) ; photos avant / après ; « Terminé » : encaissement, facture PDF numérotée (mention TVA art. 293 B), remerciement | À faire. **Atelier** : modèles actuels des documents s'il y en a, films posés (marques, références) |
 | 5. Clients | Import Excel (fichier ou copier-coller, aperçu), cases à cocher pour supprimer plusieurs clients, ajout rapide, export | À faire |
 | 6. Promos et e-mails | Code cadeau 100 % en 2 clics (RDV à 0 € confirmé sans Stripe) ; campagnes e-mail aux clients (modèles, destinataires filtrés, essai, désinscription en un clic) par Resend, déjà branché | À faire |
-| 7. Idées | Notifications sur le téléphone même espace fermé (Web Push), recherche globale (nom, téléphone, plaque), photos de fin de RDV vers les réalisations et la fiche Google | À proposer |
+| 7. Idées | Notifications sur le téléphone même espace fermé (Web Push) **fait le 17/11/2026**, recherche globale (nom, téléphone, plaque), photos de fin de RDV vers les réalisations et la fiche Google | À proposer |
 
 Facturation électronique : réception obligatoire depuis le 1er septembre 2026, émission et
 e-reporting au 1er septembre 2027 (docs/ATELIER.md, « Pour la gestion 2027 ») : les factures de

@@ -18,6 +18,7 @@
  * https://atelier.solarcar37.fr/atelier/gmail/retour; ATELIER_SECRET signs the consent's state.
  */
 import { db } from './store.js';
+import { notify } from './push.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -146,6 +147,8 @@ export async function gmailSync(env, now = Date.now(), { force = false } = {}) {
       }
     }
     const res = items.length ? await db(env, 'gmail/import', { now, items }) : { imported: 0 };
+    // a client's answer found in Gmail: told to the workshop's devices
+    for (const x of res.incoming || []) await notify(env, { title: `Message de ${x.who}`, body: x.text || '', url: `/atelier/devis/${x.n}`, tag: `devis-${x.n}` }, now);
     await db(env, 'setting/set', { key: 'gmail', value: { ...g, lastSync: now, error: '' } });
     return { imported: res.imported, checked: requests.length };
   } catch (err) {

@@ -58,6 +58,7 @@ import { ficheRoute, runFiche, FICHE_CRON } from './fiche-google.js';
 import { db, referralFor, checkCode, redeemReferral } from './store.js';
 import { atelier } from './atelier.js';
 import { gmailSync } from './gmail.js';
+import { notify } from './push.js';
 
 // the Durable Object class of the statistics database (booking/wrangler.toml)
 export { Stats } from './stats.js';
@@ -215,6 +216,7 @@ async function confirm(env, session) {
   }
   // « Nouveau RDV » to the workshop, the confirmation to the client (never fails the booking)
   await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind }).catch((err) => console.error('[mail]', err));
+  await notify(env, { title: m.origin === 'atelier' ? 'Acompte payé : RDV confirmé' : 'Nouveau RDV réservé et payé', body: `${c.firstName} ${c.lastName} — ${longDate(m.date, m.time)} · ${euros(paid)} payés`, url: '/atelier/rdv', tag: `rdv-${session.id}` });
   return out;
 }
 
@@ -648,10 +650,12 @@ async function quoteRequest(req, env, now) {
   if (Number(req.headers.get('content-length')) > 15 * 1024 * 1024) return native ? failed(413) : json({ ok: false, error: 'Pièces jointes trop lourdes : 10 Mo maximum au total.' }, 413, h);
   const res = await env.ATELIER.get(env.ATELIER.idFromName('solarcar37')).fetch('https://atelier/quote/submit', { method: 'POST', headers: { 'content-type': type, 'x-now': String(now) }, body: await req.arrayBuffer() });
   const out = res.ok ? await res.json() : { ok: false, status: 502, error: 'L’envoi n’a pas abouti.' };
+  // the workshop's phone and computers told at once
+  if (out.ok && out.n) await notify(env, { title: `Nouvelle demande de devis n°${out.n}`, body: [out.who, out.services].filter(Boolean).join(' — '), url: `/atelier/devis/${out.n}`, tag: `devis-${out.n}` }, now);
   if (native) return out.ok ? Response.redirect(`${site}/contact/merci/`, 303) : failed(out.status || 502, out.status === 400 || out.status === 413 ? out.error : '');
   // a copy sent by an older page of the site: written, silently
   if (out.silent) return new Response(null, { status: 204, headers: h });
-  const { status, ...body } = out;
+  const { status, n, who, services, ...body } = out;
   return json(body, out.ok ? 200 : status || 502, h);
 }
 
@@ -673,6 +677,7 @@ async function quoteAccept(req, env, now) {
     b = JSON.parse((await req.text()).slice(0, 2000));
   } catch {}
   const r = await db(env, 'quote/accept', { n: Number(b.n) || 0, t: String(b.t || ''), now });
+  if (r.ok && !r.already) await notify(env, { title: `Devis n°${Number(b.n)} accepté`, body: `${r.firstName || 'Le client'} a accepté le devis : appelez-le pour fixer la date.`, url: `/atelier/devis/${Number(b.n)}`, tag: `devis-${Number(b.n)}` }, now);
   const { status, ...body } = r;
   return json(body, r.ok ? 200 : status || 400, h);
 }
@@ -690,6 +695,7 @@ async function quoteMail(message, env) {
   const res = await env.ATELIER.get(env.ATELIER.idFromName('solarcar37')).fetch('https://atelier/mail/in', { method: 'POST', headers: { 'x-now': String(Date.now()), 'x-mail-from': message.from || '', 'x-auth': encodeURIComponent(auth) }, body: raw });
   const out = res.ok ? await res.json() : { ok: false, reject: 'Erreur temporaire : réessayez plus tard.' };
   if (!out.ok && out.reject) message.setReject(out.reject);
+  if (out.relayed === 'workshop') await notify(env, { title: `Message de ${out.who}`, body: out.text || 'Pièce jointe', url: `/atelier/devis/${out.n}`, tag: `devis-${out.n}` });
   return out;
 }
 

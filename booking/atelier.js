@@ -33,6 +33,7 @@ import { send, shell as mailShell } from './mail.js';
 import { utcToZoned, addDays } from './schedule.js';
 import { siteThemes } from '../content/themes.js';
 import { CSS, JS, CSS_V, JS_V } from './atelier-look.js';
+import { notify, vapidKeys, SW } from './push.js';
 
 const COOKIE = 'sc37_atelier';
 const SESSION_DAYS = 30;
@@ -117,6 +118,7 @@ const ICONS = {
   grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>',
   card: '<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/>',
   download: '<path d="M12 4v11M7 10.5l5 5 5-5M4 20h16"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
   gift: '<rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5V21h14v-8.5M12 8.5V21M12 8.5C10 4 6 4.5 6.8 7.2 7.3 8.6 12 8.5 12 8.5zM12 8.5c2-4.5 6-4 5.2-1.3-.5 1.4-5.2 1.3-5.2 1.3z"/>',
 };
 const ico = (k) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ''}</svg>`;
@@ -236,6 +238,8 @@ export async function atelier(req, env, url, now) {
   // the look: one style sheet, one script (their address carries their fingerprint)
   if (path === '/atelier/app.css') return new Response(CSS, { headers: { 'content-type': 'text/css; charset=utf-8', 'cache-control': 'public, max-age=31536000, immutable' } });
   if (path === '/atelier/app.js') return new Response(JS, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' } });
+  // the service worker of the notifications (booking/push.js), at the root of the space
+  if (path === '/atelier/sw.js') return new Response(SW, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' } });
   if (path === '/atelier/icone.svg')
     return new Response('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b0c0f"/><rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#e9cd82" stroke-width="10"/><text x="256" y="300" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="170" font-weight="800" fill="#e9cd82" letter-spacing="8">SC</text><text x="256" y="390" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="64" font-weight="700" fill="#f2efe8" letter-spacing="10">37</text></svg>', { headers: { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=86400' } });
   if (!env.ATELIER || !env.ATELIER_SECRET) return new Response('Espace atelier pas encore activé (ATELIER, ATELIER_SECRET).', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
@@ -287,6 +291,19 @@ export async function atelier(req, env, url, now) {
   if (path === '/atelier/live' && req.method === 'GET') {
     const r = await db(env, 'live', { now, limit: 12 });
     return new Response(JSON.stringify({ ...r, at: now }), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } });
+  }
+  // notifications on this device: subscribed, tried, stopped (booking/push.js)
+  if (path.startsWith('/atelier/push/') && req.method === 'POST') {
+    const b = await req.json().catch(() => ({}));
+    const out =
+      path === '/atelier/push/abonner'
+        ? await db(env, 'push/add', { now, endpoint: b.endpoint, p256dh: b.keys?.p256dh, auth: b.keys?.auth, label: b.label })
+        : path === '/atelier/push/test'
+          ? { ok: true, sent: await notify(env, { title: 'Notifications activées', body: 'Nouveaux devis, messages des clients, devis acceptés et acomptes payés arriveront ici.', url: '/atelier', tag: 'essai' }, now) }
+          : path === '/atelier/push/desabonner'
+            ? await db(env, 'push/remove', { endpoint: b.endpoint })
+            : { ok: false, error: 'Action inconnue.' };
+    return new Response(JSON.stringify(out), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
   }
   if (path === '/atelier/reglages' && req.method === 'POST') {
     const f = await req.formData();
@@ -761,13 +778,13 @@ ${pipe}
 ${weekHtml}
 ${monthHtml}
 <div class="grid"><section class="card"><h2>${ico('tag')} Bandeau du site</h2>${b ? `<div class="band"><span class="theme theme--${esc(b.theme)}">${esc(THEMES[b.theme] || '')}</span> <b>${esc(b.title)}</b><br>${esc(b.text)}</div>` : ''}<p class="dim">${esc(bandNow)}${sum.promoUses.length ? ` Ce mois-ci : ${sum.promoUses.map((p) => `${esc(p.code)} utilisé ${p.n} fois`).join(', ')}.` : ''}</p><a class="btn ghost small" href="/atelier/codes">Bandeaux et codes</a></section>
-<section class="card"><h2>${ico('grid')} Raccourcis</h2><div class="btns"><a class="btn small" href="/atelier/clients/nouveau">${ico('plus')} Ajouter un client</a><a class="btn ghost small" href="/atelier/codes#parrainage">Code de parrainage</a><a class="btn ghost small" href="/atelier/clients.csv">Exporter les clients</a><a class="btn ghost small" href="/atelier/stats">Statistiques</a></div></section></div>`;
+<section class="card"><h2>${ico('grid')} Raccourcis</h2><div class="btns"><a class="btn small" href="/atelier/clients/nouveau">${ico('plus')} Ajouter un client</a><a class="btn ghost small" href="/atelier/codes#parrainage">Code de parrainage</a><a class="btn ghost small" href="/atelier/clients.csv">Exporter les clients</a><a class="btn ghost small" href="/atelier/stats">Statistiques</a><a class="btn ghost small" href="/atelier/plus#notifications">${ico('bell')} Notifications</a></div></section></div>`;
   return page('Accueil', '/atelier', body, url, { refresh: true, now });
 }
 
 // ---------------------------------------------------------------- Plus (the other places, the settings)
 async function morePage(env, url, now) {
-  const { delays: d } = await db(env, 'quotes/delays', { now });
+  const [{ delays: d }, keys, { subs }] = await Promise.all([db(env, 'quotes/delays', { now }), vapidKeys(env), db(env, 'push/list')]);
   const tile = (href, icon, title, text) => `<a class="tile" href="${href}">${ico(icon)}<span><b>${esc(title)}</b><span>${esc(text)}</span></span></a>`;
   const body = `<h1>Plus <em>d’outils</em></h1><p class="lead">Les autres espaces de l’atelier, et les réglages.</p>
 <div class="tiles">${[
@@ -777,6 +794,12 @@ async function morePage(env, url, now) {
     tile('/atelier/clients.csv', 'download', 'Exporter les clients', 'Un fichier pour Excel'),
     tile('/atelier/deconnexion', 'out', 'Se déconnecter', 'Sur cet appareil'),
   ].join('')}</div>
+<section class="card" id="notifications" data-push="${esc(keys.publicKey)}"><h2>${ico('bell')} Notifications</h2>
+<p class="dim" style="margin:-6px 0 14px">Nouvelle demande de devis, message d’un client, devis accepté, acompte payé : une notification sur ce téléphone ou cet ordinateur, même l’espace fermé.</p>
+<p class="push__state" data-push-state>Pas encore activées sur cet appareil.</p>
+<div class="btns"><button type="button" data-push-on>${ico('bell')} Activer sur cet appareil</button><button type="button" class="ghost" data-push-test hidden>Envoyer un essai</button><button type="button" class="ghost" data-push-off hidden>Désactiver ici</button></div>
+<p class="hint"><b>iPhone</b> : ouvrez l’espace dans Safari, Partager → « Sur l’écran d’accueil », puis ouvrez-le depuis son icône et touchez « Activer » (iOS 16.4 ou plus récent). <b>Ordinateur</b> : touchez « Activer » et acceptez dans le navigateur.</p>
+<p class="dim" style="margin:10px 0 0">${subs.length ? `${subs.length} appareil${subs.length > 1 ? 's' : ''} abonné${subs.length > 1 ? 's' : ''} : ${esc(subs.map((x) => x.label || 'appareil').join(', '))}.` : 'Aucun appareil abonné pour le moment.'}</p></section>
 <form class="card" method="post" action="/atelier/reglages" id="reglages"><h2>${ico('gear')} Suivi des devis</h2>
 <p class="dim" style="margin:-6px 0 16px">Comptés depuis votre dernier message, quand le client n’a pas répondu. Un devis passé en « Sans suite » revient tout seul en « Réponse reçue » si le client écrit.</p>
 <div class="row"><div><label for="r-relance">« À relancer » après (jours)</label><input id="r-relance" name="relance" type="number" min="0" max="120" step="1" value="${d.remind}"></div><div><label for="r-close">« Sans suite » après (jours, 0 = jamais)</label><input id="r-close" name="sans_suite" type="number" min="0" max="120" step="1" value="${d.close}"></div></div>
