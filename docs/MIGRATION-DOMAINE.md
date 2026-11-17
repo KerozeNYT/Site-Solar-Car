@@ -37,11 +37,17 @@ Cloudflare (même compte que le serveur de réservation).
   `claude/solar-car-37-website-ib2326`, `npm run build`, Node 22), 9 redirections et en-têtes de
   sécurité acceptés. Les versions 1440p et 4K du film sont découpées en morceaux (limite de 25 Mo
   par fichier de Cloudflare Pages, `scripts/media-parts.mjs`).
-- **Domaine pas encore ajouté à Cloudflare** : la clé d'API de Claude n'a pas le droit de créer un
-  domaine. Ajouter au jeton : Zone · Zone · Modifier, Zone · DNS · Modifier, Zone · Paramètres de
-  zone · Modifier, Zone · Redirection unique · Modifier, sur « Toutes les zones du compte ». Ensuite
-  Claude ajoute le domaine, recopie la messagerie, branche www et le domaine nu sur le projet Pages,
-  et donne les deux serveurs DNS à transmettre à local.fr.
+- **Domaine ajouté à Cloudflare** (offre Free, zone `solarcar37.fr`, en attente) : serveurs de noms
+  **lilith.ns.cloudflare.com** et **woz.ns.cloudflare.com**. Aujourd'hui : enregistré chez **OVH**
+  (bureau d'enregistrement), DNS chez OVH (`dns17.ovh.net`, `ns17.ovh.net`), messagerie OVH
+  (`mx1/mx2/mx3.mail.ovh.net`), envois Brevo (DKIM `brevo1/brevo2._domainkey`).
+- Enregistrements recopiés et réglés : messagerie (MX, SPF, DMARC, SRV, autoconfig, autodiscover),
+  Brevo (DKIM, code de vérification) et `crm` en « DNS uniquement » comme chez OVH ; `ftp` vers
+  l'ancien serveur ; `www` et le domaine nu vers Cloudflare Pages (domaines personnalisés du projet
+  `solarcar37`), `solarcar37.fr` et `m.solarcar37.fr` redirigés en 301 vers `https://www.solarcar37.fr`
+  (même page), HTTPS forcé, TLS 1.2 minimum.
+- Reste : local.fr (ou le titulaire du compte OVH) remplace les serveurs DNS ; vérifier s'il existe
+  un DKIM OVH non détecté ; après la bascule, `SITE_URL`, Resend, Search Console (§5).
 
 Avant la bascule : le **médiateur de la consommation** doit être renseigné (sinon « à compléter »
 apparaît dans les mentions légales).
