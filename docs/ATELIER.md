@@ -21,7 +21,7 @@ lui-même, aucune page indexée.
 |---|---|
 | **Accueil** | Le RDV en cours (barre d'avancement, reste à encaisser) ou le prochain (compte à rebours), le suivi des devis en 5 cases (à répondre, réponse reçue, en attente, à relancer, validés du mois), « À traiter », le fil « En direct », les 7 prochains jours de l'agenda SOLAR CAR 37, le mois en chiffres, le bandeau |
 | **Devis** | Les demandes de devis en discussions : répondre (montant, PDF, bouton « J'accepte »), statuts Nouveau / Devis envoyé / Réponse reçue / Validé / Sans suite, et « à relancer » (voir plus bas) |
-| **Rendez-vous** | Les RDV réservés en ligne : à venir (lus dans l'agenda, à l'heure où ils y sont), retirés de l'agenda (penser au remboursement Stripe), passés |
+| **Rendez-vous** | **Nouveau RDV** (un client au téléphone, voir plus bas), les liens de paiement envoyés, les RDV réservés : à venir (lus dans l'agenda, à l'heure où ils y sont), retirés de l'agenda (penser au remboursement Stripe), passés |
 | **Clients** | Le fichier clients : recherche (nom, téléphone, e-mail, véhicule, immatriculation), fiche de chaque client (coordonnées, véhicules, notes, RDV, demandes de devis, code de parrainage), ajout à la main, suppression, **export pour Excel** |
 | **Codes et promos** | Le **bandeau** du site, les **codes promo**, le **parrainage** |
 | **Statistiques** | La page de statistiques détaillée (docs/STATISTIQUES.md) |
@@ -57,6 +57,49 @@ Instrument Serif, des chiffres qui défilent à l'ouverture.
   Toutes les pages marchent sans le script. Les images de marque viennent de `public/img/brand/`
   (copies dans `booking/assets/`).
 - Essai avec des exemples : `DEMO=1 npm run booking:dev`, puis http://localhost:8787/atelier.
+
+## Rendez-vous par téléphone (« Nouveau RDV »)
+
+Un client appelle : **+ Nouveau → Rendez-vous par téléphone** (ou Rendez-vous → « Nouveau RDV »,
+ou depuis sa fiche client, déjà remplie).
+
+1. **Client** : prénom, nom, téléphone, e-mail (il faut l'e-mail pour le lien de paiement),
+   véhicule, année, immatriculation. Un client déjà connu (même e-mail ou même téléphone) est
+   retrouvé dans le fichier.
+2. **Prestations**, prix déjà réglés :
+   - vitres teintées : la catégorie du véhicule (petite citadine, citadine, berline, cabriolet,
+     coupé, break, monospace, SUV, utilitaire) et la formule (3/4 arrière, complet, 2 vitres avant,
+     2 vitres avant + custodes) ;
+   - pare-brise (athermique, teinté 50 %, irisé et sa couleur), avec ou sans vitres ;
+   - feux teintés vinyle (arrière, avant, les deux) ;
+   - jusqu'à 3 autres lignes : rénovation de phares (79 €, + céramique 109 €), feux en PPF teinté,
+     ciel étoilé, detailing (Essentiel, Éclat, Signature), covering, déchromage, ou une ligne libre.
+     Prix et durée se remplissent et se modifient ; pour une prestation sur devis, taper le prix
+     convenu. Les durées proposées sont une première estimation (`atelierExtras` dans
+     `content/booking.js`).
+   - Le récapitulatif (total, durée, acompte) se calcule à mesure.
+3. **Créneau** : la date, puis un clic sur un des **créneaux libres** de vos trois agendas (SOLAR CAR,
+   SOLAR HOME, perso ; sans le délai de 48 h du site), ou l'heure tapée à la main. Un créneau qui
+   chevauche l'agenda est refusé, sauf en cochant « Garder ce créneau quand même ».
+4. **Paiement** :
+   - **Acompte 30 %** ou **Totalité** : le client reçoit aussitôt un e-mail (récapitulatif, mot de
+     votre part, bouton « Régler … et confirmer ») ; le créneau est bloqué dans l'agenda (« ⏳
+     Paiement en cours ») pendant la durée du lien : 2 h, 6 h ou **24 h** (le maximum de Stripe).
+     La page du lien permet aussi de l'envoyer **par SMS ou WhatsApp** et de l'**annuler** (le
+     créneau se libère).
+   - Dès que le client a payé : comme une réservation en ligne, le RDV est confirmé dans l'agenda,
+     vous recevez l'e-mail « Nouveau RDV » (et la notification Stripe), le client sa confirmation,
+     l'espace affiche « RDV réservé et payé ». Sans paiement à temps, le créneau se libère tout seul
+     (« Lien expiré ») : refaire un RDV pour lui renvoyer un lien.
+   - **Sur place** (sans paiement en ligne), ou un code qui couvre tout : le RDV est inscrit tout de
+     suite dans l'agenda, le client reçoit sa confirmation s'il a donné son e-mail.
+   - Un code promo ou de parrainage se tape comme en ligne.
+5. Rendez-vous → « Pris par téléphone » : les liens des deux dernières semaines et leur état
+   (en attente, payé, expiré, annulé, sur place).
+
+Code : `booking/worker.js` (`atelierBooking`, `atelierSlots`, `atelierCancel`), `booking/atelier.js`
+(le formulaire, la page du lien), table `links` (`booking/store.js`), e-mail `sendPaymentLink`
+(`booking/mail.js`). Tests : `booking/test/rdv.test.mjs`.
 
 ## Devis : les discussions
 

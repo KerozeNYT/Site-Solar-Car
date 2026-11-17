@@ -1,5 +1,16 @@
 # Journal des changements
 
+## Espace atelier : rendez-vous pris par téléphone, lien de paiement de l'acompte (17 novembre 2026)
+
+- « + Nouveau → Rendez-vous par téléphone » : fiche du client, prestations aux prix du site (vitres
+  par catégorie et formule, pare-brise, feux, et rénovation de phares, ciel étoilé, detailing,
+  covering… à prix tapé), récapitulatif calculé à mesure, créneaux libres des trois agendas.
+- Acompte 30 % ou totalité : e-mail au client avec le lien Stripe (2 h à 24 h), créneau bloqué
+  pendant ce temps, lien à copier ou à envoyer par SMS / WhatsApp, annulable ; payé : RDV confirmé
+  dans l'agenda et e-mails comme une réservation en ligne. « Sur place » : RDV inscrit tout de suite.
+- Nouvelle icône de l'application (blason dans un engrenage noir sur fond or).
+- Tests : `booking/test/rdv.test.mjs` (4 scénarios).
+
 ## Espace atelier vivant : le garage du site en fond, accueil en direct, suivi automatique des devis (17 novembre 2026)
 
 - **Décor** : le garage de nuit du site sous chaque page (néons du plafond, sol mouillé, fumée,

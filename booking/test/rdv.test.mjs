@@ -159,7 +159,7 @@ test('a slot taken in the calendar is refused unless kept on purpose; a link can
   assert.ok(!cal[CAR].some((e) => e.id === link.event));
 });
 
-test('paid on the spot: written in the calendar at once, the client told; a 100 % code needs no payment either', async () => {
+test('paid on the spot: written in the calendar at once; a code that covers everything needs no payment either', async () => {
   mails.length = 0;
   const res = await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ mode: 'none', heure: '15:00', email: '', prenom: 'Marc', tel: '06 22 22 22 22', x_preset: '', vt_formule: '', feux: 'rear' }) });
   assert.match(where(res).searchParams.get('ok'), /^Rendez-vous inscrit dans l’agenda\.$/);
@@ -171,8 +171,8 @@ test('paid on the spot: written in the calendar at once, the client told; a 100 
   assert.equal(sql('SELECT paid, mode FROM bookings WHERE session = ?', link.session)[0].mode, 'none');
   // no e-mail address: nothing sent to the client, the workshop only told by the space
   assert.equal(mails.filter((m) => m.to[0] !== CAR).length, 0);
-  // the next morning, a 100 % gift code: confirmed without Stripe
-  await (await import('../store.js')).db(env, 'promo/save', { code: 'CADEAU', label: 'Offert', percent: 100, starts: utcToZoned(Date.now(), TZ).date, ends: addDays(day, 10), services: [] });
+  // the next morning, a gift worth more than the services: nothing to pay, confirmed without Stripe
+  await (await import('../store.js')).db(env, 'promo/save', { code: 'CADEAU', label: 'Offert', amount: 500, starts: utcToZoned(Date.now(), TZ).date, ends: addDays(day, 10), services: [] });
   const gift = await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ heure: '08:00', date: addDays(day, 1), code: 'cadeau', email: 'zoe@example.com', prenom: 'Zoé', tel: '06 33 33 33 33' }) });
   assert.match(where(gift).searchParams.get('ok'), /Rendez-vous inscrit dans l’agenda, confirmation envoyée au client/);
   assert.equal(sql("SELECT uses FROM promos WHERE code = 'CADEAU'")[0].uses, 1);

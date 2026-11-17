@@ -91,6 +91,14 @@ export function installFakes(calendars, { checkoutUrl = () => 'https://checkout.
         sessions.set(s.id, s);
         return ok(s);
       }
+      // a payment page closed by the server (the workshop cancels a link)
+      const exp = /^\/v1\/checkout\/sessions\/([^/]+)\/expire$/.exec(url.pathname);
+      if (method === 'POST' && exp) {
+        const x = sessions.get(decodeURIComponent(exp[1]));
+        if (!x) return ok({ error: { message: 'No such session' } }, 404);
+        x.status = 'expired';
+        return ok(x);
+      }
       const s = sessions.get(decodeURIComponent(url.pathname.split('/').pop()));
       return s ? ok(s) : ok({ error: { message: 'No such session' } }, 404);
     }
