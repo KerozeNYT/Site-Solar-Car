@@ -8,6 +8,8 @@
 - Acompte 30 % ou totalité : e-mail au client avec le lien Stripe (2 h à 24 h), créneau bloqué
   pendant ce temps, lien à copier ou à envoyer par SMS / WhatsApp, annulable ; payé : RDV confirmé
   dans l'agenda et e-mails comme une réservation en ligne. « Sur place » : RDV inscrit tout de suite.
+- Créneau : « Créneaux libres de l'agenda » sur un mois, comme la page de réservation du site, ou
+  « Date et heure au choix » ; mot pour le client rédigé tout seul d'après le rendez-vous.
 - Nouvelle icône de l'application (blason dans un engrenage noir sur fond or).
 - Tests : `booking/test/rdv.test.mjs` (4 scénarios).
 

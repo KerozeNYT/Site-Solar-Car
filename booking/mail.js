@@ -118,7 +118,7 @@ export async function sendBookingMails(env, b) {
         subject: `Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)} est confirmé`,
         html: shell(
           'Votre rendez-vous est confirmé',
-          `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>merci pour votre réservation : votre créneau vous est réservé à l’atelier.</p>
+          `${b.note ? `<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#111;white-space:pre-wrap">${esc(b.note)}</p>` : `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>merci pour votre réservation : votre créneau vous est réservé à l’atelier.</p>`}
 <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
             ['Quand', esc(when)],
             ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
@@ -163,8 +163,7 @@ export async function sendPaymentLink(env, b) {
     subject: `Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)} : confirmez-le en ligne`,
     html: shell(
       'Votre rendez-vous vous attend',
-      `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>comme convenu au téléphone, voici votre rendez-vous à l’atelier. Il est confirmé dès que ${what} est réglé en ligne.</p>
-${note ? `<p style="margin:0 0 16px;font-size:14px;color:#111;white-space:pre-wrap">${esc(note)}</p>` : ''}<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
+      `${note ? `<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#111;white-space:pre-wrap">${esc(note)}</p>` : `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>comme convenu au téléphone, voici votre rendez-vous à l’atelier. Il est confirmé dès que ${what} est réglé en ligne.</p>`}<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
         ['Quand', esc(`${dayLabel(date)}, ${hour(time)} – ${endOf(end)}`)],
         ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
         ['Véhicule', esc(`${c.vehicle || ''}${c.plate ? ` (${c.plate})` : ''}`)],

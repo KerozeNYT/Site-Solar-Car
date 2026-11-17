@@ -352,16 +352,19 @@ async function webhook(req, env) {
 /** the workshop's own opening for an appointment taken on the phone: no 48 h notice */
 const atelierRules = { ...R, noticeHours: 0 };
 
-/** free start times of one day for a job of `minutes` (the space's « Nouveau RDV »), busy times of
- *  all the calendars of CALENDARS_BUSY; { times } or { error } */
-export async function atelierSlots(env, date, minutes, now) {
+/** free start times for a job of `minutes` (the space's « Nouveau RDV »), from `date` over `days`
+ *  days (1 to 31), all the calendars of CALENDARS_BUSY read as on the site's booking page (without
+ *  its 48 h notice): { days: [{ date, times }] (days with a free time only), times (of `date`) } or
+ *  { error } */
+export async function atelierSlots(env, date, minutes, now, days = 1) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return { error: 'Date à choisir' };
+  const n = Math.max(1, Math.min(31, Math.round(Number(days) || 1)));
   const fromMs = zonedToUtc(date, '00:00', R.timeZone);
-  const toMs = zonedToUtc(addDays(date, 1), '00:00', R.timeZone);
+  const toMs = zonedToUtc(addDays(date, n), '00:00', R.timeZone);
   await releaseStaleHolds(env, fromMs, toMs, now).catch(() => {});
   const busy = await busyIntervals(env, list(env.CALENDARS_BUSY), fromMs, toMs);
-  const day = freeStarts({ from: date, days: 1, minutes: Math.max(15, Number(minutes) || 60), busy, now, rules: atelierRules })[0];
-  return { times: day?.times || [], busy: busy.filter(([a, b]) => b > fromMs && a < toMs).map(([a, b]) => [utcToZoned(Math.max(a, fromMs), R.timeZone).time, b >= toMs ? '24:00' : utcToZoned(b, R.timeZone).time]) };
+  const out = freeStarts({ from: date, days: n, minutes: Math.max(15, Number(minutes) || 60), busy, now, rules: atelierRules });
+  return { from: date, days: out, times: out.find((x) => x.date === date)?.times || [] };
 }
 
 /**
@@ -380,7 +383,9 @@ export async function atelierBooking(env, b, now) {
   let q = withExtra(base, b.extra);
   if (q.error) return { error: q.error === 'Prestation à choisir' ? 'Choisissez au moins une prestation.' : q.error };
   const s = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
-  const c = { firstName: s(b.customer?.firstName, 60), lastName: s(b.customer?.lastName, 60), email: s(b.customer?.email, 120).toLowerCase(), phone: s(b.customer?.phone, 30), vehicle: s(b.customer?.vehicle, 80), plate: s(b.customer?.plate, 15).toUpperCase(), message: s(b.note, 400), source: s(b.customer?.source, 180) };
+  const c = { firstName: s(b.customer?.firstName, 60), lastName: s(b.customer?.lastName, 60), email: s(b.customer?.email, 120).toLowerCase(), phone: s(b.customer?.phone, 30), vehicle: s(b.customer?.vehicle, 80), plate: s(b.customer?.plate, 15).toUpperCase(), message: '', source: s(b.customer?.source, 180) };
+  // the workshop's word for the client (lines kept): at the head of the e-mail
+  const note = String(b.note ?? '').replace(/\r\n?/g, '\n').trim().slice(0, 1500);
   if (!c.firstName && !c.lastName) return { error: 'Indiquez le nom du client.' };
   const mode = ['deposit', 'full', 'none'].includes(b.mode) ? b.mode : 'deposit';
   if (c.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email)) return { error: 'Adresse e-mail à vérifier.' };
@@ -430,7 +435,7 @@ export async function atelierBooking(env, b, now) {
     if (code) await (codeKind === 'promo' ? db(env, 'promo/use', { code }) : redeemReferral(env, code, { by: `${c.firstName} ${c.lastName}`, ref: id, where: 'à l’atelier' })).catch(() => {});
     await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: 'none', paid: 0, customer: c });
     const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: 0, mode: 'none', status: 'confirme', customer: c });
-    if (c.email) await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: 'none', paid: 0, sessionId: id, code, codeKind }).catch((err) => console.error('[mail] atelier booking', err.message));
+    if (c.email) await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: 'none', paid: 0, sessionId: id, code, codeKind, note }).catch((err) => console.error('[mail] atelier booking', err.message));
     return { ok: true, id: link.id, confirmed: true };
   }
 
@@ -468,7 +473,7 @@ export async function atelierBooking(env, b, now) {
   }
   await patchEvent(env, env.CALENDAR_WRITE, hold.id, { extendedProperties: { private: { solarcarHold: '1', holdUntil: String(expires + 120000), session: session.id, atelier: '1' } } });
   const link = await db(env, 'link/add', { now, session: session.id, event: hold.id, date, time, minutes: q.minutes, items, total: q.total, due, mode, url: session.url, expires, customer: c });
-  const mailed = await sendPaymentLink(env, { q, c, date, time, start: span.start, end: span.end, due, mode, url: session.url, expires, note: c.message, code, codeKind })
+  const mailed = await sendPaymentLink(env, { q, c, date, time, start: span.start, end: span.end, due, mode, url: session.url, expires, note, code, codeKind })
     .then(() => true)
     .catch((err) => (console.error('[mail] payment link', err.message), false));
   return { ok: true, id: link.id, url: session.url, mailed };

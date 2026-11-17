@@ -153,7 +153,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid rgba(var(--gold-rgb),.
 input[type=file]{padding:8px;font-size:13px;color:var(--text-2)}
 input[type=file]::file-selector-button{font:inherit;font-weight:700;border:0;border-radius:999px;padding:7px 13px;margin-right:10px;background:var(--gold-soft);color:var(--gold-2);box-shadow:inset 0 0 0 1px rgba(var(--gold-rgb),.45);cursor:pointer}
 textarea{min-height:110px;resize:vertical;line-height:1.55}
-.row{display:grid;gap:0 14px;grid-template-columns:1fr 1fr}.row3{display:grid;gap:0 14px;grid-template-columns:1fr 1fr 1fr}
+.row{display:grid;gap:0 14px;grid-template-columns:repeat(2,minmax(0,1fr))}.row3{display:grid;gap:0 14px;grid-template-columns:repeat(3,minmax(0,1fr))}
 .checks{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 14px}.checks label{display:flex;gap:9px;align-items:center;color:var(--text);margin:0;font-size:14px}.checks input{width:18px;height:18px;margin:0;accent-color:var(--gold)}
 .btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:11px 20px;font:inherit;font-weight:700;cursor:pointer;background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#0a0a0b;text-decoration:none;box-shadow:0 10px 26px -14px rgba(var(--gold-rgb),.85),inset 0 1px 0 rgba(255,255,255,.45);transition:transform .2s var(--ease),filter .2s,box-shadow .2s}
@@ -293,6 +293,8 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 /* ---------------------------------------------------------------- Nouveau RDV */
 .rdvgrid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
 .rdvgrid>aside{position:sticky;top:20px}
+/* a long strip of days scrolls inside its panel: it never widens the page */
+.rdvgrid>*,.slotbox,.pick{min-width:0}
 .rdvgrid h3{margin-top:18px}
 .xrow{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.6fr) 96px 84px;gap:8px}
 .xrow input,.xrow select{margin-bottom:8px}
@@ -315,8 +317,31 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 .recap__tot,.recap__due{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-top:12px}
 .recap__tot b{font-size:24px;color:var(--gold-2);letter-spacing:-.02em}
 .recap__due{color:var(--text-2);font-size:14px;padding-top:6px}.recap__due b{color:var(--text)}
-@media (max-width:1000px){.rdvgrid{grid-template-columns:1fr}.rdvgrid>aside{position:static}}
-@media (max-width:640px){.xrow{grid-template-columns:1fr 1fr;padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:8px}.xrow select,.xrow [name=x_label]{grid-column:1/3}.seg{grid-template-columns:1fr}}
+.seg--2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.notehead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 6px}.notehead label{margin:0}
+html:not(.js) #note-auto{display:none}
+/* the slot: the agenda's free slots, as on the site's booking page, or a date and a time typed
+   (without the script: the date and the time only) */
+html:not(.js) .seg--mode,html:not(.js) .pick{display:none}
+html.js .slotbox:has([name=creneau][value=agenda]:checked) .manual{display:none}
+html.js .slotbox:has([name=creneau][value=libre]:checked) .pick{display:none}
+.pick__nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px}
+.pick__nav b{font-size:14px;font-weight:650;text-align:center}
+.pick__nav button{width:38px;height:38px;padding:0;border-radius:50%;font-size:20px;line-height:1}
+.pick__nav button:disabled{opacity:.3;cursor:default;transform:none}
+.days{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(84px,1fr);gap:8px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 8px;scrollbar-width:thin}
+.dayb{display:flex;flex-direction:column;align-items:center;gap:1px;padding:10px 6px;border-radius:16px;background:rgba(0,0,0,.32);color:var(--text);box-shadow:inset 0 0 0 1px var(--line-2);scroll-snap-align:start;font-weight:500}
+.dayb:hover{box-shadow:inset 0 0 0 1px rgba(var(--gold-rgb),.5);filter:none}
+.dayb small{font-size:11.5px;color:var(--dim)}
+.dayb b{font-size:22px;line-height:1.1;font-weight:650}
+.dayb i{font-style:normal;font-size:11px;color:var(--ok);margin-top:4px;white-space:nowrap}
+.dayb.is-on{background:linear-gradient(180deg,rgba(var(--gold-rgb),.24),rgba(var(--gold-rgb),.07));box-shadow:inset 0 0 0 1px rgba(var(--gold-rgb),.65),0 10px 24px -16px rgba(var(--gold-rgb),.9)}
+.dayb.is-on b{color:var(--gold-2)}
+.pick__day{margin:14px 0 4px;font-weight:650;font-size:15px}
+.pick h4{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:12px 0 8px;font-weight:700}
+.picked{display:flex;align-items:center;gap:8px;margin:14px 0 0;padding:11px 14px;border-radius:14px;background:rgba(127,212,155,.1);border:1px solid rgba(127,212,155,.3);color:var(--ok);font-weight:650;font-size:14px}
+@media (max-width:1000px){.rdvgrid{grid-template-columns:minmax(0,1fr)}.rdvgrid>aside{position:static}}
+@media (max-width:640px){.xrow{grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:8px}.xrow select,.xrow [name=x_label]{grid-column:1/3}.seg{grid-template-columns:minmax(0,1fr)}.days{grid-auto-columns:76px;margin:0 -17px;padding:2px 17px 8px}}
 
 /* ---------------------------------------------------------------- toasts */
 .toasts{position:fixed;right:22px;bottom:22px;z-index:60;display:grid;gap:10px;width:min(380px,calc(100vw - 32px))}
@@ -333,10 +358,10 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 .login__logo{width:min(260px,70%);height:auto;margin:0 auto 12px;display:block}
 .login form{text-align:left}.login .lead{text-align:center;margin-left:auto;margin-right:auto}
 
-@media (max-width:1100px){.pipe{grid-template-columns:repeat(3,minmax(0,1fr))}.hero,.two{grid-template-columns:1fr}}
-@media (max-width:900px){.dgrid{grid-template-columns:1fr}.dgrid>aside{order:-1}
+@media (max-width:1100px){.pipe{grid-template-columns:repeat(3,minmax(0,1fr))}.hero,.two{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){.dgrid{grid-template-columns:minmax(0,1fr)}.dgrid>aside{order:-1}
   .week{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -22px;padding:0 22px 4px;scrollbar-width:none}.week::-webkit-scrollbar{display:none}.day{flex:0 0 46%;scroll-snap-align:start}}
-@media (max-width:640px){.row,.row3{grid-template-columns:1fr}.hide-s{display:none}th,td{padding:10px 6px}.card{padding:17px;border-radius:20px}
+@media (max-width:640px){.row,.row3{grid-template-columns:minmax(0,1fr)}.hide-s{display:none}th,td{padding:10px 6px}.card{padding:17px;border-radius:20px}
   .q{grid-template-columns:1fr auto;padding:14px 14px 14px 18px}.q__n{display:none}.q__last{grid-column:1/3}.b{max-width:94%}
   .pipe{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -16px 18px;padding:2px 16px 6px;scrollbar-width:none}.pipe::-webkit-scrollbar{display:none}.st{flex:0 0 42%;scroll-snap-align:start}
   .week{margin:0 -17px;padding:0 17px 4px}.day{flex:0 0 64%}
@@ -349,6 +374,7 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 export const JS = String.raw`(function () {
   'use strict';
   var d = document, w = window;
+  d.documentElement.classList.add('js');
   var reduce = w.matchMedia && w.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var idle = function (fn) { return 'requestIdleCallback' in w ? w.requestIdleCallback(fn, { timeout: 1500 }) : setTimeout(fn, 200); };
 
@@ -625,7 +651,7 @@ export const JS = String.raw`(function () {
             var b = d.createElement('button');
             b.type = 'button'; b.className = 'slot'; b.textContent = tm.replace(/^0/, '').replace(':', ' h ');
             b.setAttribute('data-t', tm);
-            b.onclick = function () { el('heure').value = tm; mark(); };
+            b.onclick = function () { el('heure').value = tm; mark(); clearTimeout(t); t = setTimeout(price, 50); };
             box.appendChild(b);
           });
           slots.appendChild(box);
@@ -633,14 +659,114 @@ export const JS = String.raw`(function () {
         })
         .catch(function () { say('Agenda indisponible : tapez l’heure vous-même.'); });
     }
+    // the agenda's free slots over the days to come, as on the site's booking page
+    var pick = d.getElementById('pick'), today = pick ? pick.getAttribute('data-today') : '';
+    var SPAN = 30, pFrom = today, pKey = '', pDays = [], pSel = '', pScroll = 0;
+    var fmt = function (date, o) { return new Date(date + 'T12:00:00Z').toLocaleDateString('fr-FR', Object.assign({ timeZone: 'UTC' }, o)); };
+    var addD = function (date, n) { var x = new Date(date + 'T12:00:00Z'); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+    var hm = function (tm) { return tm.replace(/^0/, '').replace(':', '\u00a0h\u00a0'); };
+    var cap = function (t) { return t.charAt(0).toUpperCase() + t.slice(1); };
+    function pickSay(text) { pick.innerHTML = ''; var p = d.createElement('p'); p.className = 'dim'; p.textContent = text; pick.appendChild(p); }
+    function loadDays(force) {
+      if (!pick) return;
+      var m = Number(form.getAttribute('data-minutes')) || 0;
+      if (!m) { pKey = ''; pickSay('Choisissez d’abord les prestations : les créneaux libres dépendent de la durée.'); return; }
+      var key = pFrom + '/' + m;
+      if (key === pKey && !force) return;
+      pKey = key;
+      pickSay('Lecture de vos agendas…');
+      fetch('/atelier/creneaux?from=' + pFrom + '&days=' + SPAN + '&minutes=' + m, { credentials: 'same-origin', cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j.error) return pickSay(j.error);
+          pDays = j.days || [];
+          var has = function (date) { return pDays.some(function (x) { return x.date === date; }); };
+          if (!has(pSel)) pSel = has(el('date').value) ? el('date').value : pDays.length ? pDays[0].date : '';
+          pScroll = 0;
+          renderPick();
+        })
+        .catch(function () { pickSay('Agenda indisponible : passez en « Date et heure au choix ».'); });
+    }
+    function button(text, cls, label) {
+      var b = d.createElement('button');
+      b.type = 'button';
+      if (cls) b.className = cls;
+      b.textContent = text;
+      if (label) b.setAttribute('aria-label', label);
+      return b;
+    }
+    function renderPick() {
+      var old = pick.querySelector('.days');
+      if (old) pScroll = old.scrollLeft;
+      pick.innerHTML = '';
+      var nav = d.createElement('div');
+      nav.className = 'pick__nav';
+      var prev = button('‹', 'ghost', 'Jours précédents'), next = button('›', 'ghost', 'Jours suivants');
+      prev.disabled = pFrom <= today;
+      prev.onclick = function () { pFrom = addD(pFrom, -SPAN); if (pFrom < today) pFrom = today; loadDays(); };
+      next.onclick = function () { pFrom = addD(pFrom, SPAN); loadDays(); };
+      var lab = d.createElement('b');
+      lab.textContent = 'Du ' + fmt(pFrom, { day: 'numeric', month: 'long' }) + ' au ' + fmt(addD(pFrom, SPAN - 1), { day: 'numeric', month: 'long' });
+      nav.appendChild(prev); nav.appendChild(lab); nav.appendChild(next);
+      pick.appendChild(nav);
+      if (!pDays.length) {
+        var none = d.createElement('p');
+        none.className = 'dim';
+        none.textContent = 'Aucun créneau libre sur ces jours pour cette durée : voyez les jours suivants, ou passez en « Date et heure au choix ».';
+        pick.appendChild(none);
+      } else {
+        var strip = d.createElement('div');
+        strip.className = 'days';
+        pDays.forEach(function (x) {
+          var b = button('', 'dayb' + (x.date === pSel ? ' is-on' : ''));
+          var parts = [['small', cap(fmt(x.date, { weekday: 'short' }).replace('.', ''))], ['b', String(Number(x.date.slice(8)))], ['small', fmt(x.date, { month: 'short' }).replace('.', '')], ['i', x.times.length + ' créneau' + (x.times.length > 1 ? 'x' : '')]];
+          parts.forEach(function (pt) { var e = d.createElement(pt[0]); e.textContent = pt[1]; b.appendChild(e); });
+          b.onclick = function () { pSel = x.date; renderPick(); };
+          strip.appendChild(b);
+        });
+        pick.appendChild(strip);
+        strip.scrollLeft = pScroll;
+        var day = pDays.filter(function (x) { return x.date === pSel; })[0];
+        if (day) {
+          var title = d.createElement('p');
+          title.className = 'pick__day';
+          title.textContent = cap(fmt(day.date, { weekday: 'long', day: 'numeric', month: 'long' }));
+          pick.appendChild(title);
+          [['Matin', function (t) { return t < '12:00'; }], ['Après-midi', function (t) { return t >= '12:00'; }]].forEach(function (g) {
+            var ts = day.times.filter(g[1]);
+            if (!ts.length) return;
+            var h = d.createElement('h4');
+            h.textContent = g[0];
+            pick.appendChild(h);
+            var box = d.createElement('div');
+            box.className = 'slots__list';
+            ts.forEach(function (tm) {
+              var s = button(hm(tm), 'slot' + (el('date').value === day.date && el('heure').value === tm ? ' is-on' : ''));
+              s.onclick = function () { el('date').value = day.date; el('heure').value = tm; lastSlots = ''; renderPick(); clearTimeout(t); t = setTimeout(price, 50); };
+              box.appendChild(s);
+            });
+            pick.appendChild(box);
+          });
+        }
+      }
+      if (el('date').value && el('heure').value) {
+        var ok = d.createElement('p');
+        ok.className = 'picked';
+        ok.textContent = '✓ Créneau choisi : ' + fmt(el('date').value, { weekday: 'long', day: 'numeric', month: 'long' }) + ' à ' + hm(el('heure').value);
+        pick.appendChild(ok);
+      }
+    }
     function price() {
       fetch('/atelier/rdv/prix', { method: 'POST', body: new FormData(form), credentials: 'same-origin' })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
           if (!j) return;
           recap.innerHTML = j.html;
+          var note = el('note');
+          if (note && note.hasAttribute('data-auto') && j.draft != null) note.value = j.draft;
           if (String(j.minutes) !== form.getAttribute('data-minutes')) { form.setAttribute('data-minutes', String(j.minutes)); lastSlots = ''; }
           loadSlots();
+          loadDays();
         })
         .catch(function () {});
     }
@@ -662,14 +788,21 @@ export const JS = String.raw`(function () {
         }
       }
       if (x.name === 'vt_vehicule') relabel();
-      if (x.name === 'heure') { mark(); return; }
+      if (x.name === 'heure') { mark(); clearTimeout(t); t = setTimeout(price, 120); return; }
+      if (x.name === 'creneau') { if (x.value === 'agenda') { if (pDays.length) renderPick(); else loadDays(true); } return; }
       clearTimeout(t); t = setTimeout(price, 120);
     });
     form.addEventListener('input', function (e) {
+      // the note written by hand: no longer redrafted
+      if (e.target.name === 'note') { e.target.removeAttribute('data-auto'); return; }
       if (e.target.name === 'heure' || e.target.tagName === 'SELECT') return;
       clearTimeout(t); t = setTimeout(price, 400);
     });
+    // « Message automatique »: the note drafted again from the form
+    var redo = d.getElementById('note-auto');
+    if (redo) redo.onclick = function () { el('note').setAttribute('data-auto', '1'); price(); };
     loadSlots();
+    loadDays();
   }
   // a link to copy (the payment link of an appointment)
   d.addEventListener('click', function (e) {

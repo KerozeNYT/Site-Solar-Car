@@ -330,10 +330,12 @@ export async function atelier(req, env, url, now) {
   if (path === '/atelier/rdv/prix' && req.method === 'POST') {
     const b = bookingOf(await req.formData());
     const p = await bookingPrice(env, b, now);
-    return new Response(JSON.stringify({ html: recapHtml(p, b.mode), minutes: p.minutes || 0 }), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+    return new Response(JSON.stringify({ html: recapHtml(p, b.mode), minutes: p.minutes || 0, draft: draftNote(b, p) }), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
   }
   if (path === '/atelier/creneaux' && req.method === 'GET') {
-    const r = await atelierSlots(env, url.searchParams.get('date'), Number(url.searchParams.get('minutes')) || 60, now).catch(() => ({ error: 'Agenda indisponible : tapez l’heure vous-même.' }));
+    // one day (?date=), or the days to come (?from=…&days=14), as on the site's booking page
+    const from = url.searchParams.get('from') || url.searchParams.get('date');
+    const r = await atelierSlots(env, from, Number(url.searchParams.get('minutes')) || 60, now, url.searchParams.get('days') || 1).catch(() => ({ error: 'Agenda indisponible : tapez l’heure vous-même.' }));
     return new Response(JSON.stringify(r), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
   }
   const lm = path.match(/^\/atelier\/rdv\/lien\/(\d+)(\/annuler)?$/);
@@ -838,7 +840,30 @@ async function bookingPrice(env, b, now) {
     codeNote = r.ok ? (off ? `Code ${r.code} : −${eur(off)}` : `Le code ${r.code} ne s’applique pas à ces prestations`) : r.error;
   }
   const due = b.mode === 'none' ? 0 : b.mode === 'full' ? q.total : q.deposit;
-  return { items: q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price, minutes: i.minutes })), total: q.total, minutes: q.minutes, duration: formatDuration(q.minutes), deposit: q.deposit, due, codeNote };
+  return { items: q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price, minutes: i.minutes })), total: q.total, minutes: q.minutes, duration: formatDuration(q.minutes), deposit: q.deposit, due, discount: q.discount || 0, codeNote };
+}
+
+/** the word for the client, drafted from the form (the workshop changes it as it likes): the car,
+ *  the services, the date, the price, what to pay now and what is left */
+function draftNote(b, p) {
+  if (!p || p.error || !p.items?.length) return '';
+  const low = (t) => t.charAt(0).toLowerCase() + t.slice(1);
+  const what = p.items.map((i) => {
+    const [a, ...rest] = i.label.split(' — ');
+    return rest.length ? `${low(a)} (${low(rest.join(' — '))})` : low(a);
+  });
+  const list = what.length > 1 ? `${what.slice(0, -1).join(', ')} et ${what.at(-1)}` : what[0];
+  const when = /^\d{4}-\d{2}-\d{2}$/.test(b.date) && /^\d{2}:\d{2}$/.test(b.time) ? `le ${dayLabel(b.date, { weekday: 'long', day: 'numeric', month: 'long' })} à ${hour(b.time)}` : '';
+  const car = b.customer.vehicle ? `votre ${b.customer.vehicle}` : 'votre véhicule';
+  const left = Math.round((p.total - p.due) * 100) / 100;
+  const pay =
+    b.mode === 'none'
+      ? 'Le règlement se fait à l’atelier, le jour du rendez-vous.'
+      : b.mode === 'full'
+        ? `Pour confirmer ce rendez-vous, il vous suffit de régler les ${eur(p.due)} avec le bouton ci-dessous.`
+        : `Pour confirmer ce rendez-vous, il vous suffit de régler l’acompte de ${eur(p.due)} avec le bouton ci-dessous ; le reste, ${eur(left)}, se règle à l’atelier le jour du rendez-vous.`;
+  const shade = p.items.some((i) => /teint|pare-brise/i.test(i.label)) ? '\n\nLa teinte se choisit ensemble à l’atelier, le jour du rendez-vous.' : '';
+  return `Bonjour ${b.customer.firstName || ''},\n\nMerci pour votre appel ! Comme convenu, ${when ? `je vous réserve ${when}` : 'voici votre rendez-vous'} pour ${car} : ${list}, soit ${eur(p.total)} au total${p.discount ? ` (remise de ${eur(p.discount)} comprise)` : ''}.\n\n${pay}${shade}\n\nÀ très vite,\n${(B.owner || '').split(' ')[0]}`;
 }
 
 function recapHtml(p, mode) {
@@ -890,16 +915,18 @@ ${error ? `<p class="msg msg--err" role="alert">${esc(error)}</p>` : ''}
 <p class="dim" style="margin:-4px 0 10px">Choisissez dans la liste (prix et durée se remplissent, modifiables) ou écrivez la vôtre. Les prestations sur devis : tapez le prix convenu.</p>
 ${extras}</section>
 
-<section class="card"><h2>${ico('cal')} Créneau</h2>
-<div class="row"><div><label for="r-date">Date</label><input id="r-date" name="date" type="date" min="${today}" value="${v('date')}" required></div><div><label for="r-heure">Heure</label><input id="r-heure" name="heure" type="time" step="900" value="${v('heure')}" required></div></div>
+<section class="card slotbox"><h2>${ico('cal')} Créneau</h2>
+<div class="seg seg--2 seg--mode" role="radiogroup" aria-label="Choix du créneau">${[['agenda', 'Créneaux libres de l’agenda', 'comme sur le site'], ['libre', 'Date et heure au choix', 'vous tapez le créneau']].map(([id, label, hint]) => `<label><input type="radio" name="creneau" value="${id}"${(f.get('creneau') || 'agenda') === id ? ' checked' : ''}><span><b>${label}</b><small>${hint}</small></span></label>`).join('')}</div>
+<div id="pick" class="pick" data-today="${today}" aria-live="polite"><p class="dim">Choisissez d’abord les prestations : les créneaux libres dépendent de la durée.</p></div>
+<div class="manual"><div class="row"><div><label for="r-date">Date</label><input id="r-date" name="date" type="date" min="${today}" value="${v('date')}" required></div><div><label for="r-heure">Heure</label><input id="r-heure" name="heure" type="time" step="900" value="${v('heure')}" required></div></div>
 <div id="slots" class="slots" aria-live="polite"><p class="dim">Choisissez la date : les créneaux libres de vos trois agendas s’affichent ici. Vous pouvez aussi taper l’heure vous-même.</p></div>
-<div class="checks"><label><input type="checkbox" name="force" value="1"${f.get('force') ? ' checked' : ''}> Garder ce créneau même s’il chevauche l’agenda</label></div></section>
+<div class="checks"><label><input type="checkbox" name="force" value="1"${f.get('force') ? ' checked' : ''}> Garder ce créneau même s’il chevauche l’agenda</label></div></div></section>
 
 <section class="card"><h2>${ico('card')} Paiement</h2>
 <div class="seg" role="radiogroup" aria-label="Paiement">${[['deposit', 'Acompte 30 %', 'lien de paiement'], ['full', 'Totalité', 'lien de paiement'], ['none', 'Sur place', 'sans paiement en ligne']].map(([id, label, hint]) => `<label><input type="radio" name="mode" value="${id}"${(f.get('mode') || 'deposit') === id ? ' checked' : ''}><span><b>${label}</b><small>${hint}</small></span></label>`).join('')}</div>
 <div class="row"><div><label for="r-code">Code promo ou parrainage</label><input id="r-code" name="code" value="${v('code')}" autocomplete="off" style="text-transform:uppercase" placeholder="facultatif"></div>
 <div><label for="r-duree">Lien valable</label><select id="r-duree" name="duree">${opt([['2', '2 heures'], ['6', '6 heures'], ['24', '24 heures (le maximum de Stripe)']], f.get('duree') || '24')}</select></div></div>
-<label for="r-note">Mot pour le client (dans l’e-mail, facultatif)</label><textarea id="r-note" name="note" style="min-height:80px" placeholder="Merci pour votre appel ! À jeudi.">${v('note')}</textarea></section>
+<div class="notehead"><label for="r-note">Mot pour le client (en tête de l’e-mail)</label><button type="button" class="ghost small" id="note-auto">↺ Message automatique</button></div><textarea id="r-note" name="note" style="min-height:190px"${f.get('note') ? '' : ' data-auto'} placeholder="Rempli tout seul d’après le rendez-vous : modifiez-le à votre guise.">${v('note')}</textarea></section>
 </div>
 <aside><section class="card recapcard"><h2>${ico('check')} Récapitulatif</h2><div id="recap">${recapHtml(price, f.get('mode') || 'deposit')}</div>
 <button style="width:100%;margin-top:16px">${ico('send')} Enregistrer et envoyer</button>

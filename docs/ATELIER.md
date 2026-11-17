@@ -78,13 +78,22 @@ ou depuis sa fiche client, déjà remplie).
      convenu. Les durées proposées sont une première estimation (`atelierExtras` dans
      `content/booking.js`).
    - Le récapitulatif (total, durée, acompte) se calcule à mesure.
-3. **Créneau** : la date, puis un clic sur un des **créneaux libres** de vos trois agendas (SOLAR CAR,
-   SOLAR HOME, perso ; sans le délai de 48 h du site), ou l'heure tapée à la main. Un créneau qui
-   chevauche l'agenda est refusé, sauf en cochant « Garder ce créneau quand même ».
+3. **Créneau**, deux façons :
+   - **Créneaux libres de l'agenda** (comme la page de réservation du site) : les jours du mois à
+     venir avec leur nombre de créneaux libres dans vos trois agendas (SOLAR CAR, SOLAR HOME,
+     perso ; sans le délai de 48 h du site), flèches pour le mois suivant ; un jour, puis l'heure
+     (matin, après-midi).
+   - **Date et heure au choix** : la date, l'heure tapée (les créneaux libres du jour s'affichent
+     aussi). Un créneau qui chevauche l'agenda est refusé, sauf en cochant « Garder ce créneau
+     quand même ».
 4. **Paiement** :
-   - **Acompte 30 %** ou **Totalité** : le client reçoit aussitôt un e-mail (récapitulatif, mot de
-     votre part, bouton « Régler … et confirmer ») ; le créneau est bloqué dans l'agenda (« ⏳
-     Paiement en cours ») pendant la durée du lien : 2 h, 6 h ou **24 h** (le maximum de Stripe).
+   - **Le mot pour le client** se remplit tout seul d'après la page (prénom, date, voiture,
+     prestations, total, acompte et reste à régler) tant que vous ne l'avez pas modifié ;
+     « ↺ Message automatique » le refait. Il ouvre l'e-mail du client.
+   - **Acompte 30 %** ou **Totalité** : le client reçoit aussitôt un e-mail (votre mot,
+     récapitulatif, bouton « Régler … et confirmer ») ; le créneau est bloqué dans l'agenda (« ⏳
+     Paiement en cours ») exactement pendant la durée du lien : 2 h, 6 h ou **24 h** (le maximum de
+     Stripe).
      La page du lien permet aussi de l'envoyer **par SMS ou WhatsApp** et de l'**annuler** (le
      créneau se libère).
    - Dès que le client a payé : comme une réservation en ligne, le RDV est confirmé dans l'agenda,

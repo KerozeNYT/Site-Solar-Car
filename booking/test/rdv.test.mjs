@@ -87,6 +87,14 @@ test('signed in; the form, its price and the free slots of the day', async () =>
   assert.equal(price.minutes, 240);
   assert.match(price.html, /349\s€/);
   assert.match(price.html, /104,70\s€/);
+  // the word for the client, drafted from the form
+  assert.match(price.draft, /^Bonjour Kevin,\n\nMerci pour votre appel ! Comme convenu, je vous réserve le jeudi \d+ \S+ à 8 h 00 pour votre Audi A3 Sportback \(2021\) : vitres teintées \(complet\) et rénovation de phares, soit 349\s€ au total\./);
+  assert.match(price.draft, /régler l’acompte de 104,70\s€ avec le bouton ci-dessous ; le reste, 244,30\s€, se règle à l’atelier/);
+  assert.match(price.draft, /La teinte se choisit ensemble à l’atelier[^]*À très vite,\nNicolas$/);
+  // a month of free slots at once, as on the site
+  const month = await (await go(`/atelier/creneaux?from=${utcToZoned(Date.now(), TZ).date}&days=30&minutes=240`)).json();
+  assert.ok(month.days.length >= 15);
+  assert.ok(month.days.find((x) => x.date === day).times.includes('08:00'));
   // 4 h: from 8:00 (over the lunch break) to 9:00; HOME busy 13-15 h shuts the afternoon
   const slots = await (await go(`/atelier/creneaux?date=${day}&minutes=240`)).json();
   assert.ok(slots.times.includes('08:00'));
