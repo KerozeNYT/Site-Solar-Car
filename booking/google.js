@@ -89,5 +89,12 @@ export async function bookedEvents(env, calendar, fromMs, toMs) {
   return j.items || [];
 }
 
+/** every event of a calendar between two instants, in time order (the workshop's agenda) */
+export async function listEvents(env, calendar, fromMs, toMs) {
+  const q = new URLSearchParams({ timeMin: new Date(fromMs).toISOString(), timeMax: new Date(toMs).toISOString(), singleEvents: 'true', orderBy: 'startTime', maxResults: '250' });
+  const j = await call(env, 'GET', `/calendars/${enc(calendar)}/events?${q}`);
+  return j.items || [];
+}
+
 /** for tests: forget the cached token */
 export const resetToken = () => (cached = null);

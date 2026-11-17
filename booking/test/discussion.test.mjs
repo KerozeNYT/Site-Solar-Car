@@ -1,6 +1,7 @@
 // The quote discussions: a request opens one; the workshop answers from its Gmail (passed on by
 // the relay) or from its space; the client's replies come back; the status follows by itself
-// (« Devis envoyé », « Validé » when the client accepts or books online).
+// (« Devis envoyé », « Réponse reçue » when the client writes back, « Validé » when the client
+// accepts or books online, « Sans suite » after two weeks without news).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker.js';
@@ -143,8 +144,11 @@ test('the client answers: kept in the discussion, unread, told to the workshop i
   assert.doesNotMatch(m.html, /wrote/);
   assert.equal(m.attachments[0].filename, 'toit-2.jpg');
   assert.equal(sql('SELECT unread, refs FROM requests WHERE id = ?', n)[0].unread, 1);
+  // the client wrote after the quote: « Réponse reçue », to answer
+  assert.equal(sql('SELECT status FROM requests WHERE id = ?', n)[0].status, 'reponse');
   const list = await (await go('/atelier/devis')).text();
   assert.match(list, /q--unread/);
+  assert.match(list, /tag--reply">Réponse reçue/);
   assert.match(list, /Le 24 novembre, ça vous va/);
   // opened: read
   await go(`/atelier/devis/${n}`);
@@ -224,6 +228,50 @@ test('an e-mail without a request: to the workshop; machines and loops: nothing'
   await inbound(rawMail({ from: 'lea@example.com', subject: `Absent : Demande de devis n°${n}`, id: '<auto@example.com>', text: 'Je suis absente', extra: 'Auto-Submitted: auto-replied\n' }));
   await inbound(rawMail({ from: 'SOLAR CAR 37 <contact@solarcar37.fr>', subject: `Re: Demande de devis n°${n}`, id: '<loop@solarcar37.fr>', text: 'boucle' }));
   assert.equal(mails.length, 0);
+});
+
+test('no news from the client: « à relancer » after 7 days, « Sans suite » after 14, back when the client writes; the home and the live updates show it', async () => {
+  const DAY = 86400000;
+  const later = (d) => Date.now() + d * DAY;
+  await submit({ firstName: 'Paul', lastName: 'Martin', email: 'paul@example.com', phone: '06 33 33 33 33', services: 'Feux teintés', message: 'Feux arrière svp', files: [] });
+  const id = sql("SELECT r.id FROM requests r JOIN clients c ON c.id = r.client_id WHERE c.email = 'paul@example.com'")[0].id;
+  const f = new FormData();
+  f.append('message', 'Bonjour Paul, 120 € la paire.');
+  await go(`/atelier/devis/${id}/repondre`, { method: 'POST', body: f });
+  const status = () => sql('SELECT status FROM requests WHERE id = ?', id)[0].status;
+  assert.equal(status(), 'envoye');
+  // 8 days later: to remind (a reminder ready in the discussion)
+  assert.equal((await db(env, 'quotes/list', { now: later(8) })).quotes.find((q) => q.id === id).remind, true);
+  assert.ok((await db(env, 'live', { now: later(8) })).remind >= 1);
+  assert.equal(status(), 'envoye');
+  // 15 days: « Sans suite », said in the discussion
+  await db(env, 'quotes/list', { now: later(15) });
+  assert.equal(status(), 'sans_suite');
+  assert.match(sql("SELECT text FROM messages WHERE request_id = ? AND dir = 'note' ORDER BY id DESC LIMIT 1", id)[0].text, /Pas de nouvelles du client depuis 14 jours/);
+  // the client writes back: « Réponse reçue » again
+  await inbound(rawMail({ from: 'Paul Martin <paul@example.com>', subject: `Re: Demande de devis n°${id} — Feux teintés`, id: '<paul-1@example.com>', text: 'Finalement oui, quand êtes-vous libre ?' }));
+  assert.equal(status(), 'reponse');
+  assert.match(sql("SELECT text FROM messages WHERE request_id = ? AND dir = 'note' ORDER BY id DESC LIMIT 1", id)[0].text, /quitte « Sans suite »/);
+  // the home: the quote to answer, the client's message in the live feed
+  const home = await (await go('/atelier')).text();
+  assert.match(home, /Paul Martin/);
+  assert.match(home, /Paul a écrit · n°/);
+  assert.match(home, /data-refresh/);
+  const live = await (await go('/atelier/live')).json();
+  assert.ok(live.badge >= 1);
+  assert.equal(live.counts.reponse >= 1, true);
+  assert.ok(live.events.some((e) => e.kind === 'in' && e.request === id));
+  // the delays, changed in « Plus »
+  const set = await go('/atelier/reglages', { method: 'POST', form: { relance: '3', sans_suite: '0' } });
+  assert.match(new URL(set.headers.get('location'), SELF).searchParams.get('ok'), /3 jours, sans suite après jamais/);
+  assert.deepEqual((await db(env, 'quotes/delays', {})).delays, { remind: 3, close: 0 });
+  await go('/atelier/reglages', { method: 'POST', form: { relance: '7', sans_suite: '14' } });
+  assert.match(await (await go('/atelier/plus')).text(), /value="14"/);
+  // the style sheet and the script of the space
+  const js = await go('/atelier/app.js');
+  assert.equal(js.headers.get('content-type'), 'text/javascript; charset=utf-8');
+  assert.match(await js.text(), /\/atelier\/live/);
+  assert.match((await go('/atelier')).headers.get('content-security-policy'), /script-src 'self'/);
 });
 
 test('status by hand, then the client erased with their discussions and files', async () => {

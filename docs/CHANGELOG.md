@@ -1,5 +1,21 @@
 # Journal des changements
 
+## Espace atelier vivant : le garage du site en fond, accueil en direct, suivi automatique des devis (17 novembre 2026)
+
+- **Décor** : le garage de nuit du site sous chaque page (néons du plafond, sol mouillé, fumée,
+  poussière, balayage de lumière), aux couleurs de l'habillage saisonnier ; panneaux de verre fumé ;
+  barre à gauche sur ordinateur, barre en bas et bouton « + » sur téléphone ; « + Nouveau ».
+- **Accueil** : RDV en cours (avancement, reste à encaisser) ou prochain (compte à rebours), suivi
+  des devis en 5 cases, « À traiter », fil « En direct », les 7 prochains jours de l'agenda SOLAR CAR
+  37 (tous les RDV, pas seulement ceux réservés en ligne), le mois en chiffres.
+- **En direct** : mise à jour toute seule toutes les 30 s (`/atelier/live`), notifications à l'écran
+  (nouvelle demande, message d'un client, devis accepté, RDV payé), jamais pendant une saisie.
+- **Statuts des devis** : nouveau statut « Réponse reçue » (le client a écrit après le devis) ;
+  « à relancer » après 7 jours sans nouvelles (message de relance prêt) ; « Sans suite » tout seul
+  après 14 jours, et retour automatique si le client répond ; délais réglables (Réglages).
+- Essai : `DEMO=1 npm run booking:dev`. Tests : `booking/test/discussion.test.mjs` (nouveau scénario),
+  `booking/test/gmail.test.mjs`. Plan de la suite : `docs/ATELIER-PLAN.md`.
+
 ## Espace atelier aux couleurs de l'atelier ; discussions de devis liées à Gmail (17 novembre 2026)
 
 - **Allure** : noir, or et ivoire du site, polices Geist et Instrument Serif, logo SOLAR CAR en

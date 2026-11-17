@@ -6,22 +6,27 @@
  *   /atelier/clients         the client file: search, card of each client, add, edit, delete,
  *                            export for Excel (/atelier/clients.csv)
  *   /atelier/codes           the band of the site, the promotion codes, the referral codes
+ *   /atelier/plus            the other places, and the settings (delays of the quotes)
+ *   /atelier/live            JSON for the page open on a screen (badges, what just happened)
  *   /atelier/stats           → the statistics page; /atelier/fiche → the Google profile robot
  *
  * Sign-in: a 6-digit code e-mailed to the workshop (ATELIER_EMAILS, else NOTIFY_TO), valid
  * 10 minutes; then a session cookie signed with ATELIER_SECRET, for 30 days on that device. No
- * password to remember. The pages carry no script; every change is a form sent to this server
- * (same origin only).
+ * password to remember. Every change is a form sent to this server (same origin only); one script
+ * of this server (booking/atelier-look.js) draws the garage and keeps the pages live, and the
+ * pages work without it.
  */
 import { bookingRules as R, codeServices, formatEuros, quote, withDiscount } from '../content/booking.js';
 import { business as B } from '../content/site.js';
 import { report, totalsOf } from './stats.js';
 import { db, referralFor, redeemReferral, checkCode, dayStart, atelierFetch, QUOTE_STATUS } from './store.js';
 import { gmailReady, gmailState, gmailSync, consentUrl, callback as gmailCallback, disconnect as gmailDisconnect } from './gmail.js';
-import { bookedEvents } from './google.js';
+import { bookedEvents, listEvents } from './google.js';
 import { getSession } from './stripe.js';
 import { send, shell as mailShell } from './mail.js';
 import { utcToZoned, addDays } from './schedule.js';
+import { siteThemes } from '../content/themes.js';
+import { CSS, JS, CSS_V, JS_V } from './atelier-look.js';
 
 const COOKIE = 'sc37_atelier';
 const SESSION_DAYS = 30;
@@ -34,6 +39,7 @@ const dateOf = (ms) => (ms ? new Intl.DateTimeFormat('fr-FR', { day: 'numeric', 
 const hour = (t) => String(t || '').replace(/^0/, '').replace(':', ' h ');
 const name = (c) => [c.first, c.last].filter(Boolean).join(' ') || c.email || 'Client';
 const tel = (p) => String(p || '').replace(/[^\d+]/g, '');
+const cap = (s) => String(s).charAt(0).toUpperCase() + String(s).slice(1);
 const HEADERS = {
   'content-type': 'text/html; charset=utf-8',
   'cache-control': 'no-store',
@@ -42,7 +48,8 @@ const HEADERS = {
   // forms, which the origin check below would refuse
   'referrer-policy': 'same-origin',
   'x-content-type-options': 'nosniff',
-  'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; font-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+  // one script, from this server (booking/atelier-look.js): the garage, the live updates
+  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
 };
 
 /** the looks of a band (src/styles/main.css, .promo-band--…) */
@@ -95,125 +102,96 @@ const ICONS = {
   file: '<path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.4 4.2-6.5 8-6.5s7 2.1 8 6.5"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  inbox: '<path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',
+  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v2.6M12 18.9v2.6M4.6 4.6l1.9 1.9M17.5 17.5l1.9 1.9M2.5 12h2.6M18.9 12h2.6M4.6 19.4l1.9-1.9M17.5 6.5l1.9-1.9"/>',
+  grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>',
+  card: '<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/>',
+  download: '<path d="M12 4v11M7 10.5l5 5 5-5M4 20h16"/>',
+  gift: '<rect x="3.5" y="8.5" width="17" height="4" rx="1"/><path d="M5 12.5V21h14v-8.5M12 8.5V21M12 8.5C10 4 6 4.5 6.8 7.2 7.3 8.6 12 8.5 12 8.5zM12 8.5c2-4.5 6-4 5.2-1.3-.5 1.4-5.2 1.3-5.2 1.3z"/>',
 };
 const ico = (k) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONS[k] || ''}</svg>`;
+/** the rail of a wide screen: [address, label, icon, short label (dock)]; '' = a line between */
 const TABS = [
   ['/atelier', 'Accueil', 'home', 'Accueil'],
   ['/atelier/devis', 'Devis', 'chat', 'Devis'],
   ['/atelier/rdv', 'Rendez-vous', 'cal', 'RDV'],
   ['/atelier/clients', 'Clients', 'users', 'Clients'],
+  '',
   ['/atelier/codes', 'Codes et promos', 'tag', 'Promos'],
   ['/atelier/stats', 'Statistiques', 'chart', 'Stats'],
   ['/atelier/fiche', 'Fiche Google', 'pin', 'Fiche'],
+  ['/atelier/plus', 'Réglages', 'gear', 'Plus'],
 ];
-const HEAD = (title) => `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex">
-<title>${esc(title)} — Atelier ${esc(B.name)}</title><link rel="manifest" href="/atelier/manifest.webmanifest"><link rel="icon" type="image/png" href="/atelier/icone-180.png"><link rel="apple-touch-icon" href="/atelier/icone-180.png"><meta name="theme-color" content="#07080a"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Atelier">
-<link rel="preload" href="/stats/f/geist.woff2" as="font" type="font/woff2" crossorigin><style>${CSS}</style></head>`;
+/** the dock of a phone: the four places of every day, and « Plus » for the rest */
+const DOCK = [...TABS.slice(0, 4), ['/atelier/plus', 'Plus', 'grid', 'Plus']];
+const UNDER_PLUS = new Set(['/atelier/codes', '/atelier/stats', '/atelier/fiche', '/atelier/plus']);
+/** « + Nouveau »: what is made most often */
+const NEW = [
+  ['/atelier/clients/nouveau', 'user', 'Nouveau client', 'Venu par téléphone ou à l’atelier'],
+  ['/atelier/codes#promo', 'tag', 'Code promo', 'Remise en % ou en €, dates, prestations'],
+  ['/atelier/codes#parrainage', 'gift', 'Code de parrainage', `${R.referral.amount} € à offrir à un client`],
+  ['/atelier/clients.csv', 'download', 'Exporter les clients', 'Fichier pour Excel'],
+];
+/** the site's seasonal look of the day (content/themes.js): the garage's tubes take its colours */
+const season = (now) => {
+  const day = paris(now).date;
+  return siteThemes.find((t) => day >= t.starts && day <= t.ends)?.id || '';
+};
+const BACKDROP = '<div class="amb" aria-hidden="true"><div class="amb__haze"></div><div class="amb__sweep"></div><div class="amb__veil"></div></div>';
+const HEAD = (title, now = Date.now()) => `<!doctype html><html lang="fr"${season(now) ? ` data-saison="${season(now)}"` : ''}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex">
+<title>${esc(title)} — Atelier ${esc(B.name)}</title><link rel="manifest" href="/atelier/manifest.webmanifest"><link rel="icon" type="image/png" href="/atelier/icone-180.png"><link rel="apple-touch-icon" href="/atelier/icone-180.png"><meta name="theme-color" content="#050608"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Atelier">
+<link rel="preload" href="/stats/f/geist.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/atelier/app.css?v=${CSS_V}"><script src="/atelier/app.js?v=${JS_V}" defer></script></head>`;
 
-function page(title, active, body, url) {
+/**
+ * A page of the space. opts.refresh: redrawn by itself when something changes (the home, the
+ * list of the quotes); every page signed in keeps its badges live.
+ */
+function page(title, active, body, url, opts = {}) {
   const badge = Number(url?.badge) || 0;
-  const link = ([href, label, icon, short], dock) => `<a href="${href}"${href === active ? ' aria-current="page"' : ''}>${ico(icon)}<span>${dock ? short : label}</span>${href === '/atelier/devis' && badge ? `<span class="badge" aria-label="${badge} à traiter">${badge}</span>` : ''}</a>`;
+  const now = opts.now || Date.now();
+  const badgeHtml = `<span class="badge" data-badge${badge ? ` aria-label="${badge} à traiter"` : ' hidden'}>${badge}</span>`;
+  const current = (href) => href === active || (href === '/atelier/plus' && UNDER_PLUS.has(active) && !TABS.some((t) => t && t[0] === active && t[0] !== '/atelier/plus'));
+  const link = ([href, label, icon, short], dock) => `<a href="${href}"${(dock ? href === active || (href === '/atelier/plus' && UNDER_PLUS.has(active)) : current(href)) ? ' aria-current="page"' : ''}>${ico(icon)}<span>${dock ? short : label}</span>${href === '/atelier/devis' ? badgeHtml : ''}</a>`;
   const ok = url?.searchParams.get('ok');
   const err = url?.searchParams.get('err');
+  const liveLabel = '<span class="live" data-live-label><i></i><span>En direct</span></span>';
+  const newMenu = (where) => `<details class="pop"><summary class="newbtn" aria-label="Nouveau">${ico('plus')}<span>Nouveau</span></summary><div class="pop__menu" role="menu">${NEW.map(([href, icon, label, hint]) => `<a href="${href}" role="menuitem">${ico(icon)}<span>${esc(label)}<small>${esc(hint)}</small></span></a>`).join('')}<a class="soon" aria-disabled="true">${ico('cal')}<span>Rendez-vous par téléphone<small>Bientôt : créneau et lien de paiement</small></span></a></div></details>`;
+  const signed = !!active;
   return new Response(
-    `${HEAD(title)}<body><div class="bg" aria-hidden="true"></div>
-<header class="top"><a class="brand" href="/atelier" aria-label="Accueil de l’espace atelier"><img src="/atelier/logo.webp" alt="SOLAR CAR" width="400" height="154"><span class="brand__tag">Atelier</span></a>
-${active ? `<nav class="tabs" aria-label="Espace atelier">${TABS.map((t) => link(t)).join('')}</nav>` : ''}<a class="out" href="/atelier/deconnexion" title="Se déconnecter" aria-label="Se déconnecter">${ico('out')}</a></header>
-<main>${ok ? `<p class="msg msg--ok" role="status">${esc(ok)}</p>` : ''}${err ? `<p class="msg msg--err" role="alert">${esc(err)}</p>` : ''}${body}</main>
-${active ? `<nav class="dock" aria-label="Espace atelier">${TABS.slice(0, 5)
-      .map((t) => link(t, true))
-      .join('')}</nav>` : ''}</body></html>`,
+    `${HEAD(title, now)}<body${signed ? ' data-live' : ''}${opts.refresh ? ' data-refresh' : ''}>${BACKDROP}
+<div class="shell">${
+      signed
+        ? `<aside class="rail"><a class="brand" href="/atelier" aria-label="Accueil de l’espace atelier"><img src="/atelier/logo.webp" alt="SOLAR CAR" width="400" height="154"><span class="brand__tag">Atelier</span></a>
+<nav class="nav" aria-label="Espace atelier">${TABS.map((t) => (t ? link(t) : '<div class="nav__sep"></div>')).join('')}</nav>
+<div class="rail__foot">${newMenu('rail')}${liveLabel}<a class="out" href="/atelier/deconnexion">${ico('out')} Se déconnecter</a></div></aside>`
+        : ''
+    }
+<div>${
+      signed
+        ? `<header class="top"><a class="brand" href="/atelier" aria-label="Accueil de l’espace atelier"><img src="/atelier/logo.webp" alt="SOLAR CAR" width="400" height="154"><span class="brand__tag">Atelier</span></a>${liveLabel}${newMenu('top')}</header>`
+        : ''
+    }
+<main>${ok ? `<p class="msg msg--ok" role="status">${ico('check')}${esc(ok)}</p>` : ''}${err ? `<p class="msg msg--err" role="alert">${esc(err)}</p>` : ''}${body}</main></div></div>
+${signed ? `<nav class="dock" aria-label="Espace atelier">${DOCK.map((t) => link(t, true)).join('')}</nav>` : ''}</body></html>`,
     { headers: HEADERS }
   );
 }
-
-// the site's night garage: deep black, gold, ivory; Geist and Instrument Serif (served at /stats/f/)
-const CSS = `@font-face{font-family:'Geist';src:url('/stats/f/geist.woff2') format('woff2-variations');font-weight:100 900;font-display:swap}
-@font-face{font-family:'Geist Mono';src:url('/stats/f/geist-mono.woff2') format('woff2-variations');font-weight:100 900;font-display:swap}
-@font-face{font-family:'Instrument Serif';src:url('/stats/f/serif.woff2') format('woff2');font-style:italic;font-weight:400;font-display:swap}
-:root{color-scheme:dark;--bg:#07080a;--card:rgba(19,20,24,.78);--card2:#1a1b20;--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.16);--gold:#e3c27a;--gold2:#f1dca2;--gold-soft:rgba(227,194,122,.12);--text:#f3f0ea;--text2:#c7c3ba;--dim:#9b978e;--ok:#7fd49b;--err:#ff8a7a;--blue:#8fb8ff;--font:'Geist',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--serif:'Instrument Serif',Georgia,serif}
-*{box-sizing:border-box}html{-webkit-text-size-adjust:100%;background:var(--bg)}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 var(--font);-webkit-font-smoothing:antialiased;min-height:100vh}
-.bg{position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(48% 38% at 10% -4%,rgba(227,194,122,.14),transparent 70%),radial-gradient(40% 36% at 96% 18%,rgba(57,135,229,.08),transparent 70%),radial-gradient(70% 42% at 50% 118%,rgba(227,194,122,.10),transparent 70%)}
-a{color:var(--gold2)}
-.ico{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;padding:10px 18px;padding-top:max(10px,env(safe-area-inset-top));background:rgba(7,8,10,.74);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--text);flex:none}.brand img{height:40px;width:auto;display:block}.brand__tag{font:italic 400 24px/1 var(--serif);color:var(--gold);padding-left:12px;border-left:1px solid var(--line2)}
-.tabs{display:flex;gap:2px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
-.tabs a{display:flex;align-items:center;gap:7px;color:var(--text2);text-decoration:none;padding:8px 12px;border-radius:999px;font-size:14px;font-weight:600;white-space:nowrap}
-.tabs a:hover{background:var(--card2);color:var(--text)}.tabs a[aria-current]{background:var(--gold-soft);color:var(--gold2);box-shadow:inset 0 0 0 1px rgba(227,194,122,.35)}
-.badge{min-width:19px;height:19px;padding:0 6px;border-radius:999px;background:var(--gold);color:#0a0a0b;font-size:11.5px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
-.out{color:var(--dim);display:flex;padding:9px;border-radius:999px;flex:none}.out:hover{color:var(--text);background:var(--card2)}
-.dock{display:none}
-main{max-width:1080px;margin:0 auto;padding:26px 18px 60px}
-@media (max-width:900px){.tabs{display:none}.top{justify-content:space-between}.brand img{height:32px}.brand__tag{font-size:20px}main{padding:20px 16px calc(96px + env(safe-area-inset-bottom))}
-.dock{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(5,1fr);padding:6px 6px calc(6px + env(safe-area-inset-bottom));background:rgba(10,11,14,.9);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid var(--line)}
-.dock a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 4px;color:var(--dim);text-decoration:none;font-size:11px;font-weight:600;position:relative;border-radius:12px}
-.dock a[aria-current]{color:var(--gold2)}.dock a[aria-current] .ico{stroke:var(--gold)}.dock .badge{position:absolute;top:0;left:calc(50% + 5px)}}
-h1{font-size:31px;line-height:1.15;font-weight:650;letter-spacing:-.015em;margin:4px 0 10px}h1 em,h2 em{font:italic 400 1.14em/1 var(--serif);color:var(--gold)}
-h2{font-size:17px;margin:0 0 14px;font-weight:650;display:flex;align-items:center;gap:8px;flex-wrap:wrap}h3{font-size:11.5px;margin:20px 0 10px;color:var(--dim);font-weight:700;letter-spacing:.14em;text-transform:uppercase}
-.lead{color:var(--text2);margin:0 0 22px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:20px;margin:0 0 16px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
-.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));margin:0 0 16px}.grid>.card{margin:0}
-.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 18px}
-.fig{display:block;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.01));border:1px solid var(--line);border-radius:18px;padding:15px 16px;text-decoration:none;color:inherit}.fig b{display:block;font-size:27px;font-weight:650;color:var(--gold2);line-height:1.2;font-variant-numeric:tabular-nums}.fig span{color:var(--dim);font-size:13px}
-a.fig:hover{border-color:rgba(227,194,122,.45)}.fig--hot{border-color:rgba(227,194,122,.5);box-shadow:0 12px 30px -20px rgba(227,194,122,.7)}
-label{display:block;font-size:13px;color:var(--dim);margin:0 0 5px}
-input,select,textarea{width:100%;padding:11px 13px;border-radius:12px;border:1px solid var(--line2);background:rgba(0,0,0,.35);color:var(--text);font:inherit;margin:0 0 12px}
-input:focus,select:focus,textarea:focus{outline:2px solid rgba(227,194,122,.6);outline-offset:1px;border-color:transparent}
-input[type=file]{padding:8px;font-size:13px;color:var(--text2)}input[type=file]::file-selector-button{font:inherit;font-weight:700;border:0;border-radius:999px;padding:7px 13px;margin-right:10px;background:var(--gold-soft);color:var(--gold2);box-shadow:inset 0 0 0 1px rgba(227,194,122,.45);cursor:pointer}textarea{min-height:110px;resize:vertical;line-height:1.55}
-.row{display:grid;gap:0 12px;grid-template-columns:1fr 1fr}.row3{display:grid;gap:0 12px;grid-template-columns:1fr 1fr 1fr}
-.checks{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 14px}.checks label{display:flex;gap:9px;align-items:center;color:var(--text);margin:0;font-size:14px}.checks input{width:18px;height:18px;margin:0;accent-color:var(--gold)}
-.btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:11px 19px;font:inherit;font-weight:700;cursor:pointer;background:linear-gradient(180deg,var(--gold2),var(--gold));color:#0a0a0b;text-decoration:none;box-shadow:0 8px 22px -12px rgba(227,194,122,.75)}
-button:hover,.btn:hover{filter:brightness(1.06)}button .ico,.btn .ico{width:18px;height:18px}
-button.ghost,.btn.ghost{background:transparent;color:var(--gold2);box-shadow:inset 0 0 0 1px rgba(227,194,122,.45)}
-button.danger{background:transparent;color:var(--err);box-shadow:inset 0 0 0 1px var(--err)}.danger-link{cursor:pointer;color:var(--err);font-weight:600;list-style:none}.danger-link::-webkit-details-marker{display:none}details[open] .danger-link{margin-bottom:8px}.gmail p{margin:0 0 6px}.gmail .btns form{margin:0}.err{color:var(--err)}button.small,.btn.small{padding:7px 13px;font-size:13px}
-.msg{padding:12px 16px;border-radius:14px;margin:0 0 18px;font-weight:600}.msg--ok{background:rgba(127,212,155,.12);color:var(--ok);border:1px solid rgba(127,212,155,.28)}.msg--err{background:rgba(255,138,122,.1);color:var(--err);border:1px solid rgba(255,138,122,.28)}
-table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--dim);font-size:12px;font-weight:600}td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}.acts td{border-top:0;padding-top:0}tr:has(+ .acts) td{border-bottom:0}.n{text-align:right;white-space:nowrap}
-.code{font-family:'Geist Mono',ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;color:var(--gold2);white-space:nowrap}
-.tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}.tag--ok{background:rgba(127,212,155,.13);color:var(--ok)}.tag--gold{background:var(--gold-soft);color:var(--gold2)}.tag--off{background:rgba(255,255,255,.07);color:var(--dim)}.tag--err{background:rgba(255,138,122,.12);color:var(--err)}.tag--new{background:rgba(143,184,255,.14);color:var(--blue)}
-.list{list-style:none;margin:0;padding:0}.list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}.list li:last-child{border:0}.list a{text-decoration:none}
-.band{border:1px solid rgba(227,194,122,.45);border-radius:16px;padding:12px 14px;background:rgba(0,0,0,.3);margin:0 0 12px}.empty{color:var(--dim)}.search{display:flex;gap:8px}.search input{margin:0}
-.theme{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;margin-right:4px;vertical-align:1px}.theme--classique{background:var(--gold-soft);color:var(--gold2)}.theme--noel{background:#b3121b;color:#fff}.theme--neon{background:linear-gradient(90deg,#ff2e88,#ff8a3d);color:#14001f}
-.big{font:800 26px/1.2 'Geist Mono',ui-monospace,Menlo,Consolas,monospace;letter-spacing:.12em;color:var(--gold2)}.right{margin-left:auto;font-size:13px;font-weight:600}
-.chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px}.chips a{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;border:1px solid var(--line2);color:var(--text2);text-decoration:none;font-size:13.5px;font-weight:600}.chips a[aria-current]{background:var(--gold-soft);border-color:rgba(227,194,122,.5);color:var(--gold2)}.chips b{font-weight:700;color:var(--dim)}
-.qlist{display:grid;gap:10px}
-.q{display:grid;grid-template-columns:auto 1fr auto;gap:2px 16px;align-items:start;padding:15px 18px;border-radius:20px;border:1px solid var(--line);background:var(--card);text-decoration:none;color:inherit}
-.q:hover{border-color:rgba(227,194,122,.45)}.q__n{font:italic 400 24px/1.1 var(--serif);color:var(--gold);min-width:52px}
-.q__who{display:block;font-weight:650}.q__what{display:block;color:var(--text2);font-size:13.5px}.q__last{grid-column:2/4;color:var(--dim);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}
-.q__side{display:grid;gap:5px;justify-items:end;text-align:right}.q__side small{color:var(--dim);font-size:12px}
-.q--unread{border-color:rgba(227,194,122,.6);box-shadow:0 0 0 1px rgba(227,194,122,.18),0 14px 34px -22px rgba(227,194,122,.8)}.q--unread .q__last{color:var(--text)}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;margin-right:7px;vertical-align:2px;box-shadow:0 0 10px rgba(227,194,122,.8)}
-.crumb{display:inline-flex;align-items:center;gap:4px;color:var(--dim);text-decoration:none;font-size:14px;margin:0 0 10px}.crumb:hover{color:var(--text)}.crumb .ico{width:16px;height:16px}
-.qhead{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;margin:0 0 18px}.qhead h1{margin:0}.qhead .tag{font-size:13px;padding:5px 12px}
-.avatar{width:46px;height:46px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--gold-soft);color:var(--gold2);font-weight:700;border:1px solid rgba(227,194,122,.4)}
-.dgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}.dgrid>aside .card:last-child{margin:0}
-.thread{display:flex;flex-direction:column;gap:14px;margin:0 0 18px}
-.b{max-width:min(640px,88%);padding:13px 16px;border-radius:22px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
-.b--in{align-self:flex-start;background:var(--card2);border:1px solid var(--line);border-bottom-left-radius:7px}
-.b--out{align-self:flex-end;background:linear-gradient(180deg,rgba(241,220,162,.17),rgba(227,194,122,.09));border:1px solid rgba(227,194,122,.38);border-bottom-right-radius:7px}
-.b__meta{display:block;font-size:12px;color:var(--dim);margin-top:8px;white-space:normal}.b--out .b__meta{text-align:right}
-.note{align-self:center;max-width:92%;font-size:12.5px;color:var(--text2);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:999px;padding:6px 14px;text-align:center;margin:0}
-.files{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;white-space:normal}.files img{width:150px;height:112px;object-fit:cover;border-radius:14px;border:1px solid var(--line2);display:block}
-.file{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:12px;background:rgba(0,0,0,.3);border:1px solid var(--line2);color:var(--text);text-decoration:none;font-size:13px}.file .ico{width:16px;height:16px}
-.composer textarea{min-height:150px}.hint{font-size:12.5px;color:var(--dim);margin:10px 0 0}
-.facts{margin:0;display:grid;gap:10px}.facts dt{font-size:12px;color:var(--dim)}.facts dd{margin:0;font-weight:600}
-.login{max-width:420px;margin:9vh auto 0;padding:0 16px}.login__card{text-align:center;padding:30px 24px}.login__logo{width:min(260px,70%);height:auto;margin:0 auto 10px;display:block}.login form{text-align:left}.login .lead{text-align:center}
-@media (max-width:900px){.dgrid{grid-template-columns:1fr}.dgrid>aside{order:-1}}
-@media (max-width:640px){.row,.row3{grid-template-columns:1fr}.hide-s{display:none}th,td{padding:9px 6px}h1{font-size:26px}.card{padding:16px;border-radius:20px}.q{grid-template-columns:1fr auto;padding:14px}.q__n{display:none}.q__last{grid-column:1/3}.b{max-width:94%}}`;
 
 // ---------------------------------------------------------------- sign-in
 function loginPage(url, sent) {
   const err = url.searchParams.get('err');
   return new Response(
-    `${HEAD('Connexion')}<body><div class="bg" aria-hidden="true"></div><main class="login"><div class="card login__card">
+    `${HEAD('Connexion')}<body>${BACKDROP}<main class="login"><div class="card login__card">
 <img class="login__logo" src="/atelier/logo.webp" alt="SOLAR CAR" width="400" height="154"><h1>Espace <em>atelier</em></h1>
 ${err ? `<p class="msg msg--err" role="alert">${esc(err)}</p>` : ''}
 ${
   sent
     ? `<p class="lead">Un code à 6 chiffres vient de partir par e-mail à l’atelier. Il est valable 10 minutes.</p>
-<form method="post" action="/atelier/connexion"><label for="code">Code reçu</label><input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="\\d{6}" maxlength="6" required autofocus style="font:600 22px/1.2 'Geist Mono',monospace;letter-spacing:.3em;text-align:center"><button style="width:100%">Se connecter</button></form>
+<form method="post" action="/atelier/connexion"><label for="code">Code reçu</label><input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="\\d{6}" maxlength="6" required autofocus style="font:600 24px/1.2 'Geist Mono',monospace;letter-spacing:.35em;text-align:center"><button style="width:100%">Se connecter</button></form>
 <form method="post" action="/atelier/connexion/code" style="margin-top:12px;text-align:center"><button class="ghost small">Renvoyer un code</button></form>`
     : `<p class="lead">Pas de mot de passe : un code de connexion part par e-mail à l’atelier. Vous restez ensuite connecté ${SESSION_DAYS} jours sur cet appareil.</p>
 <form method="post" action="/atelier/connexion/code"><button style="width:100%">${ico('mail')} Recevoir mon code par e-mail</button></form>`
@@ -248,6 +226,9 @@ export async function atelier(req, env, url, now) {
     const [data, type] = BRAND[asset[1]];
     return new Response(data, { headers: { 'content-type': type, 'cache-control': 'public, max-age=604800' } });
   }
+  // the look: one style sheet, one script (their address carries their fingerprint)
+  if (path === '/atelier/app.css') return new Response(CSS, { headers: { 'content-type': 'text/css; charset=utf-8', 'cache-control': 'public, max-age=31536000, immutable' } });
+  if (path === '/atelier/app.js') return new Response(JS, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' } });
   if (path === '/atelier/icone.svg')
     return new Response('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0b0c0f"/><rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#e9cd82" stroke-width="10"/><text x="256" y="300" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="170" font-weight="800" fill="#e9cd82" letter-spacing="8">SC</text><text x="256" y="390" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="64" font-weight="700" fill="#f2efe8" letter-spacing="10">37</text></svg>', { headers: { 'content-type': 'image/svg+xml', 'cache-control': 'public, max-age=86400' } });
   if (!env.ATELIER || !env.ATELIER_SECRET) return new Response('Espace atelier pas encore activé (ATELIER, ATELIER_SECRET).', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
@@ -292,8 +273,18 @@ export async function atelier(req, env, url, now) {
     await gmailDisconnect(env);
     return back('/atelier/devis', { ok: 'Gmail déconnecté. (Pour retirer aussi l’accès chez Google : myaccount.google.com → Sécurité → Applications tierces.)' });
   }
-  // the pages of the quotes and the home: Gmail read first (once a minute at most, 4 s at most)
-  if (req.method === 'GET' && (path === '/atelier' || path.startsWith('/atelier/devis'))) await Promise.race([gmailSync(env, now).catch(() => null), new Promise((ok) => setTimeout(ok, 4000))]);
+  // the pages of the quotes, the home and the live updates: Gmail read first (once a minute at
+  // most, 4 s at most)
+  if (req.method === 'GET' && (path === '/atelier' || path === '/atelier/live' || path.startsWith('/atelier/devis'))) await Promise.race([gmailSync(env, now).catch(() => null), new Promise((ok) => setTimeout(ok, 4000))]);
+  if (path === '/atelier/live' && req.method === 'GET') {
+    const r = await db(env, 'live', { now, limit: 12 });
+    return new Response(JSON.stringify({ ...r, at: now }), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } });
+  }
+  if (path === '/atelier/reglages' && req.method === 'POST') {
+    const f = await req.formData();
+    const r = await db(env, 'quotes/delays', { now, set: { remind: String(f.get('relance') ?? ''), close: String(f.get('sans_suite') ?? '') } });
+    return back('/atelier/plus', { ok: `Réglages enregistrés : à relancer après ${r.delays.remind} jours, sans suite après ${r.delays.close ? `${r.delays.close} jours` : 'jamais'}.` });
+  }
 
   // the quote discussions; reading one marks it read, before the count of the « Devis » tab
   const dm = path.match(/^\/atelier\/devis\/(\d+)(?:\/(repondre|statut|supprimer))?$/);
@@ -316,6 +307,7 @@ export async function atelier(req, env, url, now) {
   const fm = path.match(/^\/atelier\/fichier\/(\d+)$/);
   if (fm && req.method === 'GET') return fileGet(env, Number(fm[1]));
   if (path === '/atelier' && req.method === 'GET') return home(env, url, now);
+  if (path === '/atelier/plus' && req.method === 'GET') return morePage(env, url, now);
   if (path === '/atelier/rdv' && req.method === 'GET') return appointments(env, url, now);
   if (path === '/atelier/clients' && req.method === 'GET') return clients(env, url);
   if (path === '/atelier/clients.csv' && req.method === 'GET') return clientsCsv(env, now);
@@ -345,8 +337,25 @@ export async function atelier(req, env, url, now) {
 }
 
 // ---------------------------------------------------------------- Devis (the quote discussions)
-const STATUS_TAG = { nouveau: 'tag--new', envoye: 'tag--gold', valide: 'tag--ok', sans_suite: 'tag--off' };
+const STATUS_TAG = { nouveau: 'tag--new', envoye: 'tag--gold', reponse: 'tag--reply', valide: 'tag--ok', sans_suite: 'tag--off' };
+/** the colour of each status (booking/atelier-look.js) */
+const STATUS_C = { nouveau: 'var(--blue)', envoye: 'var(--gold)', reponse: 'var(--violet)', valide: 'var(--ok)', sans_suite: 'var(--dim)', relancer: 'var(--amber)' };
 const statusTag = (s) => `<span class="tag ${STATUS_TAG[s] || 'tag--off'}">${esc(QUOTE_STATUS[s] || s)}</span>`;
+const remindTag = '<span class="tag tag--warn">à relancer</span>';
+/** « il y a 5 min » (kept up to date by the page's script) */
+function ago(ms, now) {
+  const s = Math.round((now - ms) / 1000);
+  if (s < 50) return 'à l’instant';
+  const m = Math.round(s / 60);
+  if (m < 60) return `il y a ${m} min`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `il y a ${h} h`;
+  const j = Math.round(h / 24);
+  if (j < 2) return 'hier';
+  if (j < 7) return `il y a ${j} j`;
+  return dayLabel(paris(ms).date, { day: 'numeric', month: 'short' });
+}
+const agoHtml = (ms, now) => `<time data-ago="${ms}">${esc(ago(ms, now))}</time>`;
 const initials = (r) => (`${(r.first || '')[0] || ''}${(r.last || '')[0] || ''}`.toUpperCase() || '?');
 /** « aujourd’hui 13 h 47 », « hier 18 h 02 », « 12 nov. » */
 function when(ms, now) {
@@ -366,26 +375,32 @@ const snippet = (s, n = 140) => {
 };
 
 async function quotesPage(env, url, now) {
-  const st = Object.hasOwn(QUOTE_STATUS, url.searchParams.get('statut')) ? url.searchParams.get('statut') : '';
-  const [r, gm] = await Promise.all([db(env, 'quotes/list', { status: st }), gmailReady(env) ? gmailState(env) : { connected: false, unset: true }]);
+  const want = url.searchParams.get('statut');
+  // « à relancer »: the quotes sent, without news from the client for a while
+  const relancer = want === 'relancer';
+  const st = relancer ? 'envoye' : Object.hasOwn(QUOTE_STATUS, want) ? want : '';
+  const [r, gm] = await Promise.all([db(env, 'quotes/list', { status: st, now }), gmailReady(env) ? gmailState(env) : { connected: false, unset: true }]);
+  if (relancer) r.quotes = r.quotes.filter((q) => q.remind);
   // Gmail: connected (read at each visit, « Actualiser » to read now) or to connect
   const gmailBox = gm.connected
     ? `<section class="card gmail"><p><b>${ico('mail')} Gmail connecté</b>${gm.email ? ` · ${esc(gm.email)}` : ''} · lu ${esc(when(gm.lastSync || now, now))}${gm.error ? ` · <span class="err">${esc(gm.error)}</span>` : ''}</p><p class="hint">Vos réponses écrites depuis Gmail et les réponses des clients arrivent dans leur devis, et le statut suit.</p><div class="btns"><form method="post" action="/atelier/gmail/sync"><button class="small">Actualiser</button></form><form method="post" action="/atelier/gmail/deconnexion"><button class="ghost small">Déconnecter</button></form></div></section>`
     : `<section class="card gmail"><p><b>${ico('mail')} Connecter votre Gmail</b></p><p class="hint">Pour que vos réponses envoyées depuis Gmail (et celles des clients) arrivent ici, et que le statut passe tout seul à « Devis envoyé ». Seuls les e-mails échangés avec vos clients en attente de devis sont lus.</p>${gm.unset ? '<p class="hint">À activer : identifiants Google à ajouter au serveur (docs/ATELIER.md).</p>' : '<a class="btn small" href="/atelier/gmail/connexion">Connecter Gmail</a>'}</section>`;
   const total = Object.values(r.counts).reduce((a, b) => a + b, 0);
-  const chip = (k, label, n) => `<a href="/atelier/devis${k ? `?statut=${k}` : ''}"${k === st ? ' aria-current="page"' : ''}>${esc(label)} <b>${n}</b></a>`;
-  const card = (q) => `<a class="q${q.unread ? ' q--unread' : ''}" href="/atelier/devis/${q.id}"><span class="q__n">n°${q.id}</span>
+  const remindN = relancer ? r.quotes.length : (await db(env, 'live', { now, limit: 0 })).remind;
+  const chip = (k, label, n) => `<a href="/atelier/devis${k ? `?statut=${k}` : ''}"${k === (relancer ? 'relancer' : st) ? ' aria-current="page"' : ''} style="--c:${STATUS_C[k] || 'var(--dim)'}">${k ? '<i></i>' : ''}${esc(label)} <b>${n}</b></a>`;
+  const card = (q) => `<a class="q q--${q.remind ? 'remind' : esc(q.status)}${q.unread ? ' q--unread' : ''}" href="/atelier/devis/${q.id}"><span class="q__n">n°${q.id}</span>
 <span><span class="q__who">${q.unread ? '<span class="dot" aria-label="Nouveau message"></span>' : ''}${esc(name(q))}</span><span class="q__what">${esc([q.vehicle, q.services].filter(Boolean).join(' · ') || 'Demande de devis')}</span></span>
-<span class="q__side">${statusTag(q.status)}<small>${esc(when(Math.max(q.at, q.last_at || 0), now))}</small>${q.amount ? `<small>${eur(q.amount)}</small>` : ''}</span>
+<span class="q__side">${statusTag(q.status)}${q.remind ? remindTag : ''}<small>${esc(when(Math.max(q.at, q.last_at || 0), now))}${q.amount ? ` · ${eur(q.amount)}` : ''}</small></span>
 ${q.last_text ? `<span class="q__last">${q.last_dir === 'out' ? 'Vous : ' : ''}${esc(snippet(q.last_text))}</span>` : ''}</a>`;
+  const d = r.delays || { remind: 7, close: 14 };
   const body = `<h1>Demandes de <em>devis</em></h1>
-<p class="lead">Chaque demande du site ouvre une discussion. Répondez ici, ou depuis votre Gmail : tout est rangé ici, et le statut suit tout seul (devis envoyé à votre première réponse, validé quand le client accepte ou réserve en ligne).</p>
+<p class="lead">Chaque demande du site ouvre une discussion. Répondez ici ou depuis Gmail : le statut suit tout seul. Devis envoyé à votre réponse, réponse reçue quand le client écrit, validé quand il accepte ou réserve en ligne${d.remind ? `, à relancer après ${d.remind} jours sans nouvelles` : ''}${d.close ? `, sans suite après ${d.close} jours (il revient si le client répond)` : ''}.</p>
 <nav class="chips" aria-label="Filtrer par statut">${chip('', 'Toutes', total)}${Object.entries(QUOTE_STATUS)
     .map(([k, v]) => chip(k, v, r.counts[k] || 0))
-    .join('')}</nav>
+    .join('')}${remindN || relancer ? chip('relancer', 'À relancer', remindN) : ''}</nav>
 ${gmailBox}
-${r.quotes.length ? `<div class="qlist">${r.quotes.map(card).join('')}</div>` : `<section class="card"><p class="empty">${st ? 'Aucune demande avec ce statut.' : 'Les demandes de devis envoyées depuis le site arriveront ici.'}</p></section>`}`;
-  return page('Devis', '/atelier/devis', body, url);
+${r.quotes.length ? `<div class="qlist">${r.quotes.map(card).join('')}</div>` : `<section class="card"><p class="empty">${st ? 'Aucune demande ici pour le moment.' : 'Les demandes de devis envoyées depuis le site arriveront ici.'}</p></section>`}`;
+  return page('Devis', '/atelier/devis', body, url, { refresh: true, now });
 }
 
 const VIA = { site: 'formulaire du site', mail: 'e-mail', gmail: 'depuis Gmail', atelier: 'depuis l’atelier' };
@@ -413,10 +428,20 @@ async function quotePage(env, url, id, now) {
     return `<div class="b b--${out ? 'out' : 'in'}">${esc(m.text)}${filesHtml(m.files)}<span class="b__meta">${esc(by)} · ${esc(when(m.at, now))}${VIA[m.via] ? ` · ${esc(VIA[m.via])}` : ''}</span></div>`;
   };
   const relay = !!String(env.QUOTE_REPLY || '').trim();
+  // waiting for the client for a while: a reminder ready to send
+  const { delays: dl } = await db(env, 'quotes/delays', { now });
+  const talk = messages.filter((m) => m.dir === 'in' || m.dir === 'out');
+  const quiet = Math.max(r.status_at || 0, talk.length ? talk.at(-1).at : 0);
+  const days = Math.floor((now - quiet) / DAY);
+  const remind = r.status === 'envoye' && dl.remind && now - quiet > dl.remind * DAY;
+  const draft = remind
+    ? `Bonjour ${r.first || ''},\n\nJe reviens vers vous au sujet de votre demande de devis n°${r.id}${r.services ? ` (${String(r.services).toLowerCase()})` : ''}. Avez-vous pu y réfléchir ? Je reste à votre disposition pour toute question, ou pour fixer la date du rendez-vous.\n\n`
+    : `Bonjour ${r.first || ''},\n\n`;
+  const remindBox = remind ? `<p class="msg msg--warn">${ico('clock')} Sans nouvelles de ${esc(r.first || 'ce client')} depuis ${days} jours : un message de relance est prêt ci-dessous.${dl.close ? ` Sans réponse, la demande passera en « Sans suite » dans ${Math.max(1, dl.close - days)} jour${dl.close - days > 1 ? 's' : ''}.` : ''}</p>` : '';
   const composer = r.email
     ? `<form class="card composer" method="post" action="/atelier/devis/${r.id}/repondre" enctype="multipart/form-data">
 <h2>${ico('send')} Répondre à ${esc(r.first || who)}</h2>
-<label for="q-msg">Message</label><textarea id="q-msg" name="message" placeholder="Votre devis, une question…">${esc(`Bonjour ${r.first || ''},\n\n`)}</textarea>
+<label for="q-msg">Message</label><textarea id="q-msg" name="message" placeholder="Votre devis, une question…">${esc(draft)}</textarea>
 <div class="row"><div><label for="q-amount">Montant du devis (€)</label><input id="q-amount" name="montant" inputmode="decimal" value="${r.amount ? esc(String(r.amount).replace('.', ',')) : ''}" placeholder="ex. 1 190"></div><div><label for="q-files">Pièces jointes (devis PDF, photos)</label><input id="q-files" name="fichiers" type="file" multiple></div></div>
 <div class="checks"><label><input type="checkbox" name="accepter" value="1"${r.status === 'valide' ? '' : ' checked'}> Ajouter le bouton « J’accepte ce devis »</label></div>
 <button>${ico('send')} Envoyer à ${esc(r.first || 'le client')}</button>
@@ -441,11 +466,11 @@ async function quotePage(env, url, id, now) {
   ].filter(([, v]) => v);
   const body = `<a class="crumb" href="/atelier/devis">${ico('back')} Tous les devis</a>
 <div class="qhead"><span class="avatar" aria-hidden="true">${esc(initials(r))}</span><div><h1>Devis <em>n°${r.id}</em></h1><span class="dim">${esc(who)} · ${esc([r.vehicle, r.services].filter(Boolean).join(' · '))}</span></div><span class="right">${statusTag(r.status)}</span></div>
-<div class="dgrid"><div><section class="thread" aria-label="Discussion">${messages.map(bubble).join('')}</section>${composer}</div>
+${remindBox}<div class="dgrid"><div><section class="thread" aria-label="Discussion">${messages.map(bubble).join('')}</section>${composer}</div>
 <aside><section class="card"><h2>${ico('user')} ${esc(who)}</h2><div class="btns" style="margin:0 0 14px">${r.phone ? `<a class="btn small" href="tel:${esc(tel(r.phone))}">${ico('phone')} ${esc(r.phone)}</a>` : ''}${r.email ? `<a class="btn ghost small" href="mailto:${esc(r.email)}">${ico('mail')} E-mail</a>` : ''}</div>
 <dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
 <p style="margin:14px 0 0"><a href="/atelier/clients/${r.client_id}">Fiche client</a></p></section>${status}</aside></div>`;
-  return page(`Devis n°${r.id}`, '/atelier/devis', body, url);
+  return page(`Devis n°${r.id}`, '/atelier/devis', body, url, { now });
 }
 
 /** the workshop's answer, written here: passed as it is (multipart, files) to the database, which sends it */
@@ -530,48 +555,196 @@ function apptRow(x, { withDate = true } = {}) {
   return `<tr>${withDate ? `<td><b>${esc(dayLabel(x.at.date))}</b><small>${esc(hour(x.at.time))} – ${esc(hour(x.end.time))}</small></td>` : ''}<td>${who}</td><td class="hide-s">${esc(what(x))}${b?.code ? `<small>code <span class="code">${esc(b.code)}</span> −${eur(b.discount)}</small>` : ''}</td><td class="n">${money}</td></tr>`;
 }
 
+// ---------------------------------------------------------------- the agenda (Google Calendar of SOLAR CAR 37)
+/**
+ * Every event of the workshop's calendar between two days (Paris), the online bookings joined:
+ * { start, end, date, time, endTime, allDay, title, who, hold, online, b }, in time order; null
+ * when the calendar cannot be read.
+ */
+async function agenda(env, from, to) {
+  const events = await listEvents(env, env.CALENDAR_WRITE, dayStart(from), dayStart(addDays(to, 1))).catch(() => null);
+  if (!events) return null;
+  const sessions = events.map((e) => e.extendedProperties?.private?.session).filter(Boolean);
+  const known = sessions.length ? Object.fromEntries((await db(env, 'bookings/list', { from: addDays(from, -62), to: addDays(to, 62), limit: 500 })).bookings.map((b) => [b.session, b])) : {};
+  return events
+    .filter((e) => e.status !== 'cancelled' && (e.start?.dateTime || e.start?.date))
+    .map((e) => {
+      const p = e.extendedProperties?.private || {};
+      const allDay = !e.start.dateTime;
+      const start = allDay ? dayStart(e.start.date) : Date.parse(e.start.dateTime);
+      const end = allDay ? dayStart(e.end?.date || addDays(e.start.date, 1)) : Date.parse(e.end?.dateTime || e.start.dateTime);
+      const b = p.session ? known[p.session] || null : null;
+      const hold = p.solarcarHold === '1';
+      const online = p.solarcarHold === '0';
+      // « RDV Vitres teintées 3/4 arrière — Léa Petit », « ⏳ Paiement en cours — … — Léa Petit »
+      const parts = String(e.summary || 'Occupé')
+        .replace(/^⚠ À vérifier — /, '')
+        .replace(/^⏳\s*Paiement en cours\s*—\s*/, '')
+        .replace(/^RDV\s+/, '')
+        .split(' — ');
+      const named = (online || hold || b) && parts.length > 1 ? parts.pop() : '';
+      const who = b ? name(b) : named;
+      const at = paris(start);
+      return { start, end, date: at.date, time: at.time, endTime: paris(end).time, allDay, title: parts.join(' — '), who, hold, online, b, id: e.id };
+    });
+}
+
 // ---------------------------------------------------------------- Accueil
+const FEED = {
+  demande: ['inbox', (e) => `Nouvelle demande · n°${e.request}`, (e) => [name(e), e.text].filter(Boolean).join(' — ')],
+  in: ['chat', (e) => `${e.first || 'Le client'} a écrit · n°${e.request}`, (e) => e.text],
+  out: ['send', (e) => `Vous avez répondu à ${e.first || 'un client'}`, (e) => e.text],
+  note: ['bolt', (e) => `Devis n°${e.request} · ${name(e)}`, (e) => e.text],
+  rdv: ['card', (e) => `RDV réservé et payé · ${name(e)}`, (e) => {
+    const items = (() => {
+      try {
+        return JSON.parse(e.text || '[]').map((i) => i.label).join(' + ');
+      } catch {
+        return '';
+      }
+    })();
+    const [date, time] = String(e.vehicle || '').split(' ');
+    return [items, /^\d{4}-\d{2}-\d{2}$/.test(date) ? `le ${dayLabel(date, { weekday: 'short', day: 'numeric', month: 'short' })} à ${hour(time)}` : ''].filter(Boolean).join(' · ');
+  }],
+};
+
 async function home(env, url, now) {
   const today = paris(now).date;
   const from = `${today.slice(0, 8)}01`;
-  const [sum, next, band, visits, todo] = await Promise.all([
-    db(env, 'summary', { from, to: today }),
-    calendarBookings(env, today, addDays(today, 14)),
+  const [sum, events, band, visits, list, act] = await Promise.all([
+    db(env, 'summary', { from, to: today, now }),
+    agenda(env, today, addDays(today, 6)),
     db(env, 'banner/get'),
     env.STATS
       ? report(env, { site: 'site', from, to: today, pfrom: from, pto: today })
           .then((r) => totalsOf(r.totals))
           .catch(() => null)
       : null,
-    db(env, 'quotes/list', {}).then((r) => r.quotes.filter((q) => q.unread || q.status === 'nouveau').slice(0, 6)),
+    db(env, 'quotes/list', { now }),
+    db(env, 'activity', { limit: 9, now }),
   ]);
   const month = new Intl.DateTimeFormat('fr-FR', { month: 'long', timeZone: 'UTC' }).format(new Date(`${from}T12:00:00Z`));
-  const figs = [
-    [sum.bookings.n, 'RDV réservés en ligne'],
-    [eur(sum.bookings.paid), 'encaissés en ligne'],
-    [eur(sum.bookings.due), 'reste à encaisser à l’atelier'],
-    [sum.requests, 'demandes de devis'],
-    [sum.clients, 'nouveaux clients'],
-    ...(visits ? [[visits.visits, 'visites du site']] : []),
-  ];
-  const nextHtml = next === null ? '<p class="empty">Agenda indisponible pour le moment.</p>' : next.length ? `<table><tbody>${next.map((x) => apptRow(x)).join('')}</tbody></table>` : '<p class="empty">Aucun RDV en ligne dans les 14 prochains jours.</p>';
-  const b = band.banner;
-  const bandNow = !b ? 'aucun bandeau prévu' : now < b.starts ? `prochain bandeau : du ${dateOf(b.starts)} au ${dateOf(b.expires)}` : `affiché jusqu’au ${dateOf(b.expires)}`;
   const qf = sum.quotes;
-  const quoteFigs = `<div class="figs"><a class="fig${qf.open + qf.unread ? ' fig--hot' : ''}" href="/atelier/devis?statut=nouveau"><b>${qf.open}</b><span>devis à faire</span></a><a class="fig" href="/atelier/devis"><b>${qf.unread}</b><span>discussion${qf.unread > 1 ? 's' : ''} avec un message non lu</span></a><a class="fig" href="/atelier/devis?statut=envoye"><b>${qf.sent}</b><span>devis envoyés, en attente</span></a><a class="fig" href="/atelier/devis?statut=valide"><b>${qf.won.n}</b><span>validés en ${esc(new Intl.DateTimeFormat('fr-FR', { month: 'long', timeZone: 'UTC' }).format(new Date(`${from}T12:00:00Z`)))}${qf.won.amount ? ` · ${eur(qf.won.amount)}` : ''}</span></a></div>`;
-  const todoHtml = todo.length
-    ? `<section class="card"><h2>${ico('chat')} À traiter <a class="right" href="/atelier/devis">Tous les devis</a></h2><ul class="list">${todo.map((q) => `<li><a href="/atelier/devis/${q.id}"><b>${q.unread ? '<span class="dot"></span>' : ''}n°${q.id} · ${esc(name(q))}</b><br><span class="dim">${esc([q.vehicle, q.services].filter(Boolean).join(' · '))}</span></a>${statusTag(q.status)}</li>`).join('')}</ul></section>`
-    : '';
-  const body = `<h1>Bonjour <em>${esc((B.owner || '').split(' ')[0] || '')}</em></h1>
-<p class="lead">${esc(dayLabel(today, { weekday: 'long', day: 'numeric', month: 'long' }))} · ${sum.totalClients} client${sum.totalClients > 1 ? 's' : ''} dans le fichier</p>
-<h3>Devis</h3>${quoteFigs}${todoHtml}
-<h3>En ${esc(month)}</h3><div class="figs">${figs.map(([v, l]) => `<div class="fig"><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('')}</div>
-<section class="card"><h2>${ico('cal')} Prochains rendez-vous en ligne <a class="right" href="/atelier/rdv">Tout voir</a></h2>${nextHtml}</section>
-<div class="grid">
-<section class="card"><h2>Bandeau du site</h2>${b ? `<div class="band"><span class="theme theme--${esc(b.theme)}">${esc(THEMES[b.theme] || '')}</span> <b>${esc(b.title)}</b><br>${esc(b.text)}</div>` : ''}<p class="dim">${esc(bandNow)}${sum.promoUses.length ? ` · ce mois-ci : ${sum.promoUses.map((p) => `${esc(p.code)} utilisé ${p.n} fois`).join(', ')}` : ''}</p><a class="btn ghost small" href="/atelier/codes">Régler le bandeau et les codes</a></section>
-<section class="card"><h2>Raccourcis</h2><div class="btns"><a class="btn small" href="/atelier/clients/nouveau">Ajouter un client</a><a class="btn ghost small" href="/atelier/codes#parrainage">Donner un code de parrainage</a><a class="btn ghost small" href="/atelier/clients.csv">Exporter les clients</a><a class="btn ghost small" href="/atelier/stats">Statistiques détaillées</a></div></section>
-</div>`;
-  return page('Accueil', '/atelier', body, url);
+  const remind = list.quotes.filter((q) => q.remind);
+  const dl = list.delays || { remind: 7, close: 14 };
+  const timed = (events || []).filter((x) => !x.allDay && !x.hold);
+  const todayN = timed.filter((x) => x.date === today).length;
+
+  // the greeting, and what waits, in a few words
+  const pills = [
+    qf.open && ['var(--blue)', `${qf.open} devis à répondre`, '/atelier/devis?statut=nouveau'],
+    qf.reply && ['var(--violet)', `${qf.reply} réponse${qf.reply > 1 ? 's' : ''} reçue${qf.reply > 1 ? 's' : ''}`, '/atelier/devis?statut=reponse'],
+    remind.length && ['var(--amber)', `${remind.length} à relancer`, '/atelier/devis?statut=relancer'],
+    todayN && ['var(--ok)', `${todayN} RDV aujourd’hui`, '/atelier/rdv'],
+  ].filter(Boolean);
+  const hello = `<div class="hello"><h1>Bonjour <em>${esc((B.owner || '').split(' ')[0] || '')}</em></h1>
+<p class="hello__date">${esc(cap(dayLabel(today, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })))} · ${sum.totalClients} client${sum.totalClients > 1 ? 's' : ''} dans le fichier</p>
+<p class="hello__sum">${pills.length ? pills.map(([c, t, href]) => `<a class="pill" href="${href}" style="--c:${c}"><i></i>${esc(t)}</a>`).join('') : '<span class="pill pill--calm"><i></i>Tout est à jour</span>'}</p></div>`;
+
+  // the appointment of the moment, else the next one
+  const cur = timed.find((x) => x.start <= now && now < x.end);
+  const next = timed.find((x) => x.start > now);
+  const what = (x) => `${esc(x.title)}${x.who ? `<small>${x.b ? `<a href="/atelier/clients/${x.b.client_id}">${esc(x.who)}</a>` : esc(x.who)}${x.b?.vehicle ? ` · ${esc(x.b.vehicle)}` : ''}</small>` : ''}`;
+  const nowCard = cur
+    ? `<section class="card now"><span class="now__k"><i></i>En ce moment</span><p class="now__t">${what(cur)}</p><div><div class="now__when"><span>${esc(hour(cur.time))} – ${esc(hour(cur.endTime))}</span><span>fin <time data-until="${cur.end}">${esc(hour(cur.endTime))}</time></span></div><div class="bar" style="margin-top:10px"><i data-span="${cur.start}-${cur.end}" style="width:${Math.round(((now - cur.start) / (cur.end - cur.start)) * 100)}%"></i></div>${cur.b && cur.b.total - cur.b.paid > 0 ? `<p class="dim" style="margin:10px 0 0">Reste à encaisser : <b style="color:var(--gold-2)">${eur(cur.b.total - cur.b.paid)}</b></p>` : ''}</div></section>`
+    : next
+      ? `<section class="card now"><span class="now__k"><i></i>Prochain rendez-vous</span><p class="now__t">${what(next)}</p><div class="now__when"><span>${esc(dayLabel(next.date, { weekday: 'long', day: 'numeric', month: 'long' }))} · ${esc(hour(next.time))}</span><b data-until="${next.start}">${esc(next.date === today ? 'aujourd’hui' : 'bientôt')}</b></div></section>`
+      : `<section class="card now"><span class="now__k"><i></i>Agenda</span><p class="now__t">${events === null ? 'Agenda indisponible pour le moment.' : 'Aucun rendez-vous dans les 7 prochains jours.'}<small>Les RDV de l’agenda SOLAR CAR 37 s’affichent ici.</small></p><a class="btn ghost small" href="/atelier/rdv" style="align-self:flex-start">${ico('cal')} Rendez-vous</a></section>`;
+
+  // the quotes, step by step
+  const st = (cls, icon, label, n, href, small, hot) => `<a class="st st--${cls}${hot && n ? ' st--hot' : ''}" href="${href}"><span class="st__k">${ico(icon)}${esc(label)}</span><b data-n="${n}">${n}</b><small>${small}</small></a>`;
+  const pipe = `<div class="pipe">${[
+    st('new', 'inbox', 'À répondre', qf.open, '/atelier/devis?statut=nouveau', 'nouvelles demandes', true),
+    st('reply', 'chat', 'Réponse reçue', qf.reply, '/atelier/devis?statut=reponse', 'le client a écrit', true),
+    st('sent', 'send', 'En attente', qf.sent, '/atelier/devis?statut=envoye', 'devis envoyés, au client de jouer', false),
+    st('remind', 'clock', 'À relancer', remind.length, '/atelier/devis?statut=relancer', dl.remind ? `sans nouvelles depuis ${dl.remind} jours` : 'relance désactivée', true),
+    st('won', 'check', 'Validés', qf.won.n, '/atelier/devis?statut=valide', `en ${esc(month)}${qf.won.amount ? ` · ${eur(qf.won.amount)}` : ''}`, false),
+  ].join('')}</div>`;
+
+  // what to do now: the client wrote, new requests, then the reminders
+  const rank = (q) => (q.status === 'reponse' || q.unread ? 0 : q.status === 'nouveau' ? 1 : 2);
+  const todo = list.quotes.filter((q) => q.unread || q.status === 'nouveau' || q.status === 'reponse' || q.remind).sort((a, b) => rank(a) - rank(b) || Math.max(b.at, b.last_at || 0) - Math.max(a.at, a.last_at || 0));
+  const todoHtml = `<section class="card"><h2>${ico('bolt')} À traiter <a class="right" href="/atelier/devis">Tous les devis</a></h2>${
+    todo.length
+      ? `<ul class="todo">${todo
+          .slice(0, 7)
+          .map(
+            (q) => `<li><a href="/atelier/devis/${q.id}"><span class="avatar avatar--s" aria-hidden="true">${esc(initials(q))}</span><span><b>${q.unread ? '<span class="dot"></span>' : ''}${esc(name(q))} <span class="dim">n°${q.id}</span></b><span class="dim">${esc(q.last_text && q.last_dir === 'in' && q.status !== 'nouveau' ? `« ${snippet(q.last_text, 90)} »` : [q.vehicle, q.services].filter(Boolean).join(' · ') || 'Demande de devis')}</span></span><span class="todo__side">${q.remind ? remindTag : statusTag(q.status)}${agoHtml(Math.max(q.at, q.last_at || 0), now)}</span></a></li>`
+          )
+          .join('')}</ul>${todo.length > 7 ? `<p class="dim" style="margin:12px 0 0">Et ${todo.length - 7} autre${todo.length - 7 > 1 ? 's' : ''} dans les devis.</p>` : ''}`
+      : `<p class="empty">Rien à traiter. Les nouvelles demandes et les réponses des clients arriveront ici d’elles-mêmes.</p>`
+  }</section>`;
+
+  // what just happened
+  const feed = act.events
+    .map((e) => {
+      const kind = e.kind === 'note' && /accept|réservé et payé/i.test(e.text || '') ? 'won' : e.kind;
+      const [icon, title, text] = FEED[e.kind] || FEED.note;
+      const href = e.request ? `/atelier/devis/${e.request}` : e.client ? `/atelier/clients/${e.client}` : '/atelier/rdv';
+      return `<li class="feed--${kind}"><span class="feed__i">${ico(kind === 'won' ? 'check' : icon)}</span><a href="${href}"><b>${esc(title(e))}</b> · ${agoHtml(e.at, now)}<p>${esc(snippet(text(e), 120))}</p></a></li>`;
+    })
+    .join('');
+  const feedHtml = `<section class="card"><h2>${ico('bolt')} En direct <span class="live" data-live-label style="margin-left:auto"><i></i><span>En direct</span></span></h2>${feed ? `<ul class="feed">${feed}</ul>` : '<p class="empty">Les demandes, les messages et les paiements s’afficheront ici au fil de l’eau.</p>'}</section>`;
+
+  // the next seven days
+  const week = Array.from({ length: 7 }, (_, i) => addDays(today, i))
+    .map((date) => {
+      const evs = (events || []).filter((x) => x.date === date || (x.allDay && x.start <= dayStart(date) && x.end > dayStart(date)));
+      const wd = new Date(`${date}T12:00:00Z`).getUTCDay();
+      const off = !R.days.includes(wd) && !evs.length;
+      return `<div class="day${date === today ? ' day--today' : ''}${off ? ' day--off' : ''}"><span class="day__h">${esc(dayLabel(date, { weekday: 'short' }).replace('.', ''))} <b>${Number(date.slice(8))}</b></span>${
+        evs.length
+          ? evs
+              .map(
+                (x) => `<${x.b ? `a href="/atelier/clients/${x.b.client_id}"` : 'span'} class="ev${x.hold ? ' ev--hold' : x.online ? ' ev--online' : ''}"><b>${x.allDay ? 'Journée' : `${esc(hour(x.time))}${x.hold ? ' · paiement en cours' : ''}`}</b><span>${esc(x.who || x.title)}</span>${x.who ? `<span class="dim">${esc(x.title)}</span>` : ''}</${x.b ? 'a' : 'span'}>`
+              )
+              .join('')
+          : `<span class="day__none">${off ? 'fermé' : 'libre'}</span>`
+      }</div>`;
+    })
+    .join('');
+  const weekHtml = `<section class="card"><h2>${ico('cal')} Les 7 prochains jours <a class="right" href="/atelier/rdv">Rendez-vous</a></h2>${events === null ? '<p class="empty">Agenda indisponible pour le moment.</p>' : `<div class="week">${week}</div>`}</section>`;
+
+  // the month in figures
+  const fig = (n, label, eurs) => `<div class="fig"><b data-n="${n}"${eurs ? ' data-eur' : ''}>${esc(eurs ? eur(n) : n)}</b><span>${esc(label)}</span></div>`;
+  const monthHtml = `<h3>${esc(cap(month))} en chiffres</h3><div class="month">${[
+    fig(sum.bookings.paid, 'encaissés en ligne', true),
+    fig(sum.bookings.due, 'reste à encaisser à l’atelier', true),
+    fig(sum.bookings.n, 'RDV réservés en ligne'),
+    fig(sum.requests, 'demandes de devis'),
+    fig(sum.clients, 'nouveaux clients'),
+    ...(visits ? [fig(visits.visits, 'visites du site')] : []),
+  ].join('')}</div>`;
+
+  const b = band.banner;
+  const bandNow = !b ? 'Aucun bandeau prévu.' : now < b.starts ? `Prochain bandeau : du ${dateOf(b.starts)} au ${dateOf(b.expires)}.` : `Affiché jusqu’au ${dateOf(b.expires)}.`;
+  const body = `<div class="hero">${hello}${nowCard}</div>
+${pipe}
+<div class="two">${todoHtml}${feedHtml}</div>
+${weekHtml}
+${monthHtml}
+<div class="grid"><section class="card"><h2>${ico('tag')} Bandeau du site</h2>${b ? `<div class="band"><span class="theme theme--${esc(b.theme)}">${esc(THEMES[b.theme] || '')}</span> <b>${esc(b.title)}</b><br>${esc(b.text)}</div>` : ''}<p class="dim">${esc(bandNow)}${sum.promoUses.length ? ` Ce mois-ci : ${sum.promoUses.map((p) => `${esc(p.code)} utilisé ${p.n} fois`).join(', ')}.` : ''}</p><a class="btn ghost small" href="/atelier/codes">Bandeaux et codes</a></section>
+<section class="card"><h2>${ico('grid')} Raccourcis</h2><div class="btns"><a class="btn small" href="/atelier/clients/nouveau">${ico('plus')} Ajouter un client</a><a class="btn ghost small" href="/atelier/codes#parrainage">Code de parrainage</a><a class="btn ghost small" href="/atelier/clients.csv">Exporter les clients</a><a class="btn ghost small" href="/atelier/stats">Statistiques</a></div></section></div>`;
+  return page('Accueil', '/atelier', body, url, { refresh: true, now });
+}
+
+// ---------------------------------------------------------------- Plus (the other places, the settings)
+async function morePage(env, url, now) {
+  const { delays: d } = await db(env, 'quotes/delays', { now });
+  const tile = (href, icon, title, text) => `<a class="tile" href="${href}">${ico(icon)}<span><b>${esc(title)}</b><span>${esc(text)}</span></span></a>`;
+  const body = `<h1>Plus <em>d’outils</em></h1><p class="lead">Les autres espaces de l’atelier, et les réglages.</p>
+<div class="tiles">${[
+    tile('/atelier/codes', 'tag', 'Codes et promos', 'Bandeaux du site, codes promo, parrainage'),
+    tile('/atelier/stats', 'chart', 'Statistiques', 'Visites, demandes, réservations'),
+    tile('/atelier/fiche', 'pin', 'Fiche Google', 'La photo de la semaine, publiée le mardi'),
+    tile('/atelier/clients.csv', 'download', 'Exporter les clients', 'Un fichier pour Excel'),
+    tile('/atelier/deconnexion', 'out', 'Se déconnecter', 'Sur cet appareil'),
+  ].join('')}</div>
+<form class="card" method="post" action="/atelier/reglages" id="reglages"><h2>${ico('gear')} Suivi des devis</h2>
+<p class="dim" style="margin:-6px 0 16px">Comptés depuis votre dernier message, quand le client n’a pas répondu. Un devis passé en « Sans suite » revient tout seul en « Réponse reçue » si le client écrit.</p>
+<div class="row"><div><label for="r-relance">« À relancer » après (jours)</label><input id="r-relance" name="relance" type="number" min="0" max="120" step="1" value="${d.remind}"></div><div><label for="r-close">« Sans suite » après (jours, 0 = jamais)</label><input id="r-close" name="sans_suite" type="number" min="0" max="120" step="1" value="${d.close}"></div></div>
+<button>Enregistrer</button></form>`;
+  return page('Plus', '/atelier/plus', body, url, { now });
 }
 
 // ---------------------------------------------------------------- Rendez-vous

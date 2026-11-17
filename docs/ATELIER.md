@@ -19,21 +19,39 @@ lui-même, aucune page indexée.
 
 | Onglet | Ce qu'on y fait |
 |---|---|
-| **Accueil** | Le mois en chiffres (RDV en ligne, encaissé, reste à encaisser, demandes de devis, nouveaux clients, visites), les RDV des 14 prochains jours, l'état du bandeau, des raccourcis |
-| **Devis** | Les demandes de devis en discussions : répondre (montant, PDF, bouton « J'accepte »), statuts Nouveau / Devis envoyé / Validé / Sans suite (voir plus bas) |
+| **Accueil** | Le RDV en cours (barre d'avancement, reste à encaisser) ou le prochain (compte à rebours), le suivi des devis en 5 cases (à répondre, réponse reçue, en attente, à relancer, validés du mois), « À traiter », le fil « En direct », les 7 prochains jours de l'agenda SOLAR CAR 37, le mois en chiffres, le bandeau |
+| **Devis** | Les demandes de devis en discussions : répondre (montant, PDF, bouton « J'accepte »), statuts Nouveau / Devis envoyé / Réponse reçue / Validé / Sans suite, et « à relancer » (voir plus bas) |
 | **Rendez-vous** | Les RDV réservés en ligne : à venir (lus dans l'agenda, à l'heure où ils y sont), retirés de l'agenda (penser au remboursement Stripe), passés |
 | **Clients** | Le fichier clients : recherche (nom, téléphone, e-mail, véhicule, immatriculation), fiche de chaque client (coordonnées, véhicules, notes, RDV, demandes de devis, code de parrainage), ajout à la main, suppression, **export pour Excel** |
 | **Codes et promos** | Le **bandeau** du site, les **codes promo**, le **parrainage** |
 | **Statistiques** | La page de statistiques détaillée (docs/STATISTIQUES.md) |
 | **Fiche Google** | Le robot qui publie une photo chaque mardi (docs/FICHE-GOOGLE-AUTO.md) |
+| **Réglages** (« Plus » sur téléphone) | Les autres espaces, et les délais du suivi des devis (« à relancer », « sans suite ») |
 
 ## L'allure
 
-Aux couleurs du site : noir profond, or et ivoire, polices Geist et Instrument Serif, logo
-SOLAR CAR en haut, l'écusson comme icône. Sur téléphone, les onglets passent en barre en bas de
-l'écran, comme une application : « Ajouter à l'écran d'accueil » (Safari : bouton Partager ;
-Chrome : menu ⋮) installe l'icône de l'écusson. Les images de marque viennent de
-`public/img/brand/` (copies dans `booking/assets/`).
+Le garage de nuit du site sous chaque page (refonte du 17 novembre 2026) : néons du plafond en
+perspective, reflets sur le sol mouillé, fumée lente, poussière dans la lumière, un balayage de
+lumière ; les néons prennent les couleurs de l'habillage saisonnier du site (`content/themes.js` :
+Néon, Noël). Par-dessus, des panneaux de verre fumé, noir, or et ivoire, polices Geist et
+Instrument Serif, des chiffres qui défilent à l'ouverture.
+
+- **Ordinateur** : une barre à gauche (Accueil, Devis, Rendez-vous, Clients ; Codes et promos,
+  Statistiques, Fiche Google, Réglages), le bouton **+ Nouveau** (client, code promo, parrainage,
+  export) et l'état « En direct ».
+- **Téléphone** : une barre en bas (Accueil, Devis, RDV, Clients, Plus), le **+** en haut à droite.
+  « Ajouter à l'écran d'accueil » (Safari : bouton Partager ; Chrome : menu ⋮) l'installe comme une
+  application. Pas de flou derrière les panneaux sur téléphone (batterie).
+- **En direct** : la page ouverte se met à jour toute seule toutes les 30 secondes (et dès qu'on
+  revient dessus) : pastilles, accueil et liste des devis redessinés quand quelque chose change
+  (jamais pendant qu'on écrit : un bouton « Du nouveau : actualiser » apparaît), et une
+  notification en bas à droite pour une nouvelle demande, un message d'un client, un devis accepté,
+  un RDV payé.
+- Code : `booking/atelier-look.js` (la feuille de style et le script, servis à `/atelier/app.css`
+  et `/atelier/app.js`), `booking/atelier.js` (les pages), `/atelier/live` (les nouvelles, en JSON).
+  Toutes les pages marchent sans le script. Les images de marque viennent de `public/img/brand/`
+  (copies dans `booking/assets/`).
+- Essai avec des exemples : `DEMO=1 npm run booking:dev`, puis http://localhost:8787/atelier.
 
 ## Devis : les discussions
 
@@ -49,12 +67,23 @@ Onglet **Devis** (pastille = demandes nouvelles ou avec un message non lu) :
   notification « Message de … ») passe par le site, qui envoie au client un e-mail propre et range
   la réponse dans la discussion. Les réponses du client arrivent dans la discussion **et** dans
   Gmail (« Message de Prénom Nom »), dans la même conversation que votre réponse.
-- **Statuts automatiques** : « Devis envoyé » à votre première réponse (atelier ou Gmail) ;
-  « Validé » quand le client clique « J'accepte ce devis » (vous recevez « Devis n°… accepté »
-  avec son téléphone) ou quand il réserve et paie en ligne la même prestation (vitres, feux).
-  « Sans suite » et les corrections : à la main, encadré « Suivi » de la discussion.
-- L'accueil montre les devis à faire, les messages non lus, les devis en attente de réponse et
-  ceux validés dans le mois (avec leur montant), et une liste « À traiter ».
+- **Statuts automatiques** :
+  - **Nouveau** : la demande arrive, à répondre.
+  - **Devis envoyé** : dès votre réponse (atelier ou Gmail) ; c'est au client de répondre.
+  - **Réponse reçue** : le client a écrit après votre devis ; à lire et à répondre (votre
+    réponse le repasse en « Devis envoyé »).
+  - **Validé** : le client clique « J'accepte ce devis » (vous recevez « Devis n°… accepté » avec
+    son téléphone) ou réserve et paie en ligne la même prestation (vitres, feux).
+  - **À relancer** (repère, pas un statut) : « Devis envoyé » sans nouvelles depuis **7 jours** ;
+    la discussion affiche un message de relance prêt à envoyer.
+  - **Sans suite** : sans nouvelles depuis **14 jours**, tout seul (une note le dit dans la
+    discussion), ou à la main. Si le client écrit ensuite, la demande revient d'elle-même en
+    « Réponse reçue ». Gmail continue d'être lu 30 jours pour ces demandes.
+  - Délais réglables : **Réglages** (« Plus » sur téléphone) ; 0 = jamais « Sans suite ».
+  - Corrections : à la main, encadré « Suivi » de la discussion.
+- L'accueil montre le suivi en 5 cases (à répondre, réponse reçue, en attente, à relancer,
+  validés du mois avec leur montant) et « À traiter » : les clients qui ont écrit d'abord, puis les
+  nouvelles demandes, puis les relances.
 - Les réponses par Gmail passent par l'adresse `devis@reponse.solarcar37.fr` (réglage
   `QUOTE_REPLY`, docs/RESERVATION.md) ; tant qu'elle n'est pas en service, répondre depuis Gmail
   écrit directement au client (comme avant) et seule la réponse depuis l'atelier est suivie.

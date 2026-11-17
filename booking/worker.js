@@ -421,6 +421,8 @@ export async function dailyMails(env, now = Date.now()) {
   const out = { reminders: 0, followUps: 0 };
   // the client file: clients without any contact for 3 years are removed (CNIL guidance)
   if (env.ATELIER) out.purged = (await db(env, 'clients/purge', { now }).catch(() => ({ removed: 0 }))).removed;
+  // the quotes left without news from the client: « Sans suite » (booking/store.js, age)
+  if (env.ATELIER) out.closed = (await db(env, 'quotes/age', { now }).catch(() => ({ closed: 0 }))).closed;
   if (env.MAIL_CLIENTS !== '1' || !env.RESEND_API_KEY) return { ...out, off: true };
   const t = today(now);
   const jobs = [

@@ -135,8 +135,15 @@ function quoteFiles(list) {
 const digits = (p) => String(p || '').replace(/\D/g, '').slice(-9);
 
 // ---------------------------------------------------------------- quote discussions
-/** the statuses of a quote request, in the workshop's words */
-export const QUOTE_STATUS = { nouveau: 'Nouveau', envoye: 'Devis envoyé', valide: 'Validé', sans_suite: 'Sans suite' };
+/** the statuses of a quote request, in the workshop's words, in the order of the work:
+ *  nouveau (to answer) → envoye (the workshop answered, waiting for the client) → reponse (the
+ *  client wrote back: to read and answer) → valide (accepted, or booked online); sans_suite (no
+ *  answer from the client for QUOTE_DELAYS.close days, or by hand: back to « reponse » by itself
+ *  when the client writes) */
+export const QUOTE_STATUS = { nouveau: 'Nouveau', envoye: 'Devis envoyé', reponse: 'Réponse reçue', valide: 'Validé', sans_suite: 'Sans suite' };
+/** days without news from the client after the workshop's last message: « à relancer » after
+ *  `remind`, « Sans suite » after `close` (0: never); changed in the space (setting quoteDelays) */
+export const QUOTE_DELAYS = { remind: 7, close: 14 };
 /** files kept with a discussion (a SQLite value holds 2 MB at most); bigger ones are only named */
 const MAX_FILE = 1.9 * 1024 * 1024;
 /** bytes → a value for a BLOB column */
@@ -475,6 +482,55 @@ export class Atelier {
     this.run('UPDATE requests SET status = ?, status_at = ? WHERE id = ?', status, now, id);
     if (note) this.addMessage(id, { at: now, dir: 'note', text: note });
   }
+  /** the status the last message of a discussion calls for: the workshop answered → « Devis
+   *  envoyé »; the client wrote after an answer → « Réponse reçue » (also out of « Sans suite »).
+   *  A quote « Validé » stays so; `notes` = what is said in the discussion ({ out, in }) */
+  follow(id, now, notes = {}) {
+    const r = this.one('SELECT id, status FROM requests WHERE id = ?', id);
+    const last = r && this.one("SELECT dir FROM messages WHERE request_id = ? AND dir IN ('in', 'out') ORDER BY at DESC, id DESC LIMIT 1", id);
+    if (!last) return;
+    if (last.dir === 'out' && (r.status === 'nouveau' || r.status === 'reponse')) this.setStatus(id, 'envoye', now, notes.out);
+    else if (last.dir === 'in' && (r.status === 'envoye' || r.status === 'sans_suite')) {
+      const answered = this.one("SELECT id FROM messages WHERE request_id = ? AND dir = 'out' LIMIT 1", id);
+      this.setStatus(id, answered ? 'reponse' : 'nouveau', now, r.status === 'sans_suite' ? `Le client a écrit : la demande quitte « Sans suite » et revient en « ${answered ? QUOTE_STATUS.reponse : QUOTE_STATUS.nouveau} ».` : notes.in);
+    }
+  }
+  /** the delays of the quotes (QUOTE_DELAYS, as changed in the space) */
+  delays() {
+    const d = this.setting('quoteDelays', {}) || {};
+    const n = (v, def) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Math.max(0, Math.min(120, Math.round(Number(v)))) : def);
+    return { remind: n(d.remind, QUOTE_DELAYS.remind), close: n(d.close, QUOTE_DELAYS.close) };
+  }
+  /** the quotes waiting for the client: « Sans suite » once nothing has happened for `close` days
+   *  (the workshop's last message, or the status set by hand); they come back by themselves when
+   *  the client writes. Run before the lists are read, and every day. Returns how many closed. */
+  age(now) {
+    // once: the discussions where the client had written after the quote, from before « Réponse reçue »
+    if (!this.setting('statusReply')) {
+      for (const r of this.all("SELECT id FROM requests WHERE status = 'envoye' AND unread > 0")) this.follow(r.id, now);
+      this.set('statusReply', now);
+    }
+    const { close } = this.delays();
+    if (!close) return 0;
+    let n = 0;
+    for (const r of this.all(`SELECT r.id, MAX(r.status_at, COALESCE((SELECT MAX(at) FROM messages m WHERE m.request_id = r.id AND m.dir IN ('in', 'out')), 0)) AS quiet FROM requests r WHERE r.status = 'envoye'`))
+      if (now - r.quiet > close * DAY) {
+        this.setStatus(r.id, 'sans_suite', now, `Pas de nouvelles du client depuis ${close} jours : passé en « Sans suite ». La demande revient toute seule s’il répond.`);
+        n++;
+      }
+    return n;
+  }
+  /** what happened lately, newest first: quote requests, messages, status notes, online bookings */
+  activity(limit = 20) {
+    return this.all(
+      `SELECT * FROM (
+        SELECT 'demande' AS kind, 'r' || r.id AS key, r.at AS at, r.id AS request, r.services AS text, r.vehicle AS vehicle, c.first, c.last, r.client_id AS client FROM requests r LEFT JOIN clients c ON c.id = r.client_id
+        UNION ALL SELECT m.dir, 'm' || m.id, m.at, m.request_id, substr(m.text, 1, 220), r.vehicle, c.first, c.last, r.client_id FROM messages m JOIN requests r ON r.id = m.request_id LEFT JOIN clients c ON c.id = r.client_id WHERE m.via <> 'site'
+        UNION ALL SELECT 'rdv', 'b' || b.session, b.created, 0, b.items, b.date || ' ' || b.time, c.first, c.last, b.client_id FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.live = 1
+      ) ORDER BY at DESC LIMIT ?`,
+      Math.min(60, Number(limit) || 20)
+    );
+  }
   /** a Message-ID kept to thread the next e-mails (the client's in `refs`, the workshop's in `owner_refs`) */
   addRef(id, column, msgid) {
     if (!msgid) return;
@@ -523,7 +579,7 @@ export class Atelier {
     }
     this.addMessage(r.id, { at: now, dir: 'out', via: 'atelier', text, files });
     this.run('UPDATE requests SET unread = 0 WHERE id = ?', r.id);
-    if (r.status === 'nouveau') this.setStatus(r.id, 'envoye', now);
+    this.follow(r.id, now);
     return { ok: true };
   }
 
@@ -579,7 +635,7 @@ export class Atelier {
       this.addMessage(r.id, { at: now, dir: 'out', via: 'gmail', text, files, msgid: m.messageId });
       this.addRef(r.id, 'owner_refs', m.messageId);
       this.run('UPDATE requests SET unread = 0 WHERE id = ?', r.id);
-      if (r.status === 'nouveau') this.setStatus(r.id, 'envoye', now);
+      this.follow(r.id, now);
       return { ok: true, relayed: 'client' };
     }
     const client = from === String(r.email || '').toLowerCase();
@@ -587,6 +643,7 @@ export class Atelier {
     if (client) this.addRef(r.id, 'refs', m.messageId);
     this.run('UPDATE requests SET unread = unread + 1 WHERE id = ?', r.id);
     this.run('UPDATE clients SET last_seen = ? WHERE id = ?', now, r.client_id);
+    this.follow(r.id, now);
     await notifyWorkshop(this.env, { ...r, ...(client ? {} : { first: m.fromName || from, last: '' }) }, 'message', { text: text || '(pièce jointe)', files: asMail(), refs: refsOf(r.owner_refs) }).catch((err) => console.error('[quote] notify', err.message));
     return { ok: true, relayed: 'workshop' };
   }
@@ -710,7 +767,7 @@ export class Atelier {
         // the client had asked for a quote for what they booked: that quote is « Validé »
         const booked = kinds((b.items || []).map((i) => i.label).join(' '));
         const when = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date)) ? `${String(b.date).split('-').reverse().join('/')} à ${String(b.time).replace(':', ' h ')}` : '';
-        for (const r of this.all("SELECT id, services FROM requests WHERE client_id = ? AND status IN ('nouveau', 'envoye') AND at > ?", id, now - 180 * DAY))
+        for (const r of this.all("SELECT id, services FROM requests WHERE client_id = ? AND status IN ('nouveau', 'envoye', 'reponse', 'sans_suite') AND at > ?", id, now - 180 * DAY))
           if (kinds(r.services).some((k) => booked.includes(k))) {
             this.run('UPDATE requests SET booking = ?, unread = unread + 1 WHERE id = ?', clip(b.session, 120), r.id);
             this.setStatus(r.id, 'valide', now, `Rendez-vous réservé et payé en ligne${when ? ` pour le ${when}` : ''}.`);
@@ -729,11 +786,13 @@ export class Atelier {
         return { ok: true, n: r.id, firstName: r.first, vehicle: r.vehicle, services: r.services, amount: r.amount, status: r.status, at: r.at };
       }
       case 'quotes/list': {
+        this.age(now);
         const st = Object.hasOwn(QUOTE_STATUS, b.status) ? b.status : '';
         const rows = this.all(
           `SELECT r.id, r.at, r.status, r.status_at, r.amount, r.services, r.vehicle, r.unread, r.last_at, r.client_id, c.first, c.last, c.phone, c.email,
             (SELECT text FROM messages m WHERE m.request_id = r.id AND m.dir <> 'note' ORDER BY m.at DESC, m.id DESC LIMIT 1) AS last_text,
-            (SELECT dir FROM messages m WHERE m.request_id = r.id AND m.dir <> 'note' ORDER BY m.at DESC, m.id DESC LIMIT 1) AS last_dir
+            (SELECT dir FROM messages m WHERE m.request_id = r.id AND m.dir <> 'note' ORDER BY m.at DESC, m.id DESC LIMIT 1) AS last_dir,
+            MAX(r.status_at, COALESCE((SELECT MAX(at) FROM messages m WHERE m.request_id = r.id AND m.dir IN ('in', 'out')), 0)) AS quiet
            FROM requests r LEFT JOIN clients c ON c.id = r.client_id WHERE ? = '' OR r.status = ?
            ORDER BY (r.unread > 0) DESC, MAX(r.at, r.last_at) DESC LIMIT 300`,
           st,
@@ -741,7 +800,9 @@ export class Atelier {
         );
         const counts = Object.fromEntries(Object.keys(QUOTE_STATUS).map((k) => [k, 0]));
         for (const x of this.all('SELECT status, COUNT(*) AS n FROM requests GROUP BY status')) counts[x.status] = x.n;
-        return { quotes: rows, counts, unread: this.one('SELECT COUNT(*) AS n FROM requests WHERE unread > 0').n };
+        const { remind } = this.delays();
+        for (const q of rows) q.remind = !!(remind && q.status === 'envoye' && now - q.quiet > remind * DAY);
+        return { quotes: rows, counts, unread: this.one('SELECT COUNT(*) AS n FROM requests WHERE unread > 0').n, delays: this.delays() };
       }
       case 'quote/get': {
         const r = this.request(b.id);
@@ -752,7 +813,39 @@ export class Atelier {
         return { quote: this.ready(r), messages };
       }
       case 'quotes/badge':
-        return { n: this.one("SELECT COUNT(*) AS n FROM requests WHERE unread > 0 OR status = 'nouveau'").n };
+        return { n: this.one("SELECT COUNT(*) AS n FROM requests WHERE unread > 0 OR status IN ('nouveau', 'reponse')").n };
+      // the space open on a screen, every half minute: the figures that move, what happened lately,
+      // and a version that changes with anything shown
+      case 'live': {
+        const closed = this.age(now);
+        const { remind } = this.delays();
+        const counts = Object.fromEntries(Object.keys(QUOTE_STATUS).map((k) => [k, 0]));
+        for (const x of this.all('SELECT status, COUNT(*) AS n FROM requests GROUP BY status')) counts[x.status] = x.n;
+        const q = this.one(
+          `SELECT COUNT(*) AS n FROM requests r WHERE r.status = 'envoye' AND ? > 0 AND ? - MAX(r.status_at, COALESCE((SELECT MAX(at) FROM messages m WHERE m.request_id = r.id AND m.dir IN ('in', 'out')), 0)) > ?`,
+          remind,
+          now,
+          remind * DAY
+        );
+        const v = this.one(`SELECT (SELECT COALESCE(MAX(id), 0) FROM requests) || '.' || (SELECT COALESCE(MAX(id), 0) FROM messages) || '.' || (SELECT COUNT(*) FROM requests) || '.' || (SELECT COUNT(*) FROM bookings) || '.' || (SELECT COALESCE(SUM(unread), 0) FROM requests) || '.' || (SELECT COALESCE(MAX(status_at), 0) FROM requests) || '.' || (SELECT COUNT(*) FROM clients) AS v`).v;
+        return {
+          v,
+          closed,
+          badge: this.one("SELECT COUNT(*) AS n FROM requests WHERE unread > 0 OR status IN ('nouveau', 'reponse')").n,
+          counts,
+          unread: this.one('SELECT COUNT(*) AS n FROM requests WHERE unread > 0').n,
+          remind: q.n,
+          events: this.activity(b.limit || 20),
+        };
+      }
+      case 'activity':
+        return { events: this.activity(b.limit) };
+      case 'quotes/age':
+        return { ok: true, closed: this.age(now) };
+      case 'quotes/delays': {
+        if (b.set) this.set('quoteDelays', { remind: b.set.remind, close: b.set.close });
+        return { ok: true, delays: this.delays() };
+      }
       case 'quote/seen':
         this.run('UPDATE requests SET unread = 0 WHERE id = ?', Number(b.id) || 0);
         return { ok: true };
@@ -767,14 +860,16 @@ export class Atelier {
       // the quotes whose e-mails are read in Gmail: not closed, of the last 90 days, with an
       // e-mail address; and the Message-IDs already in their discussion
       case 'gmail/open': {
-        const rows = this.all("SELECT r.id, r.at, c.email FROM requests r JOIN clients c ON c.id = r.client_id WHERE r.status <> 'sans_suite' AND r.at > ? AND c.email <> '' ORDER BY r.at DESC LIMIT 40", now - 90 * DAY);
+        // « Sans suite » for less than 30 days: still read, the client may come back
+        const rows = this.all("SELECT r.id, r.at, c.email FROM requests r JOIN clients c ON c.id = r.client_id WHERE (r.status <> 'sans_suite' OR r.status_at > ?) AND r.at > ? AND c.email <> '' ORDER BY r.at DESC LIMIT 40", now - 30 * DAY, now - 90 * DAY);
         return { requests: rows.map((r) => ({ ...r, known: this.all("SELECT msgid FROM messages WHERE request_id = ? AND msgid <> ''", r.id).map((x) => x.msgid) })) };
       }
       // e-mails found in Gmail: into their discussion once each; a reply written from Gmail moves a
       // new quote to « Devis envoyé », an answer of the client is unread
       case 'gmail/import': {
         let imported = 0;
-        for (const it of Array.isArray(b.items) ? b.items.slice(0, 200) : []) {
+        const items = (Array.isArray(b.items) ? b.items.slice(0, 200) : []).sort((x, y) => (Number(x.at) || 0) - (Number(y.at) || 0));
+        for (const it of items) {
           const r = this.request(it.requestId);
           if (!r) continue;
           const key = clip(it.msgid, 300) || `gmail:${clip(it.gid, 60)}`;
@@ -782,8 +877,8 @@ export class Atelier {
           const dir = it.dir === 'out' ? 'out' : 'in';
           this.addMessage(r.id, { at: Number(it.at) || now, dir, via: 'gmail', text: String(it.text || '').slice(0, 10000) || '(message sans texte)', msgid: key });
           imported++;
-          if (dir === 'out' && r.status === 'nouveau') this.setStatus(r.id, 'envoye', now, 'Réponse envoyée depuis Gmail : devis passé en « Devis envoyé ».');
           if (dir === 'in') this.run('UPDATE requests SET unread = unread + 1 WHERE id = ?', r.id);
+          this.follow(r.id, now, { out: 'Réponse envoyée depuis Gmail : devis passé en « Devis envoyé ».', in: 'Réponse du client lue dans Gmail : « Réponse reçue ».' });
         }
         return { ok: true, imported };
       }
@@ -838,6 +933,7 @@ export class Atelier {
         return { ok: true, removed: old.length };
       }
       case 'summary': {
+        this.age(now);
         const from = String(b.from);
         const to = String(b.to);
         return {
@@ -846,7 +942,9 @@ export class Atelier {
           requests: this.one('SELECT COUNT(*) AS n FROM requests WHERE at BETWEEN ? AND ?', dayStart(from), dayEnd(to)).n,
           quotes: {
             open: this.one("SELECT COUNT(*) AS n FROM requests WHERE status = 'nouveau'").n,
+            reply: this.one("SELECT COUNT(*) AS n FROM requests WHERE status = 'reponse'").n,
             sent: this.one("SELECT COUNT(*) AS n FROM requests WHERE status = 'envoye'").n,
+            lost: this.one("SELECT COUNT(*) AS n FROM requests WHERE status = 'sans_suite' AND status_at BETWEEN ? AND ?", dayStart(from), dayEnd(to)).n,
             unread: this.one('SELECT COUNT(*) AS n FROM requests WHERE unread > 0').n,
             won: this.one("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS amount FROM requests WHERE status = 'valide' AND status_at BETWEEN ? AND ?", dayStart(from), dayEnd(to)),
           },

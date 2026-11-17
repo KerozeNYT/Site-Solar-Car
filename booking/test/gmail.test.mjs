@@ -112,11 +112,13 @@ test('a reply written from Gmail and the client’s answer come into the discuss
   const r = await gmailSync(env, now + 5000, { force: true });
   assert.deepEqual([r.imported, r.checked], [2, 1]);
   const { quote, messages } = await db(env, 'quote/get', { id });
-  assert.equal(quote.status, 'envoye');
+  // the workshop answered, then the client wrote back: « Réponse reçue »
+  assert.equal(quote.status, 'reponse');
   const out = messages.find((m) => m.via === 'gmail' && m.dir === 'out');
   assert.equal(out.text, 'Bonjour Léa, pour vos vitres : 270 €.');
   assert.equal(messages.find((m) => m.via === 'gmail' && m.dir === 'in').text, 'Parfait, je réserve !');
   assert.ok(messages.some((m) => m.dir === 'note' && /Réponse envoyée depuis Gmail/.test(m.text)));
+  assert.ok(messages.some((m) => m.dir === 'note' && /Réponse du client lue dans Gmail/.test(m.text)));
   assert.ok(quote.unread > 0);
   // read again: nothing twice
   assert.equal((await gmailSync(env, now + 70000, { force: true })).imported, 0);

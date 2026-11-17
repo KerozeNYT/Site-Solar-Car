@@ -121,9 +121,54 @@ http
     // …/?apercu-bandeau=noel-2026 (or gta6-2026)
     const today = utcToZoned(Date.now(), TZ).date;
     await db(env, 'promo/save', { code: 'NOELTEST', label: 'Essai', percent: 15, services: ['tint', 'lights'], starts: today, ends: addDays(today, 30) });
+    if (process.env.DEMO) await fillDemo();
     console.log('workshop space: http://localhost:' + PORT + '/atelier (the sign-in code is printed below)');
     let seen = 0;
     setInterval(() => {
       for (; seen < mails.length; seen++) console.log(`[mail] ${mails[seen].subject}`);
     }, 300);
   });
+
+/**
+ * DEMO=1 npm run booking:dev: the workshop's space filled with examples (quotes at every step, an
+ * appointment going on now, the next ones), to see it as it is used.
+ */
+async function fillDemo() {
+  const now = Date.now();
+  const H = 3600000;
+  const D = 24 * H;
+  const run = (q, ...b) => env.ATELIER.db.prepare(q).run(...b);
+  const people = [
+    ['Léa', 'Petit', 'Mini Cooper F56', 'Ciel étoilé', 'nouveau', [['in', 25 * 60000, 'Bonjour, je voudrais un ciel étoilé avec 450 fibres et une étoile filante. Possible en décembre ?']]],
+    ['Julien', 'Moreau', 'Volkswagen Golf 8 GTI', 'Vitres teintées', 'nouveau', [['in', 3 * H, 'Bonjour, 3/4 arrière en 5 % et les vitres avant en 70 %, quel tarif ?']]],
+    ['Sarah', 'Benali', 'Audi A3 Sportback', 'Vitres teintées, Feux teintés', 'reponse', [['in', 3 * D, 'Bonjour, vitres arrière et feux arrière fumés svp.'], ['out', 2 * D, 'Bonjour Sarah,\n\nPour votre A3 : 3/4 arrière 220 € + feux arrière 120 €, soit 340 €.'], ['in', 40 * 60000, 'Merci ! Est-ce que vous avez une disponibilité un samedi matin ?']], 340],
+    ['Thomas', 'Leroy', 'BMW X5', 'Detailing', 'envoye', [['in', 4 * D, 'Polissage + céramique sur X5 noir.'], ['out', 2 * D, 'Bonjour Thomas,\n\nVoici le devis : formule Signature céramique, 890 €.']], 890],
+    ['Camille', 'Roux', 'Tesla Model 3', 'Vitres teintées', 'envoye', [['in', 12 * D, 'Bonjour, teinte complète sur Model 3 avec le toit ?'], ['out', 9 * D, 'Bonjour Camille,\n\nForfait Model 3 complet avec toit : 450 €.']], 450],
+    ['Hugo', 'Lambert', 'Mercedes Classe A', 'Vitres teintées', 'envoye', [['in', 6 * D, 'Devis pour le 3/4 arrière svp'], ['out', 4 * D, 'Bonjour Hugo,\n\n3/4 arrière sur Classe A : 220 €.']], 220],
+    ['Marc', 'Dubois', 'Peugeot 308 SW', 'Rénovation de phares', 'valide', [['in', 5 * D, 'Mes phares sont jaunis.'], ['out', 3 * D, 'Rénovation + céramique : 109 €.']], 109],
+    ['Inès', 'Garcia', 'Renault Clio 5', 'Covering', 'sans_suite', [['in', 30 * D, 'Covering toit noir brillant ?'], ['out', 28 * D, 'Bonjour Inès, toit noir brillant : 290 €.']], 290],
+  ];
+  for (const [n, [first, last, vehicle, services, status, msgs, amount]] of people.entries()) {
+    const email = `${first.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}@example.com`;
+    const at = now - msgs[0][1];
+    const r = await db(env, 'request/add', { now: at, customer: { firstName: first, lastName: last, email, phone: `06 12 34 56 ${String(10 + n * 7)}`, vehicle, source: 'Réseaux sociaux (Instagram, Facebook…)' }, services, message: msgs[0][2] });
+    const id = r.requestId;
+    for (const [i, [dir, ago, text]] of msgs.entries()) run('INSERT INTO messages (request_id, at, dir, via, text) VALUES (?, ?, ?, ?, ?)', id, now - ago, dir, i === 0 ? 'site' : dir === 'out' ? 'atelier' : 'mail', text);
+    const last_at = now - msgs.at(-1)[1];
+    run('UPDATE requests SET status = ?, status_at = ?, amount = ?, unread = ?, last_at = ?, token = ? WHERE id = ?', status, status === 'valide' ? now - 20 * H : last_at, amount || 0, status === 'reponse' ? 1 : 0, last_at, 'demo', id);
+    if (status === 'valide') run('INSERT INTO messages (request_id, at, dir, text) VALUES (?, ?, ?, ?)', id, now - 20 * H, 'note', 'Devis accepté par le client (bouton de l’e-mail).');
+  }
+  // an appointment going on now, one tomorrow, a slot held while a client pays
+  const day = utcToZoned(now, TZ).date;
+  const slot = (start, minutes) => ({ start: { dateTime: new Date(start).toISOString() }, end: { dateTime: new Date(start + minutes * 60000).toISOString() } });
+  const book = async (session, start, minutes, items, customer) => {
+    const z = utcToZoned(start, TZ);
+    await db(env, 'booking/add', { now: now - 2 * D, session, date: z.date, time: z.time, minutes, items, total: items.reduce((a, i) => a + i.price, 0), paid: Math.round(items.reduce((a, i) => a + i.price, 0) * 30) / 100, mode: 'deposit', customer });
+    cal[CAR].push({ id: session, status: 'confirmed', summary: `RDV ${items.map((i) => i.label.replace(' — ', ' ')).join(' + ')} — ${customer.firstName} ${customer.lastName}`, colorId: '9', ...slot(start, minutes), extendedProperties: { private: { solarcarHold: '0', session } } });
+  };
+  const quarter = Math.floor(now / (15 * 60000)) * 15 * 60000;
+  await book('cs_demo_now', quarter - 45 * 60000, 150, [{ label: 'Vitres teintées — Complet', price: 320 }], { firstName: 'Nathan', lastName: 'Girard', email: 'nathan@example.com', phone: '06 98 76 54 32', vehicle: 'Peugeot 3008' });
+  await book('cs_demo_next', zonedToUtc(addDays(day, 1), '09:00', TZ), 120, [{ label: 'Vitres teintées — 3/4 arrière', price: 270 }, { label: 'Feux teintés — Feux arrière', price: 120 }], { firstName: 'Emma', lastName: 'Fontaine', email: 'emma@example.com', phone: '06 55 44 33 22', vehicle: 'BMW Série 3' });
+  cal[CAR].push({ id: 'hold_demo', status: 'confirmed', summary: '⏳ Paiement en cours — Feux teintés Avant et arrière — Paul Martin', ...slot(zonedToUtc(addDays(day, 2), '14:00', TZ), 120), extendedProperties: { private: { solarcarHold: '1' } } });
+  console.log('demo: quotes, an appointment now, the next ones');
+}

@@ -36,12 +36,14 @@ export function installFakes(calendars, { checkoutUrl = () => 'https://checkout.
         return ok(ev);
       }
       if (method === 'GET' && !id) {
-        const [k, v] = url.searchParams.get('privateExtendedProperty').split('=');
+        const [k, v] = (url.searchParams.get('privateExtendedProperty') || '').split('=');
         // like Google: timeMin bounds the end of the events, timeMax their start
         const min = Date.parse(url.searchParams.get('timeMin') || '') || -Infinity;
         const max = Date.parse(url.searchParams.get('timeMax') || '') || Infinity;
         const within = (e) => !e.start?.dateTime || (Date.parse(e.end.dateTime) > min && Date.parse(e.start.dateTime) < max);
-        return ok({ items: list.filter((e) => e.extendedProperties?.private?.[k] === v && within(e)) });
+        const items = list.filter((e) => (!k || e.extendedProperties?.private?.[k] === v) && within(e));
+        if (url.searchParams.get('orderBy') === 'startTime') items.sort((a, b) => Date.parse(a.start?.dateTime || a.start?.date) - Date.parse(b.start?.dateTime || b.start?.date));
+        return ok({ items });
       }
       const ev = list.find((e) => e.id === id);
       if (!ev) return ok({ error: { message: 'Not Found' } }, 404);
