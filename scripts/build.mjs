@@ -8,6 +8,7 @@ import { redirects } from '../content/redirects.js';
 import { business } from '../content/site.js';
 import { addBeacon, applyCsp, htaccessBlock, writeHeadersFile, writeSecurityTxt } from './security.mjs';
 import { writeFicheGoogle } from './fiche-google.mjs';
+import { splitLarge } from './media-parts.mjs';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const out = path.join(root, 'dist');
@@ -104,6 +105,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   fs.mkdirSync(out, { recursive: true });
   const res = await bundle({ minify: !dev });
   copyDir(path.join(root, 'public'), out);
+  // the film's largest versions, cut for hosts that limit the size of a file (scripts/media-parts.mjs)
+  const cut = splitLarge(out);
+  if (Object.keys(cut).length) console.log('cut', Object.entries(cut).map(([f, n]) => `${f} (${n} parts)`).join(', '));
   // the photos sent to the Google Business Profile, one a week (booking/fiche-google.js)
   console.log('fiche-google', await writeFicheGoogle(out), 'photos');
   const assets = assetsFrom(res.metafile);

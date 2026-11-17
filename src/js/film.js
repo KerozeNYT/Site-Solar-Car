@@ -180,8 +180,31 @@ export function startFilm(section) {
     section.classList.add('is-ready');
     loading.hidden = true;
   };
-  /** the whole file in memory, with its progress */
+  // files cut into parts for the host (scripts/media-parts.mjs): { '/video/x.mp4': 2 }
+  const cutParts = (() => {
+    try {
+      return JSON.parse(section.dataset.parts || '{}');
+    } catch {
+      return {};
+    }
+  })();
+  /** the whole file in memory, with its progress: put back together from its parts when it was
+   *  cut (the whole file is tried if a part is missing, e.g. on the local dev server) */
   async function blobOf(url, onProgress) {
+    const key = Object.keys(cutParts).find((k) => url.endsWith(k));
+    if (key) {
+      const n = cutParts[key];
+      try {
+        const parts = [];
+        for (let i = 1; i <= n; i++) parts.push(await blobOfOne(`${url}.p${i}`, (k) => onProgress?.((i - 1 + k) / n)));
+        return new Blob(parts, { type: 'video/mp4' });
+      } catch {
+        /* the whole file below */
+      }
+    }
+    return blobOfOne(url, onProgress);
+  }
+  async function blobOfOne(url, onProgress) {
     const res = await fetch(url);
     if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
     const total = Number(res.headers.get('content-length')) || 0;

@@ -129,6 +129,10 @@ export function writeHeadersFile(dir, csp) {
       block('/*', h),
       block('/assets/*', { 'Cache-Control': CACHE.hashed }),
       ...MEDIA_DIRS.map((d) => block(`/${d}/*`, { 'Cache-Control': CACHE.media })),
+      // Cloudflare Pages: its technical addresses (….pages.dev, test deploys) are never indexed;
+      // only www.solarcar37.fr is
+      block('https://:project.pages.dev/*', { 'X-Robots-Tag': 'noindex' }),
+      block('https://:version.:project.pages.dev/*', { 'X-Robots-Tag': 'noindex' }),
       '',
     ].join('\n\n')
   );

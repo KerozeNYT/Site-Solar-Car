@@ -674,7 +674,7 @@ function filmSection(ctx) {
     .filter((c) => c.tab)
     .map((c) => `<li><a href="#chapitre-${c.id}" data-film-at="${at(c.id)}" data-tab="${c.id}">${esc(c.tab)}</a></li>`)
     .join('');
-  return `<section class="tour film" id="visite" aria-label="${esc(home.film.label)}" style="--travel:${Math.round(filmTravel(film) * 100)}" data-film data-duration="${film.duration}" data-start="${film.start}" data-pace="${esc(JSON.stringify(film.pace))}" data-src-preview="${film.sources.preview}" data-wide-srcset="${film.sources.wide.map((v) => `${v.src} ${v.w}w`).join(', ')}" data-src-preview-tall="${film.sources.previewTall}" data-tall-srcset="${film.sources.tall.map((v) => `${v.src} ${v.w}w`).join(', ')}">
+  return `<section class="tour film" id="visite" aria-label="${esc(home.film.label)}" style="--travel:${Math.round(filmTravel(film) * 100)}" data-film data-duration="${film.duration}" data-start="${film.start}" data-pace="${esc(JSON.stringify(film.pace))}" data-src-preview="${film.sources.preview}" data-wide-srcset="${film.sources.wide.map((v) => `${v.src} ${v.w}w`).join(', ')}" data-src-preview-tall="${film.sources.previewTall}" data-tall-srcset="${film.sources.tall.map((v) => `${v.src} ${v.w}w`).join(', ')}"${film.parts && Object.keys(film.parts).length ? ` data-parts="${esc(JSON.stringify(film.parts))}"` : ''}>
     <div class="tour__stage" data-stage>
       <video class="tour__video" muted playsinline preload="none" disablepictureinpicture aria-hidden="true" tabindex="-1" data-video></video>
       <div class="tour__chapters">

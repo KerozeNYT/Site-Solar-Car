@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { partsMap } from './media-parts.mjs';
 import { pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -62,6 +63,8 @@ export async function renderSite(out, assets) {
   const ogIds = new Set(fs.existsSync(photoDir) ? fs.readdirSync(photoDir).filter((f) => f.endsWith('-og.jpg')).map((f) => f.slice(0, -'-og.jpg'.length)) : []);
   // BOOKING_API: the statistics go to the local booking server too
   const business = process.env.BOOKING_API ? { ...site.business, stats: { ...site.business.stats, endpoint: `${process.env.BOOKING_API}/api/stats` } } : site.business;
+  // the film files cut into parts at build time (scripts/media-parts.mjs)
+  film.parts = partsMap(path.join(root, 'public'));
   const ctx = { ...site, business, nav, photoIds, ogIds, car, assets, film, flightTotal, flightAt, pricing, credits, guides, guidesPage, zones, zonesPage, zonesListed, realisations, realisationsPage, booking };
 
   const pages = [

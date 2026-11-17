@@ -62,9 +62,10 @@ fallthrough = true
 
 [vars]
 # the sites allowed to call the API (production and the GitHub Pages preview)
-ALLOWED_ORIGINS = "https://www.solarcar37.fr,https://solarcar37.fr,https://kerozenyt.github.io"
+# (solarcar37.pages.dev: the final site on Cloudflare Pages, before the domain points to it)
+ALLOWED_ORIGINS = "https://www.solarcar37.fr,https://solarcar37.fr,https://kerozenyt.github.io,https://solarcar37.pages.dev"
 # visits from these sites are counted apart ("Aperçu" on the statistics page): the GitHub preview
-STATS_PREVIEW_ORIGINS = "https://kerozenyt.github.io"
+STATS_PREVIEW_ORIGINS = "https://kerozenyt.github.io,https://solarcar37.pages.dev"
 # the statistics page (link of the monthly e-mail, booking/stats-report.js)
 STATS_PAGE = "https://solarcar37-reservation.contact-solarcar37.workers.dev/stats"
 # appointments are written here (SOLAR CAR 37)
