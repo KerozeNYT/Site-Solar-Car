@@ -14,3 +14,5 @@ assets-src/photos/originals/
 
 # comparison sheet of the atelier icon proposals (made again by scripts/logo-atelier.mjs)
 design/logo/atelier/apercu.png
+# screenshots of the title designs (made again by design/titre/variantes.mjs)
+design/titre/*.png

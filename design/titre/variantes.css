@@ -1,0 +1,399 @@
+/* =====================================================================================
+   SOLAR CAR 37 — pistes pour le grand titre de l'accueil (h1 du héros, « SOLAR CAR 37 »)
+   -------------------------------------------------------------------------------------
+   Maquettes seulement : rien ici n'est branché sur le site. Chaque piste est un bloc
+   autonome, entre « @variante X » et « @fin X » ; on n'en colle qu'une. Pour l'adopter :
+     1. dans src/styles/main.css, retirer les règles actuelles du titre :
+        .chapter__brand (≈ l. 763 et ≈ l. 4297), @keyframes brand-sheen, et la taille pour
+        écrans bas `.tour-live .film .chapter__brand` (≈ l. 882) ;
+     2. coller le bloc de la piste choisie à la place (par exemple après « 3D tour ») ;
+     3. si la piste l'indique (« Balisage »), changer dans src/templates/pages.js
+        (fonction chapterArticles, la constante `heading` quand c.brand) le contenu de
+        <span class="chapter__brand"> : le texte reste exactement « SOLAR CAR 37 », le titre
+        reste un vrai h1, lu et indexé à l'identique.
+   Les sélecteurs sont un peu plus précis que l'existant (.chapter__title--brand .chapter__brand)
+   pour l'emporter aussi quand ils sont simplement ajoutés en fin de feuille (les maquettes).
+   Polices : seulement celles que le site déclare déjà (Geist, Instrument Serif italique,
+   Archivo). Mouvement : rien ne tourne en boucle de façon gênante, et tout s'arrête pour les
+   visiteurs qui ont demandé moins d'animations (prefers-reduced-motion).
+   ===================================================================================== */
+
+
+/* @variante A — « Or brossé » ---------------------------------------------------------
+   Lettres en métal doré brossé : un dégradé de métal repris à chaque ligne (clair en haut,
+   ombre au milieu, reprise de lumière en bas), de fines stries horizontales, une tranche
+   bronze sous les lettres (l'épaisseur du métal) et un reflet de lumière qui traverse le
+   titre toutes les 9 s (2,3 s de passage, puis rien).
+   Balisage : aucun changement.
+   Saisons : néon → métal « coucher de soleil » (crème, orange, rose) ; Noël → l'or reste. */
+.chapter__title--brand .chapter__brand {
+  --or-1: #fff5d2;
+  --or-2: #f2d68c;
+  --or-3: #d0a24c;
+  --or-4: #8c5b1b;
+  --or-5: #e2b960;
+  --or-tranche: #4d310b;
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: clamp(3rem, 1.4rem + 6.4vw, 7rem);
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  color: var(--or-2); /* repli si background-clip: text n'existe pas */
+  text-shadow: none;
+  background:
+    /* 1. le reflet qui passe (seule couche animée) */
+    linear-gradient(105deg, rgba(255, 252, 240, 0) 42%, rgba(255, 252, 240, 0.95) 50%, rgba(255, 252, 240, 0) 58%) 100% 0 / 300% 100% no-repeat,
+    /* 2. le brossage : deux trames de stries fines, de pas différents */
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.075) 0 1px, rgba(255, 255, 255, 0) 1px 3px),
+    repeating-linear-gradient(180deg, rgba(70, 40, 5, 0.09) 0 1px, rgba(70, 40, 5, 0) 1px 7px),
+    /* 3. le métal : une bande par ligne de texte (0,9em = la hauteur de ligne) */
+    linear-gradient(180deg, var(--or-1) 12%, var(--or-2) 32%, var(--or-3) 49%, var(--or-4) 57%, var(--or-5) 72%, var(--or-1) 88%) 0 0 / 100% 0.9em repeat-y;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0.022em 0 var(--or-tranche)) drop-shadow(0 0.1em 0.22em rgba(5, 6, 8, 0.7));
+  animation: titre-or-reflet 9s ease-in-out 1s infinite;
+}
+@keyframes titre-or-reflet {
+  0%,
+  74% {
+    background-position: 100% 0, 0 0, 0 0, 0 0;
+  }
+  100% {
+    background-position: 0% 0, 0 0, 0 0, 0 0;
+  }
+}
+@media (min-width: 761px) and (max-height: 860px) {
+  .tour-live .film .chapter__title--brand .chapter__brand {
+    font-size: clamp(2.7rem, 10.5vh, 5.6rem);
+  }
+}
+html[data-saison='neon'] .chapter__title--brand .chapter__brand {
+  --or-1: #fff1d6;
+  --or-2: #ffc46b;
+  --or-3: #ff7a59;
+  --or-4: #a3206b;
+  --or-5: #ff6fb5;
+  --or-tranche: #3d0a35;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chapter__title--brand .chapter__brand {
+    animation: none;
+  }
+}
+/* @fin A */
+
+
+/* @variante B — « Contraste » ----------------------------------------------------------
+   « SOLAR / CAR » en capitales très larges et grasses (Archivo étiré à 125 %), ivoire, sur
+   deux lignes ; « 37 » énorme en Instrument Serif italique doré, haut comme les deux lignes
+   et posé sur la même ligne de base que « CAR ». Une linéale mécanique contre un chiffre
+   calligraphié : l'esprit d'une couverture de magazine automobile. Statique.
+   Balisage : <span class="chapter__brand"><span class="titre-nom">SOLAR CAR</span>
+   <span class="titre-37">37</span></span>
+   Poids : Archivo (90 Ko) n'est aujourd'hui téléchargé que par la 3D ; il le serait sur
+   l'accueil (à précharger, ou à remplacer par Geist 900 si l'on préfère ne rien ajouter).
+   Saisons : le « 37 » suit les tons or du site (rose en néon, or à Noël). */
+.chapter__title--brand .chapter__brand {
+  display: flex;
+  align-items: flex-end; /* repli */
+  align-items: last baseline;
+  gap: 0.04em;
+  font-size: clamp(2.6rem, 1.2rem + 5vw, 5.4rem);
+  line-height: 0.86;
+  letter-spacing: 0;
+  color: var(--ivory);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  text-shadow: 0 2px 24px rgba(5, 6, 8, 0.6);
+  filter: none;
+  animation: none;
+}
+.chapter__brand .titre-nom {
+  max-width: min-content; /* un mot par ligne : SOLAR / CAR */
+  font-family: 'Archivo', var(--font);
+  font-stretch: 125%;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+.chapter__brand .titre-37 {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 2.32em;
+  line-height: 0.74;
+  letter-spacing: -0.04em;
+  padding-right: 0.08em; /* l'italique déborde à droite */
+  color: var(--gold-300);
+  background: linear-gradient(180deg, var(--gold-200) 8%, var(--gold-300) 45%, var(--gold-400) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 6px 18px rgba(5, 6, 8, 0.55));
+}
+@media (min-width: 761px) and (max-height: 860px) {
+  .tour-live .film .chapter__title--brand .chapter__brand {
+    font-size: clamp(2.4rem, 8.6vh, 4.6rem);
+  }
+}
+/* sur téléphone, deux lignes : un peu plus petit, pour que le texte du héros garde sa place */
+@media (max-width: 760px) {
+  .chapter__title--brand .chapter__brand {
+    font-size: 2.4rem;
+  }
+}
+/* @fin B */
+
+
+/* @variante C — « Tubes lumineux » -----------------------------------------------------
+   Les lettres dessinées comme les tubes LED du plafond de l'atelier : graisse très fine,
+   cœur presque blanc, halo froid ; « 37 » en tubes dorés. À l'arrivée, les tubes
+   s'allument une seule fois avec un léger scintillement (1,4 s ; le « 37 » un temps après),
+   puis plus rien ne bouge.
+   Balisage : <span class="chapter__brand"><span class="titre-nom">SOLAR CAR</span>
+   <span class="titre-37">37</span></span>
+   Saisons : reprend --tube-rgb / --tube-rgb-2, les couleurs des tubes du décor de la page :
+   néon → tubes roses et « 37 » cyan ; Noël → blanc chaud et « 37 » rouge. */
+.chapter__title--brand .chapter__brand {
+  --tube: var(--tube-rgb, 236, 242, 255);
+  font-family: var(--font);
+  font-weight: 220;
+  font-size: clamp(3rem, 1.4rem + 6.4vw, 7rem);
+  line-height: 0.98;
+  letter-spacing: 0.015em;
+  color: #fbfdff;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  filter: none;
+  animation: none;
+}
+.chapter__brand .titre-nom,
+.chapter__brand .titre-37 {
+  text-shadow: 0 0 1px rgb(var(--tube)), 0 0 0.05em rgba(var(--tube), 0.95), 0 0 0.14em rgba(var(--tube), 0.7), 0 0 0.32em rgba(var(--tube), 0.45), 0 0 0.7em rgba(var(--tube), 0.28);
+  animation: titre-tubes-allumage 1.4s linear 0.5s 1 both;
+}
+.chapter__brand .titre-37 {
+  --tube: var(--tube-rgb-2, 233, 190, 105);
+  color: #fff4dc;
+  animation-delay: 1.15s;
+}
+html[data-saison] .chapter__brand .titre-37 {
+  color: #fff;
+}
+@keyframes titre-tubes-allumage {
+  0% {
+    opacity: 0.12;
+  }
+  7% {
+    opacity: 0.85;
+  }
+  11% {
+    opacity: 0.18;
+  }
+  20% {
+    opacity: 1;
+  }
+  25% {
+    opacity: 0.4;
+  }
+  33%,
+  100% {
+    opacity: 1;
+  }
+}
+@media (min-width: 761px) and (max-height: 860px) {
+  .tour-live .film .chapter__title--brand .chapter__brand {
+    font-size: clamp(2.7rem, 10.5vh, 5.6rem);
+  }
+}
+/* sur téléphone, un trait un peu plus épais pour rester net en petit */
+@media (max-width: 760px) {
+  .chapter__title--brand .chapter__brand {
+    font-weight: 300;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chapter__brand .titre-nom,
+  .chapter__brand .titre-37 {
+    animation: none;
+  }
+}
+/* @fin C */
+
+
+/* @variante D — « Chrome » --------------------------------------------------------------
+   Lettrage chromé : en haut, le blanc froid des tubes du plafond ; une ligne d'horizon
+   sombre ; en bas, le reflet champagne des bandes dorées du sol. Un filet de lumière sur
+   l'arête haute des lettres, et le titre se reflète faiblement sous lui-même comme sur le
+   sol verni de l'atelier (Chrome, Edge, Safari ; Firefox n'affiche pas ce reflet, le reste
+   est identique ; pas de reflet sur téléphone). Statique.
+   Balisage : aucun changement.
+   Saisons : néon → ciel rose, horizon violet, sol orangé ; Noël → reflet rouge et or. */
+.chapter__title--brand .chapter__brand {
+  --chrome-ciel: #ffffff;
+  --chrome-ciel-2: #dfe5ee;
+  --chrome-acier: #9aa4b2;
+  --chrome-horizon: #23262d;
+  --chrome-sol: #6e5530;
+  --chrome-sol-2: #d9bb7f;
+  --chrome-sol-3: #fbf1dc;
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: clamp(3rem, 1.4rem + 6.4vw, 7rem);
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  margin-bottom: 0.14em; /* la place du reflet */
+  color: var(--chrome-ciel-2); /* repli si background-clip: text n'existe pas */
+  text-shadow: none;
+  background: linear-gradient(180deg, var(--chrome-ciel) 11%, var(--chrome-ciel-2) 28%, var(--chrome-acier) 46%, var(--chrome-horizon) 50.5%, var(--chrome-sol) 57%, var(--chrome-sol-2) 72%, var(--chrome-sol-3) 88%) 0 0 / 100% 0.9em repeat-y;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 -1px 0 rgba(255, 255, 255, 0.55)) drop-shadow(0 0 1px rgba(5, 6, 8, 0.9)) drop-shadow(0 0.09em 0.2em rgba(5, 6, 8, 0.6));
+  -webkit-box-reflect: below -0.06em linear-gradient(180deg, transparent 66%, rgba(255, 255, 255, 0.26));
+  animation: none;
+}
+@media (min-width: 761px) and (max-height: 860px) {
+  .tour-live .film .chapter__title--brand .chapter__brand {
+    font-size: clamp(2.7rem, 10.5vh, 5.6rem);
+  }
+}
+/* sur téléphone : pas de reflet (il toucherait la ligne suivante), horizon adouci pour la
+   lisibilité en petit */
+@media (max-width: 760px) {
+  .chapter__title--brand .chapter__brand {
+    margin-bottom: 0;
+    -webkit-box-reflect: none;
+    --chrome-acier: #b3bcc8;
+    --chrome-horizon: #4b505a;
+  }
+}
+html[data-saison='neon'] .chapter__title--brand .chapter__brand {
+  --chrome-ciel: #fff4fb;
+  --chrome-ciel-2: #f6cdf0;
+  --chrome-acier: #a77bd6;
+  --chrome-horizon: #2a0d3d;
+  --chrome-sol: #a3206b;
+  --chrome-sol-2: #ff7a59;
+  --chrome-sol-3: #ffd98a;
+}
+html[data-saison='noel'] .chapter__title--brand .chapter__brand {
+  --chrome-sol: #8c1022;
+  --chrome-sol-2: #e3263f;
+  --chrome-sol-3: #ffd9a0;
+}
+/* @fin D */
+
+
+/* @variante E — « Plaque 37 » -----------------------------------------------------------
+   « SOLAR CAR » en grandes capitales ivoire, comme aujourd'hui ; « 37 » posé comme le
+   numéro de département dans la bande bleue d'une plaque : un petit bloc bleu nuit, de la
+   hauteur des capitales, cerclé d'un filet d'or, chiffres or — les couleurs du cache-plaque
+   SOLAR CAR 37 de la voiture de la vidéo. Un clin d'œil local (Indre-et-Loire), sans logo
+   de région. Statique.
+   Balisage : <span class="chapter__brand"><span class="titre-nom">SOLAR CAR</span>
+   <span class="titre-37">37</span></span>
+   Saisons : le filet et les chiffres suivent les tons or du site (rose en néon). */
+.chapter__title--brand .chapter__brand {
+  font-family: var(--font);
+  font-weight: 800;
+  font-size: clamp(3rem, 1.4rem + 6.4vw, 7rem);
+  line-height: 0.9;
+  letter-spacing: -0.045em;
+  color: var(--ivory);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  text-shadow: 0 2px 24px rgba(5, 6, 8, 0.55);
+  filter: none;
+  animation: none;
+}
+/* le bloc : ses mesures sont dans la taille de ses chiffres (0,36 × le titre), d'où les
+   divisions par 0,36 pour retrouver les proportions du titre (0,71em = les capitales).
+   inline-block + overflow: hidden → son bas se pose sur la ligne de base de « CAR » ;
+   line-height = hauteur → avec Geist, les chiffres tombent pile au milieu. */
+.chapter__brand .titre-37 {
+  display: inline-block;
+  overflow: hidden;
+  box-sizing: border-box;
+  vertical-align: baseline;
+  font-size: 0.36em;
+  height: calc(0.71em / 0.36);
+  line-height: calc(0.71em / 0.36);
+  padding: 0 0.28em;
+  margin-left: calc(0.12em / 0.36);
+  border-radius: 0.14em;
+  background: linear-gradient(180deg, #1c3170, #0a1430);
+  /* filet d'or, fin liseré bleu, second filet d'or estompé ; puis l'ombre portée */
+  box-shadow: inset 0 0 0 max(1.5px, 0.05em) var(--gold-400), inset 0 0 0 max(3px, 0.1em) #0a1430, inset 0 0 0 max(4px, 0.125em) rgba(var(--accent-rgb), 0.35), 0 0.25em 0.6em rgba(5, 6, 8, 0.55);
+  color: var(--gold-200);
+  -webkit-text-fill-color: currentColor;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  text-align: center;
+  text-shadow: none;
+}
+@media (min-width: 761px) and (max-height: 860px) {
+  .tour-live .film .chapter__title--brand .chapter__brand {
+    font-size: clamp(2.7rem, 10.5vh, 5.6rem);
+  }
+}
+/* @fin E */
+
+
+/* @variante F — « Signature » -----------------------------------------------------------
+   La signature des marques automobiles haut de gamme : « SOLAR CAR » en capitales larges et
+   très espacées (Archivo étiré, graisse moyenne), puis un filet d'or fin qui court jusqu'au
+   « 37 » doré, espacé lui aussi. Calme et luxueux, moins massif que l'actuel. Statique.
+   Balisage : <span class="chapter__brand"><span class="titre-nom">SOLAR CAR</span>
+   <span class="titre-37">37</span></span>
+   Poids : Archivo (90 Ko) n'est aujourd'hui téléchargé que par la 3D ; il le serait sur
+   l'accueil.
+   Saisons : le filet et le « 37 » suivent les tons or du site (rose en néon). */
+.chapter__title--brand .chapter__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  width: max-content;
+  font-family: 'Archivo', var(--font);
+  font-stretch: 125%;
+  font-weight: 500;
+  font-size: clamp(2.3rem, 0.9rem + 3.6vw, 4.3rem);
+  line-height: 1;
+  letter-spacing: 0.16em;
+  color: var(--ivory);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  text-shadow: 0 2px 22px rgba(5, 6, 8, 0.6);
+  filter: none;
+  animation: none;
+}
+.chapter__brand .titre-nom {
+  margin-right: -0.16em; /* l'espacement après la dernière lettre */
+}
+.chapter__brand .titre-37 {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  font-size: 0.56em;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  margin-right: -0.3em;
+  color: var(--gold-300);
+  -webkit-text-fill-color: currentColor;
+}
+/* le filet d'or (un pseudo-élément vide : rien n'est ajouté au texte du titre) */
+.chapter__brand .titre-37::before {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.15), var(--gold-300));
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.5);
+}
+@media (min-width: 761px) and (max-height: 860px) {
+  .tour-live .film .chapter__title--brand .chapter__brand {
+    font-size: clamp(2.2rem, 7.4vh, 4.3rem);
+  }
+}
+/* @fin F */
