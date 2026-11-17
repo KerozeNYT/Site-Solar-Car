@@ -82,7 +82,7 @@ test('GTA 6 and Noël: codes and bands planned, each on its dates', async () => 
   assert.equal((await checkCode(env, 'GTA6', at('2026-11-19T22:30:00Z'))).ok, true); // 23:30 in Paris, still the 19th
   assert.equal((await checkCode(env, 'GTA6', at('2026-11-19T23:30:00Z'))).ok, false); // 0:30 on the 20th
   // NOEL: every service, bookings and quote requests from 1 December to 24 December 23:59 (Paris)
-  assert.equal((await checkCode(env, 'Noël', at('2026-11-30T12:00:00Z'))).ok, false);
+  assert.match((await checkCode(env, 'Noël', at('2026-11-30T12:00:00Z'))).error, /sera valable à partir du mardi 1er décembre/);
   const r = await checkCode(env, 'noel', at('2026-12-05T10:00:00Z'));
   assert.deepEqual([r.ok, r.kind, r.percent, r.services], [true, 'promo', 15, []]);
   assert.equal((await checkCode(env, 'NOEL', at('2026-12-24T22:58:00Z'))).ok, true); // 23:58 in Paris

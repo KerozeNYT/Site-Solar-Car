@@ -148,7 +148,7 @@ export class Atelier {
     if (!p) return null;
     if (!p.active) return { ok: false, error: 'Ce code promo n’est pas valable en ce moment.' };
     if (now < p.starts) {
-      const d = (ms) => new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: R.timeZone }).format(new Date(ms));
+      const d = (ms) => new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: R.timeZone }).format(new Date(ms)).replace(/ 1 (\p{L}+)$/u, ' 1er $1');
       return { ok: false, error: d(p.starts) === d(p.expires) ? `Le code ${p.code} est valable le ${d(p.starts)} seulement : réservez ce jour-là pour en profiter.` : `Le code ${p.code} sera valable à partir du ${d(p.starts)}.` };
     }
     if (p.expires < now) return { ok: false, error: 'Ce code promo a expiré.' };
