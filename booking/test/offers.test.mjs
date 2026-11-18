@@ -310,6 +310,29 @@ test('a promotion kept for the members; « Retrouver ma carte »; the offers tur
   assert.equal(sql('SELECT news FROM members')[0].news, 1);
 });
 
+test('« Espace membre »: the e-mail, then a 6-digit code; wrong, used or unknown: refused', async () => {
+  env.ATELIER.db.prepare('DELETE FROM settings WHERE key LIKE ?').run('lien:%');
+  mails.length = 0;
+  // an address that is no member's: the same answer, nothing sent
+  assert.equal((await (await call('/api/premium/lien', { method: 'POST', body: { email: 'nobody@example.com' } })).json()).ok, true);
+  assert.equal(mails.length, 0);
+  await call('/api/premium/lien', { method: 'POST', body: { email: 'Zoe@Example.com' } });
+  assert.equal(mails.length, 1);
+  const code = mails[0].subject.match(/(\d{6})$/)[1];
+  assert.match(mails[0].html, new RegExp(`>${code}<`));
+  assert.match(mails[0].html, /premium\/carte\/\?n=PREMIUM-/);
+  const wrong = await call('/api/premium/connexion', { method: 'POST', body: { email: 'zoe@example.com', code: code === '000000' ? '111111' : '000000' } });
+  assert.equal(wrong.status, 400);
+  assert.match((await wrong.json()).error, /Code incorrect/);
+  const ok = await (await call('/api/premium/connexion', { method: 'POST', body: { email: 'zoe@example.com', code } })).json();
+  assert.deepEqual([ok.ok, ok.n, ok.t], [true, member.number, member.token]);
+  // once
+  assert.match((await (await call('/api/premium/connexion', { method: 'POST', body: { email: 'zoe@example.com', code } })).json()).error, /expiré/);
+  assert.equal((await call('/api/premium/connexion', { method: 'POST', body: { email: 'nobody@example.com', code } })).status, 400);
+  // only the HMAC of the code is kept
+  assert.ok(sql('SELECT hash FROM member_logins').every((r) => /^[0-9a-f]{64}$/.test(r.hash) && !r.hash.includes(code)));
+});
+
 test('the reminder a fortnight before the end, once', async () => {
   const m = sql('SELECT * FROM members')[0];
   mails.length = 0;

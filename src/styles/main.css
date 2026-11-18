@@ -7393,6 +7393,18 @@ html[data-saison='noel'] .site-footer {
   font-size: 0.72rem;
   letter-spacing: 0.02em;
 }
+/* eight levels on a phone: only the member's own level is named under the gauge (the line above
+   names the next one); the others keep their number */
+@media (max-width: 640px) {
+  .levels--compact .level:not(.is-current) .level__name {
+    visibility: hidden;
+  }
+  .levels--compact .level.is-current .level__name {
+    white-space: nowrap;
+    position: relative;
+    z-index: 1;
+  }
+}
 .levels--compact .level.is-next .level__node,
 .levels--compact .level:not(.is-past):not(.is-current) .level__node {
   border-color: rgba(255, 255, 255, 0.16);
@@ -8007,4 +8019,22 @@ html[data-saison='noel'] .site-footer {
   html:has([data-gift]) {
     scroll-padding-top: calc(var(--header-h) + 200px);
   }
+}
+
+/* the members' sign-in: the 6-digit code, large and spaced */
+.pm-login__code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 1.6rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+.linklike {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }

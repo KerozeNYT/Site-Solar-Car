@@ -674,13 +674,18 @@ ${lp(`À très vite à l’atelier,<br><b>${esc((B.owner || '').split(' ')[0] ||
   });
 }
 
-/** « Retrouver ma carte »: the link to « Mon espace Premium » */
+/** « Espace membre »: the sign-in code (to type on the site, on any device) and the link that opens
+ *  the space at once on this one */
 export async function sendPremiumLink(env, m) {
   await send(env, {
     to: [m.email],
     reply_to: B.email,
-    subject: 'Votre accès SOLAR CAR Premium',
-    html: luxShell('Votre espace Premium', `${lp(`Bonjour ${esc(m.first)},`)}${lp('voici le lien de votre espace : votre carte, vos rendez-vous, vos cadeaux et vos offres. Il vous est réservé, gardez-le pour vous.')}<p style="margin:18px 0 6px">${goldButton(m.cardUrl, 'Ouvrir mon espace Premium')}</p>${lp('Vous n’avez rien demandé ? Ignorez simplement cet e-mail.', 'margin-top:16px;font-size:13px;color:#a9a396')}`, { preheader: 'Votre carte, vos rendez-vous, vos cadeaux.', kicker: 'SOLAR CAR Premium' }),
+    subject: m.code ? `Votre code de connexion SOLAR CAR Premium : ${m.code}` : 'Votre accès SOLAR CAR Premium',
+    html: luxShell(
+      'Votre espace membre',
+      `${lp(`Bonjour ${esc(m.first)},`)}${m.code ? `${lp('voici votre code de connexion, valable 10 minutes :')}<p style="margin:6px 0 18px;text-align:center"><span style="display:inline-block;background:#141519;border:1px solid #6b5a33;border-radius:12px;padding:12px 22px;font-family:'Courier New',Courier,monospace;font-size:32px;font-weight:700;letter-spacing:.3em;color:${GOLD}">${esc(m.code)}</span></p>${lp('Ou, sur cet appareil, ouvrez directement votre espace :', 'font-size:14px;color:#cfc9bc')}` : lp('voici le lien de votre espace : votre carte, vos rendez-vous, vos cadeaux et vos offres.')}<p style="margin:12px 0 6px">${goldButton(m.cardUrl, 'Ouvrir mon espace Premium')}</p>${lp('Ce lien et ce code vous sont réservés : gardez-les pour vous. Vous n’avez rien demandé ? Ignorez simplement cet e-mail.', 'margin-top:16px;font-size:13px;color:#a9a396')}`,
+      { preheader: m.code ? `Code : ${m.code} (valable 10 minutes).` : 'Votre carte, vos rendez-vous, vos cadeaux.', kicker: 'SOLAR CAR Premium' }
+    ),
   });
 }
 

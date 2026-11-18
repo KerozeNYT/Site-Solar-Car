@@ -76,11 +76,17 @@ un cadeau change à un seul endroit.
   Écrire aux membres** : un e-mail à chaque membre qui accepte les offres (« Bonjour Prénom », le code
   en avant, le bouton « J'en profite »). « M'envoyer un aperçu » d'abord. Chaque e-mail a son lien
   « Ne plus recevoir les offres » (obligatoire), et la carte reste valable.
-- **Mon espace Premium** (`/premium/carte/`) : une petite application web, à ajouter à l'écran
-  d'accueil du téléphone. Dedans : la carte en 3D, tous les rendez-vous (à venir, passés, reste à
-  régler), le niveau et le prochain cadeau, les offres membres du moment, le code de parrainage.
-  Pas de mot de passe : le lien arrive par e-mail, et « Retrouver ma carte » le renvoie à l'adresse
-  de la carte (une fois toutes les 10 minutes au plus).
+- **Espace membre** (`/premium/carte/`) : une **page privée du site**, qu'on ne trouve que par le lien
+  des e-mails (bienvenue, niveaux, offres, rappel). Elle n'est ni dans le menu ni dans Google
+  (choix de l'atelier, 18 novembre 2026). Dedans : la carte en 3D, tous les rendez-vous (à venir,
+  passés, reste à régler), le niveau et le prochain cadeau, les offres membres du moment, le code de
+  parrainage. L'appareil reste connecté.
+  - Installable comme une application : « Ajouter à l'écran d'accueil » (bouton sur Android, notice
+    sur iPhone), puis elle s'ouvre en plein écran avec l'icône SOLAR CAR Premium. Pas de store.
+  - Connexion de secours sans mot de passe : si le lien n'est plus valable, ou sur un autre appareil,
+    le membre tape son e-mail et reçoit un **code à 6 chiffres** (valable 10 minutes, 5 essais, seul
+    le dernier code envoyé marche, un e-mail toutes les 2 minutes au plus). La page répond la même
+    chose que l'adresse soit celle d'un membre ou non.
 
 ## Dans l'espace atelier
 

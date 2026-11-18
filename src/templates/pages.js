@@ -2263,7 +2263,7 @@ export function premiumPage(ctx) {
         ${perk(I('M5 19 19 5M7.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm9 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z'), `−${premium.percent} % sur tout, toute l’année`, 'Vitres et feux teintés, detailing, ciel étoilé, covering, phares : en ligne comme à l’atelier, sur chaque prestation.')}
         ${perk(I('M4 6h16v12H4zM4 7l8 6 8-6'), 'Les offres des membres', 'Avant-premières, codes réservés et nouveautés de l’atelier, par e-mail. Quelques fois par an, jamais plus.')}
         ${perk(I('M4 11h16v9H4zM3 7h18v4H3zM12 7v13M12 7c-1.6-3.4-5.4-3-4.8-.6.4 1.3 4.8.6 4.8.6Zm0 0c1.6-3.4 5.4-3 4.8-.6-.4 1.3-4.8.6-4.8.6Z'), 'Un cadeau à chaque prestation', `${premium.tiers.length - 1} niveaux à débloquer, de ${esc(premium.tiers[1].label)} à ${esc(premium.tiers.at(-1).label)}, chacun avec son cadeau, remis à l’atelier.`)}
-        ${perk(I('M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm4 15h2'), 'Votre espace Premium', 'Votre carte, vos rendez-vous, vos cadeaux et vos offres, dans une app à poser sur l’écran d’accueil de votre téléphone.')}
+        ${perk(I('M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm4 15h2'), 'Votre espace membre', 'Une page privée, dont le lien vous arrive par e-mail : votre carte, vos rendez-vous, vos cadeaux et vos offres. À poser sur l’écran d’accueil du téléphone, si vous le souhaitez.')}
       </ul>
     </div>
   </section>
@@ -2372,14 +2372,19 @@ export function premiumCardPage(ctx) {
       <p class="pm-loading" data-pm-loading role="status">Chargement de votre carte…</p>
 
       <div class="pm-login" data-pm-login hidden>
-        <p class="kicker">Mon espace Premium</p>
-        <h1>Retrouver ma <em>carte</em></h1>
-        <p class="lead">Indiquez l’e-mail de votre carte : nous vous envoyons le lien de votre espace Premium.</p>
+        <p class="kicker">Espace membre</p>
+        <h1>Connexion à mon <em>espace</em></h1>
+        <p class="lead">Pas de mot de passe : indiquez l’e-mail de votre carte ${esc(premium.name)}, nous vous envoyons un code à 6 chiffres.</p>
         <form class="form pm-login__form" data-pm-find novalidate>
           <div class="form__row"><label for="pm-email">E-mail de la carte</label><input id="pm-email" name="email" type="email" autocomplete="email" required></div>
-          <button class="btn btn--primary" type="submit">Recevoir le lien</button>
-          <p class="pm-login__status" data-pm-find-status role="status"></p>
+          <button class="btn btn--primary" type="submit">Recevoir mon code</button>
         </form>
+        <form class="form pm-login__form" data-pm-code novalidate hidden>
+          <div class="form__row"><label for="pm-code">Code reçu par e-mail</label><input id="pm-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="\d{6}" maxlength="6" required placeholder="123456" class="pm-login__code"></div>
+          <button class="btn btn--primary" type="submit">Se connecter</button>
+          <p class="form__hint">Valable 10 minutes. Sur le téléphone qui a reçu l’e-mail, son bouton ouvre aussi votre espace directement. <button class="linklike" type="button" data-pm-resend>Renvoyer un code</button> · <button class="linklike" type="button" data-pm-other>Changer d’adresse</button></p>
+        </form>
+        <p class="pm-login__status" data-pm-find-status role="status"></p>
         <p class="form__hint">Pas encore membre ? <a href="/premium/">Découvrir ${esc(premium.name)}</a>.</p>
       </div>
 
@@ -2438,7 +2443,7 @@ export function premiumCardPage(ctx) {
   return page(
     ctx,
     {
-      title: `Mon espace Premium | ${b.name}`,
+      title: `Espace membre Premium | ${b.name}`,
       description: `Votre carte ${premium.name}, vos rendez-vous, vos niveaux et vos offres.`,
       path: '/premium/carte/',
       noindex: true,

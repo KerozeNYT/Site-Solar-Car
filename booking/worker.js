@@ -1188,8 +1188,32 @@ async function premiumGet(req, env, url, now) {
   return json(r, r.ok ? 200 : 404, h);
 }
 
-/** POST /api/premium/lien { email }: the member's link e-mailed to that address (always « ok »:
- *  the page never tells whether an address is a member's); once every 10 minutes at most */
+/** the HMAC of a member's sign-in code (the database keeps only that) */
+async function loginHash(env, email, code) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(String(env.ATELIER_SECRET || env.STRIPE_WEBHOOK_SECRET || 'solarcar37')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`premium:${String(email).toLowerCase()}:${code}`));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** POST /api/premium/connexion { email, code }: the 6-digit code typed in « Espace membre » →
+ *  { ok, n, t } (the member's key, kept by the page on that device) or { ok: false, error } */
+async function premiumSignIn(req, env, now) {
+  const h = cors(req, env);
+  if (!h['access-control-allow-origin']) return json({ ok: false, error: 'Origine refusée' }, 403, h);
+  if (!env.ATELIER) return json({ ok: false, error: 'Indisponible.' }, 503, h);
+  let b = {};
+  try {
+    b = JSON.parse((await req.text()).slice(0, 1000));
+  } catch {}
+  const email = clean(b.email, 120).toLowerCase();
+  const code = String(b.code || '').replace(/\D/g, '');
+  if (!EMAIL.test(email) || code.length !== 6) return json({ ok: false, error: 'Indiquez votre e-mail et les 6 chiffres du code.' }, 400, h);
+  const r = await db(env, 'member/login-check', { email, hash: await loginHash(env, email, code), now });
+  return json(r, r.ok ? 200 : 400, h);
+}
+
+/** POST /api/premium/lien { email }: a sign-in code and the member's link e-mailed to that address
+ *  (always « ok »: the page never tells whether an address is a member's); once every 2 minutes */
 async function premiumLink(req, env, now) {
   const h = cors(req, env);
   if (!h['access-control-allow-origin']) return json({ ok: false, error: 'Origine refusée' }, 403, h);
@@ -1204,9 +1228,12 @@ async function premiumLink(req, env, now) {
   if (m && env.RESEND_API_KEY) {
     const key = `lien:${m.number}`;
     const last = Number((await db(env, 'setting/get', { key })).value) || 0;
-    if (now - last > 10 * 60000) {
+    if (now - last > 2 * 60000) {
+      const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+      const r = await db(env, 'member/login-new', { email, hash: await loginHash(env, email, code), now });
+      if (!r.ok) return json(r, 429, h);
       await db(env, 'setting/set', { key, value: now });
-      await sendPremiumLink(env, { ...m, cardUrl: cardUrlOf(env, m) }).catch((err) => console.error('[mail] premium link', err.message));
+      await sendPremiumLink(env, { ...m, code, cardUrl: cardUrlOf(env, m) }).catch((err) => console.error('[mail] premium link', err.message));
     }
   }
   return json({ ok: true }, 200, h);
@@ -1311,6 +1338,7 @@ export default {
       if (req.method === 'POST' && url.pathname === '/api/premium/checkout') return await premiumCheckout(req, env, now);
       if (req.method === 'GET' && url.pathname === '/api/premium') return await premiumGet(req, env, url, now);
       if (req.method === 'POST' && url.pathname === '/api/premium/lien') return await premiumLink(req, env, now);
+      if (req.method === 'POST' && url.pathname === '/api/premium/connexion') return await premiumSignIn(req, env, now);
       if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/api/premium/offres') return await premiumNews(req, env, url, now);
       // the client accepts a quote (www.solarcar37.fr/devis/): what it is, then « J'accepte »
       if (url.pathname === '/api/devis' && req.method === 'GET') return await quotePublic(req, env, url);

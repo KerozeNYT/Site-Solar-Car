@@ -274,6 +274,8 @@ export class Atelier {
     x(`CREATE TABLE IF NOT EXISTS members (number TEXT PRIMARY KEY, token TEXT NOT NULL, client_id INTEGER NOT NULL DEFAULT 0, first TEXT NOT NULL DEFAULT '', last TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', since INTEGER NOT NULL, starts INTEGER NOT NULL, expires INTEGER NOT NULL, news INTEGER NOT NULL DEFAULT 1, gifts TEXT NOT NULL DEFAULT '[]', reminded INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL DEFAULT 'site', live INTEGER NOT NULL DEFAULT 1, created INTEGER NOT NULL)`);
     x('CREATE INDEX IF NOT EXISTS members_email ON members (email)');
     x('CREATE INDEX IF NOT EXISTS members_client ON members (client_id)');
+    // « Espace membre »: the 6-digit codes e-mailed to sign in (their HMAC only), 10 minutes, 5 tries
+    x('CREATE TABLE IF NOT EXISTS member_logins (id INTEGER PRIMARY KEY AUTOINCREMENT, number TEXT NOT NULL, hash TEXT NOT NULL, created INTEGER NOT NULL, expires INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, used INTEGER NOT NULL DEFAULT 0)');
     x('CREATE TABLE IF NOT EXISTS member_payments (ref TEXT PRIMARY KEY, number TEXT NOT NULL, amount REAL NOT NULL DEFAULT 0, at INTEGER NOT NULL, source TEXT NOT NULL DEFAULT \'site\')');
     // a promotion kept for the members (the e-mails to the members), a booking's gift card and member
     if (!this.all("SELECT name FROM pragma_table_info('promos')").some((c) => c.name === 'members')) x('ALTER TABLE promos ADD COLUMN members INTEGER NOT NULL DEFAULT 0');
@@ -1425,6 +1427,31 @@ export class Atelier {
       case 'member/reminded':
         this.run('UPDATE members SET reminded = ? WHERE number = ?', now, referralCode(b.number));
         return { ok: true };
+      // « Espace membre »: a sign-in code for the member of an e-mail (its HMAC kept), 5 an hour at
+      // most; nobody when the address is no member's (the page says the same either way)
+      case 'member/login-new': {
+        const m = this.memberOf({ email: b.email }, now);
+        if (!m) return { ok: true, member: null };
+        if (this.one('SELECT COUNT(*) AS n FROM member_logins WHERE number = ? AND created > ?', m.number, now - 3600000).n >= 5) return { ok: false, error: 'Trop de codes demandés : réessayez dans une heure, ou utilisez le lien du dernier e-mail.' };
+        // only the last code sent is valid
+        this.run('UPDATE member_logins SET used = 1 WHERE number = ? AND used = 0', m.number);
+        this.run('INSERT INTO member_logins (number, hash, created, expires) VALUES (?, ?, ?, ?)', m.number, String(b.hash), now, now + 10 * 60000);
+        this.run('DELETE FROM member_logins WHERE created < ?', now - 7 * DAY);
+        return { ok: true, member: { number: m.number, token: m.token, first: m.first, email: m.email } };
+      }
+      // the code typed: the member's key for this device (the space keeps it), once
+      case 'member/login-check': {
+        const m = this.memberOf({ email: b.email }, now);
+        const r = m ? this.one('SELECT * FROM member_logins WHERE number = ? AND used = 0 AND expires > ? ORDER BY created DESC LIMIT 1', m.number, now) : null;
+        if (!r) return { ok: false, error: 'Code expiré ou adresse inconnue : demandez un nouveau code.' };
+        if (r.attempts >= 5) return { ok: false, error: 'Trop d’essais : demandez un nouveau code.' };
+        if (r.hash !== String(b.hash)) {
+          this.run('UPDATE member_logins SET attempts = attempts + 1 WHERE id = ?', r.id);
+          return { ok: false, error: 'Code incorrect : vérifiez les 6 chiffres reçus par e-mail.' };
+        }
+        this.run('UPDATE member_logins SET used = 1 WHERE number = ?', m.number);
+        return { ok: true, n: m.number, t: m.token };
+      }
       // « Retrouver ma carte »: the member of an e-mail (the link is e-mailed to that address only)
       case 'member/find': {
         const m = this.memberOf({ email: b.email }, now);

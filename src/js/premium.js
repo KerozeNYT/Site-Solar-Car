@@ -211,47 +211,97 @@ export async function startPremiumCard(root) {
   }
   const creds = local.get(STORE);
 
-  // « Retrouver ma carte »: the link sent again by e-mail (always the same answer: no one learns
-  // whether an address is a member's)
-  $('[data-pm-find]').addEventListener('submit', async (e) => {
+  // « Espace membre »: the e-mail, then the 6-digit code it receives (the e-mail's button opens
+  // the space directly on the device that reads it). The same answer whether the address is a
+  // member's or not: nobody learns who is.
+  const status = $('[data-pm-find-status]');
+  const find = $('[data-pm-find]');
+  const codeForm = $('[data-pm-code]');
+  let email = '';
+  const ask = async () => {
+    status.textContent = 'Envoi…';
+    try {
+      const res = await fetch(`${api}/api/premium/lien`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) });
+      const r = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(), { msg: r.error });
+      status.textContent = `Si ${email} est l’adresse d’une carte Premium, un code vient d’y partir.`;
+      find.hidden = true;
+      codeForm.hidden = false;
+      codeForm.elements.code.value = '';
+      codeForm.elements.code.focus();
+    } catch (err) {
+      status.textContent = err?.msg || 'L’envoi n’a pas abouti : vérifiez votre connexion et réessayez.';
+    }
+  };
+  find.addEventListener('submit', (e) => {
     e.preventDefault();
-    const input = e.currentTarget.elements.email;
-    const status = $('[data-pm-find-status]');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(input.value.trim())) {
+    const input = find.elements.email;
+    email = input.value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       status.textContent = 'Indiquez une adresse e-mail valide.';
       input.focus();
       return;
     }
-    status.textContent = 'Envoi…';
-    try {
-      await fetch(`${api}/api/premium/lien`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: input.value.trim() }) });
-      status.textContent = 'Si cette adresse est celle d’une carte Premium, le lien vient de partir par e-mail.';
-    } catch {
-      status.textContent = 'L’envoi n’a pas abouti : vérifiez votre connexion et réessayez.';
+    ask();
+  });
+  codeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = codeForm.elements.code.value.replace(/\D/g, '');
+    if (code.length !== 6) {
+      status.textContent = 'Le code fait 6 chiffres.';
+      codeForm.elements.code.focus();
+      return;
     }
+    status.textContent = 'Connexion…';
+    try {
+      const res = await fetch(`${api}/api/premium/connexion`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, code }) });
+      const r = await res.json().catch(() => ({}));
+      if (!r.ok) {
+        status.textContent = r.error || 'Code non reconnu : demandez-en un nouveau.';
+        return;
+      }
+      local.set(STORE, { n: r.n, t: r.t });
+      status.textContent = '';
+      load({ n: r.n, t: r.t });
+    } catch {
+      status.textContent = 'Connexion impossible : vérifiez votre connexion et réessayez.';
+    }
+  });
+  $('[data-pm-resend]').addEventListener('click', () => ask());
+  $('[data-pm-other]').addEventListener('click', () => {
+    codeForm.hidden = true;
+    find.hidden = false;
+    status.textContent = '';
+    find.elements.email.focus();
   });
   $('[data-pm-logout]').addEventListener('click', () => {
     local.remove(STORE);
+    codeForm.hidden = true;
+    find.hidden = false;
     show('login');
   });
 
+  async function load(c) {
+    show('loading');
+    let j;
+    try {
+      const res = await fetch(`${api}/api/premium?n=${encodeURIComponent(c.n)}&t=${encodeURIComponent(c.t)}`);
+      j = await res.json();
+    } catch {
+      $('[data-pm-loading]').textContent = 'Votre carte ne peut pas être chargée pour le moment : vérifiez votre connexion, puis rouvrez la page.';
+      return;
+    }
+    if (!j.member) {
+      local.remove(STORE);
+      show('login');
+      status.textContent = j.error || 'Ce lien n’est plus valable : connectez-vous avec votre e-mail.';
+      return;
+    }
+    renderApp(root, j.member);
+    show('main');
+  }
   if (!api || !creds?.n || !creds?.t) return show('login');
-  let j;
-  try {
-    const res = await fetch(`${api}/api/premium?n=${encodeURIComponent(creds.n)}&t=${encodeURIComponent(creds.t)}`);
-    j = await res.json();
-  } catch {
-    $('[data-pm-loading]').textContent = 'Votre carte ne peut pas être chargée pour le moment : vérifiez votre connexion, puis rouvrez la page.';
-    return;
-  }
-  if (!j.member) {
-    local.remove(STORE);
-    show('login');
-    $('[data-pm-find-status]').textContent = j.error || 'Ce lien n’est plus valable : demandez-en un nouveau.';
-    return;
-  }
-  renderApp(root, j.member);
-  show('main');
+  load(creds);
 }
 
 function renderApp(root, m) {
@@ -283,7 +333,7 @@ function renderApp(root, m) {
 <div class="pm-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${top}" aria-valuenow="${m.visits || 0}" aria-label="Prestations faites en tant que membre"><span style="--pc:${Math.max(3, pc)}%;background-image:linear-gradient(90deg, ${tiers.map((x) => x.color).join(', ')});background-size:${Math.round(10000 / Math.max(3, pc))}% 100%"></span></div>
 <p class="pm-level__next">${
     next
-      ? `Encore <b>${left} prestation${left > 1 ? 's' : ''}</b> pour passer <b style="color:${escHtml(next.color)}">${escHtml(next.label)}</b>${m.next.gift || next.gift ? ` : ${escHtml(m.next.gift || next.gift)}.` : '.'}`
+      ? `Encore <b>${left} prestation${left > 1 ? 's' : ''}</b> pour passer <b style="color:${escHtml(next.color)}">${escHtml(next.label)}</b>${m.next.gift || next.gift ? ` : ${escHtml(((g) => g.charAt(0).toLowerCase() + g.slice(1))(m.next.gift || next.gift))}.` : '.'}`
       : `Vous êtes au sommet : <b style="color:${escHtml(t.color)}">${escHtml(t.label)}</b>. Merci pour votre fidélité !`
   }</p>`;
   for (const [i, li] of root.querySelectorAll('[data-levels] .level').entries()) {
