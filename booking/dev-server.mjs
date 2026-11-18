@@ -183,6 +183,8 @@ async function fillDemo() {
     for (let v = 0; v < visits; v++) {
       const z = utcToZoned(now - (40 - v * 7) * D + i * H, TZ);
       await db(env, 'booking/add', { now: now - (45 - v * 7) * D, session: `cs_demo_m${i}_${v}`, date: z.date, time: '10:00', minutes: 120, items: [{ label: v % 2 ? 'Feux teintés — Feux arrière' : 'Vitres teintées — 3/4 arrière', price: v % 2 ? 108 : 243 }], total: v % 2 ? 108 : 243, discount: v % 2 ? 12 : 27, code: 'PREMIUM', codeKind: 'premium', paid: 72.9, mode: 'deposit', customer: { firstName: first, lastName: last, email } });
+      // its day has come: it counts for the levels (the morning job, in real life)
+      await db(env, 'member/count', { session: `cs_demo_m${i}_${v}`, ok: true, now: Date.parse(`${z.date}T07:00:00Z`) });
     }
   }
   // the gifts of the lower levels already handed over (the last one waits)

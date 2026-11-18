@@ -257,7 +257,6 @@ async function confirm(env, session) {
   }
   // « Nouveau RDV » to the workshop, the confirmation to the client (never fails the booking)
   await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind, remise: Number(m.remise) || 0, canal: m.canal, gift, member: member?.number }).catch((err) => console.error('[mail]', err));
-  await levelUp(env, member);
   await notify(env, { title: m.origin === 'atelier' ? 'Acompte payé : RDV confirmé' : 'Nouveau RDV réservé et payé', body: `${c.firstName} ${c.lastName} — ${longDate(m.date, m.time)} · ${euros(paid)} payés`, url: '/atelier/rdv', tag: `rdv-${session.id}` });
   return out;
 }
@@ -521,8 +520,7 @@ export async function atelierBooking(env, b, now) {
       extendedProperties: { private: { solarcarHold: '0', session: id, atelier: '1' } },
     });
     if (code) await useCode(env, code, codeKind, { by: `${c.firstName} ${c.lastName}`, ref: id, where: 'à l’atelier' });
-    const added = await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: 'none', paid: 0, customer: c });
-    await levelUp(env, added.member);
+    await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: 'none', paid: 0, customer: c });
     const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: 0, mode: 'none', status: 'confirme', canal, customer: c });
     await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: 'none', paid: 0, sessionId: id, code, codeKind, remise, note, canal, clientMail: !!c.email }).catch((err) => console.error('[mail] atelier booking', err.message));
     return { ok: true, id: link.id, confirmed: true };
@@ -985,18 +983,49 @@ async function giftBooking(env, { q, c, date, time, mode, span, code, codeKind, 
   const added = await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items: q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price })), total: q.total, discount: q.discount || 0, code, codeKind, mode, paid: g.amount, customer: c, live: liveKey(env), gift: g.code, giftAmount: g.amount }).catch((err) => (console.error('[atelier] booking', err.message), {}));
   await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode, paid: g.amount, sessionId: id, code, codeKind, gift: g, member: added.member?.number }).catch((err) => console.error('[mail]', err));
   await notify(env, { title: 'Nouveau RDV réservé (carte cadeau)', body: `${by} — ${longDate(date, time)} · carte cadeau ${euros(g.amount)}`, url: '/atelier/rdv', tag: `rdv-${id}` });
-  await levelUp(env, added.member);
   return { url: `${back}/reservation/confirmee/?session=${id}`, confirmed: true };
 }
 
-/** a member's appointment opened a new level: its gift waits at the workshop (the member is told,
- *  the workshop's devices too) */
+/** a member's appointment opened a new level (counted on its day): its gift waits at the
+ *  workshop; the member is told, the workshop's devices too */
 async function levelUp(env, member) {
   if (!member?.reached?.length) return;
   for (const t of member.reached) {
     await notify(env, { title: `Cadeau Premium à remettre · ${t.label}`, body: `${member.first || 'Un membre'} passe au niveau ${t.label} : ${t.gift}`, url: '/atelier/premium', tag: `niveau-${member.number}-${t.id}` });
-    if (env.MAIL_CLIENTS === '1' && env.RESEND_API_KEY && member.email) await sendLevelUp(env, { first: member.first, email: member.email, cardUrl: cardUrlOf(env, member) }, t).catch((err) => console.error('[mail] level', err.message));
+    if (env.MAIL_CLIENTS === '1' && env.RESEND_API_KEY && member.email) await sendLevelUp(env, { first: member.first, email: member.email, cardUrl: cardUrlOf(env, member), extended: member.extended }, t).catch((err) => console.error('[mail] level', err.message));
   }
+}
+
+/**
+ * The levels, on the day of each member's appointment: still in the calendar (not cancelled), it
+ * counts (member/count) and may open a level; gone, it never counts. An appointment whose calendar
+ * cannot be read is left for the next morning.
+ */
+export async function countLevels(env, now = Date.now()) {
+  const out = { counted: 0, cancelled: 0, levels: 0 };
+  if (!env.ATELIER) return out;
+  for (const bk of (await db(env, 'members/due', { date: today(now), now })).bookings) {
+    let ev;
+    try {
+      ev = bk.event ? await getEvent(env, env.CALENDAR_WRITE, bk.event) : null;
+    } catch (err) {
+      if (!/404|410|Not Found/i.test(err.message)) {
+        console.error('[niveaux]', bk.session, err.message);
+        continue;
+      }
+      ev = null;
+    }
+    const ok = !!ev && ev.status !== 'cancelled' && ev.extendedProperties?.private?.solarcarHold !== '1';
+    const r = await db(env, 'member/count', { session: bk.session, ok, now });
+    if (!r.ok || r.again) continue;
+    if (r.counted) out.counted++;
+    else out.cancelled++;
+    if (r.member?.reached?.length) {
+      out.levels += r.member.reached.length;
+      await levelUp(env, r.member);
+    }
+  }
+  return out;
 }
 
 const clean = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -1198,13 +1227,15 @@ async function premiumNews(req, env, url, now) {
 }
 
 /**
- * Every morning (cron of booking/wrangler.toml): the gift cards whose day has come go to their
- * recipient (and the buyer is told), the Premium cards ending within a fortnight get their
- * reminder. Nothing is sent until the client e-mails are switched on (MAIL_CLIENTS "1").
+ * Every morning (cron of booking/wrangler.toml): the members' appointments of the day count for
+ * their levels (countLevels), the gift cards whose day has come go to their recipient (and the
+ * buyer is told), the Premium cards ending within a fortnight get their reminder. Nothing is sent until the client e-mails are switched on (MAIL_CLIENTS "1").
  */
 export async function morningMails(env, now = Date.now()) {
   const out = { gifts: 0, reminders: 0 };
   if (!env.ATELIER) return out;
+  // the members' appointments of the day: their levels (the e-mail only when switched on)
+  out.levels = await countLevels(env, now).catch((err) => (console.error('[niveaux]', err.message), null));
   if (env.MAIL_CLIENTS !== '1' || !env.RESEND_API_KEY) return { ...out, off: true };
   for (const g of (await db(env, 'gifts/due', { date: today(now), now })).gifts) {
     try {

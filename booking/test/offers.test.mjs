@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, createHmac } from 'node:crypto';
-import worker, { morningMails, giftDue } from '../worker.js';
+import worker, { morningMails, giftDue, countLevels } from '../worker.js';
 import { Atelier, monthsAfter } from '../store.js';
 import { utcToZoned, addDays } from '../schedule.js';
 import { quote } from '../../content/booking.js';
@@ -67,12 +67,14 @@ test('the offers module: amounts, levels one a service, codes', () => {
   assert.equal(giftAmount('75,50'), 75.5);
   assert.equal(giftAmount(10), null);
   assert.equal(giftAmount(2000), null);
-  assert.deepEqual(P.tiers.map((t) => t.visits), [0, 1, 2, 3, 4, 5]);
+  assert.deepEqual(P.tiers.map((t) => t.visits), [0, 1, 2, 3, 4, 5, 6, 7]);
   assert.equal(tierOf(0).id, 'membre');
   assert.equal(tierOf(3).id, 'nitro');
-  assert.equal(tierOf(9).id, 'legende');
+  assert.equal(tierOf(9).id, 'infini');
   assert.equal(nextTier(1).id, 'turbo');
-  assert.equal(nextTier(5), null);
+  assert.equal(nextTier(5).id, 'mythique');
+  assert.equal(nextTier(7), null);
+  assert.equal(P.countFrom, 80);
   assert.ok(isGiftCode('CADEAU-7K2Q-X9M4') && !isGiftCode('NOEL'));
   assert.ok(isPremiumCode('PREMIUM-7K2Q-X9M4'));
   // a year later, the same day (29 February → 28 February)
@@ -247,7 +249,13 @@ test('SOLAR CAR Premium: joined on the site, welcomed, the card shown; its numbe
   assert.equal(sb.amount_total, 7290);
   mails.length = 0;
   await pay(sb);
-  // her first service as a member: level Ignition, its gift waiting at the workshop
+  // booked, not counted yet: a service counts on the day of its appointment
+  const booked = (await (await call(`/api/premium?n=${member.number}&t=${member.token}`)).json()).member;
+  assert.deepEqual([booked.visits, booked.next.id, booked.gifts.length], [0, 'ignition', 0]);
+  // its day: still in the calendar, 243 € ≥ 80 €: her first service as a member, level Ignition,
+  // its gift waiting at the workshop
+  const counted = await morningMails(env, Date.parse(`${day}T06:00:00Z`));
+  assert.deepEqual([counted.levels.counted, counted.levels.levels], [1, 1]);
   const after = (await (await call(`/api/premium?n=${member.number}&t=${member.token}`)).json()).member;
   assert.deepEqual([after.visits, after.tier.id, after.next.id], [1, 'ignition', 'turbo']);
   assert.equal(after.gifts[0].tier, 'ignition');
@@ -380,7 +388,8 @@ test('the workshop: a member booked at the counter gets −10 % by itself; an ap
   // the appointment's page: the badge, his first level's gift, a gift card to settle with
   let html = await (await go(`/atelier/rdv/r/${bk.session}`)).text();
   assert.match(html, /tag--premium/);
-  assert.match(html, /Cadeau Premium à remettre/);
+  // his first service as a member, on its day: the gift to have ready
+  assert.match(html, /Cadeau à prévoir pour ce RDV · <span class="lvl" style="--c:#ff8a3d">Ignition/);
   assert.match(html, /Régler avec une carte cadeau/);
   const g = sql("SELECT code FROM gifts WHERE balance > 0 AND to_name = 'Nina'")[0];
   const pay = await go(`/atelier/rdv/r/${bk.session}/cadeau`, { method: 'POST', form: { code: g.code } });
@@ -388,4 +397,34 @@ test('the workshop: a member booked at the counter gets −10 % by itself; an ap
   assert.equal(sql('SELECT paid FROM bookings WHERE session = ?', bk.session)[0].paid, 50);
   html = await (await go(`/atelier/rdv/r/${bk.session}`)).text();
   assert.match(html, /Reste à régler à l’atelier<\/span><b>193\s€/);
+});
+
+test('levels: a cancelled appointment, or one under 80 €, never counts; Infini adds a free year', async () => {
+  const dbr = (path, body) => env.ATELIER.get().fetch(new Request(`https://atelier/${path}`, { method: 'POST', body: JSON.stringify(body) })).then((r) => r.json());
+  const t0 = Date.now() - 200 * DAY;
+  const joined = await dbr('member/join', { now: t0, ref: 'cs_test_lvl', amount: 19.99, firstName: 'Lou', lastName: 'Vidal', email: 'lou@example.com', source: 'atelier' });
+  const number = joined.member.number;
+  const before = joined.member.expires;
+  const customer = { firstName: 'Lou', lastName: 'Vidal', email: 'lou@example.com' };
+  const add = async (n, total, inCalendar) => {
+    const date = utcToZoned(t0 + (n + 1) * 15 * DAY, TZ).date;
+    await dbr('booking/add', { now: t0 + n * DAY, session: `lvl-${n}`, event: `lvl-ev-${n}`, date, time: '10:00', minutes: 120, items: [{ label: 'Prestation', price: total }], total, paid: total, mode: 'none', customer });
+    if (inCalendar) cal[CAR].push({ id: `lvl-ev-${n}`, status: 'confirmed', summary: 'RDV', start: { dateTime: new Date(Date.parse(`${date}T09:00:00Z`)).toISOString() }, end: { dateTime: new Date(Date.parse(`${date}T11:00:00Z`)).toISOString() }, extendedProperties: { private: { solarcarHold: '0', session: `lvl-${n}` } } });
+  };
+  // 7 services, a cancelled one (gone from the calendar), a small one (50 €)
+  for (let n = 0; n < 9; n++) await add(n, n === 2 ? 50 : 243, n !== 5);
+  mails.length = 0;
+  const r = await countLevels(env, Date.now());
+  assert.deepEqual([r.counted, r.cancelled, r.levels], [7, 2, 7]);
+  // once
+  assert.deepEqual(await countLevels(env, Date.now()), { counted: 0, cancelled: 0, levels: 0 });
+  const m = (await dbr('member/of', { email: 'lou@example.com' })).member;
+  assert.deepEqual([m.visits, m.tier.id, m.next, m.pending.length], [7, 'infini', null, 7]);
+  // the free year of Infini: a year after the end it had
+  assert.ok(m.expires - before > 360 * DAY);
+  assert.equal(sql('SELECT amount FROM member_payments WHERE ref = ?', `offert-${number}-infini`)[0].amount, 0);
+  const last = mails.filter((x) => x.to[0] === 'lou@example.com').at(-1);
+  assert.match(last.subject, /Niveau Infini débloqué/);
+  assert.match(last.html, /année SOLAR CAR Premium suivante est offerte/);
+  assert.deepEqual(sql("SELECT counted FROM bookings WHERE session IN ('lvl-2', 'lvl-5') ORDER BY session").map((x) => x.counted), [-1, -1]);
 });

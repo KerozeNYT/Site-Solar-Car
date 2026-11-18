@@ -1960,9 +1960,9 @@ export function bookingTermsPage(ctx) {
       <h2 id="premium">${esc(premium.name)}</h2>
       <p>L’adhésion à ${esc(premium.name)} coûte <strong>${esc(offerEuros(premium.price))}</strong> et vaut <strong>${premium.months} mois à compter du paiement</strong>. Elle n’est pas renouvelée automatiquement et ne donne lieu à aucun prélèvement : un e-mail vous prévient ${premium.remindDays} jours avant la fin, et vous renouvelez si vous le souhaitez (une adhésion renouvelée avant la fin s’ajoute à la période en cours).</p>
       <ul>
-        <li><strong>Carte nominative</strong> : elle vaut pour son titulaire, pour tous ses véhicules, et ne se prête pas. En ligne, le numéro de carte se saisit dans le champ « Code », en réservant avec l’adresse e-mail de la carte ; à l’atelier et sur devis, il suffit de donner son nom.</li>
+        <li><strong>Carte nominative</strong> : elle profite à son titulaire, qui réserve et règle la prestation, pour le véhicule de son choix. Elle ne se prête pas et ne se cède pas. En ligne, le numéro de carte se saisit dans le champ « Code », en réservant avec l’adresse e-mail de la carte ; à l’atelier et sur devis, il suffit de donner son nom.</li>
         <li><strong>−${premium.percent} % sur toutes les prestations</strong> pendant la durée de l’adhésion. Comme tout code, la carte ne se cumule ni avec un code promo ni avec un code de parrainage : un seul par réservation ou par devis. Elle se combine avec une carte cadeau.</li>
-        <li><strong>Niveaux et cadeaux</strong> : chaque prestation réalisée en tant que membre ouvre le niveau suivant (${premium.tiers.slice(1).map((t) => esc(t.label)).join(', ')}) et son cadeau, remis lors du rendez-vous qui le débloque, tel qu’annoncé sur la page ${esc(premium.name)} au moment de l’adhésion. Les niveaux restent acquis d’une adhésion à la suivante.</li>
+        <li><strong>Niveaux et cadeaux</strong> : chaque prestation d’au moins ${esc(offerEuros(premium.countFrom))} (remise déduite) réalisée en tant que membre ouvre le niveau suivant (${premium.tiers.slice(1).map((t) => esc(t.label)).join(', ')}) et son cadeau, tel qu’annoncé sur la page ${esc(premium.name)} au moment de l’adhésion. La prestation compte le jour du rendez-vous ; un rendez-vous annulé ne compte pas. Le cadeau est remis lors du rendez-vous qui le débloque ou lors du passage suivant ; il n’est ni échangeable ni remboursable. ${premium.tiers.some((t) => t.freeYear) ? `Au niveau ${esc(premium.tiers.find((t) => t.freeYear).label)}, l’adhésion est prolongée gratuitement de ${premium.months} mois. ` : ''}Les niveaux restent acquis d’une adhésion à la suivante.</li>
         <li><strong>Offres des membres</strong> : quelques e-mails par an (avant-premières, codes réservés aux membres). Un lien dans chaque e-mail permet de ne plus les recevoir, à tout moment.</li>
       </ul>
       <p>Vous disposez d’un délai de rétractation de 14 jours après l’adhésion : si vous n’avez encore profité d’aucune remise ni d’aucun cadeau, l’adhésion vous est intégralement remboursée.</p>
@@ -2227,10 +2227,10 @@ function levelsTrack({ current = -1, compact = false } = {}) {
 const premiumPayback = () => Math.ceil((premium.price * 100) / premium.percent);
 
 const PREMIUM_FAQ = (ctx) => [
-  { q: 'La carte est-elle valable pour mes proches ?', a: `Non : elle est nominative, à votre nom, pour toutes vos voitures. Pour vos proches, vous avez mieux : votre code de parrainage personnel leur offre ${ctx.booking.bookingRules.referral.amount} € sur leur première prestation.` },
+  { q: 'La carte est-elle valable pour mes proches ?', a: `Elle profite à son titulaire : c’est vous qui réservez et qui réglez, pour la voiture de votre choix (la vôtre, celle de votre conjoint, de votre enfant…). Elle ne se prête pas : un proche qui vient seul ne bénéficie pas de vos −${premium.percent} %, mais il a mieux : votre code de parrainage personnel lui offre ${ctx.booking.bookingRules.referral.amount} € sur sa première prestation.` },
   { q: 'Comment profiter des −10 % ?', a: 'En ligne : saisissez votre numéro de carte (PREMIUM-…) dans le champ « Code » à l’étape du paiement, en réservant avec l’e-mail de votre carte. À l’atelier ou sur devis : donnez simplement votre nom, nous vous reconnaissons.' },
   { q: 'Les −10 % se cumulent-ils avec un code promo ?', a: 'Un seul code par réservation : vous choisissez le plus avantageux, carte Premium ou code promo. Une carte cadeau, elle, se combine avec tout : c’est un moyen de paiement.' },
-  { q: 'Comment fonctionnent les niveaux ?', a: `Chaque prestation faite en tant que membre vous fait passer au niveau suivant, de ${premium.tiers[0].label} à ${premium.tiers.slice(1).map((t) => t.label).join(', ')}. Le cadeau du niveau vous est remis lors du rendez-vous qui le débloque, et vos niveaux restent acquis quand vous renouvelez.` },
+  { q: 'Comment fonctionnent les niveaux ?', a: `Chaque prestation de ${offerEuros(premium.countFrom)} ou plus (remise déduite) faite en tant que membre vous fait passer au niveau suivant, de ${premium.tiers[0].label} à ${premium.tiers.slice(1).map((t) => t.label).join(', ')}. Elle compte le jour du rendez-vous. Le cadeau du niveau vous est remis lors du rendez-vous qui le débloque, et vos niveaux restent acquis quand vous renouvelez.` },
   { q: 'Que se passe-t-il au bout d’un an ?', a: `Rien d’automatique : aucun prélèvement. Nous vous prévenons par e-mail ${premium.remindDays} jours avant la fin, et vous renouvelez si vous le souhaitez, avec la même adresse e-mail.` },
   { q: 'Quelles offres vais-je recevoir ?', a: 'Quelques e-mails par an, pas plus : avant-premières, codes réservés aux membres, nouveautés de l’atelier. Un lien dans chaque e-mail permet de ne plus les recevoir.' },
 ];
@@ -2272,7 +2272,7 @@ export function premiumPage(ctx) {
     <div class="container">
       <p class="kicker">Les niveaux</p>
       <h2 id="levels-title">Un palier par <em>prestation</em></h2>
-      <p class="lead">Chaque rendez-vous en tant que membre allume le niveau suivant, et son cadeau vous attend à l’atelier. Vos niveaux restent acquis d’une année sur l’autre.</p>
+      <p class="lead">Chaque prestation en tant que membre (dès ${esc(offerEuros(premium.countFrom))}) allume le niveau suivant, et son cadeau vous attend à l’atelier. Vos niveaux restent acquis d’une année sur l’autre.</p>
       ${levelsTrack()}
     </div>
   </section>

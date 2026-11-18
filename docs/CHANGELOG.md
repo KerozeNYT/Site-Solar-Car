@@ -7,7 +7,8 @@
   paiement Stripe, la part de la carte mise de côté pendant le paiement) ou à l'atelier, en
   plusieurs fois.
 - **SOLAR CAR Premium** (`/premium/`) : 19,99 € par an sans renouvellement automatique, −10 % sur tout,
-  un niveau et un cadeau par prestation (Ignition → Légende), offres réservées aux membres par
+  un niveau et un cadeau par prestation de 80 € ou plus, comptée le jour du RDV s'il n'est pas
+  annulé (Ignition → Infini, 7 niveaux ; Infini offre l'année suivante), offres réservées aux membres par
   e-mail, « Mon espace Premium » installable sur le téléphone, code de parrainage pour les proches.
 - Espace atelier : onglet **Cartes & Premium**, badge Premium et niveau (clients, RDV), « Régler avec
   une carte cadeau », codes promo réservés aux membres, −10 % automatique au « Nouveau RDV ».

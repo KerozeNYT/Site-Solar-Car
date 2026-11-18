@@ -665,7 +665,7 @@ ${lp('Votre carte, vos rendez-vous et vos cadeaux, au même endroit. Sur votre t
 <tr><td style="padding:0 0 8px">• <b>En ligne</b> : saisissez votre numéro <span style="font-family:'Courier New',monospace;color:${GOLD}">${esc(m.number)}</span> dans le champ « Code » de la réservation, avec cette adresse e-mail.</td></tr>
 <tr><td style="padding:0 0 8px">• <b>À l’atelier et sur devis</b> : donnez simplement votre nom, la remise est appliquée.</td></tr>
 </table>
-<p style="margin:20px 0 6px;color:${GOLD};font-weight:700;font-size:14px">Vos niveaux : un par prestation</p>
+<p style="margin:20px 0 6px;color:${GOLD};font-weight:700;font-size:14px">Vos niveaux : un par prestation${P.countFrom ? ` (dès ${P.countFrom} €)` : ''}</p>
 ${levelsHtml(m)}
 ${m.referral ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;background:#141519;border:1px dashed #6b5a33;border-radius:14px"><tr><td style="padding:16px 18px;font-size:14px;line-height:1.55;color:${INK}"><b style="color:${GOLD}">Pour vos proches</b><br>Offrez-leur ${euros(m.referral.amount)} sur leur première prestation avec votre code personnel <span style="font-family:'Courier New',monospace;font-weight:700;color:${GOLD};letter-spacing:.1em">${esc(m.referral.code)}</span>.</td></tr></table>` : ''}
 ${lp(`À très vite à l’atelier,<br><b>${esc((B.owner || '').split(' ')[0] || B.name)}</b> — ${esc(B.name)}`, 'margin-top:22px')}`,
@@ -697,7 +697,8 @@ export async function sendLevelUp(env, m, reached) {
       `<p style="margin:0 0 18px;text-align:center"><span style="display:inline-block;border:1px solid ${t.color};color:${t.color};border-radius:999px;padding:8px 18px;font-size:13px;font-weight:800;letter-spacing:.24em;text-transform:uppercase">${esc(t.label)} · niveau ${P.tiers.indexOf(t)}</span></p>
 ${lp(`Bonjour ${esc(m.first)},`)}
 ${lp(`avec votre ${t.visits === 1 ? 'première' : `${t.visits}e`} prestation en tant que membre, vous passez au niveau <b style="color:${t.color}">${esc(t.label)}</b>. Votre cadeau :`)}
-<p style="margin:0 0 18px;padding:16px 18px;border:1px solid ${t.color};border-radius:14px;background:#141519;font-size:16px;line-height:1.5;color:${INK}"><b>${esc(t.gift)}</b><br><span style="font-size:13px;color:${MUTED}">remis à l’atelier le jour de votre rendez-vous.</span></p>
+<p style="margin:0 0 18px;padding:16px 18px;border:1px solid ${t.color};border-radius:14px;background:#141519;font-size:16px;line-height:1.5;color:${INK}"><b>${esc(t.gift)}</b><br><span style="font-size:13px;color:${MUTED}">remis à l’atelier, aujourd’hui ou lors de votre prochain passage.</span></p>
+${m.extended ? lp(`Et votre année SOLAR CAR Premium suivante est offerte : votre carte est prolongée jusqu’au <b>${esc(fullDate(m.extended))}</b>.`, 'font-size:15px') : ''}
 ${next ? lp(`Prochain niveau : <b style="color:${next.color}">${esc(next.label)}</b>, à votre prochaine prestation — ${esc(next.gift.charAt(0).toLowerCase() + next.gift.slice(1))}.`, 'font-size:14px;color:#cfc9bc') : lp('Vous avez atteint le plus haut niveau. Merci, sincèrement, pour votre fidélité.', 'font-size:14px;color:#cfc9bc')}
 <p style="margin:18px 0 6px">${goldButton(m.cardUrl, 'Voir mon espace Premium')}</p>`,
       { preheader: `${t.gift} : remis le jour de votre rendez-vous.`, kicker: 'SOLAR CAR Premium' }

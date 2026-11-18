@@ -38,11 +38,14 @@ un cadeau change à un seul endroit.
 - **19,99 € pour 12 mois**, payés une fois. **Pas de renouvellement automatique** : un e-mail
   prévient 15 jours avant la fin (`premium.remindDays`). Renouveler avec la même adresse e-mail
   prolonge la même carte d'un an, et le niveau est gardé.
-- **Nominative** : le membre seul, pour toutes ses voitures. Pas de « Premium+ » pour les proches
-  (choix du 18 novembre 2026 : trop de remises sans nouveaux clients, impossible à contrôler au
-  comptoir). Pour les proches : chaque membre a son **code de parrainage** (20 € offerts sur la
-  première prestation), sur sa carte et dans son e-mail de bienvenue. Un nouveau code est créé dès
-  que le précédent est utilisé.
+- **Nominative** : « la carte profite à son titulaire : c'est lui qui réserve et qui règle, pour
+  la voiture de son choix » (décidé le 18 novembre 2026). Elle ne se prête pas et ne se cède pas ;
+  pas de pièce d'identité demandée (en ligne, le numéro ne marche qu'avec l'e-mail de la carte ; à
+  l'atelier, le badge et le nom suffisent). Pas de « Premium+ » pour les proches (trop de remises
+  sans nouveaux clients, impossible à contrôler au comptoir). Pour les proches : chaque membre a son
+  **code de parrainage** (20 € offerts sur la première prestation), sur sa carte et dans son e-mail
+  de bienvenue. Un nouveau code est créé dès que le précédent est utilisé. Un changement de titulaire
+  exceptionnel (déménagement…) se fait à la main dans l'espace atelier.
 - **−10 % sur toutes les prestations** (`premium.percent`). Non cumulable avec un autre code : un
   seul code par réservation.
   - En ligne : le numéro `PREMIUM-XXXX-XXXX` se tape dans le champ « Code », avec l'e-mail de la
@@ -50,18 +53,24 @@ un cadeau change à un seul endroit.
   - À l'atelier (« Nouveau RDV ») : si l'e-mail du client est celui d'un membre, les −10 %
     s'appliquent tout seuls.
   - Sur devis : le badge Premium s'affiche, la remise s'applique au devis.
-- **Un niveau par prestation** (`premium.tiers`) : Membre → Ignition (1re prestation) → Turbo (2e) →
-  Nitro (3e) → Hyper (4e) → Légende (5e). Chaque RDV pris en tant que membre fait monter d'un niveau
-  et débloque un cadeau, remis le jour de ce RDV. Le membre reçoit un e-mail « Niveau … débloqué »,
-  l'atelier une notification « Cadeau Premium à remettre ». Les cadeaux proposés sont **à
-  valider** :
-  | Niveau | Cadeau proposé |
-  |---|---|
-  | Ignition (1re) | Microfibre premium et parfum d'habitacle SOLAR CAR |
-  | Turbo (2e) | Kit d'entretien : nettoyant vitres teintées et microfibre vitres |
-  | Nitro (3e) | Traitement déperlant du pare-brise, posé pendant le RDV |
-  | Hyper (4e) | Rénovation de phares offerte (79 €) |
-  | Légende (5e) | Une paire de feux teintés (120 €) et l'année Premium suivante offerte |
+- **Un niveau par prestation** (`premium.tiers`, 7 niveaux, cadeaux choisis par l'atelier le 18
+  novembre 2026). Une prestation compte :
+  - **le jour du rendez-vous** (tâche du matin, `countLevels`), et seulement si le RDV est encore
+    dans l'agenda ce jour-là : un RDV annulé et remboursé ne compte jamais ;
+  - si elle fait **au moins 80 €**, remise déduite (`premium.countFrom`).
+
+  Le membre reçoit un e-mail « Niveau … débloqué », l'atelier une notification « Cadeau Premium à
+  remettre ». Avant le jour, la page du RDV montre « Cadeau à prévoir pour ce RDV », pour avoir le
+  stock.
+  | Niveau | Prestation | Cadeau |
+  |---|---|---|
+  | Ignition | 1re | Une microfibre neuve et un parfum d'habitacle (stock à commander) |
+  | Turbo | 2e | Kit d'entretien SOLAR CAR : nettoyant vitres premium, étiqueté, avec sa fiche technique |
+  | Nitro | 3e | Traitement déperlant du pare-brise, posé pendant le RDV |
+  | Hyper | 4e | Les 2 vitres avant teintées offertes (film homologué) |
+  | Légende | 5e | Une paire de feux teintés offerte, pour soi ou pour un proche |
+  | Mythique | 6e | Le 3/4 arrière teinté offert |
+  | Infini | 7e | Le detailing complet offert, et l'année Premium suivante offerte (la carte est prolongée d'un an toute seule) |
 - **Offres réservées aux membres** : dans **Codes et promos**, cocher « Réservé aux membres SOLAR CAR
   Premium » (le code n'est accepté qu'avec l'e-mail d'un membre actif). Puis **Cartes & Premium →
   Écrire aux membres** : un e-mail à chaque membre qui accepte les offres (« Bonjour Prénom », le code
@@ -113,7 +122,8 @@ un cadeau change à un seul endroit.
 
 ## Mise en ligne (à faire par l'atelier, après validation)
 
-1. Valider les cadeaux des niveaux, les textes et les prix (`content/offers.js`).
+1. Cadeaux, prix et règles validés le 18 novembre 2026 (`content/offers.js`) : commander le stock
+   (microfibres, parfums d'habitacle, nettoyant vitres et ses étiquettes).
 2. Comptabilité : une carte cadeau vendue est un encaissement à l'avance. Voir avec le comptable
    comment la déclarer (micro-entreprise : recette encaissée), et si la vente de produits (kits
    d'entretien) change quelque chose.

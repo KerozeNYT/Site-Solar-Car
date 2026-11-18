@@ -282,6 +282,9 @@ export class Atelier {
       ['gift', "TEXT NOT NULL DEFAULT ''"],
       ['gift_amount', 'REAL NOT NULL DEFAULT 0'],
       ['member', "TEXT NOT NULL DEFAULT ''"],
+      // a member's appointment for the levels: 0 not yet, its day (ms) once counted, −1 never
+      // (cancelled: no longer in the calendar on its day, or under content/offers.js countFrom)
+      ['counted', 'INTEGER NOT NULL DEFAULT 0'],
     ])
       if (!bcols.has(col)) x(`ALTER TABLE bookings ADD COLUMN ${col} ${def}`);
     x('CREATE INDEX IF NOT EXISTS bookings_member ON bookings (member)');
@@ -411,7 +414,7 @@ export class Atelier {
   }
   /** the appointments made as a member, the tier, the next, the gifts */
   memberState(m) {
-    const visits = this.one('SELECT COUNT(*) AS n FROM bookings WHERE member = ?', m.number).n;
+    const visits = this.one('SELECT COUNT(*) AS n FROM bookings WHERE member = ? AND counted > 0', m.number).n;
     const tier = tierOf(visits);
     const next = nextTier(visits);
     const gifts = jsonList(m.gifts).map((x) => ({ ...x, label: P.tiers.find((t) => t.id === x.tier)?.label || x.tier, gift: P.tiers.find((t) => t.id === x.tier)?.gift || '' }));
@@ -948,14 +951,7 @@ export class Atelier {
           'INSERT INTO bookings (session, client_id, event, date, time, minutes, items, total, discount, code, code_kind, mode, paid, vehicle, live, created, gift, gift_amount, member) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           clip(b.session, 120), id, clip(b.event, 120), clip(b.date, 10), clip(b.time, 5), Number(b.minutes) || 0, JSON.stringify(b.items || []).slice(0, 2000), Number(b.total) || 0, Number(b.discount) || 0, referralCode(b.code), clip(b.codeKind, 20), clip(b.mode, 10), Number(b.paid) || 0, clip(b.customer?.vehicle, 80), b.live === false ? 0 : 1, Number(b.created) || now, b.gift ? referralCode(b.gift) : '', round2(b.giftAmount), member?.number || ''
         );
-        // a tier reached with this appointment: its gift is waiting at the workshop
-        let reached = [];
-        if (member) {
-          const visits = this.one('SELECT COUNT(*) AS n FROM bookings WHERE member = ?', member.number).n;
-          const gifts = jsonList(member.gifts);
-          reached = P.tiers.filter((t) => t.gift && visits >= t.visits && !gifts.some((x) => x.tier === t.id));
-          if (reached.length) this.run('UPDATE members SET gifts = ? WHERE number = ?', JSON.stringify([...gifts, ...reached.map((t) => ({ tier: t.id, reached: now, given: 0, booking: clip(b.session, 120) }))]), member.number);
-        }
+        // (a member's appointment counts for the levels on its day: member/count, the morning job)
         // a link sent by the workshop, now paid
         this.run("UPDATE links SET status = 'paye' WHERE session = ? AND session <> ''", clip(b.session, 120));
         // the client had asked for a quote for what they booked: that quote is « Validé »
@@ -966,7 +962,7 @@ export class Atelier {
             this.run('UPDATE requests SET booking = ?, unread = unread + 1 WHERE id = ?', clip(b.session, 120), r.id);
             this.setStatus(r.id, 'valide', now, `Rendez-vous réservé et payé en ligne${when ? ` pour le ${when}` : ''}.`);
           }
-        return { ok: true, clientId: id, member: member ? { number: member.number, token: member.token, first: member.first, email: member.email, ...this.memberState(this.one('SELECT * FROM members WHERE number = ?', member.number)), reached: reached.map((t) => ({ id: t.id, label: t.label, gift: t.gift, visits: t.visits })) } : null };
+        return { ok: true, clientId: id, member: member ? { number: member.number, first: member.first } : null };
       }
       case 'request/add': {
         const id = this.upsertClient(b.customer || {}, now, 'demande de devis');
@@ -1365,6 +1361,42 @@ export class Atelier {
         const rows = this.all('SELECT * FROM members ORDER BY expires DESC LIMIT 1000').map((m) => ({ ...m, active: m.expires >= now, ...this.memberState(m) }));
         const paid = this.one("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS amount FROM member_payments WHERE ref NOT LIKE 'cs_test_%'");
         return { members: rows, active: rows.filter((m) => m.active).length, payments: { n: paid.n, amount: round2(paid.amount) } };
+      }
+      // the members' appointments of the day (and before) not counted yet for the levels (the
+      // morning job checks each in the calendar, then member/count)
+      case 'members/due':
+        return { bookings: this.all("SELECT session, event, member, date, time, total FROM bookings WHERE member <> '' AND counted = 0 AND date <= ? ORDER BY date, time", String(b.date || '')) };
+      // an appointment counted (ok) or not (cancelled, too small): the level it opens, its gift
+      // waiting, a free year added to the card (`freeYear`)
+      case 'member/count': {
+        const bk = this.one('SELECT * FROM bookings WHERE session = ?', clip(b.session, 120));
+        if (!bk?.member) return { ok: false, error: 'Rendez-vous sans membre.' };
+        if (bk.counted) return { ok: true, again: true };
+        const counts = !!b.ok && round2(bk.total) >= (Number(P.countFrom) || 0);
+        this.run('UPDATE bookings SET counted = ? WHERE session = ?', counts ? now : -1, bk.session);
+        const m = this.one('SELECT * FROM members WHERE number = ?', bk.member);
+        if (!counts || !m) return { ok: true, counted: false };
+        const st = this.memberState(m);
+        const gifts = jsonList(m.gifts);
+        const reached = P.tiers.filter((t) => t.gift && st.visits >= t.visits && !gifts.some((x) => x.tier === t.id));
+        if (reached.length) this.run('UPDATE members SET gifts = ? WHERE number = ?', JSON.stringify([...gifts, ...reached.map((t) => ({ tier: t.id, reached: now, given: 0, booking: bk.session }))]), m.number);
+        // the free year: the card goes on a year more from its current end
+        let extended = 0;
+        if (reached.some((t) => t.freeYear)) {
+          extended = monthsAfter(Math.max(now, m.expires), P.months);
+          this.run('UPDATE members SET expires = ?, reminded = 0 WHERE number = ?', extended, m.number);
+          this.run('INSERT OR IGNORE INTO member_payments (ref, number, amount, at, source) VALUES (?, ?, 0, ?, ?)', `offert-${m.number}-${reached.find((t) => t.freeYear).id}`, m.number, now, 'niveau');
+        }
+        return { ok: true, counted: true, member: { number: m.number, token: m.token, first: m.first, email: m.email, visits: st.visits, extended, reached: reached.map((t) => ({ id: t.id, label: t.label, gift: t.gift, visits: t.visits, freeYear: !!t.freeYear })) } };
+      }
+      // the level a member's appointment to come will open (its gift to prepare), or null
+      case 'member/next-level': {
+        const bk = this.one('SELECT * FROM bookings WHERE session = ?', clip(b.session, 120));
+        if (!bk?.member || bk.counted) return { tier: null };
+        const before = this.one("SELECT COUNT(*) AS n FROM bookings WHERE member = ? AND counted = 0 AND (date < ? OR (date = ? AND time < ?))", bk.member, bk.date, bk.date, bk.time).n;
+        const counted = this.one('SELECT COUNT(*) AS n FROM bookings WHERE member = ? AND counted > 0', bk.member).n;
+        const t = P.tiers.find((x) => x.visits === counted + before + 1);
+        return { tier: t && t.gift ? { id: t.id, label: t.label, gift: t.gift, visits: t.visits } : null };
       }
       // how many gifts wait at the workshop (the home of the space)
       case 'members/pending':

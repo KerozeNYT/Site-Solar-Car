@@ -837,6 +837,8 @@ async function bookingPage(env, url, session, now) {
   if (!b) return page('Rendez-vous', '/atelier/rdv', '<h1>Rendez-vous introuvable</h1><p><a href="/atelier/rdv">Retour aux rendez-vous</a></p>', url);
   // a member: the badge, the level, the gifts to hand over at this appointment
   const mem = (await db(env, 'member/of', { email: b.email, clientId: b.client_id, now })).member;
+  // the level this appointment will open, counted on its day: its gift to have ready
+  const coming = b.member && !b.counted ? (await db(env, 'member/next-level', { session: b.session })).tier : null;
   const items = itemsOf(b);
   const due = Math.max(0, Math.round((b.total - b.paid) * 100) / 100);
   const who = name(b);
@@ -853,6 +855,8 @@ async function bookingPage(env, url, session, now) {
   const body = `<a class="crumb" href="/atelier/rdv">${ico('back')} Rendez-vous</a>
 <div class="qhead"><span class="avatar" aria-hidden="true">${esc(initials(b))}</span><div><h1>${esc(who)}</h1><span class="dim">${esc([b.vehicle, when].filter(Boolean).join(' · '))}</span></div>${mem?.active ? `${PREMIUM_TAG} ${lvl(mem.tier.id)}` : ''}${b.live ? '' : '<span class="right tag tag--off">test</span>'}</div>
 ${mem ? giftsDue(mem, `/atelier/rdv/r/${encodeURIComponent(b.session)}`) : ''}
+${coming ? `<div class="giftdue" style="--c:${esc(tierById(coming.id).color)}"><div><b>${ico('gift')} Cadeau à prévoir pour ce RDV · ${lvl(coming.id)}</b><small>${esc(coming.gift)} · sa ${ordinal(coming.visits)} prestation en tant que membre : le niveau s’ouvre le jour du RDV.</small></div></div>` : ''}
+${b.member && b.counted < 0 ? '<p class="dim">Ce RDV n’a pas compté pour les niveaux Premium (retiré de l’agenda avant son jour, ou sous le montant minimum).</p>' : ''}
 <div class="grid"><section class="card"><h2>${ico('cal')} ${esc(when)}</h2>
 <ul class="recap recap--edit">${lines}</ul>
 ${b.discount ? `<div class="recap__due"><span>Remises</span><b>−${eur(b.discount)}</b></div>` : ''}
