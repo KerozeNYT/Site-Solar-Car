@@ -157,7 +157,8 @@ function eventText(q, c, { date, time, mode, paid, sessionId, code, codeKind, re
     '',
     ...q.items.map((i) => `• ${i.label}${i.detail ? ` — ${i.detail}` : ''} : ${euros(i.price)}`),
     '',
-    q.discount ? discountLines(q.discount, { code, codeKind, remise }).map(([label, off]) => `${label} : −${euros(off)}`).join('\n') : null,
+    // « Code promo NOEL : −40 € », « Parrainage : −20 € (code MARIE-7K2QX) », « Remise : −30 € »
+    q.discount ? discountLines(q.discount, { code, codeKind, remise }).map(([label, off]) => (label.startsWith('Parrainage (') ? `Parrainage : −${euros(off)} ${label.slice(11)}` : `${label} : −${euros(off)}`)).join('\n') : null,
     `Total : ${euros(q.total)} — durée ${formatDuration(q.minutes)}`,
     paid != null ? `Payé en ligne : ${euros(paid)} (${mode === 'full' ? 'totalité' : 'acompte 30 %'}) — reste à régler : ${euros(Math.max(0, q.total - paid))}` : `Paiement en cours (${mode === 'full' ? 'totalité' : 'acompte 30 %'} : ${euros(amountDue(q, mode))})`,
     c.message ? `\nMessage : ${c.message}` : '',

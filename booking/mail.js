@@ -40,6 +40,15 @@ function ics({ id, start, end, title, text }) {
   ].join('\r\n');
 }
 
+/** the discount lines of an e-mail: for the workshop « Parrainage −20 € (code MARIE-7K2QX) », for
+ *  the client « Code NOEL −40 € » or « Parrainage −20 € »; the workshop's own « Remise » apart */
+const discountRows = (q, b, forWorkshop) =>
+  discountLines(q.discount, b).map(([label, off]) => {
+    if (label === 'Remise') return ['Remise', `−${euros(off)}`];
+    const promo = label.startsWith('Code promo');
+    if (forWorkshop) return [promo ? 'Code promo' : 'Parrainage', `−${euros(off)} (code ${esc(b.code || '')})`];
+    return [promo ? `Code ${esc(b.code || '')}` : 'Parrainage', `−${euros(off)}`];
+  });
 const rows = (pairs) =>
   pairs
     .filter(([, v]) => v)
@@ -94,7 +103,7 @@ export async function sendBookingMails(env, b) {
             ['E-mail', `<a href="mailto:${esc(c.email)}" style="color:#111">${esc(c.email)}</a>`],
             ['Véhicule', esc(`${c.vehicle}${c.plate ? ` (${c.plate})` : ''}`)],
             ['Prestations', items],
-            ...discountLines(q.discount, b).map(([label, off]) => [label, `−${euros(off)}`]),
+            ...discountRows(q, b, true),
             ['Total', euros(q.total)],
             ['Payé en ligne', b.mode === 'none' ? '' : `${euros(paid)} (${b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`],
             ['Reste à régler', due ? euros(due) : 'rien'],
@@ -123,7 +132,7 @@ export async function sendBookingMails(env, b) {
             ['Quand', esc(when)],
             ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
             ['Prestations', items],
-            ...discountLines(q.discount, b).map(([label, off]) => [label, `−${euros(off)}`]),
+            ...discountRows(q, b, false),
             ['Total', `${euros(q.total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
             ['Payé en ligne', b.mode === 'none' ? '' : euros(paid)],
             ['À régler à l’atelier', due ? euros(due) : 'rien'],
@@ -168,7 +177,7 @@ export async function sendPaymentLink(env, b) {
         ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
         ['Véhicule', esc(`${c.vehicle || ''}${c.plate ? ` (${c.plate})` : ''}`)],
         ['Prestations', itemsOf(q)],
-        ...discountLines(q.discount, b).map(([label, off]) => [label, `−${euros(off)}`]),
+        ...discountRows(q, b, false),
         ['Total', `${euros(q.total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
         [mode === 'full' ? 'À régler en ligne' : 'Acompte en ligne', euros(due)],
         ['À régler à l’atelier', q.total - due > 0 ? euros(q.total - due) : 'rien'],
