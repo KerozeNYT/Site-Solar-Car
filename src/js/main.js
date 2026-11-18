@@ -171,6 +171,45 @@ if (bookingEl) import('./booking.js').then((m) => m.startBooking(bookingEl));
 const bookingDone = document.querySelector('[data-booking-done]');
 if (bookingDone) import('./booking.js').then((m) => m.startBookingDone(bookingDone));
 // a quote accepted from the button of its e-mail (/devis/)
+// the gift card and SOLAR CAR Premium (content/offers.js): their pages, and the 3D cards
+// shown elsewhere (the home page's teaser)
+const offerPages = [
+  ['[data-gift]', './gift.js', 'startGift'],
+  ['[data-gift-done]', './gift.js', 'startGiftDone'],
+  ['[data-gift-view]', './gift.js', 'startGiftView'],
+  ['[data-premium]', './premium.js', 'startPremium'],
+  ['[data-premium-done]', './premium.js', 'startPremiumDone'],
+  ['[data-premium-card]', './premium.js', 'startPremiumCard'],
+];
+{
+  let started = false;
+  for (const [sel, mod, fn] of offerPages) {
+    const el = document.querySelector(sel);
+    if (!el) continue;
+    started = true;
+    (mod === './gift.js' ? import('./gift.js') : import('./premium.js')).then((m) => m[fn](el));
+  }
+  // the other cards of the page (teasers, cross-links): mounted once near the screen
+  const loose = [...document.querySelectorAll('[data-card3d]')];
+  if (loose.length) {
+    const mount = (el) => import('./card3d.js').then((m) => m.mountCard(el));
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const en of entries)
+            if (en.isIntersecting) {
+              io.unobserve(en.target);
+              // the page's own module mounts its cards first (mountCard skips a card mounted twice)
+              setTimeout(() => mount(en.target), started ? 300 : 0);
+            }
+        },
+        { rootMargin: '200px' }
+      );
+      loose.forEach((el) => io.observe(el));
+    } else loose.forEach(mount);
+  }
+}
+
 const quoteAccept = document.querySelector('[data-quote-accept]');
 if (quoteAccept) import('./quote-accept.js').then((m) => m.startQuoteAccept(quoteAccept));
 
@@ -619,6 +658,9 @@ if (form) {
         const off = j.percent ? `−${j.percent} %` : `−${j.amount} €`;
         return set(`${j.code} — code promo valable le jour de la demande : ${off}${j.expires ? `, offre jusqu’au ${dayFr(j.expires)} à 23 h 59` : ''}`, `Code promo ${j.code} : ${off} appliqués à votre devis.`, true);
       }
+      // a SOLAR CAR Premium card, a gift card (content/offers.js)
+      if (j.ok && j.kind === 'premium') return set(`${j.code} — carte Premium${j.owner ? ` de ${j.owner}` : ''}, valable : −${j.percent} % (même e-mail que la carte à vérifier)`, `Carte Premium${j.owner ? ` de ${j.owner}` : ''} : −${j.percent} % appliqués à votre devis.`, true);
+      if (j.ok && j.kind === 'cadeau') return set(`${j.code} — carte cadeau, solde ${j.balance} € (à déduire à l’atelier)`, `Carte cadeau : ${String(j.balance).replace('.', ',')} € disponibles, déduits à l’atelier.`, true);
       if (j.ok) return set(`${j.code} — code de parrainage de ${j.owner}, valable : ${j.amount} € de remise (à marquer utilisé dans l’espace atelier)`, `Code de ${j.owner} : ${j.amount} € de remise appliqués à votre devis.`, true);
       return set(`${code} — non valable le jour de la demande : ${j.error || 'code inconnu'}`, j.error || 'Ce code n’est pas reconnu.', false);
     } catch {

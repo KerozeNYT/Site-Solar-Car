@@ -6,6 +6,7 @@ import { coveringPage as CP, FINISHES, EFFECTS } from '../../content/covering.js
 import { filmTravel } from '../../content/film.js';
 import { films as coveringFilms, ranges as filmRanges } from '../../content/films/index.js';
 import { siteThemes } from '../../content/themes.js';
+import { giftCard, premium, offerEuros } from '../../content/offers.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
 
@@ -182,7 +183,7 @@ const ld = (obj) => `<script type="application/ld+json">${JSON.stringify(obj).re
 // The seasonal look (content/themes.js): data-saison on <html>, set before the first paint from the
 // day in Paris, or ?apercu-theme=<id> (kept for the visit; « aucun » goes back to the dates).
 const themeScript = `<script>(function(d,T){var id,q=/[?&]apercu-theme=([a-z]+)/.exec(location.search);try{if(q){if(q[1]==='aucun')sessionStorage.removeItem('sc37-theme');else sessionStorage.setItem('sc37-theme',q[1])}id=sessionStorage.getItem('sc37-theme')}catch(e){}if(!id){var t=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());for(var i=0;i<T.length;i++)if(t>=T[i][1]&&t<=T[i][2])id=T[i][0]}for(var j=0;j<T.length;j++)if(T[j][0]===id){d.documentElement.setAttribute('data-saison',id);var m=d.querySelector('meta[name="theme-color"]');if(m)m.content=T[j][3]}})(document,${JSON.stringify(siteThemes.map((t) => [t.id, t.starts, t.ends, t.color]))})</script>`;
-function head(ctx, { title, description, path, image = '/stills/og.jpg', preload = '', noindex = false, extra = '' }) {
+function head(ctx, { title, description, path, image = '/stills/og.jpg', preload = '', noindex = false, extra = '', manifest = '/site.webmanifest', touchIcon = '/apple-touch-icon.png' }) {
   const b = ctx.business;
   return `<!doctype html>
 <html lang="fr">
@@ -206,8 +207,8 @@ ${noindex ? '<meta name="robots" content="noindex, follow">' : '<meta name="robo
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.ico" sizes="32x32">
 <link rel="icon" href="/favicon-48.png" sizes="48x48" type="image/png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="manifest" href="/site.webmanifest">
+<link rel="apple-touch-icon" href="${touchIcon}">
+<link rel="manifest" href="${manifest}">
 ${(ctx.assets.fonts || [ctx.assets.font]).map((f) => `<link rel="preload" href="${f}" as="font" type="font/woff2" crossorigin>`).join('\n')}
 ${preload}
 <link rel="stylesheet" href="${ctx.assets.css}">
@@ -297,7 +298,7 @@ function footer(ctx) {
     </nav>` : ''}
     <nav aria-label="Informations">
       <h2 class="site-footer__title">Informations</h2>
-      <ul><li><a href="/contact/">Contact &amp; devis</a></li><li><a href="/atelier-vouvray/">L’atelier à ${esc(b.address?.city || '')}</a></li><li><a href="/guides/">Guides pratiques</a></li><li><a href="${esc(links.maps)}" rel="noopener" target="_blank">Nos avis Google</a></li><li><a href="/mentions-legales/">Mentions légales</a></li></ul>
+      <ul><li><a href="/contact/">Contact &amp; devis</a></li><li><a href="/atelier-vouvray/">L’atelier à ${esc(b.address?.city || '')}</a></li><li><a href="/guides/">Guides pratiques</a></li><li><a href="/carte-cadeau/">Carte cadeau</a></li><li><a href="/premium/">${esc(premium.name)}</a></li><li><a href="${esc(links.maps)}" rel="noopener" target="_blank">Nos avis Google</a></li><li><a href="/mentions-legales/">Mentions légales</a></li></ul>
     </nav>
   </div>
   <div class="container site-footer__bottom">
@@ -779,6 +780,7 @@ export function homePage(ctx) {
   ${partnersBlock(ctx)}
   ${reviewsBlock(ctx)}
   ${instagramBlock(ctx)}
+  ${offersTeaser(ctx)}
   ${faqBlock(home.faq)}
   ${ctaBand(ctx)}`;
 
@@ -1225,9 +1227,9 @@ export function contactPage(ctx) {
           <p class="form__hint">Atelier ouvert du lundi au vendredi. Ce n’est pas une réservation : nous vous confirmons le créneau.</p>
         </fieldset>
         <div class="form__row referral" data-code-field>
-          <label for="f-code">Code de parrainage ou code promo <span class="optional">(facultatif)</span></label>
-          <div class="referral__row"><input id="f-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ex. NOEL ou JEAN-7K2QX"><button class="btn btn--ghost" type="button" data-code-check>Vérifier</button></div>
-          <p class="form__hint">Un seul code par demande (parrainage et code promo ne se cumulent pas). La remise est appliquée à votre devis si le code est valable le jour où vous envoyez la demande.</p>
+          <label for="f-code">Code promo, parrainage, carte Premium ou carte cadeau <span class="optional">(facultatif)</span></label>
+          <div class="referral__row"><input id="f-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ex. NOEL, JEAN-7K2QX, PREMIUM-…"><button class="btn btn--ghost" type="button" data-code-check>Vérifier</button></div>
+          <p class="form__hint">Un seul code de remise par demande (code promo, parrainage et carte Premium ne se cumulent pas ; une carte cadeau se déduit à l’atelier). La remise est appliquée à votre devis si le code est valable le jour où vous envoyez la demande.</p>
           <p class="referral__status" data-code-status aria-live="polite"></p>
           <p class="referral__deadline" data-code-deadline hidden></p>
         </div>
@@ -1825,15 +1827,24 @@ export function reservationPage(ctx) {
         <fieldset class="booking__step" data-step="pay" disabled>
           <legend><span class="booking__num">4</span> Paiement</legend>
           <div class="form__row referral" data-referral>
-            <label for="b-code">Code de parrainage ou code promo <span class="optional">(facultatif)</span></label>
-            <div class="referral__row"><input id="b-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ex. NOEL ou JEAN-7K2QX"><button class="btn btn--ghost" type="button" data-referral-apply>Appliquer</button></div>
-            <p class="form__hint">Un seul code par réservation : un code de parrainage et un code promo ne se cumulent pas.</p>
+            <label for="b-code">Code promo, parrainage ou carte Premium <span class="optional">(facultatif)</span></label>
+            <div class="referral__row"><input id="b-code" name="code" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="ex. NOEL, JEAN-7K2QX, PREMIUM-…"><button class="btn btn--ghost" type="button" data-referral-apply>Appliquer</button></div>
+            <p class="form__hint">Un seul code par réservation : code promo, code de parrainage et carte Premium ne se cumulent pas.</p>
             <p class="referral__status" data-referral-status aria-live="polite"></p>
             <p class="referral__deadline" data-code-deadline hidden></p>
           </div>
+          <details class="form__row gift-field" data-gift-field>
+            <summary><span class="gift-field__icon" aria-hidden="true"></span>Vous avez une carte cadeau ?</summary>
+            <div class="gift-field__body">
+              <label for="b-gift">Code de la carte cadeau</label>
+              <div class="referral__row"><input id="b-gift" name="gift" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20" placeholder="CADEAU-····-····"><button class="btn btn--ghost" type="button" data-gift-apply>Appliquer</button></div>
+              <p class="form__hint">Elle se cumule avec un code : c’est un moyen de paiement. Le solde reste sur la carte.</p>
+              <p class="referral__status" data-gift-status aria-live="polite"></p>
+            </div>
+          </details>
           <div class="picks picks--pay">
-            <label class="pick pick--big"><input type="radio" name="mode" value="deposit" checked><span class="pick__body"><b>Acompte de 30 % : <span data-pay-deposit></span></b><small>Le reste, <span data-pay-rest></span>, se règle à l’atelier</small></span></label>
-            <label class="pick pick--big"><input type="radio" name="mode" value="full"><span class="pick__body"><b>Totalité : <span data-pay-total></span></b><small>Plus rien à régler le jour du rendez-vous</small></span></label>
+            <label class="pick pick--big"><input type="radio" name="mode" value="deposit" checked><span class="pick__body"><b>Acompte de 30 % : <span data-pay-deposit></span></b><small data-mode-note="deposit">Le reste, <span data-pay-rest></span>, se règle à l’atelier</small><small class="pick__gift" data-gift-note="deposit" hidden></small></span></label>
+            <label class="pick pick--big"><input type="radio" name="mode" value="full"><span class="pick__body"><b>Totalité : <span data-pay-total></span></b><small data-mode-note="full">Plus rien à régler le jour du rendez-vous</small><small class="pick__gift" data-gift-note="full" hidden></small></span></label>
           </div>
           <label class="check"><input type="checkbox" name="terms" required> <span>J’accepte les <a href="/conditions-reservation/" target="_blank" rel="noopener">conditions de réservation</a> : acompte remboursé si j’annule au moins ${R.cancelHours} h avant le rendez-vous.</span></label>
           <label class="check" data-early hidden><input type="checkbox" name="early"> <span>Je demande que la prestation soit réalisée à la date choisie, avant la fin du délai de rétractation de 14 jours.</span></label>
@@ -1852,6 +1863,8 @@ export function reservationPage(ctx) {
           <div data-discount-row hidden><dt data-discount-label>Remise</dt><dd data-discount>—</dd></div>
           <div><dt>Total</dt><dd data-total>—</dd></div>
           <div><dt>Acompte 30 %</dt><dd data-deposit>—</dd></div>
+          <div data-gift-row hidden><dt>Carte cadeau</dt><dd data-gift-amount>—</dd></div>
+          <div class="booking__now" data-now-row hidden><dt>À payer maintenant</dt><dd data-now>—</dd></div>
           <div><dt>Rendez-vous</dt><dd data-when>—</dd></div>
         </dl>
         <p class="booking__where">${esc(b.name)} · ${esc(addressLine(b))}</p>
@@ -1922,7 +1935,7 @@ export function bookingTermsPage(ctx) {
     <div class="container container--narrow prose">
       <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li><a href="/reservation/">Réserver</a></li><li aria-current="page">Conditions de réservation</li></ol></nav>
       <h1>Conditions de réservation en ligne</h1>
-      <p class="lead">Ces conditions s’appliquent aux rendez-vous pris sur ce site pour la pose de vitres teintées et de feux teintés à l’atelier ${esc(b.name)}, ${esc(addressLine(b))}.</p>
+      <p class="lead">Ces conditions s’appliquent aux rendez-vous pris sur ce site pour la pose de vitres teintées et de feux teintés à l’atelier ${esc(b.name)}, ${esc(addressLine(b))}, ainsi qu’aux <a href="#cartes-cadeaux">cartes cadeaux</a> et à <a href="#premium">${esc(premium.name)}</a>.</p>
       <h2>Prix et rendez-vous</h2>
       <p>Les prix affichés sont des prix nets : l’atelier, en micro-entreprise, ne facture pas de TVA (${esc(vatNote)}). Ils correspondent au véhicule et à la prestation choisis lors de la réservation. Le rendez-vous est confirmé dès le paiement en ligne accepté : il est alors réservé pour vous dans l’agenda de l’atelier. Si le véhicule présenté ne correspond pas à celui indiqué, ou si son état ne permet pas la pose (ancien film à retirer, vitre endommagée), l’atelier vous propose un ajustement du prix avant toute intervention ; si vous le refusez, les sommes versées vous sont remboursées.</p>
       <h2>Acompte ou paiement complet</h2>
@@ -1942,6 +1955,17 @@ export function bookingTermsPage(ctx) {
       <p>Après son rendez-vous, chaque client reçoit un code de parrainage personnel : il donne ${R.referral.amount} € de remise sur une prestation de l’atelier, à offrir à un proche ou à garder pour une autre voiture. Il se saisit à l’étape du paiement de la réservation en ligne, ou se donne à l’atelier. Il s’utilise une seule fois, pendant ${R.referral.months} mois ; il n’est ni cumulable avec un autre code, ni remboursable, ni échangeable contre de l’argent. La remise est déduite du total, et l’acompte de ${pct} % porte sur le montant restant.</p>
       <h2 id="codes-promo">Codes promo</h2>
       <p>Les conditions de chaque code promo (remise, prestations concernées, dates et nombre d’utilisations) sont annoncées avec le code, sur le site ou dans la publicité. Sauf mention contraire, un code est valable pour une réservation en ligne réglée (acompte ou totalité) ou une demande de devis envoyée entre sa date de début (0 h) et sa date de fin (23 h 59, heure de Paris), quelle que soit la date du rendez-vous. Vitres teintées et feux teintés : le code se saisit à l’étape du paiement de la réservation en ligne, la remise est déduite du total et l’acompte de ${pct} % porte sur le montant restant. Autres prestations (detailing, ciel étoilé, covering, déchromage, rénovation de phares…) : le code s’indique dans la <a href="/contact/">demande de devis</a>, et la remise s’applique au prix du devis établi pour cette demande. Un seul code par réservation ou par devis : un code promo ne se cumule ni avec un autre code promo, ni avec un code de parrainage. Il n’est ni remboursable, ni échangeable contre de l’argent.</p>
+      <h2 id="cartes-cadeaux">Cartes cadeaux</h2>
+      <p>La carte cadeau ${esc(b.name)} s’achète sur ce site, de ${giftCard.min} à ${giftCard.max} €, ou à l’atelier. Elle est valable <strong>${giftCard.months} mois à compter de l’achat</strong> (la date de fin est indiquée sur la carte et dans l’e-mail), sur toutes les prestations de l’atelier, en une ou plusieurs fois : le montant de chaque prestation est déduit, et le solde reste disponible jusqu’à la date de fin. Elle se saisit à l’étape du paiement de la réservation en ligne (vitres et feux teintés) ou se donne à l’atelier pour les autres prestations ; si la prestation coûte plus que le solde, la différence se règle normalement. La carte cadeau est un moyen de paiement : elle se cumule avec un code promo, un code de parrainage ou la carte ${esc(premium.name)}. Elle n’est ni remboursable, ni échangeable contre de l’argent, et le solde non utilisé à la date de fin est perdu. Vous disposez d’un délai de rétractation de 14 jours après l’achat : une carte qui n’a pas encore servi vous est alors intégralement remboursée. Une carte perdue ou un e-mail égaré : contactez l’atelier, qui vous la renvoie.</p>
+      <h2 id="premium">${esc(premium.name)}</h2>
+      <p>L’adhésion à ${esc(premium.name)} coûte <strong>${esc(offerEuros(premium.price))}</strong> et vaut <strong>${premium.months} mois à compter du paiement</strong>. Elle n’est pas renouvelée automatiquement et ne donne lieu à aucun prélèvement : un e-mail vous prévient ${premium.remindDays} jours avant la fin, et vous renouvelez si vous le souhaitez (une adhésion renouvelée avant la fin s’ajoute à la période en cours).</p>
+      <ul>
+        <li><strong>Carte nominative</strong> : elle vaut pour son titulaire, pour tous ses véhicules, et ne se prête pas. En ligne, le numéro de carte se saisit dans le champ « Code », en réservant avec l’adresse e-mail de la carte ; à l’atelier et sur devis, il suffit de donner son nom.</li>
+        <li><strong>−${premium.percent} % sur toutes les prestations</strong> pendant la durée de l’adhésion. Comme tout code, la carte ne se cumule ni avec un code promo ni avec un code de parrainage : un seul par réservation ou par devis. Elle se combine avec une carte cadeau.</li>
+        <li><strong>Niveaux et cadeaux</strong> : chaque prestation réalisée en tant que membre ouvre le niveau suivant (${premium.tiers.map((t) => esc(t.label)).join(', ')}) et son cadeau, remis lors du rendez-vous qui le débloque, tel qu’annoncé sur la page ${esc(premium.name)} au moment de l’adhésion. Les niveaux restent acquis d’une adhésion à la suivante.</li>
+        <li><strong>Offres des membres</strong> : quelques e-mails par an (avant-premières, codes réservés aux membres). Un lien dans chaque e-mail permet de ne plus les recevoir, à tout moment.</li>
+      </ul>
+      <p>Vous disposez d’un délai de rétractation de 14 jours après l’adhésion : si vous n’avez encore profité d’aucune remise ni d’aucun cadeau, l’adhésion vous est intégralement remboursée.</p>
       <h2>Médiation</h2>
       <p>En cas de litige, adressez d’abord une réclamation écrite à l’atelier. Si elle n’aboutit pas, vous pouvez recourir gratuitement au médiateur de la consommation${ctx.legalPage?.mediator ? ` : ${esc(ctx.legalPage.mediator.name)}${ctx.legalPage.mediator.url ? ` (<a href="${esc(ctx.legalPage.mediator.url)}" rel="noopener">${esc(ctx.legalPage.mediator.url.replace(/^https?:\/\//, '').replace(/\/$/, ''))}</a>)` : ''}` : ''}, dans l’année qui suit votre réclamation (voir les <a href="/mentions-legales/">mentions légales</a>).</p>
     </div>
@@ -1949,3 +1973,491 @@ export function bookingTermsPage(ctx) {
   return page(ctx, { title: `Conditions de réservation | ${b.name}`, description: `Acompte de ${pct} %, annulation, report et droit de rétractation pour les rendez-vous pris en ligne à l’atelier ${b.name}.`, path: '/conditions-reservation/', noindex: !R.api }, body);
 }
 
+
+// ------------------------------------------------------------------------- gift card & SOLAR CAR Premium
+// (content/offers.js: amounts, finishes, price, levels; src/js/card3d.js: the 3D card; src/js/gift.js
+// and src/js/premium.js: the forms and the pages that read the booking server; booking/: the server)
+
+/** the thickness of a card: a few layers between its two faces, seen when it leans */
+const CARD_LAYERS = [-1.3, -0.45, 0.45, 1.3].map((z) => `<i class="card3d__layer" style="--z:${z}px"></i>`).join('');
+const FLIP_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 0 1 13.7-5.6L20 8.7M20 4v4.7h-4.7M20 12a8 8 0 0 1-13.7 5.6L4 15.3M4 20v-4.7h4.7"/></svg>';
+const flipButton = (label = 'Retourner la carte') => `<button class="card3d-flip" type="button" data-card-flip aria-pressed="false">${FLIP_ICON}<span>${esc(label)}</span></button>`;
+/** « 100 », « 72,50 » (the amount on the card, without its sign) */
+const cardAmount = (n) => offerEuros(n).replace(/\s?€$/, '');
+/** the day a card bought today would end (the purchase page; the script sets it again in the browser) */
+const giftUntil = () => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + giftCard.months);
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' });
+};
+
+/**
+ * The gift card in 3D (front: the amount and the recipient; back: the message, the sender, the
+ * code, the validity). Every field is a [data-c] the scripts fill in (src/js/card3d.js, set()).
+ */
+export function giftCardHtml(ctx, { amount = 100, look = 'or', to = '', sender = '', message = '', code = 'CADEAU-····-····', until = giftUntil(), flipped = false, flip = true, cls = '', hint = '' } = {}) {
+  const amt = cardAmount(amount);
+  const site = ctx.business.siteUrl.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  // flip: false = a picture of the card (in a link, a teaser): it moves, it does not turn over
+  const attrs = flip ? `tabindex="0" role="button" aria-pressed="${flipped}" aria-label="Carte cadeau ${esc(ctx.business.name)} (appuyez pour la retourner)"` : 'aria-hidden="true"';
+  return `<div class="card3d-stage${cls ? ` ${cls}` : ''}" data-card3d${flip ? '' : '="static"'}>
+  <div class="card3d card3d--gift card3d--look-${esc(look)}${flipped ? ' is-flipped' : ''}" data-look="${esc(look)}" ${attrs}>
+    <div class="card3d__tilt"><div class="card3d__flip">${CARD_LAYERS}
+      <div class="card3d__face card3d__face--front"${flipped ? ' aria-hidden="true"' : ''}>
+        <span class="card3d__pattern" aria-hidden="true"></span><span class="card3d__ribbon" aria-hidden="true"></span>
+        <img class="card3d__logo" src="/img/brand/logo-horizontal-clair-400.webp" width="400" height="154" alt="${esc(ctx.business.name)}" decoding="async">
+        <p class="card3d__kicker">Carte cadeau</p>
+        <p class="card3d__amount"><span class="foil" data-c="amount" data-len="${amt.length}">${esc(amt)}</span><span class="card3d__cur foil">€</span></p>
+        <p class="card3d__to"><span class="card3d__label">Pour</span><span class="card3d__name" data-c="to" data-empty="Vous ?">${esc(to || 'Vous ?')}</span></p>
+        <img class="card3d__seal" src="/img/brand/embleme-256.webp" width="256" height="256" alt="" decoding="async">
+        <span class="card3d__sheen" aria-hidden="true"></span>
+      </div>
+      <div class="card3d__face card3d__face--back"${flipped ? '' : ' aria-hidden="true"'}>
+        <span class="card3d__pattern" aria-hidden="true"></span><span class="card3d__stripe" aria-hidden="true"></span>
+        <p class="card3d__message" data-c="message" data-empty="Un petit mot pour accompagner votre cadeau…">${esc(message || 'Un petit mot pour accompagner votre cadeau…')}</p>
+        <p class="card3d__from"><span class="card3d__label">De la part de</span><span class="card3d__name" data-c="sender" data-empty="…">${esc(sender || '…')}</span></p>
+        <p class="card3d__code"><span class="card3d__label">Code</span><span data-c="code">${esc(code)}</span></p>
+        <p class="card3d__valid"><span>Valable jusqu’au <span data-c="until">${esc(until)}</span></span><span>${esc(site)}</span></p>
+        <span class="card3d__sheen" aria-hidden="true"></span>
+      </div>
+    </div></div>
+  </div>
+  ${flip ? flipButton() : ''}${hint ? `<p class="card3d-hint">${esc(hint)}</p>` : ''}
+</div>`;
+}
+
+/**
+ * The SOLAR CAR Premium card in 3D: black brushed metal for every member, lit by the neon of the
+ * member's level (content/offers.js, premium.tiers: --lvl). Front: the level, the number, the
+ * name, the dates; back: what the card gives, the workshop.
+ */
+export function premiumCardHtml(ctx, { name = '', number = 'PREMIUM-····-····', since = '', until = '', tier = premium.tiers[0], flipped = false, flip = true, cls = '', hint = '' } = {}) {
+  const b = ctx.business;
+  const attrs = flip ? `tabindex="0" role="button" aria-pressed="${flipped}" aria-label="Carte ${esc(premium.name)} (appuyez pour la retourner)"` : 'aria-hidden="true"';
+  return `<div class="card3d-stage card3d-stage--premium${cls ? ` ${cls}` : ''}" data-card3d${flip ? '' : '="static"'}>
+  <div class="card3d card3d--premium${flipped ? ' is-flipped' : ''}" data-tier="${esc(tier.id)}" style="--lvl:${esc(tier.color)}" ${attrs}>
+    <div class="card3d__tilt"><div class="card3d__flip">${CARD_LAYERS}
+      <div class="card3d__face card3d__face--front"${flipped ? ' aria-hidden="true"' : ''}>
+        <span class="card3d__pattern" aria-hidden="true"></span><span class="card3d__neon" aria-hidden="true"></span>
+        <img class="card3d__logo" src="/img/brand/logo-horizontal-clair-400.webp" width="400" height="154" alt="${esc(b.name)}" decoding="async">
+        <p class="card3d__lvl"><i aria-hidden="true"></i><span data-c="tier">${esc(tier.label)}</span></p>
+        <span class="card3d__chip" aria-hidden="true"></span>
+        <p class="card3d__word foil">Premium</p>
+        <p class="card3d__number engraved" data-c="number">${esc(number)}</p>
+        <p class="card3d__holder"><span class="card3d__label">Membre</span><span class="card3d__name engraved" data-c="name" data-empty="Votre nom">${esc(name || 'Votre nom')}</span></p>
+        <p class="card3d__dates"><span><span class="card3d__label">Depuis</span><span data-c="since" data-empty="··/··">${esc(since || '··/··')}</span></span><span><span class="card3d__label">Valable</span><span data-c="until" data-empty="··/··">${esc(until || '··/··')}</span></span></p>
+        <span class="card3d__sheen" aria-hidden="true"></span>
+      </div>
+      <div class="card3d__face card3d__face--back"${flipped ? '' : ' aria-hidden="true"'}>
+        <span class="card3d__pattern" aria-hidden="true"></span><span class="card3d__stripe" aria-hidden="true"></span>
+        <p class="card3d__perks"><b>−${premium.percent} %</b> sur toutes les prestations, toute l’année<br>Offres réservées aux membres<br>Un cadeau à chaque niveau</p>
+        <p class="card3d__sign"><span class="card3d__label">Carte nominative</span><span class="card3d__name" data-c="name" data-empty="Votre nom">${esc(name || 'Votre nom')}</span></p>
+        <p class="card3d__valid"><span data-c="number">${esc(number)}</span><span>${esc(b.phone || '')}</span></p>
+        <img class="card3d__seal" src="/img/brand/embleme-256.webp" width="256" height="256" alt="" decoding="async">
+        <span class="card3d__sheen" aria-hidden="true"></span>
+      </div>
+    </div></div>
+  </div>
+  ${flip ? flipButton() : ''}${hint ? `<p class="card3d-hint">${esc(hint)}</p>` : ''}
+</div>`;
+}
+
+/** where a gift card can be spent: every service of the site */
+const giftServicesList = (ctx) =>
+  `<ul class="offer-services">${ctx.services
+    .filter((s) => !s.sub)
+    .map((s) => `<li><a href="/${s.slug}/"><b>${esc(s.name)}</b><span>${esc(s.short)}</span></a></li>`)
+    .join('')}</ul>`;
+
+const GIFT_FAQ = (ctx) => [
+  { q: 'Combien de temps la carte est-elle valable ?', a: `${giftCard.months} mois à compter de l’achat. La date de fin est écrite au dos de la carte et dans l’e-mail.` },
+  { q: 'Sur quoi peut-on l’utiliser ?', a: `Sur toutes les prestations de l’atelier : ${ctx.services.filter((s) => !s.sub).map((s) => s.name.toLowerCase()).join(', ')}. Pour les vitres et les feux teintés, elle se saisit directement en réservant en ligne ; pour le reste, il suffit de donner le code à l’atelier.` },
+  { q: 'Peut-on l’utiliser en plusieurs fois ?', a: 'Oui. Le montant de la prestation est déduit de la carte, et le solde reste disponible pour une prochaine fois, jusqu’à la date de fin.' },
+  { q: 'Et si la prestation coûte plus que la carte ?', a: 'La carte est déduite, et la différence se règle comme d’habitude : en ligne au moment de réserver, ou à l’atelier.' },
+  { q: 'Se cumule-t-elle avec un code promo ou la carte Premium ?', a: 'Oui : la carte cadeau est un moyen de paiement, pas une remise. Elle se combine avec un code promo, un code de parrainage ou la carte Premium.' },
+  { q: 'Quand le destinataire la reçoit-il ?', a: 'À vous de choisir : vous la recevez tout de suite pour l’imprimer ou la transférer vous-même, ou nous l’envoyons directement au destinataire le jour que vous indiquez, vers 8 h.' },
+  { q: 'Et si le code est perdu ?', a: `Pas d’inquiétude : contactez l’atelier${ctx.business.phone ? ` au ${ctx.business.phone}` : ''}, nous vous renvoyons la carte.` },
+];
+
+/** /carte-cadeau/: choose, personalise and buy a gift card (src/js/gift.js, startGift) */
+export function giftPage(ctx) {
+  const b = ctx.business;
+  const api = ctx.booking?.bookingRules?.api || '';
+  const faq = GIFT_FAQ(ctx);
+  const first = 100;
+  const step = (n, title, inner, extra = '') => `<fieldset class="offer-step"${extra}><legend><span class="offer-step__num">0${n}</span>${title}</legend>${inner}</fieldset>`;
+  const body = `
+  <section class="section page-intro offer-intro">
+    <div class="container">
+      <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li aria-current="page">Carte cadeau</li></ol></nav>
+      <p class="kicker">Carte cadeau</p>
+      <h1>Offrez une voiture <em>sublimée</em></h1>
+      <p class="lead">Vitres teintées, feux fumés, detailing, ciel étoilé… La carte cadeau ${esc(b.name)} se glisse sous le sapin ou dans une enveloppe, et s’utilise sur toutes nos prestations, en une ou plusieurs fois, pendant un an.</p>
+      <ul class="offer-points"><li>Toutes les prestations</li><li>Valable ${giftCard.months} mois</li><li>En une ou plusieurs fois</li><li>Imprimable ou envoyée le jour J</li></ul>
+    </div>
+  </section>
+  <section class="section section--tight">
+    <div class="container offer" data-gift data-api="${esc(api)}">
+      <div class="offer__stage">
+        ${giftCardHtml(ctx, { amount: first, hint: 'Touchez la carte pour la retourner : le message est au dos.' })}
+      </div>
+      <form class="form offer__form" novalidate>
+        ${step(1, 'Le montant', `<div class="amounts">${giftCard.amounts.map((a) => `<label class="amount"><input type="radio" name="amount" value="${a}"${a === first ? ' checked' : ''}><span>${esc(offerEuros(a))}</span></label>`).join('')}<label class="amount"><input type="radio" name="amount" value="libre"><span>Autre</span></label></div>
+          <div class="amount-free" data-free hidden><label for="g-free">Montant libre <span class="optional">(de ${giftCard.min} à ${giftCard.max} €)</span></label><div class="input-eur"><input id="g-free" name="free" inputmode="decimal" autocomplete="off" placeholder="80"><span aria-hidden="true">€</span></div></div>`)}
+        ${step(2, 'La finition', `<div class="looks">${giftCard.looks.map((l, i) => `<label class="look"><input type="radio" name="look" value="${esc(l.id)}"${i === 0 ? ' checked' : ''}><span class="look__body"><i class="look__swatch look__swatch--${esc(l.id)}" aria-hidden="true"></i><b>${esc(l.label)}</b><small>${esc(l.text)}</small></span></label>`).join('')}</div>`)}
+        ${step(3, 'Le petit mot', `<div class="form__row form__row--2"><div><label for="g-to">Pour</label><input id="g-to" name="to" maxlength="40" autocomplete="off" placeholder="Prénom du destinataire"></div><div><label for="g-sender">De la part de</label><input id="g-sender" name="sender" maxlength="60" autocomplete="off" placeholder="Vos prénoms, la famille…"></div></div>
+          <div class="form__row"><label for="g-msg">Message <span class="optional">(facultatif)</span></label><textarea id="g-msg" name="message" rows="3" maxlength="${giftCard.messageMax}" placeholder="Joyeux Noël ! Pour que ta voiture brille autant que toi."></textarea><p class="form__hint"><span data-count>0</span> / ${giftCard.messageMax} caractères · écrit au dos de la carte</p></div>`)}
+        ${step(4, 'L’envoi', `<div class="picks picks--pay offer-picks"><label class="pick pick--big"><input type="radio" name="delivery" value="moi" checked><span class="pick__body"><b>Je l’offre moi-même</b><small>Vous recevez la carte par e-mail tout de suite, à imprimer ou à transférer.</small></span></label><label class="pick pick--big"><input type="radio" name="delivery" value="destinataire"><span class="pick__body"><b>Envoyée au destinataire</b><small>Nous l’envoyons par e-mail le jour que vous choisissez, vers 8 h.</small></span></label></div>
+          <div class="form__row form__row--2 offer-recipient" data-recipient hidden><div><label for="g-to-email">E-mail du destinataire</label><input id="g-to-email" name="toEmail" type="email" autocomplete="off" placeholder="prenom@exemple.fr"></div><div><label for="g-date">Jour d’envoi</label><input id="g-date" name="sendOn" type="date"></div></div>`)}
+        ${step(5, 'Vos coordonnées', `<div class="form__row form__row--2"><div><label for="g-first">Prénom <span class="req" aria-hidden="true">*</span></label><input id="g-first" name="firstName" autocomplete="given-name" required></div><div><label for="g-last">Nom <span class="req" aria-hidden="true">*</span></label><input id="g-last" name="lastName" autocomplete="family-name" required></div></div>
+          <div class="form__row form__row--2"><div><label for="g-email">E-mail <span class="req" aria-hidden="true">*</span></label><input id="g-email" name="email" type="email" autocomplete="email" required></div><div><label for="g-phone">Téléphone <span class="optional">(facultatif)</span></label><input id="g-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel"></div></div>
+          <p class="form__hint">Le reçu et la carte arrivent à cette adresse. Elle ne sert à rien d’autre.</p>`)}
+        <label class="check"><input type="checkbox" name="terms" required> <span>J’accepte les <a href="/conditions-reservation/#cartes-cadeaux" target="_blank" rel="noopener">conditions des cartes cadeaux</a> : valable ${giftCard.months} mois, en une ou plusieurs fois, ni remboursable ni échangeable contre de l’argent.</span></label>
+        <p class="form__summary" role="alert" data-error hidden></p>
+        <button class="btn btn--primary btn--lg offer__pay" type="submit" data-pay${api ? '' : ' disabled'}>Offrir · <span data-gift-total>${esc(offerEuros(first))}</span></button>
+        <p class="booking__secure">${api ? 'Paiement sécurisé par Stripe (carte, Apple Pay, Google Pay). Aucune donnée bancaire ne passe par ce site.' : `La vente en ligne ouvre très bientôt : en attendant, la carte s’achète à l’atelier${b.phone ? ` (${esc(b.phone)})` : ''}.`}</p>
+      </form>
+    </div>
+  </section>
+
+  <section class="section section--paper offer-how" aria-labelledby="gift-how">
+    <div class="container">
+      <p class="kicker">Comment ça marche</p>
+      <h2 id="gift-how">Un cadeau <em>simple</em>, du début à la fin</h2>
+      <ol class="offer-steps">
+        <li><h3>Vous composez la carte</h3><p>Le montant, la finition, un petit mot : la carte prend forme sous vos yeux.</p></li>
+        <li><h3>Elle arrive par e-mail</h3><p>Chez vous tout de suite, à imprimer ou à transférer ; ou chez le destinataire le jour J, vers 8 h.</p></li>
+        <li><h3>Il ou elle se fait plaisir</h3><p>En réservant en ligne avec le code, ou en passant à l’atelier. Le solde reste sur la carte pour la fois suivante.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="gift-where">
+    <div class="container">
+      <p class="kicker">Valable sur tout</p>
+      <h2 id="gift-where">Toutes nos prestations, <em>au choix</em></h2>
+      <p class="lead">La carte se dépense comme on veut, à l’atelier de ${esc(b.address?.city || 'Vouvray')}, près de Tours.</p>
+      ${giftServicesList(ctx)}
+    </div>
+  </section>
+
+  ${faqBlock(faq)}
+
+  <section class="section offer-cross">
+    <div class="container offer-cross__inner">
+      <div><p class="kicker">Et pour vous ?</p><h2>${esc(premium.name)}</h2><p>−${premium.percent} % sur toutes les prestations toute l’année, des offres réservées aux membres et un cadeau à chaque prestation. Pour ceux qui reviennent.</p><a class="btn btn--ghost" href="/premium/">Découvrir le club</a></div>
+      ${premiumCardHtml(ctx, { flip: false, cls: 'card3d-stage--mini' })}
+    </div>
+  </section>`;
+  return page(
+    ctx,
+    {
+      title: `Carte cadeau vitres teintées, detailing… à Vouvray (Tours) | ${b.name}`,
+      description: `Offrez une carte cadeau ${b.name} : de ${giftCard.min} à ${giftCard.max} €, valable ${giftCard.months} mois sur toutes les prestations (vitres teintées, feux, detailing, ciel étoilé, covering), imprimable ou envoyée par e-mail le jour J.`,
+      path: '/carte-cadeau/',
+      image: '/img/cartes/og-cadeau.jpg',
+      bodyClass: 'page-offer',
+      extra: [ld(faqLd(faq)), ld(breadcrumbLd(b, [{ name: 'Accueil', path: '/' }, { name: 'Carte cadeau', path: '/carte-cadeau/' }]))].join('\n'),
+    },
+    body
+  );
+}
+
+const contactLine = (b) => `${b.phone ? `<a href="${telHref(b.phone)}">${esc(b.phone)}</a>` : ''}${b.phone && b.email ? ' · ' : ''}${b.email ? `<a href="mailto:${esc(b.email)}">${esc(b.email)}</a>` : ''}`;
+
+/** /carte-cadeau/merci/?session=…: the card revealed after the payment (src/js/gift.js, startGiftDone) */
+export function giftDonePage(ctx) {
+  const b = ctx.business;
+  const body = `
+  <section class="section page-intro">
+    <div class="container container--narrow offer-done" data-gift-done data-api="${esc(ctx.booking?.bookingRules?.api || '')}">
+      <p class="kicker">Carte cadeau</p>
+      <h1 data-done-title>Merci <em>beaucoup</em></h1>
+      <p class="lead" data-done-lead>Vérification du paiement…</p>
+      <div class="offer-done__card" data-done-card hidden>
+        ${giftCardHtml(ctx, { cls: 'card3d-stage--reveal', hint: 'Touchez la carte pour voir le message et le code.' })}
+        <div class="offer-done__code"><span class="kicker">Code de la carte</span><p class="offer-code" data-done-code></p><button class="btn btn--ghost btn--sm" type="button" data-copy>Copier le code</button></div>
+        <p class="offer-done__next" data-done-next></p>
+        <div class="ctas"><a class="btn btn--primary" data-done-view href="#">Voir et imprimer la carte</a><a class="btn btn--ghost" data-done-book href="/reservation/">Réserver avec cette carte</a></div>
+      </div>
+      <p class="offer-done__help">Une question ? ${contactLine(b)}</p>
+    </div>
+  </section>`;
+  return page(ctx, { title: `Votre carte cadeau | ${b.name}`, description: 'Votre carte cadeau SOLAR CAR 37.', path: '/carte-cadeau/merci/', noindex: true, bodyClass: 'page-offer' }, body);
+}
+
+/** /carte-cadeau/voir/?c=&t=: the card itself, its balance, printing (src/js/gift.js, startGiftView) */
+export function giftViewPage(ctx) {
+  const b = ctx.business;
+  const body = `
+  <section class="section page-intro">
+    <div class="container container--narrow offer-done offer-view" data-gift-view data-api="${esc(ctx.booking?.bookingRules?.api || '')}">
+      <p class="kicker">Carte cadeau</p>
+      <h1 data-view-title>Votre carte <em>cadeau</em></h1>
+      <p class="lead" data-view-lead>Chargement de la carte…</p>
+      <div data-view-card hidden>
+        ${giftCardHtml(ctx, { cls: 'card3d-stage--view' })}
+        <dl class="offer-facts" data-view-facts></dl>
+        <div class="ctas offer-view__actions"><a class="btn btn--primary" data-view-book href="/reservation/">Réserver avec cette carte</a><button class="btn btn--ghost" type="button" data-print>Imprimer la carte</button></div>
+        <p class="form__hint">Vitres et feux teintés : la carte se saisit à l’étape du paiement de la réservation. Detailing, ciel étoilé, covering, phares : donnez simplement le code à l’atelier.</p>
+      </div>
+      <p class="offer-done__help">Une question ? ${contactLine(b)}</p>
+    </div>
+  </section>`;
+  return page(ctx, { title: `Carte cadeau | ${b.name}`, description: 'Votre carte cadeau SOLAR CAR 37.', path: '/carte-cadeau/voir/', noindex: true, bodyClass: 'page-offer page-gift-view' }, body);
+}
+
+/** the levels as a dashboard: six lights along a circuit, lit one after the other (src/js/premium.js) */
+function levelsTrack({ current = -1, compact = false } = {}) {
+  const tiers = premium.tiers;
+  return `<ol class="levels${compact ? ' levels--compact' : ''}" data-levels style="--n:${tiers.length}">${tiers
+    .map((t, i) => {
+      const prev = tiers[Math.max(0, i - 1)].color;
+      const next = tiers[Math.min(tiers.length - 1, i + 1)].color;
+      const state = current < 0 ? '' : i < current ? ' is-past' : i === current ? ' is-current' : ' is-next';
+      const when = t.visits ? `${t.visits}${t.visits === 1 ? 're' : 'e'} prestation` : 'Dès l’adhésion';
+      return `<li class="level${state}" style="--c:${esc(t.color)};--p:${esc(prev)};--nx:${esc(next)};--i:${i}"><span class="level__node" aria-hidden="true"><span>${String(i).padStart(2, '0')}</span></span><div class="level__text"><p class="level__when">${esc(when)}</p><h3 class="level__name">${esc(t.label)}</h3><p class="level__gift">${esc(t.gift || '−' + premium.percent + ' % toute l’année et les offres des membres')}</p></div></li>`;
+    })
+    .join('')}</ol>`;
+}
+
+/** the price that pays the card back: « dès 200 € de prestations » */
+const premiumPayback = () => Math.ceil((premium.price * 100) / premium.percent);
+
+const PREMIUM_FAQ = (ctx) => [
+  { q: 'La carte est-elle valable pour mes proches ?', a: `Non : elle est nominative, à votre nom, pour toutes vos voitures. Pour vos proches, vous avez mieux : votre code de parrainage personnel leur offre ${ctx.booking.bookingRules.referral.amount} € sur leur première prestation.` },
+  { q: 'Comment profiter des −10 % ?', a: 'En ligne : saisissez votre numéro de carte (PREMIUM-…) dans le champ « Code » à l’étape du paiement, en réservant avec l’e-mail de votre carte. À l’atelier ou sur devis : donnez simplement votre nom, nous vous reconnaissons.' },
+  { q: 'Les −10 % se cumulent-ils avec un code promo ?', a: 'Un seul code par réservation : vous choisissez le plus avantageux, carte Premium ou code promo. Une carte cadeau, elle, se combine avec tout : c’est un moyen de paiement.' },
+  { q: 'Comment fonctionnent les niveaux ?', a: `Chaque prestation faite en tant que membre vous fait passer au niveau suivant : ${premium.tiers.map((t) => t.label).join(', ')}. Le cadeau du niveau vous est remis lors du rendez-vous qui le débloque, et vos niveaux restent acquis quand vous renouvelez.` },
+  { q: 'Que se passe-t-il au bout d’un an ?', a: `Rien d’automatique : aucun prélèvement. Nous vous prévenons par e-mail ${premium.remindDays} jours avant la fin, et vous renouvelez si vous le souhaitez, avec la même adresse e-mail.` },
+  { q: 'Quelles offres vais-je recevoir ?', a: 'Quelques e-mails par an, pas plus : avant-premières, codes réservés aux membres, nouveautés de l’atelier. Un lien dans chaque e-mail permet de ne plus les recevoir.' },
+];
+
+/** /premium/: the club, its levels and the form to join (src/js/premium.js, startPremium) */
+export function premiumPage(ctx) {
+  const b = ctx.business;
+  const api = ctx.booking?.bookingRules?.api || '';
+  const faq = PREMIUM_FAQ(ctx);
+  const perk = (icon, title, text) => `<li class="perk"><span class="perk__icon" aria-hidden="true">${icon}</span><h3>${title}</h3><p>${text}</p></li>`;
+  const I = (d) => `<svg viewBox="0 0 24 24" width="26" height="26"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="${d}"/></svg>`;
+  const body = `
+  <section class="section page-intro club-hero">
+    <div class="container club-hero__grid">
+      <div class="club-hero__text">
+        <nav class="breadcrumb" aria-label="Fil d’Ariane"><ol><li><a href="/">Accueil</a></li><li aria-current="page">${esc(premium.name)}</li></ol></nav>
+        <p class="kicker">${esc(premium.name)}</p>
+        <h1>Le club de ceux qui <em>reviennent</em></h1>
+        <p class="lead">Notre façon de remercier ceux qui nous confient leur voiture, encore et encore : −${premium.percent} % sur toutes les prestations, toute l’année, des offres réservées aux membres, et un cadeau à chaque prestation.</p>
+        <div class="ctas"><a class="btn btn--primary" href="#adhesion">Devenir membre</a><a class="btn btn--ghost" href="#niveaux">Voir les niveaux</a></div>
+      </div>
+      ${premiumCardHtml(ctx, { cls: 'card3d-stage--hero', hint: 'Touchez la carte pour la retourner.' })}
+    </div>
+  </section>
+
+  <section class="section section--tight" id="avantages" aria-labelledby="perks-title">
+    <div class="container">
+      <h2 id="perks-title" class="visually-hidden">Les avantages</h2>
+      <ul class="perks">
+        ${perk(I('M5 19 19 5M7.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm9 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z'), `−${premium.percent} % sur tout, toute l’année`, 'Vitres et feux teintés, detailing, ciel étoilé, covering, phares : en ligne comme à l’atelier, sur chaque prestation.')}
+        ${perk(I('M4 6h16v12H4zM4 7l8 6 8-6'), 'Les offres des membres', 'Avant-premières, codes réservés et nouveautés de l’atelier, par e-mail. Quelques fois par an, jamais plus.')}
+        ${perk(I('M4 11h16v9H4zM3 7h18v4H3zM12 7v13M12 7c-1.6-3.4-5.4-3-4.8-.6.4 1.3 4.8.6 4.8.6Zm0 0c1.6-3.4 5.4-3 4.8-.6-.4 1.3-4.8.6-4.8.6Z'), 'Un cadeau à chaque prestation', `${premium.tiers.length - 1} niveaux à débloquer, de ${esc(premium.tiers[1].label)} à ${esc(premium.tiers.at(-1).label)}, chacun avec son cadeau, remis à l’atelier.`)}
+        ${perk(I('M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm4 15h2'), 'Votre espace Premium', 'Votre carte, vos rendez-vous, vos cadeaux et vos offres, dans une app à poser sur l’écran d’accueil de votre téléphone.')}
+      </ul>
+    </div>
+  </section>
+
+  <section class="section section--paper club-levels" id="niveaux" aria-labelledby="levels-title">
+    <div class="container">
+      <p class="kicker">Les niveaux</p>
+      <h2 id="levels-title">Un palier par <em>prestation</em></h2>
+      <p class="lead">Chaque rendez-vous en tant que membre allume le niveau suivant, et son cadeau vous attend à l’atelier. Vos niveaux restent acquis d’une année sur l’autre.</p>
+      ${levelsTrack()}
+    </div>
+  </section>
+
+  <section class="section club-split" aria-label="Vos proches et le prix">
+    <div class="container club-split__grid">
+      <div class="club-family">
+        <p class="kicker">Et vos proches ?</p>
+        <h2>Une carte à <em>votre nom</em></h2>
+        <p>La carte Premium est personnelle : elle vaut pour vous, et pour toutes vos voitures. Pour vos proches, vous avez mieux qu’une carte partagée : votre <strong>code de parrainage</strong>, qui leur offre <strong>${ctx.booking.bookingRules.referral.amount} €</strong> sur leur première prestation. Il vous attend dans votre espace Premium.</p>
+      </div>
+      <div class="price-card">
+        <p class="price-card__name">${esc(premium.name)}</p>
+        <p class="price-card__price"><span>${esc(offerEuros(premium.price))}</span> par an</p>
+        <ul class="price-card__terms"><li>Sans engagement</li><li>Aucun renouvellement automatique</li><li>Carte numérique envoyée aussitôt</li></ul>
+        <p class="price-card__note">Avec −${premium.percent} %, la carte est remboursée dès ${premiumPayback()} € de prestations.</p>
+        <a class="btn btn--primary" href="#adhesion">Devenir membre</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--paper club-join" id="adhesion" aria-labelledby="join-title">
+    <div class="container club-join__grid" data-premium data-api="${esc(api)}">
+      <div class="club-join__stage">
+        ${premiumCardHtml(ctx, { hint: 'Votre nom s’inscrit sur la carte.' })}
+      </div>
+      <form class="form club-join__form" novalidate>
+        <p class="kicker">Adhésion</p>
+        <h2 id="join-title">Rejoindre le <em>club</em></h2>
+        <div class="form__row form__row--2"><div><label for="p-first">Prénom <span class="req" aria-hidden="true">*</span></label><input id="p-first" name="firstName" autocomplete="given-name" required></div><div><label for="p-last">Nom <span class="req" aria-hidden="true">*</span></label><input id="p-last" name="lastName" autocomplete="family-name" required></div></div>
+        <div class="form__row form__row--2"><div><label for="p-email">E-mail <span class="req" aria-hidden="true">*</span></label><input id="p-email" name="email" type="email" autocomplete="email" required></div><div><label for="p-phone">Téléphone <span class="req" aria-hidden="true">*</span></label><input id="p-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required></div></div>
+        <p class="form__hint">Utilisez l’e-mail de vos réservations : c’est à lui que la carte est reliée. Déjà membre ? La même adresse renouvelle votre carte pour un an.</p>
+        <label class="check"><input type="checkbox" name="nonews"> <span>Je ne souhaite pas recevoir les offres réservées aux membres.</span></label>
+        <label class="check"><input type="checkbox" name="terms" required> <span>J’accepte les <a href="/conditions-reservation/#premium" target="_blank" rel="noopener">conditions de SOLAR CAR Premium</a> : ${esc(offerEuros(premium.price))} pour ${premium.months} mois, carte nominative, sans renouvellement automatique.</span></label>
+        <p class="form__summary" role="alert" data-error hidden></p>
+        <button class="btn btn--primary btn--lg offer__pay" type="submit" data-pay${api ? '' : ' disabled'}>Devenir membre · ${esc(offerEuros(premium.price))}</button>
+        <p class="booking__secure">${api ? 'Paiement unique sécurisé par Stripe (carte, Apple Pay, Google Pay). Votre carte arrive aussitôt par e-mail.' : `L’adhésion en ligne ouvre très bientôt${b.phone ? ` : en attendant, appelez le ${esc(b.phone)}` : ''}.`}</p>
+      </form>
+    </div>
+  </section>
+
+  ${faqBlock(faq)}
+
+  <section class="section offer-cross">
+    <div class="container offer-cross__inner">
+      <div><p class="kicker">Pour offrir</p><h2>La carte <em>cadeau</em></h2><p>Un proche passionné de belles voitures ? Offrez-lui la prestation de son choix, de ${giftCard.min} à ${giftCard.max} €, envoyée le jour J.</p><a class="btn btn--ghost" href="/carte-cadeau/">Offrir une carte cadeau</a></div>
+      ${giftCardHtml(ctx, { flip: false, cls: 'card3d-stage--mini', to: 'Julie', amount: 150 })}
+    </div>
+  </section>`;
+  return page(
+    ctx,
+    {
+      title: `${premium.name} : −${premium.percent} % toute l’année | ${b.name}`,
+      description: `${premium.name} : −${premium.percent} % sur toutes les prestations de l’atelier pendant un an, des offres réservées aux membres et un cadeau à chaque prestation. ${offerEuros(premium.price)} par an, sans engagement.`,
+      path: '/premium/',
+      image: '/img/cartes/og-premium.jpg',
+      bodyClass: 'page-offer page-premium',
+      extra: [ld(faqLd(faq)), ld(breadcrumbLd(b, [{ name: 'Accueil', path: '/' }, { name: premium.name, path: '/premium/' }]))].join('\n'),
+    },
+    body
+  );
+}
+
+/** /premium/bienvenue/?session=…: the new member's card revealed (src/js/premium.js, startPremiumDone) */
+export function premiumDonePage(ctx) {
+  const b = ctx.business;
+  const body = `
+  <section class="section page-intro">
+    <div class="container container--narrow offer-done" data-premium-done data-api="${esc(ctx.booking?.bookingRules?.api || '')}">
+      <p class="kicker">${esc(premium.name)}</p>
+      <h1 data-done-title>Bienvenue au <em>club</em></h1>
+      <p class="lead" data-done-lead>Vérification du paiement…</p>
+      <div class="offer-done__card" data-done-card hidden>
+        ${premiumCardHtml(ctx, { cls: 'card3d-stage--reveal' })}
+        <div class="offer-done__code"><span class="kicker">Votre numéro de membre</span><p class="offer-code" data-done-code></p><button class="btn btn--ghost btn--sm" type="button" data-copy>Copier le numéro</button></div>
+        <p class="offer-done__next" data-done-next></p>
+        <div class="offer-referral" data-done-referral hidden><p class="kicker">Pour vos proches</p><p data-referral-text></p><p class="offer-code offer-code--small" data-referral-code></p></div>
+        <div class="ctas"><a class="btn btn--primary" data-done-app href="/premium/carte/">Ouvrir mon espace Premium</a><a class="btn btn--ghost" data-done-book href="/reservation/">Réserver avec ma carte</a></div>
+      </div>
+      <p class="offer-done__help">Une question ? ${contactLine(b)}</p>
+    </div>
+  </section>`;
+  return page(ctx, { title: `Bienvenue | ${premium.name}`, description: `Votre carte ${premium.name}.`, path: '/premium/bienvenue/', noindex: true, bodyClass: 'page-offer page-premium' }, body);
+}
+
+/**
+ * /premium/carte/: « Mon espace Premium », a small app a member puts on the home screen
+ * (/premium/manifest.webmanifest): the card, the appointments, the levels, the members' offers,
+ * the referral code (src/js/premium.js, startPremiumCard). The link of the e-mail (?n=&t=) is kept
+ * on the device.
+ */
+export function premiumCardPage(ctx) {
+  const b = ctx.business;
+  const body = `
+  <section class="section page-intro pm-app" data-premium-card data-api="${esc(ctx.booking?.bookingRules?.api || '')}">
+    <div class="container pm-app__wrap">
+      <p class="pm-loading" data-pm-loading role="status">Chargement de votre carte…</p>
+
+      <div class="pm-login" data-pm-login hidden>
+        <p class="kicker">Mon espace Premium</p>
+        <h1>Retrouver ma <em>carte</em></h1>
+        <p class="lead">Indiquez l’e-mail de votre carte : nous vous envoyons le lien de votre espace Premium.</p>
+        <form class="form pm-login__form" data-pm-find novalidate>
+          <div class="form__row"><label for="pm-email">E-mail de la carte</label><input id="pm-email" name="email" type="email" autocomplete="email" required></div>
+          <button class="btn btn--primary" type="submit">Recevoir le lien</button>
+          <p class="pm-login__status" data-pm-find-status role="status"></p>
+        </form>
+        <p class="form__hint">Pas encore membre ? <a href="/premium/">Découvrir ${esc(premium.name)}</a>.</p>
+      </div>
+
+      <div class="pm-main" data-pm-main hidden>
+        <header class="pm-head">
+          <p class="kicker">Mon espace Premium</p>
+          <h1>Bonjour <em data-pm-first></em></h1>
+          <p class="pm-head__status" data-pm-status></p>
+        </header>
+        ${premiumCardHtml(ctx, { cls: 'card3d-stage--app', hint: 'Touchez la carte pour la retourner.' })}
+        <div class="ctas pm-ctas"><a class="btn btn--primary" data-pm-book href="/reservation/">Réserver avec ma carte</a><button class="btn btn--ghost" type="button" data-pm-copy>Copier mon numéro</button></div>
+
+        <section class="pm-block pm-block--level" aria-labelledby="pm-level-title">
+          <h2 id="pm-level-title" class="pm-block__title">Mon niveau</h2>
+          <div class="pm-level" data-pm-level></div>
+          ${levelsTrack({ current: 0, compact: true })}
+        </section>
+
+        <section class="pm-block" aria-labelledby="pm-rdv-title">
+          <h2 id="pm-rdv-title" class="pm-block__title">Mes rendez-vous</h2>
+          <div data-pm-bookings></div>
+        </section>
+
+        <section class="pm-block" aria-labelledby="pm-gifts-title" data-pm-gifts-block hidden>
+          <h2 id="pm-gifts-title" class="pm-block__title">Mes cadeaux</h2>
+          <ul class="pm-gifts" data-pm-gifts></ul>
+        </section>
+
+        <section class="pm-block" aria-labelledby="pm-offers-title">
+          <h2 id="pm-offers-title" class="pm-block__title">Mes offres membres</h2>
+          <div data-pm-offers></div>
+        </section>
+
+        <section class="pm-block pm-block--family" aria-labelledby="pm-family-title" data-pm-referral hidden>
+          <h2 id="pm-family-title" class="pm-block__title">Vos proches</h2>
+          <p data-pm-referral-text></p>
+          <div class="pm-referral"><span class="offer-code offer-code--small" data-pm-referral-code></span><button class="btn btn--ghost btn--sm" type="button" data-pm-referral-copy>Copier</button><button class="btn btn--ghost btn--sm" type="button" data-pm-share hidden>Partager</button></div>
+        </section>
+
+        <section class="pm-block pm-block--renew" data-pm-renew hidden aria-labelledby="pm-renew-title">
+          <h2 id="pm-renew-title" class="pm-block__title" data-pm-renew-title>Votre carte arrive à échéance</h2>
+          <p data-pm-renew-text></p>
+          <a class="btn btn--primary" href="/premium/#adhesion">Renouveler pour un an · ${esc(offerEuros(premium.price))}</a>
+        </section>
+
+        <aside class="pm-install" data-pm-install hidden>
+          <p class="pm-install__title">Gardez votre carte sur votre téléphone</p>
+          <p data-pm-install-text></p>
+          <button class="btn btn--ghost btn--sm" type="button" data-pm-install-btn hidden>Ajouter à l’écran d’accueil</button>
+        </aside>
+
+        <p class="pm-foot">Une question ? ${contactLine(b)}<br><button class="pm-logout" type="button" data-pm-logout>Se déconnecter de cet appareil</button></p>
+      </div>
+    </div>
+  </section>`;
+  return page(
+    ctx,
+    {
+      title: `Mon espace Premium | ${b.name}`,
+      description: `Votre carte ${premium.name}, vos rendez-vous, vos niveaux et vos offres.`,
+      path: '/premium/carte/',
+      noindex: true,
+      bodyClass: 'page-offer page-premium page-app',
+      manifest: '/premium/manifest.webmanifest',
+      touchIcon: '/img/cartes/premium-icon-180.png',
+      extra: `<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-title" content="Premium">\n<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`,
+    },
+    body
+  );
+}
+
+/** a small teaser of the two cards (home page, before the call to action) */
+function offersTeaser(ctx) {
+  return `<section class="section offers-teaser" aria-labelledby="offers-title">
+    <div class="container">
+      <div class="section-head"><p class="kicker">Cartes</p><h2 id="offers-title">Pour offrir, ou pour <em>revenir</em></h2></div>
+      <ul class="offers-teaser__grid">
+        <li><a class="offers-teaser__card" href="/carte-cadeau/">${giftCardHtml(ctx, { flip: false, cls: 'card3d-stage--mini', to: 'Julie', amount: 150 })}<span class="offers-teaser__text"><b>La carte cadeau</b><span>De ${giftCard.min} à ${giftCard.max} €, sur toutes nos prestations, imprimable ou envoyée le jour J.</span><span class="service-card__more">Offrir <span aria-hidden="true">→</span></span></span></a></li>
+        <li><a class="offers-teaser__card" href="/premium/">${premiumCardHtml(ctx, { flip: false, cls: 'card3d-stage--mini' })}<span class="offers-teaser__text"><b>${esc(premium.name)}</b><span>−${premium.percent} % toute l’année, les offres des membres et un cadeau à chaque prestation.</span><span class="service-card__more">Découvrir le club <span aria-hidden="true">→</span></span></span></a></li>
+      </ul>
+    </div>
+  </section>`;
+}

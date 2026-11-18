@@ -1,6 +1,7 @@
 import { bookingRules as R, quote, amountDue, formatDuration, formatEuros, withDiscount, referralCode, discountFor } from '../../content/booking.js';
 import { jobSpan, utcToZoned } from '../../booking/schedule.js';
 import { deadlineText, runCountdown } from './countdown.js';
+import { isGiftCode } from '../../content/offers.js';
 
 /**
  * Online booking (/reservation/): 1. the service, priced as it is chosen (content/booking.js, the
@@ -41,9 +42,19 @@ export function startBooking(root) {
   let slot = null; // { date, time }
   let lastKey = '';
   let referral = null; // a code checked by the server: { code, kind, label, amount | percent, services }
+  let gift = null; // a gift card checked by the server: { code, balance, expires }
   const priced = (c) => {
     const q = quote(c);
     return withDiscount(q, discountFor(q, referral));
+  };
+  const round2 = (n) => Math.round(n * 100) / 100;
+  /** what the gift card pays and what is left to pay now, for a mode (the server's own sums,
+   *  booking/worker.js): the card goes first, up to the total; under 0,50 € nothing is asked */
+  const withGift = (q, mode) => {
+    const g = gift && !q.error ? round2(Math.min(gift.balance, q.total)) : 0;
+    let now = q.error ? 0 : Math.max(0, round2(amountDue(q, mode) - g));
+    if (now < 0.5) now = 0;
+    return { g, now, rest: q.error ? 0 : Math.max(0, round2(q.total - g - now)) };
   };
 
   // ------------------------------------------------------------- the configuration
@@ -95,7 +106,7 @@ export function startBooking(root) {
       }
     $('[data-duration]').textContent = q.error ? '—' : formatDuration(q.minutes);
     $('[data-discount-row]').hidden = !q.discount;
-    $('[data-discount-label]').textContent = referral?.kind === 'promo' ? `Code ${referral.code}` : 'Parrainage';
+    $('[data-discount-label]').textContent = referral?.kind === 'promo' ? `Code ${referral.code}` : referral?.kind === 'premium' ? 'Carte Premium' : 'Parrainage';
     // a code that covers none of the chosen services
     if (referral && !q.error && !q.discount) {
       codeStatus.textContent = `Le code ${referral.code} ne s’applique pas à ces prestations.`;
@@ -111,6 +122,30 @@ export function startBooking(root) {
     $('[data-pay-rest]').textContent = q.error ? '' : formatEuros(q.total - q.deposit);
     $('[data-pay-total]').textContent = q.error ? '' : formatEuros(q.total);
     $('[data-pay-amount]').textContent = q.error ? '' : formatEuros(amountDue(q, value('mode')));
+    // a gift card: what it pays, what is left to pay now (for each way of paying)
+    const pay = withGift(q, value('mode'));
+    $('[data-gift-row]').hidden = !pay.g;
+    $('[data-gift-amount]').textContent = pay.g ? `−${formatEuros(pay.g)}` : '—';
+    $('[data-now-row]').hidden = !gift || !!q.error;
+    $('[data-now]').textContent = pay.now ? formatEuros(pay.now) : 'rien';
+    for (const mode of ['deposit', 'full']) {
+      const p = withGift(q, mode);
+      const note = $(`[data-gift-note="${mode}"]`);
+      const plain = $(`[data-mode-note="${mode}"]`);
+      const on = !!p.g && !q.error;
+      note.hidden = !on;
+      plain.hidden = on;
+      if (on) note.textContent = `Carte cadeau : −${formatEuros(p.g)} · ${p.now ? `${formatEuros(p.now)} à payer maintenant` : 'rien à payer maintenant'}${p.rest ? `, ${formatEuros(p.rest)} à l’atelier` : ''}`;
+    }
+    const btnLabel = $('[data-pay]');
+    if (gift && !q.error) {
+      btnLabel.dataset.label ||= btnLabel.innerHTML;
+      btnLabel.innerHTML = pay.now ? `Payer <span data-pay-amount>${formatEuros(pay.now)}</span>` : 'Confirmer le rendez-vous <span data-pay-amount></span>';
+    } else if (btnLabel.dataset.label) {
+      btnLabel.innerHTML = btnLabel.dataset.label;
+      delete btnLabel.dataset.label;
+      $('[data-pay-amount]').textContent = q.error ? '' : formatEuros(amountDue(q, value('mode')));
+    }
     // a picture of the chosen tint
     const img = $('[data-preview]');
     if (c.tint && vehicle && formula) {
@@ -266,6 +301,7 @@ export function startBooking(root) {
   form.addEventListener('change', (e) => {
     if (['firstName', 'lastName', 'email', 'phone', 'carModel', 'plate', 'message', 'terms', 'early', 'connu', 'connu_autre'].includes(e.target.name)) return;
     if (e.target.name === 'code') return applyCode();
+    if (e.target.name === 'gift') return applyGift();
     refresh();
   });
 
@@ -273,9 +309,11 @@ export function startBooking(root) {
   const codeStatus = $('[data-referral-status]');
   const until = (ms) => new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', timeZone: R.timeZone }).format(new Date(ms));
   const codeText = (j) =>
-    j.kind === 'promo'
-      ? `Code ${j.code} : ${j.percent ? `−${j.percent} %` : `${formatEuros(j.amount)} de remise`}, valable jusqu’au ${until(j.expires)}.`
-      : `Code de ${j.owner} : ${formatEuros(j.amount)} de remise, déduits du total.`;
+    j.kind === 'premium'
+      ? `Carte Premium${j.owner ? ` de ${j.owner}` : ''} : −${j.percent} % sur toute la réservation. Réservez avec l’e-mail de la carte.`
+      : j.kind === 'promo'
+        ? `Code ${j.code} : ${j.percent ? `−${j.percent} %` : `${formatEuros(j.amount)} de remise`}, valable jusqu’au ${until(j.expires)}${j.members ? ' · réservé aux membres Premium : réservez avec l’e-mail de votre carte' : ''}.`
+        : `Code de ${j.owner} : ${formatEuros(j.amount)} de remise, déduits du total.`;
   // a promo code: its deadline and the time left under the field (to the second on the last day);
   // at the end of the offer the discount goes (the server would refuse the code)
   const deadline = $('[data-code-deadline]');
@@ -306,6 +344,8 @@ export function startBooking(root) {
     const input = form.elements.code;
     const code = referralCode(input.value);
     input.value = code;
+    // a gift card typed here: it is a means of payment, it goes to its own field
+    if (isGiftCode(code)) return moveToGift(code);
     if (code && (checking === code || referral?.code === code)) return;
     codeStatus.classList.remove('is-ok', 'is-error');
     referral = null;
@@ -324,6 +364,10 @@ export function startBooking(root) {
     try {
       const res = await fetch(`${api}/api/code?code=${encodeURIComponent(code)}`);
       const j = await res.json();
+      if (j.ok && j.kind === 'cadeau') {
+        checking = null;
+        return moveToGift(j.code || code);
+      }
       if (j.ok) {
         referral = j;
         codeStatus.textContent = codeText(j);
@@ -345,6 +389,76 @@ export function startBooking(root) {
     if (e.key === 'Enter') {
       e.preventDefault();
       applyCode();
+    }
+  });
+
+  // ------------------------------------------------------------- gift card
+  const giftBox = $('[data-gift-field]');
+  const giftStatus = $('[data-gift-status]');
+  function moveToGift(code) {
+    form.elements.code.value = '';
+    codeStatus.textContent = 'C’est une carte cadeau : elle est passée dans le champ « Carte cadeau », juste en dessous.';
+    codeStatus.classList.remove('is-error');
+    codeStatus.classList.add('is-ok');
+    store.set('booking-code', '');
+    if (referral) {
+      referral = null;
+      hideDeadline();
+    }
+    giftBox.open = true;
+    form.elements.gift.value = code;
+    applyGift();
+  }
+  let giftChecking = null;
+  async function applyGift() {
+    const input = form.elements.gift;
+    const code = referralCode(input.value);
+    input.value = code;
+    if (code && (giftChecking === code || gift?.code === code)) return;
+    giftStatus.classList.remove('is-ok', 'is-error');
+    gift = null;
+    store.set('booking-gift', code);
+    if (!code) {
+      giftStatus.textContent = '';
+      return refresh();
+    }
+    if (!api) {
+      giftStatus.textContent = 'Votre carte servira dès l’ouverture de la réservation en ligne.';
+      return refresh();
+    }
+    giftStatus.textContent = 'Vérification de la carte…';
+    giftChecking = code;
+    try {
+      const res = await fetch(`${api}/api/code?code=${encodeURIComponent(code)}`);
+      const j = await res.json();
+      if (j.ok && j.kind === 'cadeau') {
+        if (!(j.balance > 0)) throw Object.assign(new Error(), { msg: 'Cette carte cadeau est entièrement utilisée.' });
+        gift = { code: j.code || code, balance: Number(j.balance) || 0, expires: j.expires };
+        giftStatus.textContent = `Carte cadeau : ${formatEuros(gift.balance)} disponibles${gift.expires ? `, jusqu’au ${until(gift.expires)}` : ''}. Le solde restera sur la carte.`;
+        giftStatus.classList.add('is-ok');
+      } else if (j.ok) {
+        // a promotion, a referral or a Premium code typed here: back to its own field
+        giftStatus.textContent = '';
+        input.value = '';
+        giftChecking = null;
+        form.elements.code.value = code;
+        return applyCode();
+      } else {
+        giftStatus.textContent = j.error || 'Cette carte n’est pas reconnue.';
+        giftStatus.classList.add('is-error');
+      }
+    } catch (err) {
+      giftStatus.textContent = err?.msg || 'La carte n’a pas pu être vérifiée : réessayez dans un instant.';
+      giftStatus.classList.add('is-error');
+    }
+    giftChecking = null;
+    refresh();
+  }
+  $('[data-gift-apply]').addEventListener('click', () => applyGift());
+  form.elements.gift.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      applyGift();
     }
   });
 
@@ -381,13 +495,22 @@ export function startBooking(root) {
       const res = await fetch(`${api}/api/checkout`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ config: config(), date: slot.date, time: slot.time, mode: value('mode'), customer, code: referral?.code || '', consent: { terms: true, early: form.elements.early.checked }, back: location.origin + location.pathname }),
+        body: JSON.stringify({ config: config(), date: slot.date, time: slot.time, mode: value('mode'), customer, code: referral?.code || '', gift: gift?.code || '', consent: { terms: true, early: form.elements.early.checked }, back: location.origin + location.pathname }),
       });
       const j = await res.json().catch(() => ({}));
       if (res.ok && j.url) return location.assign(j.url);
       if (res.status === 409) {
         setSlot(null);
         loadMonth(month, false);
+      }
+      // the gift card is no longer valid (spent meanwhile, expired): dropped, the price as it is
+      if (j.gift) {
+        gift = null;
+        giftStatus.textContent = j.error || '';
+        giftStatus.classList.remove('is-ok');
+        giftStatus.classList.add('is-error');
+        giftBox.open = true;
+        refresh();
       }
       // the code is no longer valid (used meanwhile, expired): the full price again
       if (j.code) {
@@ -438,10 +561,17 @@ export function startBooking(root) {
   if (p.has('annule')) fail('Paiement interrompu : votre créneau n’a pas été retenu. Choisissez-le à nouveau pour réserver.');
   // a referral code from the gift card's link (?code=…) or kept from a cancelled payment
   const code = p.get('code') || (saved ? store.get('booking-code') : '');
+  // a gift card from its e-mail or its page (?cadeau=…), or kept from a cancelled payment
+  const giftCode = p.get('cadeau') || (saved ? store.get('booking-gift') : '');
   refresh();
   if (code) {
     form.elements.code.value = code;
     applyCode();
+  }
+  if (giftCode) {
+    giftBox.open = true;
+    form.elements.gift.value = giftCode;
+    applyGift();
   }
   root.classList.add('is-live');
 }
@@ -473,10 +603,12 @@ export async function startBookingDone(root) {
   const span = jobSpan(b.date, b.time, b.minutes, R);
   const end = utcToZoned(span.end, R.timeZone).time;
   $('[data-done-title]').textContent = 'Rendez-vous confirmé';
-  lead.textContent = 'Merci ! Votre créneau est réservé à l’atelier. Un reçu de paiement vous a été envoyé par e-mail.';
+  lead.textContent = b.amount ? 'Merci ! Votre créneau est réservé à l’atelier. Un reçu de paiement vous a été envoyé par e-mail.' : 'Merci ! Votre créneau est réservé à l’atelier, réglé avec votre carte cadeau. La confirmation vous a été envoyée par e-mail.';
   $('[data-done-when]').textContent = `${dateLabel(b.date)} · ${hour(b.time)} – ${hour(end)}`;
   $('[data-done-items]').innerHTML = b.items.map((i) => `<li><span><b>${i.label.replace(/</g, '&lt;')}</b><small>${(i.detail || '').replace(/</g, '&lt;')}</small></span><span class="booking__price">${formatEuros(i.price)}</span></li>`).join('');
-  $('[data-done-totals]').innerHTML = `${b.discount ? `<div><dt>${b.code ? `${b.codeKind === 'promo' ? `Code ${String(b.code).replace(/</g, '&lt;')}` : 'Parrainage'}${b.remise ? ' et remise' : ''}` : 'Remise'}</dt><dd>−${formatEuros(b.discount)}</dd></div>` : ''}<div><dt>Total</dt><dd>${formatEuros(b.total)}</dd></div><div><dt>Payé en ligne</dt><dd>${formatEuros(b.amount)}</dd></div><div><dt>À régler à l’atelier</dt><dd>${b.remaining ? formatEuros(b.remaining) : 'rien'}</dd></div>`;
+  const codeLabel = b.codeKind === 'promo' ? `Code ${String(b.code).replace(/</g, '&lt;')}` : b.codeKind === 'premium' ? 'Carte Premium' : 'Parrainage';
+  const giftPaid = Number(b.gift?.amount) || 0;
+  $('[data-done-totals]').innerHTML = `${b.discount ? `<div><dt>${b.code ? `${codeLabel}${b.remise ? ' et remise' : ''}` : 'Remise'}</dt><dd>−${formatEuros(b.discount)}</dd></div>` : ''}<div><dt>Total</dt><dd>${formatEuros(b.total)}</dd></div>${giftPaid ? `<div><dt>Carte cadeau</dt><dd>${formatEuros(giftPaid)}</dd></div>` : ''}${b.amount || !giftPaid ? `<div><dt>Payé en ligne</dt><dd>${formatEuros(b.amount)}</dd></div>` : ''}<div><dt>À régler à l’atelier</dt><dd>${b.remaining ? formatEuros(b.remaining) : 'rien'}</dd></div>`;
   $('[data-done-card]').hidden = false;
   $('[data-done-ics]').addEventListener('click', () => {
     const stamp = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -492,7 +624,7 @@ export async function startBookingDone(root) {
       `DTEND:${stamp(span.end)}`,
       `SUMMARY:${text(`${root.dataset.name} — ${b.items.map((i) => i.label).join(' + ')}`)}`,
       `LOCATION:${text(root.dataset.address)}`,
-      `DESCRIPTION:${text(`Réglé en ligne : ${formatEuros(b.amount)}. Reste à régler : ${formatEuros(b.remaining)}.`)}`,
+      `DESCRIPTION:${text(`${b.gift?.amount ? `Carte cadeau : ${formatEuros(b.gift.amount)}. ` : ''}Réglé en ligne : ${formatEuros(b.amount)}. Reste à régler : ${formatEuros(b.remaining)}.`)}`,
       'END:VEVENT',
       'END:VCALENDAR',
     ].join('\r\n');

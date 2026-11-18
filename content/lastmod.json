@@ -1,6 +1,6 @@
 {
  "/": {
-  "hash": "46ab32c8e0cf035c",
+  "hash": "c72964ebc3f0a377",
   "date": "2026-11-18"
  },
  "/404.html": {
@@ -11,17 +11,29 @@
   "hash": "aab52e1aa085c082",
   "date": "2026-11-17"
  },
+ "/carte-cadeau/": {
+  "hash": "1509a9d2fc6a7173",
+  "date": "2026-11-18"
+ },
+ "/carte-cadeau/merci/": {
+  "hash": "0ac0592ac93eae37",
+  "date": "2026-11-18"
+ },
+ "/carte-cadeau/voir/": {
+  "hash": "75c8f7055bba5266",
+  "date": "2026-11-18"
+ },
  "/ciel-etoile/": {
   "hash": "e4529e482e5791d1",
   "date": "2026-11-17"
  },
  "/conditions-reservation/": {
-  "hash": "d60ca97abd6cd143",
-  "date": "2026-11-17"
+  "hash": "3fc438cec2ffbf92",
+  "date": "2026-11-18"
  },
  "/contact/": {
-  "hash": "f8589da15e2f8226",
-  "date": "2026-11-17"
+  "hash": "835823d253b036cb",
+  "date": "2026-11-18"
  },
  "/contact/merci/": {
   "hash": "2f49fcb7239e0a4a",
@@ -95,6 +107,18 @@
   "hash": "26c893dfeb4601af",
   "date": "2026-11-17"
  },
+ "/premium/": {
+  "hash": "adf6fd1285399a1c",
+  "date": "2026-11-18"
+ },
+ "/premium/bienvenue/": {
+  "hash": "52a787a1b2f5197c",
+  "date": "2026-11-18"
+ },
+ "/premium/carte/": {
+  "hash": "9c60b1931daf170c",
+  "date": "2026-11-18"
+ },
  "/realisations/": {
   "hash": "b26691d9af70fe67",
   "date": "2026-11-14"
@@ -104,8 +128,8 @@
   "date": "2026-11-17"
  },
  "/reservation/": {
-  "hash": "5f47770164effc47",
-  "date": "2026-11-17"
+  "hash": "4eca4387aebf9aa5",
+  "date": "2026-11-18"
  },
  "/reservation/confirmee/": {
   "hash": "84c09403b4909125",
