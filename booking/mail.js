@@ -191,6 +191,34 @@ export async function sendPaymentLink(env, b) {
 }
 
 /**
+ * An appointment changed at the workshop (services added): the client gets the new recap and what
+ * is left to pay at the workshop. b: { c: { firstName, email, vehicle }, date, time, items, total, paid }
+ */
+export async function sendBookingUpdate(env, b) {
+  const { c, date, time, items, total, paid } = b;
+  const due = Math.max(0, Math.round((total - paid) * 100) / 100);
+  const list = items.map((i) => `${esc(i.label)}<br><span style="font-weight:400;color:#6b6b6b">${[i.detail ? esc(i.detail) : '', euros(Number(i.price) || 0)].filter(Boolean).join(' · ')}</span>`).join('<br>');
+  await send(env, {
+    to: [c.email],
+    reply_to: B.email,
+    subject: `Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} : récapitulatif mis à jour`,
+    html: shell(
+      'Votre rendez-vous, mis à jour',
+      `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName || '')},<br>comme convenu, voici le récapitulatif de votre rendez-vous avec les prestations ajoutées.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
+        ['Quand', esc(`${dayLabel(date)}, ${hour(time)}`)],
+        ['Véhicule', esc(c.vehicle || '')],
+        ['Prestations', list],
+        ['Total', `${euros(total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
+        ['Déjà réglé', paid ? euros(paid) : ''],
+        ['À régler à l’atelier', due ? euros(due) : 'rien, tout est réglé'],
+      ])}</table>
+<p style="margin:18px 0 0;font-size:13px;color:#6b6b6b">Une question ? Répondez à cet e-mail ou appelez-nous au ${esc(B.phone)}.</p>`
+    ),
+  });
+}
+
+/**
  * The day before: a reminder to the client (sent by the daily job of booking/worker.js, only when
  * env.MAIL_CLIENTS is "1"). b: { q, c, date, time, end, paid } with the appointment's current
  * time in the calendar (it may have been moved by the workshop).

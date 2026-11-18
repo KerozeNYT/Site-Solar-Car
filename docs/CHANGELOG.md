@@ -1,5 +1,11 @@
 # Journal des changements
 
+## Espace atelier : modifier un RDV confirmé (prestations ajoutées) (18 novembre 2026)
+
+- Chaque RDV a sa page (Rendez-vous → la date) : prestations, remises, déjà réglé, **reste à régler à
+  l'atelier**. « Ajouter une prestation » : prix, remise en %, durée (le RDV peut être allongé dans
+  l'agenda), récapitulatif mis à jour envoyé au client si coché ; retrait d'une prestation ajoutée.
+
 ## Réservation : vitres 2 h + feux 1 h la paire ; un « Dépôt » ne bloque rien (18 novembre 2026)
 
 - Les durées s'additionnent : vitres teintées 2 h, feux 1 h la paire (complet + feux arrière : 8 h-11 h).

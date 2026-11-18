@@ -318,6 +318,8 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 .recap__tot,.recap__due{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-top:12px}
 .recap__tot b{font-size:24px;color:var(--gold-2);letter-spacing:-.02em}
 .recap__due{color:var(--text-2);font-size:14px;padding-top:6px}.recap__due b{color:var(--text)}
+.recap--edit li{align-items:center}.recap--edit li>span{flex:1}.recap--edit form{margin:0}.recap--edit button{padding:6px 9px}
+.recap__left{margin-top:8px;padding:12px 14px;border-radius:14px;background:rgba(var(--gold-rgb),.08);border:1px solid rgba(var(--gold-rgb),.3)}.recap__left b{font-size:26px}
 .seg--2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .push__state{font-weight:650;margin:0 0 14px}
 .remise{display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:8px}
@@ -807,6 +809,29 @@ export const JS = String.raw`(function () {
     loadSlots();
     loadDays();
   }
+  // « Ajouter une prestation » to an appointment: the preset fills the line, the price after discount shown
+  (function () {
+    var form = d.getElementById('ajout');
+    if (!form) return;
+    var presets = JSON.parse(form.getAttribute('data-presets') || '{}');
+    var net = d.getElementById('a-net');
+    var num = function (v) { return Number(String(v || '').replace(/\s/g, '').replace(',', '.')); };
+    var show = function () {
+      var p = num(form.elements.prix.value), r = num(form.elements.remise.value) || 0;
+      net.textContent = p >= 0 && form.elements.prix.value ? 'Ajouté au total : ' + euro(Math.round(p * (1 - Math.min(100, Math.max(0, r)) / 100) * 100) / 100, 2) : '';
+    };
+    form.addEventListener('input', show);
+    form.addEventListener('change', function (e) {
+      if (!e.target.hasAttribute('data-preset')) return;
+      var o = presets[e.target.value];
+      if (!o) return;
+      form.elements.label.value = o.label;
+      form.elements.prix.value = o.price == null ? '' : String(o.price).replace('.', ',');
+      form.elements.minutes.value = o.minutes || '';
+      (o.label ? form.elements.prix : form.elements.label).focus();
+      show();
+    });
+  })();
   // a link to copy (the payment link of an appointment)
   d.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-copy]');

@@ -133,7 +133,15 @@ Un client appelle ou passe à l'atelier : **+ Nouveau → Nouveau rendez-vous** 
 5. Rendez-vous → « Pris à l'atelier » : les liens des deux dernières semaines et leur état
    (en attente, payé, expiré, annulé, sur place).
 
-Code : `booking/worker.js` (`atelierBooking`, `atelierSlots`, `atelierCancel`), `booking/atelier.js`
+**Modifier un RDV confirmé** (une prestation demandée en plus) : Rendez-vous → la date du RDV (ou
+sa fiche client, ou « Ouvrir le RDV » sur la page du lien) → **Ajouter une prestation** : libellé
+(ou une prestation de la liste), prix, remise en % (le prix net s'affiche), durée ; cases « Allonger
+le RDV dans l'agenda » et « Envoyer le récapitulatif mis à jour au client ». Le total et le **reste à
+régler à l'atelier** se recalculent (ce qui est payé ne bouge pas), l'agenda reçoit un bloc « Ajouts
+à l'atelier ». Une prestation ajoutée par erreur se retire (la corbeille) ; celles réservées au départ
+ne se retirent pas d'ici.
+
+Code : `booking/worker.js` (`atelierBooking`, `atelierSlots`, `atelierCancel`, `atelierBookingChange`), `booking/atelier.js`
 (le formulaire, la page du lien), table `links` (`booking/store.js`), e-mail `sendPaymentLink`
 (`booking/mail.js`). Tests : `booking/test/rdv.test.mjs`.
 

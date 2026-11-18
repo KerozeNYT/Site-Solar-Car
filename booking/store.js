@@ -911,6 +911,40 @@ export class Atelier {
         if (Object.hasOwn(QUOTE_STATUS, b.status) && b.status !== r.status) this.setStatus(r.id, b.status, now, `Statut changé à l’atelier : ${QUOTE_STATUS[b.status]}.`);
         return { ok: true };
       }
+      // ------------------------------------------------ one appointment, changed in the space
+      case 'booking/get':
+        return { booking: this.one('SELECT b.*, c.first, c.last, c.phone, c.email, c.vehicles AS client_vehicles FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.session = ?', clip(b.session, 120)) };
+      // services added at the workshop (or taken off again): the total follows, what is paid stays
+      case 'booking/lines': {
+        const row = this.one('SELECT * FROM bookings WHERE session = ?', clip(b.session, 120));
+        if (!row) return { ok: false, error: 'Rendez-vous introuvable.' };
+        const items = (() => {
+          try {
+            return JSON.parse(row.items || '[]');
+          } catch {
+            return [];
+          }
+        })();
+        if (b.add) {
+          const label = clip(b.add.label, 80);
+          const price = Math.round((Number(b.add.price) || 0) * 100) / 100;
+          if (!label) return { ok: false, error: 'Écrivez la prestation ajoutée.' };
+          if (!(price >= 0) || price > 20000) return { ok: false, error: 'Prix à vérifier.' };
+          if (items.filter((i) => i.added).length >= 12) return { ok: false, error: 'Trop de prestations ajoutées.' };
+          items.push({ label, detail: clip(b.add.detail, 80), price, added: now, minutes: Math.max(0, Math.min(600, Math.round(Number(b.add.minutes) || 0))), lengthened: !!b.add.lengthened });
+        }
+        let removed = null;
+        if (b.remove != null) {
+          const i = Number(b.remove);
+          if (!items[i]?.added) return { ok: false, error: 'Seules les prestations ajoutées à l’atelier se retirent.' };
+          removed = items.splice(i, 1)[0];
+        }
+        const total = Math.round(items.reduce((a, i) => a + (Number(i.price) || 0), 0) * 100) / 100 - (Number(row.discount) || 0);
+        // the time of the appointment: what was added to it in the calendar, or taken back
+        const minutes = Math.max(0, (Number(row.minutes) || 0) + (b.add?.lengthened ? Number(items.at(-1).minutes) || 0 : 0) - (removed?.lengthened ? Number(removed.minutes) || 0 : 0));
+        this.run('UPDATE bookings SET items = ?, total = ?, minutes = ? WHERE session = ?', JSON.stringify(items).slice(0, 4000), Math.max(0, Math.round(total * 100) / 100), minutes, row.session);
+        return { ok: true, removed, booking: this.one('SELECT b.*, c.first, c.last, c.phone, c.email FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.session = ?', row.session) };
+      }
       case 'bookings/list': {
         const where = b.from ? 'WHERE b.date BETWEEN ? AND ?' : '';
         const args = b.from ? [b.from, b.to] : [];

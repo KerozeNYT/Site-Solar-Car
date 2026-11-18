@@ -22,7 +22,7 @@
 import { bookingRules as R, codeServices, formatEuros, formatDuration, quote, withDiscount, withExtra, discountFor, manualDiscount, bookableVehicles, tintFormulas, lightsBooking, atelierExtras, windshieldMinutes } from '../content/booking.js';
 import { tint, tintOnQuote } from '../content/pricing.js';
 // the appointments taken by the workshop (used at request time only: worker.js imports this module)
-import { atelierBooking, atelierSlots, atelierCancel, DROP_OFF } from './worker.js';
+import { atelierBooking, atelierSlots, atelierCancel, atelierBookingChange, DROP_OFF } from './worker.js';
 import { business as B } from '../content/site.js';
 import { report, totalsOf } from './stats.js';
 import { db, referralFor, redeemReferral, checkCode, dayStart, atelierFetch, QUOTE_STATUS } from './store.js';
@@ -355,6 +355,10 @@ export async function atelier(req, env, url, now) {
     const r = await atelierSlots(env, from, Number(url.searchParams.get('minutes')) || 60, now, url.searchParams.get('days') || 1).catch(() => ({ error: 'Agenda indisponible : tapez l’heure vous-même.' }));
     return new Response(JSON.stringify(r), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
   }
+  // one appointment: its page, a service added or taken off again
+  const rm = path.match(/^\/atelier\/rdv\/r\/([A-Za-z0-9_-]{6,120})(?:\/(ajout|retirer))?$/);
+  if (rm && req.method === 'GET' && !rm[2]) return bookingPage(env, url, rm[1], now);
+  if (rm && req.method === 'POST' && rm[2]) return bookingChangePost(req, env, rm[1], rm[2], now);
   const lm = path.match(/^\/atelier\/rdv\/lien\/(\d+)(\/annuler)?$/);
   if (lm && req.method === 'GET' && !lm[2]) return linkPage(env, url, Number(lm[1]), now);
   if (lm && req.method === 'POST' && lm[2]) {
@@ -606,7 +610,8 @@ function apptRow(x, { withDate = true } = {}) {
   const b = x.b;
   const who = b ? `<a href="/atelier/clients/${b.client_id}">${esc(name(b))}</a>${b.phone ? `<small><a href="tel:${esc(tel(b.phone))}">${esc(b.phone)}</a></small>` : ''}` : esc((x.event.summary || '').split(' — ').pop());
   const money = b ? `${eur(b.total)}<small>payé ${eur(b.paid)}${b.total - b.paid > 0 ? ` · reste ${eur(b.total - b.paid)}` : ''}</small>` : '<span class="dim">voir l’agenda</span>';
-  return `<tr>${withDate ? `<td><b>${esc(dayLabel(x.at.date))}</b><small>${esc(hour(x.at.time))} – ${esc(hour(x.end.time))}</small></td>` : ''}<td>${who}</td><td class="hide-s">${esc(what(x))}${b?.code ? `<small>code <span class="code">${esc(b.code)}</span> −${eur(b.discount)}</small>` : ''}</td><td class="n">${money}</td></tr>`;
+  const day = `<b>${esc(dayLabel(x.at.date))}</b><small>${esc(hour(x.at.time))} – ${esc(hour(x.end.time))}</small>`;
+  return `<tr>${withDate ? `<td>${b ? `<a href="${bookingHref(b.session)}">${day}</a>` : day}</td>` : ''}<td>${who}</td><td class="hide-s">${esc(what(x))}${b?.code ? `<small>code <span class="code">${esc(b.code)}</span> −${eur(b.discount)}</small>` : ''}</td><td class="n">${money}</td></tr>`;
 }
 
 // ---------------------------------------------------------------- the agenda (Google Calendar of SOLAR CAR 37)
@@ -809,6 +814,63 @@ async function morePage(env, url, now) {
   return page('Plus', '/atelier/plus', body, url, { now });
 }
 
+// ---------------------------------------------------------------- one appointment: what it holds, what is left to pay, services added
+const bookingHref = (session) => `/atelier/rdv/r/${encodeURIComponent(session)}`;
+
+async function bookingPage(env, url, session, now) {
+  const { booking: b } = await db(env, 'booking/get', { session });
+  if (!b) return page('Rendez-vous', '/atelier/rdv', '<h1>Rendez-vous introuvable</h1><p><a href="/atelier/rdv">Retour aux rendez-vous</a></p>', url);
+  const items = itemsOf(b);
+  const due = Math.max(0, Math.round((b.total - b.paid) * 100) / 100);
+  const who = name(b);
+  const when = `${cap(dayLabel(b.date, { weekday: 'long', day: 'numeric', month: 'long' }))} à ${hour(b.time)}`;
+  const opt = (list, empty) => `<option value="">${esc(empty)}</option>${list.map((x) => `<option value="${esc(x.id)}">${esc(x.label || 'Autre (à écrire)')}</option>`).join('')}`;
+  const lines = items
+    .map(
+      (i, n) =>
+        `<li><span>${esc(i.label)}${i.detail ? `<small>${esc(i.detail)}</small>` : ''}${i.added ? `<small>ajouté à l’atelier le ${esc(dateOf(i.added))}${i.lengthened && i.minutes ? ` · RDV allongé de ${esc(formatDuration(i.minutes))}` : ''}</small>` : ''}</span><b>${eur(Number(i.price) || 0)}</b>${
+          i.added ? `<form method="post" action="${bookingHref(b.session)}/retirer" class="inline"><input type="hidden" name="ligne" value="${n}"><button class="ghost small" aria-label="Retirer ${esc(i.label)}">${ico('trash')}</button></form>` : ''
+        }</li>`
+    )
+    .join('');
+  const body = `<a class="crumb" href="/atelier/rdv">${ico('back')} Rendez-vous</a>
+<div class="qhead"><span class="avatar" aria-hidden="true">${esc(initials(b))}</span><div><h1>${esc(who)}</h1><span class="dim">${esc([b.vehicle, when].filter(Boolean).join(' · '))}</span></div>${b.live ? '' : '<span class="right tag tag--off">test</span>'}</div>
+<div class="grid"><section class="card"><h2>${ico('cal')} ${esc(when)}</h2>
+<ul class="recap recap--edit">${lines}</ul>
+${b.discount ? `<div class="recap__due"><span>Remises</span><b>−${eur(b.discount)}</b></div>` : ''}
+<div class="recap__tot"><span>Total</span><b>${eur(b.total)}</b></div>
+<div class="recap__due"><span>Déjà réglé${b.mode === 'none' ? '' : ' en ligne'}</span><b>${eur(b.paid)}</b></div>
+<div class="recap__tot recap__left"><span>Reste à régler à l’atelier</span><b>${eur(due)}</b></div>
+<div class="btns" style="margin-top:16px">${b.phone ? `<a class="btn small" href="tel:${esc(tel(b.phone))}">${ico('phone')} ${esc(b.phone)}</a>` : ''}${b.client_id ? `<a class="btn ghost small" href="/atelier/clients/${b.client_id}">Fiche client</a>` : ''}</div></section>
+<form class="card" method="post" action="${bookingHref(b.session)}/ajout" id="ajout" data-presets="${esc(JSON.stringify(Object.fromEntries(atelierExtras.map((x) => [x.id, { label: x.label, price: x.price, minutes: x.minutes }]))))}"><h2>${ico('plus')} Ajouter une prestation</h2>
+<p class="dim" style="margin:-6px 0 14px">Une prestation demandée en plus : elle s’ajoute au total, et le reste à régler à l’atelier suit.</p>
+<label for="a-preset">Prestation</label><select id="a-preset" name="preset" data-preset>${opt(atelierExtras, '— Choisir ou écrire —')}</select>
+<label for="a-label">Libellé</label><input id="a-label" name="label" required placeholder="ex. Lame avant noir brillant">
+<div class="row3"><div><label for="a-prix">Prix (€)</label><input id="a-prix" name="prix" inputmode="decimal" required placeholder="37,50"></div><div><label for="a-remise">Remise (%)</label><input id="a-remise" name="remise" inputmode="decimal" placeholder="20"></div><div><label for="a-min">Durée (min)</label><input id="a-min" name="minutes" type="number" min="0" max="600" step="15" placeholder="facultatif"></div></div>
+<p class="hint" id="a-net" style="margin:-4px 0 12px"></p>
+<div class="checks"><label><input type="checkbox" name="allonger" value="1"> Allonger le RDV dans l’agenda de cette durée</label><label><input type="checkbox" name="mail" value="1"${b.email ? '' : ' disabled'}> Envoyer le récapitulatif mis à jour au client${b.email ? '' : ' (pas d’e-mail)'}</label></div>
+<button>${ico('plus')} Ajouter</button></form></div>`;
+  return page(`RDV ${who}`, '/atelier/rdv', body, url, { now });
+}
+
+async function bookingChangePost(req, env, session, action, now) {
+  const f = await req.formData();
+  const g = (k) => String(f.get(k) ?? '').trim();
+  let change;
+  if (action === 'ajout') {
+    const price = Number(g('prix').replace(/\s/g, '').replace(',', '.'));
+    const pct = Number(g('remise').replace(',', '.')) || 0;
+    if (!g('label')) return back(bookingHref(session), { err: 'Écrivez la prestation ajoutée.' });
+    if (!(price >= 0)) return back(bookingHref(session), { err: 'Prix à vérifier.' });
+    const net = Math.round(price * (1 - Math.max(0, Math.min(100, pct)) / 100) * 100) / 100;
+    change = { add: { label: g('label'), detail: pct > 0 ? `${eur(price)} − ${String(pct).replace('.', ',')} %` : '', price: net, minutes: Number(g('minutes')) || 0 }, lengthen: !!f.get('allonger'), mail: !!f.get('mail') };
+  } else change = { remove: Number(g('ligne')), mail: false };
+  const r = await atelierBookingChange(env, session, change, now);
+  if (!r.ok) return back(bookingHref(session), { err: r.error });
+  const left = Math.max(0, Math.round((r.booking.total - r.booking.paid) * 100) / 100);
+  return back(bookingHref(session), { ok: `${action === 'ajout' ? 'Prestation ajoutée' : 'Prestation retirée'} : reste à régler à l’atelier ${eur(left)}.${r.mailed ? ' Récapitulatif envoyé au client.' : ''}` });
+}
+
 // ---------------------------------------------------------------- Nouveau RDV (taken on the phone)
 const LINK_STATUS = { attente: ['tag--warn', 'En attente du paiement'], paye: ['tag--ok', 'Payé · confirmé'], confirme: ['tag--ok', 'Confirmé · à régler sur place'], expire: ['tag--off', 'Lien expiré'], annule: ['tag--off', 'Annulé'] };
 const linkTag = (s) => `<span class="tag ${LINK_STATUS[s]?.[0] || 'tag--off'}">${esc(LINK_STATUS[s]?.[1] || s)}</span>`;
@@ -991,7 +1053,7 @@ async function linkPage(env, url, id, now) {
 <div class="grid"><section class="card"><h2>${ico('cal')} ${esc(when)}</h2><ul class="recap">${items.map((i) => `<li><span>${esc(i.label)}${i.detail ? `<small>${esc(i.detail)}</small>` : ''}</span><b>${eur(i.price)}</b></li>`).join('')}</ul>
 <div class="recap__tot"><span>Total · ${esc(formatDuration(l.minutes))}</span><b>${eur(l.total)}</b></div>${l.mode !== 'none' ? `<div class="recap__due"><span>${l.mode === 'full' ? 'Totalité en ligne' : 'Acompte en ligne'}</span><b>${eur(l.due)}</b></div>` : ''}
 <div class="btns" style="margin-top:16px">${l.phone ? `<a class="btn small" href="tel:${esc(tel(l.phone))}">${ico('phone')} ${esc(l.phone)}</a>` : ''}<a class="btn ghost small" href="/atelier/clients/${l.client_id}">Fiche client</a></div></section>
-${share ? `<div>${share}</div>` : `<section class="card"><h2>${ico('check')} ${esc(LINK_STATUS[l.status]?.[1] || '')}</h2><p class="dim">${l.status === 'paye' ? 'Le client a payé : le rendez-vous est confirmé dans l’agenda, et il a reçu sa confirmation.' : l.status === 'confirme' ? 'Le rendez-vous est dans l’agenda ; le client a reçu sa confirmation par e-mail.' : l.status === 'expire' ? 'Le client n’a pas payé à temps : le créneau a été libéré. Refaites un rendez-vous pour lui envoyer un nouveau lien.' : 'Le lien a été annulé et le créneau libéré.'}</p>${['expire', 'annule'].includes(l.status) ? `<a class="btn small" href="/atelier/rdv/nouveau?client=${l.client_id}">${ico('plus')} Nouveau RDV pour ${esc(l.first || 'ce client')}</a>` : ''}</section>`}</div>`;
+${share ? `<div>${share}</div>` : `<section class="card"><h2>${ico('check')} ${esc(LINK_STATUS[l.status]?.[1] || '')}</h2><p class="dim">${l.status === 'paye' ? 'Le client a payé : le rendez-vous est confirmé dans l’agenda, et il a reçu sa confirmation.' : l.status === 'confirme' ? 'Le rendez-vous est dans l’agenda ; le client a reçu sa confirmation par e-mail.' : l.status === 'expire' ? 'Le client n’a pas payé à temps : le créneau a été libéré. Refaites un rendez-vous pour lui envoyer un nouveau lien.' : 'Le lien a été annulé et le créneau libéré.'}</p>${['expire', 'annule'].includes(l.status) ? `<a class="btn small" href="/atelier/rdv/nouveau?client=${l.client_id}">${ico('plus')} Nouveau RDV pour ${esc(l.first || 'ce client')}</a>` : ''}${['paye', 'confirme'].includes(l.status) && l.session ? `<a class="btn small" href="${bookingHref(l.session)}">${ico('cal')} Ouvrir le RDV (ajouter une prestation)</a>` : ''}</section>`}</div>`;
   return page(`RDV ${who}`, '/atelier/rdv', body, url, { refresh: true, now });
 }
 
@@ -1004,7 +1066,7 @@ async function appointments(env, url, now) {
   const shown = new Set((next || []).map((x) => x.b?.session).filter(Boolean));
   const gone = next ? (await db(env, 'bookings/list', { from: today, to: addDays(today, 90), limit: 200 })).bookings.filter((b) => !shown.has(b.session)) : [];
   const nextHtml = next === null ? '<p class="empty">Agenda indisponible pour le moment.</p>' : next.length ? `<table><thead><tr><th>Quand</th><th>Client</th><th class="hide-s">Prestations</th><th class="n">Montant</th></tr></thead><tbody>${next.map((x) => apptRow(x)).join('')}</tbody></table>` : '<p class="empty">Aucun RDV en ligne à venir.</p>';
-  const pastRow = (b) => `<tr><td><b>${esc(dayLabel(b.date, { day: 'numeric', month: 'short', year: '2-digit' }))}</b><small>${esc(hour(b.time))}</small></td><td><a href="/atelier/clients/${b.client_id}">${esc(name(b))}</a>${b.live ? '' : ' <span class="tag tag--off">test</span>'}</td><td class="hide-s">${esc(itemsOf(b).map((i) => i.label).join(' + '))}${b.code ? `<small>code <span class="code">${esc(b.code)}</span></small>` : ''}</td><td class="n">${eur(b.total)}<small>payé ${eur(b.paid)}</small></td></tr>`;
+  const pastRow = (b) => `<tr><td><a href="${bookingHref(b.session)}"><b>${esc(dayLabel(b.date, { day: 'numeric', month: 'short', year: '2-digit' }))}</b><small>${esc(hour(b.time))}</small></a></td><td><a href="/atelier/clients/${b.client_id}">${esc(name(b))}</a>${b.live ? '' : ' <span class="tag tag--off">test</span>'}</td><td class="hide-s">${esc(itemsOf(b).map((i) => i.label).join(' + '))}${b.code ? `<small>code <span class="code">${esc(b.code)}</span></small>` : ''}</td><td class="n">${eur(b.total)}<small>payé ${eur(b.paid)}</small></td></tr>`;
   // the links sent lately: waiting first, then the last ones settled (two weeks)
   const shownLinks = links.links.filter((l) => l.status === 'attente' || now - l.created < 14 * DAY);
   const linkRow = (l) => `<tr><td><a href="/atelier/rdv/lien/${l.id}"><b>${esc(name(l))}</b></a><small>${esc([l.vehicle, l.canal === 'atelier' ? 'pris à l’atelier' : l.canal === 'telephone' ? 'pris par téléphone' : ''].filter(Boolean).join(' · '))}</small></td><td class="hide-s">${l.date ? `<b>${esc(dayLabel(l.date))}</b><small>${esc(hour(l.time))}</small>` : ''}</td><td>${linkTag(l.status === 'attente' && l.expires < now ? 'expire' : l.status)}${l.status === 'attente' ? `<small>expire <time data-until="${l.expires}">bientôt</time></small>` : ''}</td><td class="n">${eur(l.total)}${l.mode !== 'none' ? `<small>${l.mode === 'full' ? 'totalité' : 'acompte'} ${eur(l.due)}</small>` : '<small>sur place</small>'}</td></tr>`;
@@ -1043,7 +1105,7 @@ ${field('source', 'Nous a connus', v.source, 'placeholder="Instagram, bouche-à-
 <div><label for="f-notes">Notes</label><textarea id="f-notes" name="notes" placeholder="Teinte posée, remarques, préférences…">${esc(v.notes)}</textarea></div>
 <div class="btns"><button>Enregistrer</button><a class="btn ghost" href="/atelier/clients">Annuler</a></div></form>`;
   if (!c) return page('Nouveau client', '/atelier/clients', `<h1>Ajouter un client</h1>${form}`, url);
-  const bookings = c.bookings.length ? `<table><tbody>${c.bookings.map((b) => `<tr><td><b>${esc(dayLabel(b.date, { day: 'numeric', month: 'short', year: '2-digit' }))}</b><small>${esc(hour(b.time))}</small></td><td>${esc(itemsOf(b).map((i) => i.label).join(' + '))}${b.code ? `<small>code <span class="code">${esc(b.code)}</span> −${eur(b.discount)}</small>` : ''}</td><td class="n">${eur(b.total)}<small>payé ${eur(b.paid)}</small></td></tr>`).join('')}</tbody></table>` : '<p class="empty">Aucun RDV réservé en ligne.</p>';
+  const bookings = c.bookings.length ? `<table><tbody>${c.bookings.map((b) => `<tr><td><a href="${bookingHref(b.session)}"><b>${esc(dayLabel(b.date, { day: 'numeric', month: 'short', year: '2-digit' }))}</b><small>${esc(hour(b.time))}</small></a></td><td>${esc(itemsOf(b).map((i) => i.label).join(' + '))}${b.code ? `<small>code <span class="code">${esc(b.code)}</span> −${eur(b.discount)}</small>` : ''}</td><td class="n">${eur(b.total)}<small>payé ${eur(b.paid)}</small></td></tr>`).join('')}</tbody></table>` : '<p class="empty">Aucun RDV réservé en ligne.</p>';
   const requests = c.requests.length ? `<ul class="list">${c.requests.map((r) => `<li><a href="/atelier/devis/${r.id}"><b>n°${r.id} · ${esc(dateOf(r.at))}</b> · ${esc(r.services || 'devis')}${r.vehicle ? ` · ${esc(r.vehicle)}` : ''}${r.message ? `<br><span class="dim">${esc(snippet(r.message, 160))}</span>` : ''}</a>${statusTag(r.status || 'nouveau')}</li>`).join('')}</ul>` : '<p class="empty">Aucune demande de devis.</p>';
   const codes = c.codes.length
     ? `<ul class="list">${c.codes.map((k) => `<li><span class="code">${esc(k.code)}</span><span>${k.used ? `<span class="tag tag--gold">utilisé le ${esc(dateOf(k.used))}</span>` : k.expires < Date.now() ? '<span class="tag tag--off">expiré</span>' : `<span class="tag tag--ok">valable jusqu’au ${esc(dateOf(k.expires))}</span>`}</span></li>`).join('')}</ul>`

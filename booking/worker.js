@@ -50,7 +50,7 @@ import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howH
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents, listEvents } from './google.js';
 import { createSession, getSession, expireSession, verifyWebhook } from './stripe.js';
-import { sendBookingMails, sendReminderMail, sendFollowUpMail, sendPaymentLink } from './mail.js';
+import { sendBookingMails, sendReminderMail, sendFollowUpMail, sendPaymentLink, sendBookingUpdate } from './mail.js';
 import { record, hitFromPage, heardRows } from './stats.js';
 import { statsPage } from './stats-page.js';
 import { sendMonthly, monthRoute } from './stats-report.js';
@@ -507,6 +507,43 @@ export async function atelierBooking(env, b, now) {
     .then(() => true)
     .catch((err) => (console.error('[mail] payment link', err.message), false));
   return { ok: true, id: link.id, url: session.url, mailed };
+}
+
+/**
+ * An appointment changed at the workshop: a service added (change.add: { label, detail, price,
+ * minutes, lengthened }) or one added before taken off again (change.remove: its index). The total
+ * follows (what was paid stays), the calendar says it (a block « Ajouts à l’atelier » under the
+ * description, the appointment lengthened or shortened when asked), the client gets the new recap
+ * when change.mail. Returns { ok, booking, mailed } or { ok: false, error }.
+ */
+export async function atelierBookingChange(env, session, change, now) {
+  const add = change.add ? { ...change.add, lengthened: !!(change.lengthen && change.add.minutes > 0) } : undefined;
+  const r = await db(env, 'booking/lines', { session, add, remove: change.remove, now });
+  if (!r.ok) return r;
+  const bk = r.booking;
+  const items = (() => {
+    try {
+      return JSON.parse(bk.items || '[]');
+    } catch {
+      return [];
+    }
+  })();
+  const ev = bk.event ? await getEvent(env, env.CALENDAR_WRITE, bk.event).catch(() => null) : null;
+  if (ev && ev.status !== 'cancelled') {
+    const added = items.filter((i) => i.added);
+    const base = String(ev.description || '').replace(/\n*— Ajouts à l’atelier —[^]*$/, '');
+    const block = added.length ? `\n\n— Ajouts à l’atelier —\n${added.map((i) => `• ${i.label}${i.detail ? ` — ${i.detail}` : ''} : ${euros(Number(i.price) || 0)}`).join('\n')}\nNouveau total : ${euros(bk.total)} — déjà réglé : ${euros(bk.paid)} — reste à régler : ${euros(Math.max(0, bk.total - bk.paid))}` : '';
+    const patch = { description: base + block };
+    const shift = (add?.lengthened ? add.minutes : 0) - (r.removed?.lengthened ? Number(r.removed.minutes) || 0 : 0);
+    if (shift && ev.end?.dateTime) patch.end = { dateTime: new Date(Date.parse(ev.end.dateTime) + shift * 60000).toISOString(), timeZone: R.timeZone };
+    await patchEvent(env, env.CALENDAR_WRITE, ev.id, patch).catch((err) => console.error('[atelier] change event', err.message));
+  }
+  let mailed = false;
+  if (change.mail && bk.email)
+    mailed = await sendBookingUpdate(env, { c: { firstName: bk.first, email: bk.email, vehicle: bk.vehicle }, date: bk.date, time: bk.time, items, total: bk.total, paid: bk.paid })
+      .then(() => true)
+      .catch((err) => (console.error('[mail] booking update', err.message), false));
+  return { ok: true, booking: bk, mailed };
 }
 
 /** a link the workshop takes back: the payment page closed, the slot freed */
