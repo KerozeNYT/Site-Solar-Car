@@ -181,6 +181,12 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 .code{font-family:var(--mono);letter-spacing:.06em;color:var(--gold-2);white-space:nowrap}
 .tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap;--c:var(--dim);color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 22%,transparent)}
 .tag--ok{--c:var(--ok)}.tag--gold{--c:var(--gold-2)}.tag--off{--c:var(--dim)}.tag--err{--c:var(--err)}.tag--new{--c:var(--blue)}.tag--reply{--c:var(--violet)}.tag--warn{--c:var(--amber)}
+.tag--premium{--c:#f3d98e;background:linear-gradient(100deg,rgba(233,205,130,.22),rgba(233,205,130,.06) 60%,rgba(255,255,255,.12));letter-spacing:.08em;text-transform:uppercase;font-size:11px}
+.lvl{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 55%,transparent);border-radius:999px;padding:3px 10px;box-shadow:0 0 14px color-mix(in srgb,var(--c) 30%,transparent),inset 0 0 8px color-mix(in srgb,var(--c) 18%,transparent);white-space:nowrap}
+.lvl::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c)}
+.giftdue{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;justify-content:space-between;border:1px solid color-mix(in srgb,var(--c,#e9cd82) 55%,transparent);background:color-mix(in srgb,var(--c,#e9cd82) 10%,transparent);border-radius:16px;padding:12px 14px;margin:0 0 12px}
+.giftdue b{display:block}.giftdue small{color:var(--dim)}
+.track{display:flex;gap:4px;margin:8px 0 2px}.track i{flex:1;height:5px;border-radius:9px;background:rgba(255,255,255,.08)}.track i.on{background:var(--c);box-shadow:0 0 10px var(--c)}
 .list{list-style:none;margin:0;padding:0}.list li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}.list li:last-child{border:0}.list a{text-decoration:none}
 .band{border:1px solid rgba(var(--gold-rgb),.45);border-radius:16px;padding:12px 14px;background:rgba(0,0,0,.3);margin:0 0 12px}
 .search{display:flex;gap:8px}.search input{margin:0}

@@ -212,8 +212,8 @@ export function howHeardParse(text = '') {
   return { channels, other: m?.[1] || '' };
 }
 
-/** a discount code as typed (referral JEAN-7K2QX, promotion NOEL): capitals without accents,
- *  digits and the dash only */
+/** a discount code as typed (referral JEAN-7K2QX, promotion NOEL, Premium card
+ *  PREMIUM-7K2Q-X9M4, gift card CADEAU-7K2Q-X9M4): capitals without accents, digits and the dash only */
 export const referralCode = (s) =>
   String(s || '')
     .normalize('NFD')
@@ -260,12 +260,13 @@ export function manualDiscount(total, type, value) {
 }
 
 /** the discounts of a booking, one line each, for the e-mails and the calendar: the code's
- *  (promotion or referral) and the workshop's own (« Remise »); [[label, euros]] */
+ *  (promotion, referral or a SOLAR CAR Premium card) and the workshop's own (« Remise »);
+ *  [[label, euros]] */
 export function discountLines(discount, { code = '', codeKind = '', remise = 0 } = {}) {
   const hand = Math.min(Number(remise) || 0, Number(discount) || 0);
   const byCode = Math.round(((Number(discount) || 0) - hand) * 100) / 100;
   const out = [];
-  if (code && byCode > 0) out.push([codeKind === 'promo' ? `Code promo ${code}` : `Parrainage (code ${code})`, byCode]);
+  if (code && byCode > 0) out.push([codeKind === 'promo' ? `Code promo ${code}` : codeKind === 'premium' ? 'Carte Premium' : `Parrainage (code ${code})`, byCode]);
   else if (byCode > 0) out.push(['Remise', byCode]);
   if (hand > 0) out.push(['Remise', hand]);
   return out;

@@ -24,6 +24,7 @@ lui-même, aucune page indexée.
 | **Rendez-vous** | **Nouveau RDV** (un client au téléphone, voir plus bas), les liens de paiement envoyés, les RDV réservés : à venir (lus dans l'agenda, à l'heure où ils y sont), retirés de l'agenda (penser au remboursement Stripe), passés |
 | **Clients** | Le fichier clients : recherche (nom, téléphone, e-mail, véhicule, immatriculation), fiche de chaque client (coordonnées, véhicules, notes, RDV, demandes de devis, code de parrainage), ajout à la main, suppression, **export pour Excel** |
 | **Codes et promos** | Le **bandeau** du site, les **codes promo**, le **parrainage** |
+| **Cartes & Premium** | Les **cartes cadeaux** (solde, envoi, débiter, créer), les **membres SOLAR CAR Premium** (niveaux, cadeaux à remettre, ajouter), **écrire aux membres** (docs/CARTES.md) |
 | **Statistiques** | La page de statistiques détaillée (docs/STATISTIQUES.md) |
 | **Fiche Google** | Le robot qui publie une photo chaque mardi (docs/FICHE-GOOGLE-AUTO.md) |
 | **Réglages** (« Plus » sur téléphone) | Les autres espaces, et les délais du suivi des devis (« à relancer », « sans suite ») |

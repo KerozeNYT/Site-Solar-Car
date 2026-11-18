@@ -57,12 +57,14 @@ new_sqlite_classes = ["Parrainage"]
 tag = "v4"
 renamed_classes = [{ from = "Parrainage", to = "Atelier" }]
 
-# the statistics e-mail, on the 1st of each month at 7:00 UTC (8:00 or 9:00 in Paris); the photo of
-# the week on the Google Business Profile, every Tuesday at 8:17 UTC (FICHE_CRON in booking/fiche-google.js);
-# every day at 16:00 UTC (17:00 or 18:00 in Paris), the clients' reminders and news (booking/worker.js,
+# every day at 7:00 UTC (8:00 or 9:00 in Paris): the gift cards of the day to their recipient and the
+# SOLAR CAR Premium reminders (booking/worker.js, morningMails), and on the 1st of each month the
+# statistics e-mail (one trigger for both: the free plan counts them); the photo of the week on the
+# Google Business Profile, every Tuesday at 8:17 UTC (FICHE_CRON in booking/fiche-google.js); every day
+# at 16:00 UTC (17:00 or 18:00 in Paris), the clients' reminders and news (booking/worker.js,
 # dailyMails: nothing is sent while MAIL_CLIENTS is "0")
 [triggers]
-crons = ["0 7 1 * *", "17 8 * * 2", "0 16 * * *"]
+crons = ["0 7 * * *", "17 8 * * 2", "0 16 * * *"]
 
 # the fonts of the statistics page (booking/stats-fonts.js), uploaded as binary modules
 [[rules]]
