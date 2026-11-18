@@ -236,7 +236,7 @@ function seasonLogos(name, widths, sizes, w, h, altPrefix) {
 function header(ctx, current = '') {
   const items = ctx.nav
     .map((n, idx) => {
-      if (!n.services) return `<li style="--i:${idx}"><a href="${n.href}"${current === n.href ? ' aria-current="page"' : ''}>${esc(n.label)}</a></li>`;
+      if (!n.services) return `<li style="--i:${idx}"${n.wide ? ' class="site-nav__wide"' : ''}><a href="${n.href}"${current === n.href ? ' aria-current="page"' : ''}>${esc(n.label)}</a></li>`;
       const inside = ctx.services.some((s) => current === `/${s.slug}/`);
       const links = ctx.services
         .map((s, i) => `<li style="--i:${i}"><a href="/${s.slug}/"${current === `/${s.slug}/` ? ' aria-current="page"' : ''}><strong>${esc(s.name)}</strong><span>${esc(s.short)}</span></a></li>`)
@@ -1956,13 +1956,13 @@ export function bookingTermsPage(ctx) {
       <h2 id="codes-promo">Codes promo</h2>
       <p>Les conditions de chaque code promo (remise, prestations concernées, dates et nombre d’utilisations) sont annoncées avec le code, sur le site ou dans la publicité. Sauf mention contraire, un code est valable pour une réservation en ligne réglée (acompte ou totalité) ou une demande de devis envoyée entre sa date de début (0 h) et sa date de fin (23 h 59, heure de Paris), quelle que soit la date du rendez-vous. Vitres teintées et feux teintés : le code se saisit à l’étape du paiement de la réservation en ligne, la remise est déduite du total et l’acompte de ${pct} % porte sur le montant restant. Autres prestations (detailing, ciel étoilé, covering, déchromage, rénovation de phares…) : le code s’indique dans la <a href="/contact/">demande de devis</a>, et la remise s’applique au prix du devis établi pour cette demande. Un seul code par réservation ou par devis : un code promo ne se cumule ni avec un autre code promo, ni avec un code de parrainage. Il n’est ni remboursable, ni échangeable contre de l’argent.</p>
       <h2 id="cartes-cadeaux">Cartes cadeaux</h2>
-      <p>La carte cadeau ${esc(b.name)} s’achète sur ce site, de ${giftCard.min} à ${giftCard.max} €, ou à l’atelier. Elle est valable <strong>${giftCard.months} mois à compter de l’achat</strong> (la date de fin est indiquée sur la carte et dans l’e-mail), sur toutes les prestations de l’atelier, en une ou plusieurs fois : le montant de chaque prestation est déduit, et le solde reste disponible jusqu’à la date de fin. Elle se saisit à l’étape du paiement de la réservation en ligne (vitres et feux teintés) ou se donne à l’atelier pour les autres prestations ; si la prestation coûte plus que le solde, la différence se règle normalement. La carte cadeau est un moyen de paiement : elle se cumule avec un code promo, un code de parrainage ou la carte ${esc(premium.name)}. Elle n’est ni remboursable, ni échangeable contre de l’argent, et le solde non utilisé à la date de fin est perdu. Vous disposez d’un délai de rétractation de 14 jours après l’achat : une carte qui n’a pas encore servi vous est alors intégralement remboursée. Une carte perdue ou un e-mail égaré : contactez l’atelier, qui vous la renvoie.</p>
+      <p>La carte cadeau ${esc(b.name)} s’achète sur ce site, de ${eurosFr(giftCard.min)} à ${eurosFr(giftCard.max)}, ou à l’atelier. Elle est valable <strong>${giftCard.months} mois à compter de l’achat</strong> (la date de fin est indiquée sur la carte et dans l’e-mail), sur toutes les prestations de l’atelier, en une ou plusieurs fois : le montant de chaque prestation est déduit, et le solde reste disponible jusqu’à la date de fin. Elle se saisit à l’étape du paiement de la réservation en ligne (vitres et feux teintés) ou se donne à l’atelier pour les autres prestations ; si la prestation coûte plus que le solde, la différence se règle normalement. La carte cadeau est un moyen de paiement : elle se cumule avec un code promo, un code de parrainage ou la carte ${esc(premium.name)}. Elle n’est ni remboursable, ni échangeable contre de l’argent, et le solde non utilisé à la date de fin est perdu. Vous disposez d’un délai de rétractation de 14 jours après l’achat : une carte qui n’a pas encore servi vous est alors intégralement remboursée. Une carte perdue ou un e-mail égaré : contactez l’atelier, qui vous la renvoie.</p>
       <h2 id="premium">${esc(premium.name)}</h2>
       <p>L’adhésion à ${esc(premium.name)} coûte <strong>${esc(offerEuros(premium.price))}</strong> et vaut <strong>${premium.months} mois à compter du paiement</strong>. Elle n’est pas renouvelée automatiquement et ne donne lieu à aucun prélèvement : un e-mail vous prévient ${premium.remindDays} jours avant la fin, et vous renouvelez si vous le souhaitez (une adhésion renouvelée avant la fin s’ajoute à la période en cours).</p>
       <ul>
         <li><strong>Carte nominative</strong> : elle vaut pour son titulaire, pour tous ses véhicules, et ne se prête pas. En ligne, le numéro de carte se saisit dans le champ « Code », en réservant avec l’adresse e-mail de la carte ; à l’atelier et sur devis, il suffit de donner son nom.</li>
         <li><strong>−${premium.percent} % sur toutes les prestations</strong> pendant la durée de l’adhésion. Comme tout code, la carte ne se cumule ni avec un code promo ni avec un code de parrainage : un seul par réservation ou par devis. Elle se combine avec une carte cadeau.</li>
-        <li><strong>Niveaux et cadeaux</strong> : chaque prestation réalisée en tant que membre ouvre le niveau suivant (${premium.tiers.map((t) => esc(t.label)).join(', ')}) et son cadeau, remis lors du rendez-vous qui le débloque, tel qu’annoncé sur la page ${esc(premium.name)} au moment de l’adhésion. Les niveaux restent acquis d’une adhésion à la suivante.</li>
+        <li><strong>Niveaux et cadeaux</strong> : chaque prestation réalisée en tant que membre ouvre le niveau suivant (${premium.tiers.slice(1).map((t) => esc(t.label)).join(', ')}) et son cadeau, remis lors du rendez-vous qui le débloque, tel qu’annoncé sur la page ${esc(premium.name)} au moment de l’adhésion. Les niveaux restent acquis d’une adhésion à la suivante.</li>
         <li><strong>Offres des membres</strong> : quelques e-mails par an (avant-premières, codes réservés aux membres). Un lien dans chaque e-mail permet de ne plus les recevoir, à tout moment.</li>
       </ul>
       <p>Vous disposez d’un délai de rétractation de 14 jours après l’adhésion : si vous n’avez encore profité d’aucune remise ni d’aucun cadeau, l’adhésion vous est intégralement remboursée.</p>
@@ -1983,7 +1983,9 @@ const CARD_LAYERS = [-1.3, -0.45, 0.45, 1.3].map((z) => `<i class="card3d__layer
 const FLIP_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 0 1 13.7-5.6L20 8.7M20 4v4.7h-4.7M20 12a8 8 0 0 1-13.7 5.6L4 15.3M4 20v-4.7h4.7"/></svg>';
 const flipButton = (label = 'Retourner la carte') => `<button class="card3d-flip" type="button" data-card-flip aria-pressed="false">${FLIP_ICON}<span>${esc(label)}</span></button>`;
 /** « 100 », « 72,50 » (the amount on the card, without its sign) */
-const cardAmount = (n) => offerEuros(n).replace(/\s?€$/, '');
+const cardAmount = (n) => new Intl.NumberFormat('fr-FR', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(n).replace(/\u202f/g, ' ');
+/** « 1 000 € » (French spacing, for the text of the pages) */
+const eurosFr = (n) => `${cardAmount(n)} €`;
 /** the day a card bought today would end (the purchase page; the script sets it again in the browser) */
 const giftUntil = () => {
   const d = new Date();
@@ -2103,7 +2105,7 @@ export function giftPage(ctx) {
       </div>
       <form class="form offer__form" novalidate>
         ${step(1, 'Le montant', `<div class="amounts">${giftCard.amounts.map((a) => `<label class="amount"><input type="radio" name="amount" value="${a}"${a === first ? ' checked' : ''}><span>${esc(offerEuros(a))}</span></label>`).join('')}<label class="amount"><input type="radio" name="amount" value="libre"><span>Autre</span></label></div>
-          <div class="amount-free" data-free hidden><label for="g-free">Montant libre <span class="optional">(de ${giftCard.min} à ${giftCard.max} €)</span></label><div class="input-eur"><input id="g-free" name="free" inputmode="decimal" autocomplete="off" placeholder="80"><span aria-hidden="true">€</span></div></div>`)}
+          <div class="amount-free" data-free hidden><label for="g-free">Montant libre <span class="optional">(de ${eurosFr(giftCard.min)} à ${eurosFr(giftCard.max)})</span></label><div class="input-eur"><input id="g-free" name="free" inputmode="decimal" autocomplete="off" placeholder="80"><span aria-hidden="true">€</span></div></div>`)}
         ${step(2, 'La finition', `<div class="looks">${giftCard.looks.map((l, i) => `<label class="look"><input type="radio" name="look" value="${esc(l.id)}"${i === 0 ? ' checked' : ''}><span class="look__body"><i class="look__swatch look__swatch--${esc(l.id)}" aria-hidden="true"></i><b>${esc(l.label)}</b><small>${esc(l.text)}</small></span></label>`).join('')}</div>`)}
         ${step(3, 'Le petit mot', `<div class="form__row form__row--2"><div><label for="g-to">Pour</label><input id="g-to" name="to" maxlength="40" autocomplete="off" placeholder="Prénom du destinataire"></div><div><label for="g-sender">De la part de</label><input id="g-sender" name="sender" maxlength="60" autocomplete="off" placeholder="Vos prénoms, la famille…"></div></div>
           <div class="form__row"><label for="g-msg">Message <span class="optional">(facultatif)</span></label><textarea id="g-msg" name="message" rows="3" maxlength="${giftCard.messageMax}" placeholder="Joyeux Noël ! Pour que ta voiture brille autant que toi."></textarea><p class="form__hint"><span data-count>0</span> / ${giftCard.messageMax} caractères · écrit au dos de la carte</p></div>`)}
@@ -2153,7 +2155,7 @@ export function giftPage(ctx) {
     ctx,
     {
       title: `Carte cadeau vitres teintées, detailing… à Vouvray (Tours) | ${b.name}`,
-      description: `Offrez une carte cadeau ${b.name} : de ${giftCard.min} à ${giftCard.max} €, valable ${giftCard.months} mois sur toutes les prestations (vitres teintées, feux, detailing, ciel étoilé, covering), imprimable ou envoyée par e-mail le jour J.`,
+      description: `Offrez une carte cadeau ${b.name} : de ${eurosFr(giftCard.min)} à ${eurosFr(giftCard.max)}, valable ${giftCard.months} mois sur toutes les prestations (vitres teintées, feux, detailing, ciel étoilé, covering), imprimable ou envoyée par e-mail le jour J.`,
       path: '/carte-cadeau/',
       image: '/img/cartes/og-cadeau.jpg',
       bodyClass: 'page-offer',
@@ -2228,7 +2230,7 @@ const PREMIUM_FAQ = (ctx) => [
   { q: 'La carte est-elle valable pour mes proches ?', a: `Non : elle est nominative, à votre nom, pour toutes vos voitures. Pour vos proches, vous avez mieux : votre code de parrainage personnel leur offre ${ctx.booking.bookingRules.referral.amount} € sur leur première prestation.` },
   { q: 'Comment profiter des −10 % ?', a: 'En ligne : saisissez votre numéro de carte (PREMIUM-…) dans le champ « Code » à l’étape du paiement, en réservant avec l’e-mail de votre carte. À l’atelier ou sur devis : donnez simplement votre nom, nous vous reconnaissons.' },
   { q: 'Les −10 % se cumulent-ils avec un code promo ?', a: 'Un seul code par réservation : vous choisissez le plus avantageux, carte Premium ou code promo. Une carte cadeau, elle, se combine avec tout : c’est un moyen de paiement.' },
-  { q: 'Comment fonctionnent les niveaux ?', a: `Chaque prestation faite en tant que membre vous fait passer au niveau suivant : ${premium.tiers.map((t) => t.label).join(', ')}. Le cadeau du niveau vous est remis lors du rendez-vous qui le débloque, et vos niveaux restent acquis quand vous renouvelez.` },
+  { q: 'Comment fonctionnent les niveaux ?', a: `Chaque prestation faite en tant que membre vous fait passer au niveau suivant, de ${premium.tiers[0].label} à ${premium.tiers.slice(1).map((t) => t.label).join(', ')}. Le cadeau du niveau vous est remis lors du rendez-vous qui le débloque, et vos niveaux restent acquis quand vous renouvelez.` },
   { q: 'Que se passe-t-il au bout d’un an ?', a: `Rien d’automatique : aucun prélèvement. Nous vous prévenons par e-mail ${premium.remindDays} jours avant la fin, et vous renouvelez si vous le souhaitez, avec la même adresse e-mail.` },
   { q: 'Quelles offres vais-je recevoir ?', a: 'Quelques e-mails par an, pas plus : avant-premières, codes réservés aux membres, nouveautés de l’atelier. Un lien dans chaque e-mail permet de ne plus les recevoir.' },
 ];
@@ -2316,7 +2318,7 @@ export function premiumPage(ctx) {
 
   <section class="section offer-cross">
     <div class="container offer-cross__inner">
-      <div><p class="kicker">Pour offrir</p><h2>La carte <em>cadeau</em></h2><p>Un proche passionné de belles voitures ? Offrez-lui la prestation de son choix, de ${giftCard.min} à ${giftCard.max} €, envoyée le jour J.</p><a class="btn btn--ghost" href="/carte-cadeau/">Offrir une carte cadeau</a></div>
+      <div><p class="kicker">Pour offrir</p><h2>La carte <em>cadeau</em></h2><p>Un proche passionné de belles voitures ? Offrez-lui la prestation de son choix, de ${eurosFr(giftCard.min)} à ${eurosFr(giftCard.max)}, envoyée le jour J.</p><a class="btn btn--ghost" href="/carte-cadeau/">Offrir une carte cadeau</a></div>
       ${giftCardHtml(ctx, { flip: false, cls: 'card3d-stage--mini', to: 'Julie', amount: 150 })}
     </div>
   </section>`;
@@ -2455,7 +2457,7 @@ function offersTeaser(ctx) {
     <div class="container">
       <div class="section-head"><p class="kicker">Cartes</p><h2 id="offers-title">Pour offrir, ou pour <em>revenir</em></h2></div>
       <ul class="offers-teaser__grid">
-        <li><a class="offers-teaser__card" href="/carte-cadeau/">${giftCardHtml(ctx, { flip: false, cls: 'card3d-stage--mini', to: 'Julie', amount: 150 })}<span class="offers-teaser__text"><b>La carte cadeau</b><span>De ${giftCard.min} à ${giftCard.max} €, sur toutes nos prestations, imprimable ou envoyée le jour J.</span><span class="service-card__more">Offrir <span aria-hidden="true">→</span></span></span></a></li>
+        <li><a class="offers-teaser__card" href="/carte-cadeau/">${giftCardHtml(ctx, { flip: false, cls: 'card3d-stage--mini', to: 'Julie', amount: 150 })}<span class="offers-teaser__text"><b>La carte cadeau</b><span>De ${eurosFr(giftCard.min)} à ${eurosFr(giftCard.max)}, sur toutes nos prestations, imprimable ou envoyée le jour J.</span><span class="service-card__more">Offrir <span aria-hidden="true">→</span></span></span></a></li>
         <li><a class="offers-teaser__card" href="/premium/">${premiumCardHtml(ctx, { flip: false, cls: 'card3d-stage--mini' })}<span class="offers-teaser__text"><b>${esc(premium.name)}</b><span>−${premium.percent} % toute l’année, les offres des membres et un cadeau à chaque prestation.</span><span class="service-card__more">Découvrir le club <span aria-hidden="true">→</span></span></span></a></li>
       </ul>
     </div>

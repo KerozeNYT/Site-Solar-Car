@@ -7973,4 +7973,38 @@ html[data-saison='noel'] .site-footer {
   .offer__stage .card3d-hint {
     display: none;
   }
+  /* a field brought into view (focus, error) stops below the pinned card, its label visible */
+  .offer__form :is(input, textarea, select, .pick) {
+    scroll-margin-top: calc(var(--header-h) + 8px + 24px + min(64vw, 300px) / 1.586 + 56px);
+  }
+}
+.offer-view__actions {
+  margin-top: 18px;
+}
+@media (max-width: 420px) {
+  .gift-field .referral__row input {
+    letter-spacing: 0.02em;
+  }
+  .gift-field .referral__row .btn {
+    padding-inline: 1em;
+  }
+}
+.card3d__face {
+  text-align: left;
+}
+/* « Noël »: the word stays clear of the ribbon */
+.card3d--look-noel .card3d__kicker {
+  right: 21cqw;
+}
+/* a link of the menu kept for wider screens (content/site.js, nav `wide`): the bar stays on one line */
+@media (min-width: 981px) and (max-width: 1099px) {
+  .site-nav__wide {
+    display: none;
+  }
+}
+/* the card stuck above the form on a phone: a focused field scrolls below it */
+@media (max-width: 900px) {
+  html:has([data-gift]) {
+    scroll-padding-top: calc(var(--header-h) + 200px);
+  }
 }

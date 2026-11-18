@@ -542,10 +542,10 @@ function giftCardHtml(env, g) {
   const face = `${site(env)}/img/cartes/cadeau-${esc(g.look || 'or')}.jpg`;
   const who = [g.to_name ? `Pour ${esc(g.to_name)}` : '', g.sender ? `de la part de ${esc(g.sender)}` : ''].filter(Boolean).join(' · ');
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" background="${face}" bgcolor="#101114" style="background-color:#101114;background-image:url('${face}');background-size:cover;background-position:center;border:1px solid #4a4130;border-radius:18px">
-<tr><td style="padding:22px 24px 0;color:${GOLD};font-size:11px;font-weight:700;letter-spacing:.26em">CARTE CADEAU</td><td align="right" style="padding:22px 24px 0;color:${MUTED};font-size:11px;letter-spacing:.18em">SOLAR CAR 37</td></tr>
-<tr><td colspan="2" style="padding:30px 24px 0;color:#ffffff;font-size:48px;font-weight:800;line-height:1">${euros(g.amount)}</td></tr>
-<tr><td colspan="2" style="padding:10px 24px 0;color:#e6e1d6;font-size:15px;line-height:1.4">${who || '&nbsp;'}</td></tr>
-<tr><td colspan="2" style="padding:24px 24px 22px"><span style="display:inline-block;background:rgba(5,6,8,.72);border:1px solid #6b5a33;border-radius:10px;padding:10px 14px;font-family:'Courier New',Courier,monospace;font-size:19px;font-weight:700;letter-spacing:.14em;color:${GOLD}">${esc(g.code)}</span></td></tr>
+<tr><td style="padding:22px 24px 0;color:${GOLD};font-size:11px;font-weight:700;letter-spacing:.26em">CARTE CADEAU <span style="color:${MUTED};font-weight:400">· SOLAR CAR 37</span></td></tr>
+<tr><td style="padding:30px 24px 0;color:#ffffff;font-size:48px;font-weight:800;line-height:1">${euros(g.amount)}</td></tr>
+<tr><td style="padding:10px 22% 0 24px;color:#e6e1d6;font-size:15px;line-height:1.4">${who || '&nbsp;'}</td></tr>
+<tr><td style="padding:24px 24px 22px"><span style="display:inline-block;background:rgba(5,6,8,.72);border:1px solid #6b5a33;border-radius:10px;padding:10px 14px;font-family:'Courier New',Courier,monospace;font-size:19px;font-weight:700;letter-spacing:.14em;color:${GOLD}">${esc(g.code)}</span></td></tr>
 </table>`;
 }
 

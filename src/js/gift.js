@@ -1,4 +1,4 @@
-import { giftCard, giftAmount, offerEuros } from '../../content/offers.js';
+import { giftCard, giftAmount } from '../../content/offers.js';
 import { mountCard, longDate, euros, siteBase, keep, copyText } from './card3d.js';
 
 /**
@@ -22,7 +22,7 @@ const until = () => {
   d.setMonth(d.getMonth() + giftCard.months);
   return longDate(d.getTime());
 };
-const cardAmount = (n) => offerEuros(n).replace(/\s?€$/, '');
+const cardAmount = (n) => new Intl.NumberFormat('fr-FR', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(n).replace(/\u202f/g, ' ');
 /** the amount on the card ([data-len] sizes it) */
 function setAmount(card, n) {
   const txt = cardAmount(n);
@@ -67,7 +67,7 @@ export function startGift(root) {
     $('[data-free]').hidden = !free;
     const a = amount();
     setAmount(card, a ?? (free ? 0 : 100));
-    $('[data-gift-total]').textContent = a ? offerEuros(a) : '—';
+    $('[data-gift-total]').textContent = a ? `${cardAmount(a)} €` : '—';
     card.look(radio('look') || 'or');
     card.set('to', val('to'));
     if (!senderTouched) field('sender').value = val('firstName');
@@ -106,7 +106,7 @@ export function startGift(root) {
     e.preventDefault();
     fail('');
     const a = amount();
-    if (!a) return fail(`Choisissez un montant entre ${giftCard.min} et ${giftCard.max} €.`, radio('amount') === 'libre' ? field('free') : null);
+    if (!a) return fail(`Choisissez un montant entre ${cardAmount(giftCard.min)} et ${cardAmount(giftCard.max)} €.`, radio('amount') === 'libre' ? field('free') : null);
     const toThem = radio('delivery') === 'destinataire';
     const email = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
     if (toThem && !email.test(val('toEmail'))) return fail('Indiquez l’e-mail du destinataire.', field('toEmail'));

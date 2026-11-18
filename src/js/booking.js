@@ -434,7 +434,8 @@ export function startBooking(root) {
       if (j.ok && j.kind === 'cadeau') {
         if (!(j.balance > 0)) throw Object.assign(new Error(), { msg: 'Cette carte cadeau est entièrement utilisée.' });
         gift = { code: j.code || code, balance: Number(j.balance) || 0, expires: j.expires };
-        giftStatus.textContent = `Carte cadeau : ${formatEuros(gift.balance)} disponibles${gift.expires ? `, jusqu’au ${until(gift.expires)}` : ''}. Le solde restera sur la carte.`;
+        const end = gift.expires ? new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: R.timeZone }).format(new Date(gift.expires)) : '';
+        giftStatus.textContent = `Carte cadeau : ${formatEuros(gift.balance)} disponibles${end ? `, valable jusqu’au ${end}` : ''}. Le solde restera sur la carte.`;
         giftStatus.classList.add('is-ok');
       } else if (j.ok) {
         // a promotion, a referral or a Premium code typed here: back to its own field

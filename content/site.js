@@ -105,6 +105,9 @@ export const nav = [
   { label: 'Nos prestations', services: true },
   { label: 'L’atelier', href: '/atelier-vouvray/' },
   { label: 'Guides', href: '/guides/' },
+  // the gift card (content/offers.js): SOLAR CAR Premium is reached from it, the footer and the home
+  // page. `wide`: left out of the bar on the narrowest desktop screens (it stays in the footer)
+  { label: 'Carte cadeau', href: '/carte-cadeau/', wide: true },
   { label: 'Contact', href: '/contact/' },
 ];
 
