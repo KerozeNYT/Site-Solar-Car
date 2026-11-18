@@ -62,6 +62,51 @@ export const shell = (title, body) => `<!doctype html><html lang="fr"><body styl
 <tr><td style="padding:16px 24px;background:#faf8f4;color:#6b6b6b;font-size:12px">${esc(B.name)} · ${esc(address)} · ${esc(B.phone)}</td></tr>
 </table></td></tr></table></body></html>`;
 
+// ---------------------------------------------------------------- the clients' appointment e-mails (18 November 2026)
+// One centred card, 600 px wide at most (a computer's large screen keeps it the size of a letter,
+// a phone gives it its whole width): a black band with the logo, a badge of the state, the date in
+// large type; then the services with their prices, a gold box with what is paid and what is left,
+// the button, the practical details. Tables and inline styles only (what every mail app reads).
+const TONES = { wait: ['#3a2e12', '#f1dca2'], ok: ['#163625', '#8fdcaa'], info: ['#1c2a40', '#a8c8ff'] };
+const LOGO = () => `${String(R.api || '').replace(/\/$/, '')}/atelier/logo.png`;
+const capFr = (t) => String(t).charAt(0).toUpperCase() + String(t).slice(1);
+/** the frame: { badge: [text, tone], kicker, big, sub } over the dark band, then the body */
+export const card = ({ badge, kicker = '', big = '', sub = '' }, body) => `<!doctype html><html lang="fr"><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;padding:0;background:#ece8e1;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ece8e1"><tr><td align="center" style="padding:28px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
+<tr><td style="background:#0b0c0f;border-radius:22px 22px 0 0;padding:26px 30px 0"><img src="${LOGO()}" width="150" height="58" alt="SOLAR CAR 37" style="display:block;border:0;width:150px;height:auto;color:#e9cd82;font-size:18px;font-weight:800;letter-spacing:.08em"></td></tr>
+<tr><td style="background:#0b0c0f;padding:22px 30px 30px;border-bottom:3px solid #c9a24f">${badge ? `<span style="display:inline-block;padding:6px 13px;border-radius:999px;background:${TONES[badge[1]][0]};color:${TONES[badge[1]][1]};font-size:12px;font-weight:700;letter-spacing:.04em">${esc(badge[0])}</span>` : ''}
+${kicker ? `<p style="margin:18px 0 0;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#c9a24f">${esc(kicker)}</p>` : ''}${big ? `<p style="margin:6px 0 0;font-size:28px;line-height:1.2;font-weight:700;color:#f6f2ea">${big}</p>` : ''}${sub ? `<p style="margin:6px 0 0;font-size:19px;line-height:1.35;color:#e9cd82">${sub}</p>` : ''}</td></tr>
+<tr><td style="background:#ffffff;padding:28px 30px 30px;color:#111;font-size:15px;line-height:1.55">${body}</td></tr>
+<tr><td style="background:#f7f4ee;border-radius:0 0 22px 22px;padding:20px 30px;color:#77736b;font-size:12px;line-height:1.6"><b style="color:#3b3833">${esc(B.name)}</b> · ${esc(address)}<br><a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#77736b;text-decoration:none">${keep(B.phone)}</a> · <a href="${esc(B.siteUrl)}" style="color:#9a7a2c;text-decoration:none">${esc(String(B.siteUrl).replace(/^https?:\/\//, ''))}</a></td></tr>
+</table></td></tr></table></body></html>`;
+/** the day and the time of the appointment, for the band */
+const bandWhen = (date, time, end) => ({ big: esc(capFr(dayLabel(date))), sub: `${keep(hour(time))}${end ? ` – ${keep(endOf(end))}` : ''}` });
+/** a section title in the body */
+const h2 = (t) => `<p style="margin:26px 0 8px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#9a7a2c">${esc(t)}</p>`;
+/** the services, each with its price on the right */
+const services = (items) => `${h2('Vos prestations')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items
+  .map((i) => `<tr><td style="padding:12px 12px 12px 0;border-bottom:1px solid #ece8e1;vertical-align:top"><b style="font-size:15px;color:#111">${esc(i.label)}</b>${i.added ? ` <span style="display:inline-block;margin-left:4px;padding:2px 8px;border-radius:999px;background:#fbf6ea;border:1px solid #ecdcb5;color:#9a7a2c;font-size:11px;font-weight:700;vertical-align:2px">Ajouté</span>` : ''}${i.detail ? `<br><span style="font-size:13px;color:#77736b">${esc(i.detail)}</span>` : ''}</td><td align="right" style="padding:12px 0;border-bottom:1px solid #ece8e1;vertical-align:top;white-space:nowrap;font-weight:700;color:#111">${euros(Number(i.price) || 0)}</td></tr>`)
+  .join('')}</table>`;
+/** the gold box: [label, value, strong] rows; the strong one bigger */
+const moneyBox = (lines, foot = '') => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 0;background:#fbf6ea;border:1px solid #ecdcb5;border-radius:16px"><tr><td style="padding:14px 18px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${lines
+  .filter(([, v]) => v)
+  .map(([k, v, strong]) => `<tr><td style="padding:6px 12px 6px 0;color:${strong ? '#111' : '#6b675f'};font-size:${strong ? 16 : 14}px;${strong ? 'font-weight:700;' : ''}white-space:nowrap;vertical-align:middle">${esc(k)}</td><td align="right" style="padding:6px 0;color:#111;font-size:14px;font-weight:600;vertical-align:middle">${v}</td></tr>`)
+  .join('')}</table>${foot ? `<p style="margin:8px 0 0;font-size:11px;color:#8a857c">${esc(foot)}</p>` : ''}</td></tr></table>`;
+/** the call to act, large enough for a thumb */
+const action = (href, label) => `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 6px"><tr><td style="border-radius:999px;background:#0b0c0f"><a href="${esc(href)}" style="display:inline-block;padding:16px 28px;border-radius:999px;font-size:16px;font-weight:700;color:#e9cd82;text-decoration:none">${esc(label)}</a></td></tr></table>`;
+/** where, and the car */
+const practical = (c, withPlace = true) => `${h2('Infos pratiques')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px">${[
+  withPlace && ['Adresse', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c;font-weight:700;text-decoration:none">Itinéraire →</a>`],
+  c?.vehicle && ['Véhicule', esc(`${c.vehicle}${c.plate ? ` (${c.plate})` : ''}`)],
+]
+  .filter(Boolean)
+  .map(([k, v]) => `<tr><td style="padding:6px 14px 6px 0;color:#77736b;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:6px 0;color:#111;font-weight:600">${v}</td></tr>`)
+  .join('')}</table>`;
+const tel = () => keep(B.phone);
+const small = (t) => `<p style="margin:14px 0 0;font-size:13px;line-height:1.55;color:#77736b">${t}</p>`;
+const intro = (t) => `<p style="margin:0 0 4px;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap">${t}</p>`;
+
 export async function send(env, mail) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -77,13 +122,18 @@ export async function send(env, mail) {
  * Returns the list of e-mails sent ('workshop', 'client').
  */
 const endOf = (end) => new Intl.DateTimeFormat('fr-FR', { hour: 'numeric', minute: '2-digit', timeZone: R.timeZone }).format(new Date(end)).replace(':', ' h ');
+/** « Quand » of the e-mails: the day on a line, the time on the next one, never cut (« 8 h 00 ») */
+const keep = (t) => esc(t).replace(/ /g, '\u00a0');
+const whenHtml = (date, time, end) => `${esc(dayLabel(date))}<br>${keep(hour(time))}${end ? ` – ${keep(endOf(end))}` : ''}`;
+/** what is paid in gold; what is left to pay in gold, bold and a little bigger (18 November 2026) */
+const gold = (v) => `<span style="color:#a87b1f">${v}</span>`;
+const goldStrong = (v) => `<span style="color:#a87b1f;font-weight:800;font-size:16px">${v}</span>`;
 const itemsOf = (q) => q.items.map((i) => `${esc(i.label)}<br><span style="font-weight:400;color:#6b6b6b">${[i.detail ? esc(i.detail) : '', euros(i.price)].filter(Boolean).join(' · ')}</span>`).join('<br>');
 const button = (href, label) => `<a href="${esc(href)}" style="display:inline-block;background:#0b0c0f;color:#e9cd82;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px">${esc(label)}</a>`;
 
 export async function sendBookingMails(env, b) {
   if (!env.RESEND_API_KEY) return [];
   const { q, c, date, time, start, end, paid } = b;
-  const when = `${dayLabel(date)}, ${hour(time)} – ${endOf(end)}`;
   const due = Math.max(0, q.total - paid);
   const items = itemsOf(q);
   const sent = [];
@@ -98,7 +148,7 @@ export async function sendBookingMails(env, b) {
           // « réservé en ligne » (the site), « pris par téléphone · acompte payé en ligne » (the space)
           CANALS[b.canal] ? `Nouveau rendez-vous pris ${CANALS[b.canal]}${b.mode === 'none' ? '' : ` · ${b.mode === 'full' ? 'payé' : 'acompte payé'} en ligne`}` : 'Nouveau rendez-vous réservé en ligne',
           `<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
-            ['Quand', esc(when)],
+            ['Quand', whenHtml(date, time, end)],
             ['Client', esc(`${c.firstName} ${c.lastName}`)],
             ['Téléphone', `<a href="tel:${esc(c.phone.replace(/[^\d+]/g, ''))}" style="color:#111">${esc(c.phone)}</a>`],
             ['E-mail', `<a href="mailto:${esc(c.email)}" style="color:#111">${esc(c.email)}</a>`],
@@ -106,7 +156,7 @@ export async function sendBookingMails(env, b) {
             ['Prestations', items],
             ...discountRows(q, b, true),
             ['Total', euros(q.total)],
-            ['Payé en ligne', b.mode === 'none' ? '' : `${euros(paid)} (${b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`],
+            ['Payé en ligne', b.mode === 'none' ? '' : gold(`${euros(paid)} (${b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`)],
             ['Reste à régler', due ? euros(due) : 'rien'],
             ['Nous a connus', c.source ? esc(c.source) : ''],
             ['Message', c.message ? esc(c.message) : ''],
@@ -126,21 +176,15 @@ export async function sendBookingMails(env, b) {
         to: [c.email],
         reply_to: B.email,
         subject: `Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)} est confirmé`,
-        html: shell(
-          'Votre rendez-vous est confirmé',
-          `${b.note ? `<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#111;white-space:pre-wrap">${esc(b.note)}</p>` : `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>merci pour votre réservation : votre créneau vous est réservé à l’atelier.</p>`}
-<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
-            ['Quand', esc(when)],
-            ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
-            ['Prestations', items],
-            ...discountRows(q, b, false),
-            ['Total', `${euros(q.total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
-            ['Payé en ligne', b.mode === 'none' ? '' : euros(paid)],
-            ['À régler à l’atelier', due ? euros(due) : 'rien'],
-          ])}</table>
-<p style="margin:18px 0 0;font-size:14px;color:#111">La teinte se choisit avec vous à l’atelier, le jour du rendez-vous. Prévoyez de déposer le véhicule à l’heure indiquée.</p>
-<p style="margin:12px 0 0;font-size:13px;color:#6b6b6b">${b.mode === 'none' ? `Un empêchement ? Prévenez-nous au plus vite au ${esc(B.phone)}.` : `Un empêchement ? Prévenez-nous au moins ${R.cancelHours} h avant au ${esc(B.phone)} : l’acompte vous est remboursé ou reporté. En dessous de ${R.cancelHours} h, il reste acquis à l’atelier (<a href="${esc(env.SITE_URL || B.siteUrl)}/conditions-reservation/" style="color:#9a7a2c">conditions de réservation</a>).`}</p>
-<p style="margin:12px 0 0;font-size:13px;color:#6b6b6b">Le rendez-vous est joint à cet e-mail : ouvrez le fichier pour l’ajouter à votre agenda.</p>`
+        html: card(
+          { badge: ['Rendez-vous confirmé', 'ok'], kicker: 'Votre rendez-vous', ...bandWhen(date, time, end) },
+          `${intro(b.note ? esc(b.note) : `Bonjour ${esc(c.firstName)},\nmerci pour votre réservation : votre créneau vous est réservé à l’atelier.`)}
+${services(q.items)}
+${moneyBox([...discountRows(q, b, false), ['Total', euros(q.total)], ['Payé en ligne', b.mode === 'none' ? '' : gold(euros(paid))], ['À régler à l’atelier', goldStrong(due ? euros(due) : 'rien'), true]], vatNote)}
+${practical(c)}
+${small('La teinte se choisit avec vous à l’atelier, le jour du rendez-vous. Prévoyez de déposer le véhicule à l’heure indiquée.')}
+${small(b.mode === 'none' ? `Un empêchement ? Prévenez-nous au plus vite au ${tel()}.` : `Un empêchement ? Prévenez-nous au moins ${R.cancelHours} h avant au ${tel()} : l’acompte vous est remboursé ou reporté. En dessous de ${R.cancelHours} h, il reste acquis à l’atelier (<a href="${esc(env.SITE_URL || B.siteUrl)}/conditions-reservation/" style="color:#9a7a2c">conditions de réservation</a>).`)}
+${small('Le rendez-vous est joint à cet e-mail : ouvrez le fichier pour l’ajouter à votre agenda.')}`
         ),
         attachments: [
           {
@@ -171,21 +215,15 @@ export async function sendPaymentLink(env, b) {
     to: [c.email],
     reply_to: B.email,
     subject: `Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)} : confirmez-le en ligne`,
-    html: shell(
-      'Votre rendez-vous vous attend',
-      `${note ? `<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#111;white-space:pre-wrap">${esc(note)}</p>` : `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>comme convenu${b.canal === 'atelier' ? ' lors de votre passage' : b.canal === 'telephone' ? ' au téléphone' : ''}, voici votre rendez-vous à l’atelier. Il est confirmé dès que ${what} est réglé en ligne.</p>`}<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
-        ['Quand', esc(`${dayLabel(date)}, ${hour(time)} – ${endOf(end)}`)],
-        ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
-        ['Véhicule', esc(`${c.vehicle || ''}${c.plate ? ` (${c.plate})` : ''}`)],
-        ['Prestations', itemsOf(q)],
-        ...discountRows(q, b, false),
-        ['Total', `${euros(q.total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
-        [mode === 'full' ? 'À régler en ligne' : 'Acompte en ligne', euros(due)],
-        ['À régler à l’atelier', q.total - due > 0 ? euros(q.total - due) : 'rien'],
-      ])}</table>
-<p style="margin:22px 0 8px">${button(url, `Régler ${euros(due)} et confirmer`)}</p>
-<p style="margin:0;font-size:13px;color:#6b6b6b">Paiement sécurisé par Stripe. Le créneau vous est gardé jusqu’au ${esc(until)} ; passé ce délai, il est libéré : rappelez-nous au ${esc(B.phone)}.</p>
-<p style="margin:12px 0 0;font-size:13px;color:#6b6b6b">L’acompte est remboursé ou reporté si vous prévenez au moins ${R.cancelHours} h avant le rendez-vous (<a href="${esc(env.SITE_URL || B.siteUrl)}/conditions-reservation/" style="color:#9a7a2c">conditions de réservation</a>).</p>`
+    html: card(
+      { badge: [mode === 'full' ? 'En attente de votre règlement' : 'En attente de votre acompte', 'wait'], kicker: 'Votre rendez-vous', ...bandWhen(date, time, end) },
+      `${intro(note ? esc(note) : `Bonjour ${esc(c.firstName)},\ncomme convenu${b.canal === 'atelier' ? ' lors de votre passage' : b.canal === 'telephone' ? ' au téléphone' : ''}, voici votre rendez-vous à l’atelier. Il est confirmé dès que ${what} est réglé en ligne.`)}
+${action(url, `Régler ${euros(due)} et confirmer`)}
+${small(`Paiement sécurisé par Stripe. Le créneau vous est gardé jusqu’au ${esc(until)} ; passé ce délai, il est libéré : rappelez-nous au ${tel()}.`)}
+${services(q.items)}
+${moneyBox([...discountRows(q, b, false), ['Total', euros(q.total)], [mode === 'full' ? 'À régler en ligne' : 'Acompte en ligne', euros(due)], ['À régler à l’atelier', goldStrong(q.total - due > 0 ? euros(q.total - due) : 'rien'), true]], vatNote)}
+${practical(c)}
+${small(`L’acompte est remboursé ou reporté si vous prévenez au moins ${R.cancelHours} h avant le rendez-vous (<a href="${esc(env.SITE_URL || B.siteUrl)}/conditions-reservation/" style="color:#9a7a2c">conditions de réservation</a>).`)}`
     ),
   });
 }
@@ -199,25 +237,18 @@ export async function sendPaymentLink(env, b) {
 export async function sendBookingUpdate(env, b) {
   const { c, date, time, items, total, paid, preview, note, pay } = b;
   const due = Math.max(0, Math.round((total - paid) * 100) / 100);
-  const list = items.map((i) => `${esc(i.label)}<br><span style="font-weight:400;color:#6b6b6b">${[i.detail ? esc(i.detail) : '', euros(Number(i.price) || 0)].filter(Boolean).join(' · ')}</span>`).join('<br>');
   await send(env, {
     to: preview?.length ? preview : [c.email],
     reply_to: B.email,
     subject: `${preview?.length ? '[Aperçu] ' : ''}Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} : récapitulatif mis à jour`,
-    html: shell(
-      'Votre rendez-vous, mis à jour',
-      `${preview?.length ? `<p style="margin:0 0 16px;padding:10px 12px;border-radius:8px;background:#fff4d6;color:#7a5a00;font-size:13px">Aperçu pour l’atelier : rien n’a été enregistré ni envoyé à ${esc(c.email || 'au client')}. Voici l’e-mail qu’il recevra.</p>` : ''}${note ? `<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#111;white-space:pre-wrap">${esc(note)}</p>` : `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName || '')},<br>comme convenu, voici le récapitulatif de votre rendez-vous avec les prestations ajoutées.</p>`}
-<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
-        ['Quand', esc(`${dayLabel(date)}, ${hour(time)}`)],
-        ['Véhicule', esc(c.vehicle || '')],
-        ['Prestations', list],
-        ['Total', `${euros(total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
-        ['Déjà réglé', paid ? euros(paid) : ''],
-        pay ? ['Acompte demandé', euros(pay.amount)] : ['', ''],
-        ['À régler à l’atelier', pay ? `${euros(Math.max(0, due - pay.amount))} après l’acompte` : due ? euros(due) : 'rien, tout est réglé'],
-      ])}</table>
-${pay ? `<p style="margin:22px 0 8px">${button(pay.url, `Régler l’acompte de ${euros(pay.amount)}`)}</p><p style="margin:0;font-size:13px;color:#6b6b6b">Paiement sécurisé par Stripe, possible jusqu’au ${esc(new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: R.timeZone }).format(new Date(pay.expires)).replace(':', ' h '))}.</p>` : ''}
-<p style="margin:18px 0 0;font-size:13px;color:#6b6b6b">Une question ? Répondez à cet e-mail ou appelez-nous au ${esc(B.phone)}.</p>`
+    html: card(
+      { badge: ['Rendez-vous mis à jour', 'info'], kicker: 'Votre rendez-vous', ...bandWhen(date, time) },
+      `${preview?.length ? `<p style="margin:0 0 18px;padding:12px 14px;border-radius:12px;background:#fff4d6;color:#7a5a00;font-size:13px">Aperçu pour l’atelier : rien n’a été enregistré ni envoyé à ${esc(c.email || 'au client')}. Voici l’e-mail qu’il recevra.</p>` : ''}${intro(note ? esc(note) : `Bonjour ${esc(c.firstName || '')},\ncomme convenu, voici le récapitulatif de votre rendez-vous avec les prestations ajoutées.`)}
+${pay ? `${action(pay.url, `Régler l’acompte de ${euros(pay.amount)}`)}${small(`Paiement sécurisé par Stripe, possible jusqu’au ${esc(new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: R.timeZone }).format(new Date(pay.expires)).replace(':', ' h '))}.`)}` : ''}
+${services(items)}
+${moneyBox([['Total', euros(total)], ['Déjà réglé', paid ? gold(euros(paid)) : ''], ['Acompte demandé', pay ? euros(pay.amount) : ''], ['À régler à l’atelier', pay ? `${goldStrong(euros(Math.max(0, due - pay.amount)))} après l’acompte` : goldStrong(due ? euros(due) : 'rien, tout est réglé'), true]], vatNote)}
+${practical(c)}
+${small(`Une question ? Répondez à cet e-mail ou appelez-nous au ${tel()}.`)}`
     ),
   });
 }
@@ -234,17 +265,14 @@ export async function sendReminderMail(env, b) {
     to: [c.email],
     reply_to: B.email,
     subject: `Rappel : votre rendez-vous demain à ${hour(time)} chez ${B.name}`,
-    html: shell(
-      'À demain à l’atelier',
-      `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>petit rappel : nous vous attendons demain à l’atelier${c.vehicle ? ` avec votre ${esc(c.vehicle)}` : ''}.</p>
-<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
-        ['Quand', esc(`${dayLabel(date)}, ${hour(time)} – ${endOf(end)}`)],
-        ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
-        ['Prestations', itemsOf(q)],
-        ['À régler à l’atelier', due ? euros(due) : 'rien, tout est réglé'],
-      ])}</table>
-<p style="margin:18px 0 0;font-size:14px;color:#111">Prévoyez de déposer le véhicule à l’heure indiquée. La teinte se choisit avec vous sur place.</p>
-<p style="margin:12px 0 0;font-size:13px;color:#6b6b6b">Un empêchement ou un retard ? Prévenez-nous au plus vite au <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${esc(B.phone)}</a> ou en répondant à cet e-mail.</p>`
+    html: card(
+      { badge: ['C’est demain', 'wait'], kicker: 'À demain à l’atelier', ...bandWhen(date, time, end) },
+      `${intro(`Bonjour ${esc(c.firstName)},\npetit rappel : nous vous attendons demain à l’atelier${c.vehicle ? ` avec votre ${esc(c.vehicle)}` : ''}.`)}
+${services(q.items)}
+${moneyBox([['À régler à l’atelier', goldStrong(due ? euros(due) : 'rien, tout est réglé'), true]])}
+${practical(c, true)}
+${small('Prévoyez de déposer le véhicule à l’heure indiquée. La teinte se choisit avec vous sur place.')}
+${small(`Un empêchement ou un retard ? Prévenez-nous au plus vite au <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${tel()}</a> ou en répondant à cet e-mail.`)}`
     ),
   });
 }

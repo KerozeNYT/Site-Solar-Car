@@ -184,7 +184,7 @@ test('an appointment changed at the workshop: services added, then the client to
   assert.deepEqual(mails.map((x) => x.to), [[CAR]]);
   assert.match(mails[0].subject, /^\[Aperçu\] Votre rendez-vous du/);
   assert.match(mails[0].html, /Bonjour Kevin, comme vu ensemble/);
-  assert.match(mails[0].html, /Acompte demandé<\/td><td[^>]*>18 €[^]*286,30 € après l’acompte/);
+  assert.match(mails[0].html, /Acompte demandé<\/td><td[^>]*>18 €[^]*286,30 €<\/span> après l’acompte/);
   assert.equal(sessions.size, before);
   // then to the client, with the deposit to pay online
   mails.length = 0;
@@ -201,7 +201,7 @@ test('an appointment changed at the workshop: services added, then the client to
   mails.length = 0;
   await go(`${href}/maj`, { method: 'POST', form: { envoi: 'client' } });
   assert.doesNotMatch(mails[0].html, /Acompte demandé/);
-  assert.match(mails[0].html, /À régler à l’atelier<\/td><td[^>]*>304,30 €/);
+  assert.match(mails[0].html, /À régler à l’atelier<\/td><td[^>]*><span[^>]*>304,30 €/);
   // the deposit paid: added once to what is paid, the calendar follows; nothing booked twice
   Object.assign(sup, { status: 'complete', payment_status: 'paid' });
   await hook({ type: 'checkout.session.completed', data: { object: sup } });

@@ -210,7 +210,7 @@ test('daily e-mails: reminder the day before, news a week after, each once, at t
   const r = mails.at(-1);
   assert.deepEqual(r.to, ['jean@example.com']);
   assert.match(r.subject, /^Rappel : votre rendez-vous demain à 11 h 00 chez SOLAR CAR 37$/);
-  assert.match(r.html, /11 h 00 – 13 h 00/);
+  assert.match(r.html, /11\sh\s00 – 13\sh\s00/);
   assert.match(r.html, /À régler à l’atelier.*189 €/s);
   await run(eve + 60000); // run again: no second reminder
   assert.equal(mails.length, before + 1);
