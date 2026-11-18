@@ -26,8 +26,8 @@
   src: url('../../node_modules/@fontsource/instrument-serif/files/instrument-serif-latin-400-italic.woff2') format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-/* Archivo : seulement pour la plaque dessinée dans la 3D (src/js/plate-art.js) ; aucun texte de
-   la page ne l'utilise, elle n'est donc téléchargée que par la 3D. */
+/* Archivo : la plaque dessinée dans la 3D (src/js/plate-art.js) et « SOLAR CAR » du titre de
+   l'accueil (.titre-nom, préchargée sur cette page seulement). */
 @font-face {
   font-family: 'Archivo';
   font-style: normal;
@@ -760,29 +760,46 @@ p {
   gap: 0.35em;
   margin: 0.1em 0 0.55em;
 }
+/* the brand, « Contraste » (chosen on 18 November 2026, design/titre/variantes.css B): « SOLAR /
+   CAR » in very wide, heavy capitals (Archivo stretched to 125 %), ivory, on two lines, and a huge
+   « 37 » in Instrument Serif italic, gold, as high as both lines and on the baseline of « CAR » —
+   a mechanical sans against a hand-drawn figure, like the cover of a car magazine. Still. The
+   « 37 » follows the site's gold (pink in the neon look, gold at Christmas). Markup:
+   src/templates/pages.js, chapterArticles (.titre-nom, .titre-37). */
 .chapter__brand {
-  font-size: clamp(2.7rem, 1.5rem + 5vw, 5.6rem);
-  line-height: 0.95;
-  letter-spacing: -0.012em;
-  /* a slow pale-gold light passes over the white lettering */
-  background: linear-gradient(100deg, #fff 0%, #fff 40%, var(--gold-200) 50%, #fff 60%, #fff 100%);
-  background-size: 260% 100%;
-  background-position: 100% 0;
+  display: flex;
+  align-items: flex-end; /* fallback */
+  align-items: last baseline;
+  gap: 0.04em;
+  font-size: clamp(2.6rem, 1.2rem + 5vw, 5.4rem);
+  line-height: 0.86;
+  letter-spacing: 0;
+  color: var(--ivory);
+  text-shadow: 0 2px 24px rgba(5, 6, 8, 0.6);
+}
+.chapter__brand .titre-nom {
+  max-width: min-content; /* one word a line: SOLAR / CAR */
+  font-family: 'Archivo', var(--font);
+  font-stretch: 125%;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+.chapter__brand .titre-37 {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 2.32em;
+  line-height: 0.74;
+  letter-spacing: -0.04em;
+  padding-right: 0.08em; /* the italic runs over on the right */
+  color: var(--gold-300);
+  background: linear-gradient(180deg, var(--gold-200) 8%, var(--gold-300) 45%, var(--gold-400) 100%);
   -webkit-background-clip: text;
   background-clip: text;
-  color: transparent;
+  -webkit-text-fill-color: transparent;
   text-shadow: none;
-  filter: drop-shadow(0 2px 18px rgba(5, 6, 8, 0.55));
-  animation: brand-sheen 8s ease-in-out 1.2s infinite;
-}
-@keyframes brand-sheen {
-  0%,
-  55% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: 0% 0;
-  }
+  filter: drop-shadow(0 6px 18px rgba(5, 6, 8, 0.55));
 }
 .chapter__line {
   font-size: clamp(0.8rem, 0.66rem + 0.5vw, 1.05rem);
@@ -880,7 +897,7 @@ p {
     display: none;
   }
   .tour-live .film .chapter__brand {
-    font-size: clamp(2.7rem, 10.5vh, 5.6rem);
+    font-size: clamp(2.4rem, 8.6vh, 4.6rem);
   }
   .tour-live .film .film__tabs ul {
     justify-content: flex-end;
@@ -4293,12 +4310,12 @@ p {
   width: 28px;
   height: 2px;
 }
-/* home brand title: big, tight, white with a pale-gold light passing */
-.chapter__brand {
-  font-weight: 700;
-  letter-spacing: -0.055em;
-  line-height: 0.88;
-  font-size: clamp(3rem, 1.4rem + 6.4vw, 7rem);
+/* home brand title (« Contraste », above): on a phone, two lines a little smaller, so that the
+   text of the hero keeps its room */
+@media (max-width: 760px) {
+  .chapter__brand {
+    font-size: 2.4rem;
+  }
 }
 .chapter__line {
   font-family: var(--font-mono);

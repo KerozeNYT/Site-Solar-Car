@@ -1,5 +1,12 @@
 # Journal des changements
 
+## Accueil : nouveau titre « Contraste » (18 novembre 2026)
+
+- « SOLAR / CAR » en capitales très larges et grasses (Archivo, ivoire) et un « 37 » géant en
+  italique Instrument Serif doré (rose pendant le thème Néon), choisi parmi six pistes
+  (`design/titre/`, variante B). Le titre reste le vrai h1 « SOLAR CAR 37 ». La police Archivo est
+  préchargée sur l'accueil seulement (`titleFont`, `scripts/build.mjs`).
+
 ## Espace atelier : notifications sur l'iPhone et l'ordinateur (17 novembre 2026)
 
 - Réglages → Notifications → « Activer sur cet appareil » : nouvelle demande de devis, message

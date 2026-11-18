@@ -604,7 +604,10 @@ function chapterArticles(ctx, order, { image, jump, attrs = () => '', hint = nul
             ? `<p class="readout readout--ba" aria-live="off"><span class="readout__label">Optiques</span> <span class="readout__value" data-readout="beforeAfter">Avant</span></p>`
             : '';
       const contact = c.contact ? contactLines(b, { compact: true }) : '';
-      const heading = c.brand ? `<span class="chapter__brand">${esc(c.brand)}</span> <span class="chapter__line">${esc(plain(c.title))}</span>` : rich(c.title);
+      // the brand: « SOLAR CAR » and the « 37 » apart, for their two type faces (the text stays « SOLAR CAR 37 »)
+      const brandParts = c.brand && /^(.*\S)\s+(\d+)$/.exec(c.brand);
+      const brand = brandParts ? `<span class="titre-nom">${esc(brandParts[1])}</span> <span class="titre-37">${esc(brandParts[2])}</span>` : esc(c.brand);
+      const heading = c.brand ? `<span class="chapter__brand">${brand}</span> <span class="chapter__line">${esc(plain(c.title))}</span>` : rich(c.title);
       const quick = c.quick
         ? `<nav class="hero-quick" aria-label="Accès direct aux prestations"><span class="hero-quick__label">${esc(c.quick)}</span><ul>${services.map((s) => `<li><a href="/${s.slug}/">${esc(s.shortName || s.name)}</a></li>`).join('')}</ul></nav>`
         : '';
@@ -792,7 +795,8 @@ export function homePage(ctx) {
       bodyClass: 'page-home',
       // the share card: the last picture of the film (scripts/film-assets.mjs)
       image: '/img/film/og.jpg',
-      preload: poster,
+      // the type face of « SOLAR CAR » in the title (Archivo), wanted on the first screen
+      preload: poster + (ctx.assets.titleFont ? `\n<link rel="preload" href="${ctx.assets.titleFont}" as="font" type="font/woff2" crossorigin>` : ''),
       extra: [ld(localBusiness(ctx)), ld(faqLd(home.faq)), ld({ '@context': 'https://schema.org', '@type': 'WebSite', name: b.name, url: abs(b, '/'), inLanguage: 'fr-FR', publisher: { '@id': abs(b, '/#entreprise') } })].join('\n'),
     },
     body

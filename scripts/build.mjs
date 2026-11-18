@@ -44,13 +44,16 @@ export function assetsFrom(meta, outdir = out) {
   // fonts used by the first screen, preloaded (text, italic serif of the titles, mono of the labels)
   const FIRST = ['geist-latin-wght-normal', 'instrument-serif-latin-400-italic', 'geist-mono-latin-wght-normal'];
   const fonts = [];
+  // the wide sans of the home page's title (Archivo), preloaded on that page only
+  let titleFont;
   for (const [file, info] of Object.entries(meta.outputs)) {
+    if (file.includes('/archivo-latin-wdth-normal-') && file.endsWith('.woff2')) titleFont = rel(file);
     if (info.entryPoint === 'src/js/main.js') js = rel(file);
     if (file.endsWith('.css') && info.entryPoint === 'src/styles/main.css') css = rel(file);
     const i = FIRST.findIndex((f) => file.includes(`/${f}-`) && file.endsWith('.woff2'));
     if (i >= 0) fonts[i] = rel(file);
   }
-  return { js, css, fonts: fonts.filter(Boolean), font: fonts[0] };
+  return { js, css, fonts: fonts.filter(Boolean), font: fonts[0], titleFont };
 }
 
 export function copyDir(src, dst) {
