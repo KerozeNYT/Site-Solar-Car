@@ -89,7 +89,7 @@ test('signed in; the form, its price and the free slots of the day', async () =>
   assert.match(price.html, /349\s€/);
   assert.match(price.html, /104,70\s€/);
   // the word for the client, drafted from the form
-  assert.match(price.draft, /^Bonjour Kevin,\n\nMerci pour votre confiance ! Comme convenu, je vous réserve le jeudi \d+ \S+ à 8 h 00 pour votre Audi A3 Sportback \(2021\) : vitres teintées \(complet\) et rénovation de phares, soit 349\s€ au total\./);
+  assert.match(price.draft, /^Bonjour Kevin,\n\nMerci pour votre appel ! Comme convenu, je vous réserve le jeudi \d+ \S+ à 8 h 00 pour votre Audi A3 Sportback \(2021\) : vitres teintées \(complet\) et rénovation de phares, soit 349\s€ au total\./);
   assert.match(price.draft, /régler l’acompte de 104,70\s€ avec le bouton ci-dessous ; le reste, 244,30\s€, se règle à l’atelier/);
   assert.match(price.draft, /La teinte se choisit ensemble à l’atelier[^]*À très vite,\nNicolas$/);
   // a month of free slots at once, as on the site
@@ -145,6 +145,9 @@ test('a payment link: the slot held, the client e-mailed; paid: confirmed in the
   assert.equal(sql('SELECT status FROM links')[0].status, 'paye');
   assert.equal(hold.extendedProperties.private.solarcarHold, '0');
   assert.match(hold.summary, /^RDV Vitres teintées Complet \+ Rénovation de phares — Kevin Durand/);
+  // taken on the phone (the default), said in the calendar and in the workshop's e-mail
+  assert.match(hold.description, /Pris par téléphone le /);
+  assert.match(mails.find((x) => /^Nouveau RDV/.test(x.subject)).html, /Nouveau rendez-vous pris par téléphone · acompte payé en ligne/);
   const [b] = sql('SELECT * FROM bookings');
   assert.deepEqual([b.total, b.paid], [349, 104.7]);
   assert.deepEqual(mails.map((x) => x.subject.split(' — ')[0]).sort(), ['Nouveau RDV', `Votre rendez-vous du ${new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`))} à 8 h 00 est confirmé`].sort());
@@ -199,13 +202,20 @@ test('a slot taken in the calendar is refused unless kept on purpose; a link can
 
 test('paid on the spot: written in the calendar at once; a code that covers everything needs no payment either', async () => {
   mails.length = 0;
-  const res = await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ mode: 'none', heure: '15:00', email: '', prenom: 'Marc', tel: '06 22 22 22 22', x_preset: '', vt_formule: '', feux: 'rear' }) });
+  const res = await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ mode: 'none', canal: 'atelier', heure: '15:00', email: '', prenom: 'Marc', tel: '06 22 22 22 22', x_preset: '', vt_formule: '', feux: 'rear' }) });
   assert.match(where(res).searchParams.get('ok'), /^Rendez-vous inscrit dans l’agenda\.$/);
   const link = sql("SELECT * FROM links WHERE status = 'confirme'")[0];
   assert.deepEqual([link.total, link.due], [120, 0]);
   const ev = cal[CAR].find((e) => e.id === link.event);
   assert.equal(ev.extendedProperties.private.solarcarHold, '0');
   assert.match(ev.description, /Pris à l’atelier, à régler sur place/);
+  // taken at the counter: said so, and the workshop gets its « Nouveau RDV »
+  assert.match(ev.description, /Pris à l’atelier le /);
+  assert.equal(link.canal, 'atelier');
+  assert.match(mails.find((x) => /^Nouveau RDV/.test(x.subject)).html, /Nouveau rendez-vous pris à l’atelier</);
+  assert.match(await (await go('/atelier/rdv')).text(), /Marc Durand<\/b><\/a><small>Audi A3 Sportback \(2021\) · pris à l’atelier/);
+  // the word for the client follows
+  assert.match((await (await go('/atelier/rdv/prix', { method: 'POST', form: form({ canal: 'atelier' }) })).json()).draft, /Merci pour votre visite à l’atelier !/);
   assert.equal(sql('SELECT paid, mode FROM bookings WHERE session = ?', link.session)[0].mode, 'none');
   // no e-mail address: nothing sent to the client, the workshop only told by the space
   assert.equal(mails.filter((m) => m.to[0] !== CAR).length, 0);

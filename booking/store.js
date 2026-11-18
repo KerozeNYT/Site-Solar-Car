@@ -232,6 +232,8 @@ export class Atelier {
     // status: attente (the link sent, the slot held), paye, expire, annule, confirme (no payment online)
     x(`CREATE TABLE IF NOT EXISTS links (id INTEGER PRIMARY KEY AUTOINCREMENT, session TEXT NOT NULL DEFAULT '', client_id INTEGER NOT NULL DEFAULT 0, event TEXT NOT NULL DEFAULT '', date TEXT NOT NULL DEFAULT '', time TEXT NOT NULL DEFAULT '', minutes INTEGER NOT NULL DEFAULT 0, items TEXT NOT NULL DEFAULT '[]', total REAL NOT NULL DEFAULT 0, due REAL NOT NULL DEFAULT 0, mode TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '', expires INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'attente', vehicle TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL)`);
     x('CREATE INDEX IF NOT EXISTS links_session ON links (session)');
+    // how it was taken (added later): 'telephone' or 'atelier'
+    if (!this.all("SELECT name FROM pragma_table_info('links')").some((c) => c.name === 'canal')) x("ALTER TABLE links ADD COLUMN canal TEXT NOT NULL DEFAULT ''");
     x(`CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, p256dh TEXT NOT NULL, auth TEXT NOT NULL, label TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL)`);
   }
 
@@ -992,10 +994,11 @@ export class Atelier {
       }
       // ------------------------------------------------ appointments taken by the workshop (links)
       case 'link/add': {
-        const clientId = this.upsertClient(b.customer || {}, now, 'RDV pris à l’atelier');
+        const canal = b.canal === 'atelier' ? 'atelier' : 'telephone';
+        const clientId = this.upsertClient(b.customer || {}, now, canal === 'atelier' ? 'RDV pris à l’atelier' : 'RDV pris par téléphone');
         this.run(
-          'INSERT INTO links (session, client_id, event, date, time, minutes, items, total, due, mode, url, expires, status, vehicle, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          clip(b.session, 120), clientId, clip(b.event, 200), clip(b.date, 10), clip(b.time, 5), Number(b.minutes) || 0, JSON.stringify(b.items || []).slice(0, 2000), Number(b.total) || 0, Number(b.due) || 0, clip(b.mode, 10), clip(b.url, 1000), Number(b.expires) || 0, clip(b.status, 12) || 'attente', clip(b.customer?.vehicle, 80), now
+          'INSERT INTO links (session, client_id, event, date, time, minutes, items, total, due, mode, url, expires, status, vehicle, created, canal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          clip(b.session, 120), clientId, clip(b.event, 200), clip(b.date, 10), clip(b.time, 5), Number(b.minutes) || 0, JSON.stringify(b.items || []).slice(0, 2000), Number(b.total) || 0, Number(b.due) || 0, clip(b.mode, 10), clip(b.url, 1000), Number(b.expires) || 0, clip(b.status, 12) || 'attente', clip(b.customer?.vehicle, 80), now, canal
         );
         return { ok: true, id: this.one('SELECT last_insert_rowid() AS id').id, clientId };
       }

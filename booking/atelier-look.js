@@ -307,7 +307,7 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 .seg label{margin:0;cursor:pointer}
 .seg input{position:absolute;opacity:0;pointer-events:none}
 .seg span{display:block;padding:12px 14px;border-radius:16px;border:1px solid var(--line-2);background:rgba(0,0,0,.28);transition:border-color .2s,background .2s}
-.seg b{display:block;color:var(--text);font-size:14px}.seg small{color:var(--dim);font-size:12px}
+.seg b{display:block;color:var(--text);font-size:14px}.seg b .ico{width:16px;height:16px;vertical-align:-3px;margin-right:3px}.seg small{color:var(--dim);font-size:12px}
 .seg input:checked+span{border-color:rgba(var(--gold-rgb),.6);background:rgba(var(--gold-rgb),.1);box-shadow:inset 0 0 0 1px rgba(var(--gold-rgb),.3)}
 .seg input:checked+span b{color:var(--gold-2)}
 .seg input:focus-visible+span{outline:2px solid rgba(var(--gold-rgb),.6);outline-offset:2px}
@@ -343,7 +343,7 @@ html.js .slotbox:has([name=creneau][value=libre]:checked) .pick{display:none}
 .pick h4{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:12px 0 8px;font-weight:700}
 .picked{display:flex;align-items:center;gap:8px;margin:14px 0 0;padding:11px 14px;border-radius:14px;background:rgba(127,212,155,.1);border:1px solid rgba(127,212,155,.3);color:var(--ok);font-weight:650;font-size:14px}
 @media (max-width:1000px){.rdvgrid{grid-template-columns:minmax(0,1fr)}.rdvgrid>aside{position:static}}
-@media (max-width:640px){.xrow{grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:8px}.xrow select,.xrow [name=x_label]{grid-column:1/3}.seg{grid-template-columns:minmax(0,1fr)}.days{grid-auto-columns:76px;margin:0 -17px;padding:2px 17px 8px}}
+@media (max-width:640px){.xrow{grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:8px}.xrow select,.xrow [name=x_label]{grid-column:1/3}.seg{grid-template-columns:minmax(0,1fr)}.seg--2{grid-template-columns:repeat(2,minmax(0,1fr))}.seg--2 span{padding:10px 12px}.days{grid-auto-columns:76px;margin:0 -17px;padding:2px 17px 8px}}
 
 /* ---------------------------------------------------------------- toasts */
 .toasts{position:fixed;right:22px;bottom:22px;z-index:60;display:grid;gap:10px;width:min(380px,calc(100vw - 32px))}

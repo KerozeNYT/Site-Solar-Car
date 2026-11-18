@@ -1,5 +1,12 @@
 # Journal des changements
 
+## Nouveau rendez-vous : « Par téléphone » ou « À l'atelier » (18 novembre 2026)
+
+- Choix en haut du formulaire, repris dans l'e-mail « Nouveau RDV » (« pris par téléphone · acompte
+  payé en ligne »), l'agenda (« Pris à l'atelier le … »), la liste des RDV et le message au client ;
+  les RDV du site restent « réservés en ligne ». Un RDV pris sur place sans e-mail du client envoie
+  quand même « Nouveau RDV » à l'atelier.
+
 ## Nouveau rendez-vous : remise exceptionnelle en % ou en € ; journaux du serveur (18 novembre 2026)
 
 - « Nouveau rendez-vous » (au téléphone ou à l'atelier, plus seulement « par téléphone ») : champ

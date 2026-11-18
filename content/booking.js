@@ -271,6 +271,12 @@ export function discountLines(discount, { code = '', codeKind = '', remise = 0 }
   return out;
 }
 
+/** how an appointment was taken: on the site, or by the workshop on the phone or at the counter
+ *  (« Nouveau rendez-vous » of its space) — said in the e-mails and the calendar */
+export const CANALS = { telephone: 'par téléphone', atelier: 'à l’atelier' };
+/** « Réservé en ligne », « Pris par téléphone », « Pris à l’atelier » */
+export const takenText = (canal) => (CANALS[canal] ? `Pris ${CANALS[canal]}` : 'Réservé en ligne');
+
 /** the amount to pay now (EUR): the deposit or the total */
 export const amountDue = (q, mode) => (mode === 'full' ? q.total : q.deposit);
 

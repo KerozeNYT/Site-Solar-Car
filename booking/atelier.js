@@ -845,6 +845,7 @@ function bookingOf(f) {
     time: g('heure'),
     force: !!f.get('force'),
     mode: g('mode') || 'deposit',
+    canal: g('canal') === 'atelier' ? 'atelier' : 'telephone',
     code: g('code'),
     // the workshop's own discount, for an exceptional case: in % or in €
     remise: { type: g('remise_type') === 'amount' ? 'amount' : 'percent', value: g('remise') },
@@ -891,7 +892,7 @@ function draftNote(b, p) {
         ? `Pour confirmer ce rendez-vous, il vous suffit de régler les ${eur(p.due)} avec le bouton ci-dessous.`
         : `Pour confirmer ce rendez-vous, il vous suffit de régler l’acompte de ${eur(p.due)} avec le bouton ci-dessous ; le reste, ${eur(left)}, se règle à l’atelier le jour du rendez-vous.`;
   const shade = p.items.some((i) => /teint|pare-brise/i.test(i.label)) ? '\n\nLa teinte se choisit ensemble à l’atelier, le jour du rendez-vous.' : '';
-  return `Bonjour ${b.customer.firstName || ''},\n\nMerci pour votre confiance ! Comme convenu, ${when ? `je vous réserve ${when}` : 'voici votre rendez-vous'} pour ${car} : ${list}, soit ${eur(p.total)} au total${p.discount ? ` (remise de ${eur(p.discount)} comprise)` : ''}.\n\n${pay}${shade}\n\nÀ très vite,\n${(B.owner || '').split(' ')[0]}`;
+  return `Bonjour ${b.customer.firstName || ''},\n\n${b.canal === 'atelier' ? 'Merci pour votre visite à l’atelier !' : 'Merci pour votre appel !'} Comme convenu, ${when ? `je vous réserve ${when}` : 'voici votre rendez-vous'} pour ${car} : ${list}, soit ${eur(p.total)} au total${p.discount ? ` (remise de ${eur(p.discount)} comprise)` : ''}.\n\n${pay}${shade}\n\nÀ très vite,\n${(B.owner || '').split(' ')[0]}`;
 }
 
 function recapHtml(p, mode) {
@@ -926,6 +927,7 @@ async function bookingForm(env, url, now, values = null, error = '') {
 ${error ? `<p class="msg msg--err" role="alert">${esc(error)}</p>` : ''}
 <form method="post" action="/atelier/rdv/nouveau" id="rdv" class="rdvgrid" novalidate data-presets="${esc(JSON.stringify(Object.fromEntries(atelierExtras.map((x) => [x.id, { label: x.label, price: x.price, minutes: x.minutes }]))))}" data-prices="${esc(JSON.stringify(Object.fromEntries(bookableVehicles.map((x) => [x.id, Object.fromEntries(tintFormulas.map((t) => [t.id, t.price(x.cat)]))]))))}" data-minutes="${price?.minutes || 0}">
 <div>
+<div class="seg seg--2" role="radiogroup" aria-label="Rendez-vous pris">${[['telephone', 'Par téléphone', 'le client a appelé', 'phone'], ['atelier', 'À l’atelier', 'le client est passé', 'home']].map(([id, label, hint, icon]) => `<label><input type="radio" name="canal" value="${id}"${(f.get('canal') || 'telephone') === id ? ' checked' : ''}><span><b>${ico(icon)} ${label}</b><small>${hint}</small></span></label>`).join('')}</div>
 <section class="card"><h2>${ico('user')} Client</h2>
 <div class="row">${field('prenom', 'Prénom', 'autocomplete="off" required')}${field('nom', 'Nom', 'autocomplete="off"')}</div>
 <div class="row">${field('tel', 'Téléphone', 'type="tel" inputmode="tel" autocomplete="off"')}${field('email', 'E-mail (pour le lien de paiement)', 'type="email" inputmode="email" autocomplete="off"')}</div>
@@ -983,7 +985,7 @@ async function linkPage(env, url, id, now) {
 <form class="card" method="post" action="/atelier/rdv/lien/${l.id}/annuler"><details><summary class="danger-link">${ico('trash')} Annuler ce lien</summary><p class="hint">Le lien ne marche plus et le créneau est libéré dans l’agenda.</p><div class="checks"><label><input type="checkbox" name="confirme" value="1" required> Je confirme</label></div><button class="danger small">Annuler le lien</button></details></form>`
       : '';
   const body = `<a class="crumb" href="/atelier/rdv">${ico('back')} Rendez-vous</a>
-<div class="qhead"><span class="avatar" aria-hidden="true">${esc(initials(l))}</span><div><h1>${esc(who)}</h1><span class="dim">${esc(l.vehicle || '')}</span></div><span class="right">${linkTag(l.status)}</span></div>
+<div class="qhead"><span class="avatar" aria-hidden="true">${esc(initials(l))}</span><div><h1>${esc(who)}</h1><span class="dim">${esc([l.vehicle, l.canal === 'atelier' ? 'pris à l’atelier' : l.canal === 'telephone' ? 'pris par téléphone' : ''].filter(Boolean).join(' · '))}</span></div><span class="right">${linkTag(l.status)}</span></div>
 <div class="grid"><section class="card"><h2>${ico('cal')} ${esc(when)}</h2><ul class="recap">${items.map((i) => `<li><span>${esc(i.label)}${i.detail ? `<small>${esc(i.detail)}</small>` : ''}</span><b>${eur(i.price)}</b></li>`).join('')}</ul>
 <div class="recap__tot"><span>Total · ${esc(formatDuration(l.minutes))}</span><b>${eur(l.total)}</b></div>${l.mode !== 'none' ? `<div class="recap__due"><span>${l.mode === 'full' ? 'Totalité en ligne' : 'Acompte en ligne'}</span><b>${eur(l.due)}</b></div>` : ''}
 <div class="btns" style="margin-top:16px">${l.phone ? `<a class="btn small" href="tel:${esc(tel(l.phone))}">${ico('phone')} ${esc(l.phone)}</a>` : ''}<a class="btn ghost small" href="/atelier/clients/${l.client_id}">Fiche client</a></div></section>
@@ -1003,7 +1005,7 @@ async function appointments(env, url, now) {
   const pastRow = (b) => `<tr><td><b>${esc(dayLabel(b.date, { day: 'numeric', month: 'short', year: '2-digit' }))}</b><small>${esc(hour(b.time))}</small></td><td><a href="/atelier/clients/${b.client_id}">${esc(name(b))}</a>${b.live ? '' : ' <span class="tag tag--off">test</span>'}</td><td class="hide-s">${esc(itemsOf(b).map((i) => i.label).join(' + '))}${b.code ? `<small>code <span class="code">${esc(b.code)}</span></small>` : ''}</td><td class="n">${eur(b.total)}<small>payé ${eur(b.paid)}</small></td></tr>`;
   // the links sent lately: waiting first, then the last ones settled (two weeks)
   const shownLinks = links.links.filter((l) => l.status === 'attente' || now - l.created < 14 * DAY);
-  const linkRow = (l) => `<tr><td><a href="/atelier/rdv/lien/${l.id}"><b>${esc(name(l))}</b></a><small>${esc(l.vehicle || '')}</small></td><td class="hide-s">${l.date ? `<b>${esc(dayLabel(l.date))}</b><small>${esc(hour(l.time))}</small>` : ''}</td><td>${linkTag(l.status === 'attente' && l.expires < now ? 'expire' : l.status)}${l.status === 'attente' ? `<small>expire <time data-until="${l.expires}">bientôt</time></small>` : ''}</td><td class="n">${eur(l.total)}${l.mode !== 'none' ? `<small>${l.mode === 'full' ? 'totalité' : 'acompte'} ${eur(l.due)}</small>` : '<small>sur place</small>'}</td></tr>`;
+  const linkRow = (l) => `<tr><td><a href="/atelier/rdv/lien/${l.id}"><b>${esc(name(l))}</b></a><small>${esc([l.vehicle, l.canal === 'atelier' ? 'pris à l’atelier' : l.canal === 'telephone' ? 'pris par téléphone' : ''].filter(Boolean).join(' · '))}</small></td><td class="hide-s">${l.date ? `<b>${esc(dayLabel(l.date))}</b><small>${esc(hour(l.time))}</small>` : ''}</td><td>${linkTag(l.status === 'attente' && l.expires < now ? 'expire' : l.status)}${l.status === 'attente' ? `<small>expire <time data-until="${l.expires}">bientôt</time></small>` : ''}</td><td class="n">${eur(l.total)}${l.mode !== 'none' ? `<small>${l.mode === 'full' ? 'totalité' : 'acompte'} ${eur(l.due)}</small>` : '<small>sur place</small>'}</td></tr>`;
   const linksHtml = shownLinks.length ? `<section class="card"><h2>${ico('send')} Pris à l’atelier</h2><table><tbody>${shownLinks.map(linkRow).join('')}</tbody></table></section>` : '';
   const body = `<div class="qhead"><h1>Rendez-<em>vous</em></h1><a class="btn right" href="/atelier/rdv/nouveau">${ico('plus')} Nouveau RDV</a></div><p class="lead">Un client au téléphone ou à l’atelier : « Nouveau RDV » lui envoie le lien de paiement de l’acompte, et le RDV se confirme tout seul dans l’agenda quand il a payé. Déplacer ou supprimer un RDV : dans l’agenda SOLAR CAR 37 ; rembourser : dans Stripe.</p>
 ${linksHtml}

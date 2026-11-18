@@ -8,7 +8,7 @@
  * A failed e-mail never fails the booking: the appointment is in the calendar all the same.
  */
 import { business as B } from '../content/site.js';
-import { bookingRules as R, formatDuration, discountLines } from '../content/booking.js';
+import { bookingRules as R, formatDuration, discountLines, CANALS } from '../content/booking.js';
 import { vatNote } from '../content/pricing.js';
 
 const euros = (n) => `${n.toFixed(2).replace('.', ',').replace(',00', '')} €`;
@@ -95,7 +95,8 @@ export async function sendBookingMails(env, b) {
         reply_to: c.email,
         subject: `Nouveau RDV — ${c.firstName} ${c.lastName} — ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)}`,
         html: shell(
-          b.mode === 'none' ? 'Nouveau rendez-vous pris à l’atelier' : 'Nouveau rendez-vous réservé en ligne',
+          // « réservé en ligne » (the site), « pris par téléphone · acompte payé en ligne » (the space)
+          CANALS[b.canal] ? `Nouveau rendez-vous pris ${CANALS[b.canal]}${b.mode === 'none' ? '' : ` · ${b.mode === 'full' ? 'payé' : 'acompte payé'} en ligne`}` : 'Nouveau rendez-vous réservé en ligne',
           `<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
             ['Quand', esc(when)],
             ['Client', esc(`${c.firstName} ${c.lastName}`)],
@@ -117,8 +118,8 @@ export async function sendBookingMails(env, b) {
       console.error('[mail] workshop', err.message);
     }
   }
-  // the client
-  if (env.MAIL_CLIENTS === '1') {
+  // the client (an appointment taken by the workshop may have no e-mail address)
+  if (env.MAIL_CLIENTS === '1' && b.clientMail !== false && c.email) {
     try {
       const title = `${B.name} — ${q.items.map((i) => i.label).join(' + ')}`;
       await send(env, {
@@ -172,7 +173,7 @@ export async function sendPaymentLink(env, b) {
     subject: `Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)} : confirmez-le en ligne`,
     html: shell(
       'Votre rendez-vous vous attend',
-      `${note ? `<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#111;white-space:pre-wrap">${esc(note)}</p>` : `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>comme convenu, voici votre rendez-vous à l’atelier. Il est confirmé dès que ${what} est réglé en ligne.</p>`}<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
+      `${note ? `<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#111;white-space:pre-wrap">${esc(note)}</p>` : `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>comme convenu${b.canal === 'atelier' ? ' lors de votre passage' : b.canal === 'telephone' ? ' au téléphone' : ''}, voici votre rendez-vous à l’atelier. Il est confirmé dès que ${what} est réglé en ligne.</p>`}<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
         ['Quand', esc(`${dayLabel(date)}, ${hour(time)} – ${endOf(end)}`)],
         ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
         ['Véhicule', esc(`${c.vehicle || ''}${c.plate ? ` (${c.plate})` : ''}`)],

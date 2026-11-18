@@ -46,7 +46,7 @@
  *   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET (secrets) its Google sign-in (OAuth client)
  */
 import { business as B } from '../content/site.js';
-import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor, withExtra, manualDiscount, discountLines } from '../content/booking.js';
+import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor, withExtra, manualDiscount, discountLines, CANALS, takenText } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents } from './google.js';
 import { createSession, getSession, expireSession, verifyWebhook } from './stripe.js';
@@ -147,7 +147,7 @@ function customerJson(c) {
 }
 
 /** the text of the appointment in the calendar */
-function eventText(q, c, { date, time, mode, paid, sessionId, code, codeKind, remise = 0 }) {
+function eventText(q, c, { date, time, mode, paid, sessionId, code, codeKind, remise = 0, canal = '' }) {
   const lines = [
     `Client : ${c.firstName} ${c.lastName}`,
     `Téléphone : ${c.phone}`,
@@ -163,7 +163,7 @@ function eventText(q, c, { date, time, mode, paid, sessionId, code, codeKind, re
     paid != null ? `Payé en ligne : ${euros(paid)} (${mode === 'full' ? 'totalité' : 'acompte 30 %'}) — reste à régler : ${euros(Math.max(0, q.total - paid))}` : `Paiement en cours (${mode === 'full' ? 'totalité' : 'acompte 30 %'} : ${euros(amountDue(q, mode))})`,
     c.message ? `\nMessage : ${c.message}` : '',
     '',
-    `Réservé en ligne le ${new Date().toLocaleDateString('fr-FR', { timeZone: R.timeZone })} pour le ${longDate(date, time)}.`,
+    `${takenText(canal)} le ${new Date().toLocaleDateString('fr-FR', { timeZone: R.timeZone })} pour le ${longDate(date, time)}.`,
     sessionId ? `Paiement Stripe : ${sessionId}` : '',
   ];
   return lines.filter((l) => l !== null).join('\n').replace(/\n{3,}/g, '\n\n');
@@ -179,7 +179,7 @@ async function confirm(env, session) {
   const paid = (session.amount_total || 0) / 100;
   const body = {
     summary: `RDV ${titleOf(q, c)}`,
-    description: eventText(q, c, { date: m.date, time: m.time, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind, remise: Number(m.remise) || 0 }),
+    description: eventText(q, c, { date: m.date, time: m.time, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind, remise: Number(m.remise) || 0, canal: m.canal }),
     colorId: '9',
     extendedProperties: { private: { solarcarHold: '0', session: session.id, paid: String(paid) } },
   };
@@ -216,7 +216,7 @@ async function confirm(env, session) {
     await db(env, 'booking/add', { session: session.id, event: out?.id || m.event, date: m.date, time: m.time, minutes: q.minutes, items: q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price })), total: q.total, discount: q.discount || 0, code: m.code || '', codeKind: m.code ? m.codeKind || 'parrainage' : '', mode: m.mode, paid, customer: c, live: session.livemode !== false }).catch((err) => console.error('[atelier] booking', err.message));
   }
   // « Nouveau RDV » to the workshop, the confirmation to the client (never fails the booking)
-  await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind, remise: Number(m.remise) || 0 }).catch((err) => console.error('[mail]', err));
+  await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind, remise: Number(m.remise) || 0, canal: m.canal }).catch((err) => console.error('[mail]', err));
   await notify(env, { title: m.origin === 'atelier' ? 'Acompte payé : RDV confirmé' : 'Nouveau RDV réservé et payé', body: `${c.firstName} ${c.lastName} — ${longDate(m.date, m.time)} · ${euros(paid)} payés`, url: '/atelier/rdv', tag: `rdv-${session.id}` });
   return out;
 }
@@ -389,6 +389,8 @@ export async function atelierBooking(env, b, now) {
   const c = { firstName: s(b.customer?.firstName, 60), lastName: s(b.customer?.lastName, 60), email: s(b.customer?.email, 120).toLowerCase(), phone: s(b.customer?.phone, 30), vehicle: s(b.customer?.vehicle, 80), plate: s(b.customer?.plate, 15).toUpperCase(), message: '', source: s(b.customer?.source, 180) };
   // the workshop's word for the client (lines kept): at the head of the e-mail
   const note = String(b.note ?? '').replace(/\r\n?/g, '\n').trim().slice(0, 1500);
+  // taken on the phone or at the counter
+  const canal = Object.hasOwn(CANALS, b.canal) ? b.canal : 'telephone';
   if (!c.firstName && !c.lastName) return { error: 'Indiquez le nom du client.' };
   const mode = ['deposit', 'full', 'none'].includes(b.mode) ? b.mode : 'deposit';
   if (c.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email)) return { error: 'Adresse e-mail à vérifier.' };
@@ -432,7 +434,7 @@ export async function atelierBooking(env, b, now) {
     const id = `atelier-${now.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
     const ev = await insertEvent(env, env.CALENDAR_WRITE, {
       summary: `RDV ${titleOf(q, c)}`,
-      description: eventText(q, c, { date, time, mode: 'none', paid: 0, code, codeKind, remise }).replace(/Payé en ligne : 0 € \([^)]*\)/, 'Pris à l’atelier, à régler sur place'),
+      description: eventText(q, c, { date, time, mode: 'none', paid: 0, code, codeKind, remise, canal }).replace(/Payé en ligne : 0 € \([^)]*\)/, 'Pris à l’atelier, à régler sur place'),
       colorId: '9',
       start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone },
       end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
@@ -440,8 +442,8 @@ export async function atelierBooking(env, b, now) {
     });
     if (code) await (codeKind === 'promo' ? db(env, 'promo/use', { code }) : redeemReferral(env, code, { by: `${c.firstName} ${c.lastName}`, ref: id, where: 'à l’atelier' })).catch(() => {});
     await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: 'none', paid: 0, customer: c });
-    const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: 0, mode: 'none', status: 'confirme', customer: c });
-    if (c.email) await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: 'none', paid: 0, sessionId: id, code, codeKind, remise, note }).catch((err) => console.error('[mail] atelier booking', err.message));
+    const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: 0, mode: 'none', status: 'confirme', canal, customer: c });
+    await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: 'none', paid: 0, sessionId: id, code, codeKind, remise, note, canal, clientMail: !!c.email }).catch((err) => console.error('[mail] atelier booking', err.message));
     return { ok: true, id: link.id, confirmed: true };
   }
 
@@ -450,7 +452,7 @@ export async function atelierBooking(env, b, now) {
   const expires = now + hours * 3600000 - 60000;
   const hold = await insertEvent(env, env.CALENDAR_WRITE, {
     summary: `⏳ Paiement en cours — ${titleOf(q, c)}`,
-    description: eventText(q, c, { date, time, mode, code, codeKind, remise }),
+    description: eventText(q, c, { date, time, mode, code, codeKind, remise, canal }),
     colorId: '8',
     start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone },
     end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
@@ -470,7 +472,7 @@ export async function atelierBooking(env, b, now) {
       expires_at: Math.floor(expires / 1000),
       success_url: `${site}/reservation/confirmee/?session={CHECKOUT_SESSION_ID}`,
       cancel_url: `${site}/`,
-      metadata: { event: hold.id, date, time, mode, origin: 'atelier', config: configText, extra: extraText, customer: customerJson(c), ...(q.discount ? { discount: String(q.discount) } : {}), ...(code ? { code, codeKind } : {}), ...(remise ? { remise: String(remise) } : {}) },
+      metadata: { event: hold.id, date, time, mode, origin: 'atelier', config: configText, extra: extraText, customer: customerJson(c), canal, ...(q.discount ? { discount: String(q.discount) } : {}), ...(code ? { code, codeKind } : {}), ...(remise ? { remise: String(remise) } : {}) },
     });
   } catch (err) {
     await deleteEvent(env, env.CALENDAR_WRITE, hold.id).catch(() => {});
@@ -478,8 +480,8 @@ export async function atelierBooking(env, b, now) {
     return { error: 'Stripe n’a pas pu créer le lien de paiement : réessayez dans un instant.' };
   }
   await patchEvent(env, env.CALENDAR_WRITE, hold.id, { extendedProperties: { private: { solarcarHold: '1', holdUntil: String(expires + 120000), session: session.id, atelier: '1' } } });
-  const link = await db(env, 'link/add', { now, session: session.id, event: hold.id, date, time, minutes: q.minutes, items, total: q.total, due, mode, url: session.url, expires, customer: c });
-  const mailed = await sendPaymentLink(env, { q, c, date, time, start: span.start, end: span.end, due, mode, url: session.url, expires, note, code, codeKind, remise })
+  const link = await db(env, 'link/add', { now, session: session.id, event: hold.id, date, time, minutes: q.minutes, items, total: q.total, due, mode, url: session.url, expires, canal, customer: c });
+  const mailed = await sendPaymentLink(env, { q, c, date, time, start: span.start, end: span.end, due, mode, url: session.url, expires, note, code, codeKind, remise, canal })
     .then(() => true)
     .catch((err) => (console.error('[mail] payment link', err.message), false));
   return { ok: true, id: link.id, url: session.url, mailed };

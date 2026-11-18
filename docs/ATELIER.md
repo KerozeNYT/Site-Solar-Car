@@ -81,6 +81,11 @@ téléphone), même l'espace fermé ; la toucher ouvre la bonne page de l'espace
 Un client appelle ou passe à l'atelier : **+ Nouveau → Nouveau rendez-vous** (ou Rendez-vous →
 « Nouveau RDV », ou depuis sa fiche client, déjà remplie).
 
+0. **Par téléphone** ou **À l'atelier** : comment le RDV a été pris ; c'est écrit dans l'e-mail
+   « Nouveau RDV » (« pris par téléphone · acompte payé en ligne »), dans l'agenda (« Pris à
+   l'atelier le … ») et dans la liste des RDV, et le message au client commence par « Merci pour
+   votre appel ! » ou « Merci pour votre visite à l'atelier ! ». Les RDV du site restent « réservés
+   en ligne ».
 1. **Client** : prénom, nom, téléphone, e-mail (il faut l'e-mail pour le lien de paiement),
    véhicule, année, immatriculation. Un client déjà connu (même e-mail ou même téléphone) est
    retrouvé dans le fichier.
