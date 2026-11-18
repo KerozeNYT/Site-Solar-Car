@@ -16,6 +16,13 @@ workers_dev = true
 # top-level key, before the first [table]
 routes = [{ pattern = "atelier.solarcar37.fr", custom_domain = true }]
 
+# Workers Logs: the server's own lines (console.log / console.error) and each request, kept 3 days
+# on Cloudflare (free plan: 200 000 a day), read back to check a booking end to end (18 November
+# 2026, asked by the workshop)
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 # visit statistics (booking/stats.js, docs/STATISTIQUES.md): one Durable Object with its own SQLite
 # database (free plan: SQLite-backed Durable Objects only)
 [[durable_objects.bindings]]

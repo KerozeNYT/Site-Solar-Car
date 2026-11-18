@@ -19,7 +19,7 @@
  * of this server (booking/atelier-look.js) draws the garage and keeps the pages live, and the
  * pages work without it.
  */
-import { bookingRules as R, codeServices, formatEuros, formatDuration, quote, withDiscount, withExtra, discountFor, bookableVehicles, tintFormulas, lightsBooking, atelierExtras, windshieldMinutes } from '../content/booking.js';
+import { bookingRules as R, codeServices, formatEuros, formatDuration, quote, withDiscount, withExtra, discountFor, manualDiscount, bookableVehicles, tintFormulas, lightsBooking, atelierExtras, windshieldMinutes } from '../content/booking.js';
 import { tint, tintOnQuote } from '../content/pricing.js';
 // the appointments taken by the workshop (used at request time only: worker.js imports this module)
 import { atelierBooking, atelierSlots, atelierCancel } from './worker.js';
@@ -139,7 +139,7 @@ const DOCK = [...TABS.slice(0, 4), ['/atelier/plus', 'Plus', 'grid', 'Plus']];
 const UNDER_PLUS = new Set(['/atelier/codes', '/atelier/stats', '/atelier/fiche', '/atelier/plus']);
 /** « + Nouveau »: what is made most often */
 const NEW = [
-  ['/atelier/rdv/nouveau', 'cal', 'Rendez-vous par téléphone', 'Créneau, lien de paiement de l’acompte'],
+  ['/atelier/rdv/nouveau', 'cal', 'Nouveau rendez-vous', 'Au téléphone ou à l’atelier : créneau, acompte'],
   ['/atelier/clients/nouveau', 'user', 'Nouveau client', 'Venu par téléphone ou à l’atelier'],
   ['/atelier/codes#promo', 'tag', 'Code promo', 'Remise en % ou en €, dates, prestations'],
   ['/atelier/codes#parrainage', 'gift', 'Code de parrainage', `${R.referral.amount} € à offrir à un client`],
@@ -846,6 +846,8 @@ function bookingOf(f) {
     force: !!f.get('force'),
     mode: g('mode') || 'deposit',
     code: g('code'),
+    // the workshop's own discount, for an exceptional case: in % or in €
+    remise: { type: g('remise_type') === 'amount' ? 'amount' : 'percent', value: g('remise') },
     note: g('note'),
     hours: g('duree'),
   };
@@ -856,14 +858,17 @@ async function bookingPrice(env, b, now) {
   let q = withExtra(quote(b.config), b.extra);
   if (q.error) return { error: q.error === 'Prestation à choisir' ? '' : q.error };
   let codeNote = '';
+  let off = 0;
   if (b.code) {
     const r = await checkCode(env, b.code, now).catch(() => ({ ok: false, error: 'Code à vérifier' }));
-    const off = r.ok ? discountFor(q, r) : 0;
-    if (off) q = withDiscount(q, off);
+    off = r.ok ? discountFor(q, r) : 0;
     codeNote = r.ok ? (off ? `Code ${r.code} : −${eur(off)}` : `Le code ${r.code} ne s’applique pas à ces prestations`) : r.error;
   }
+  // the workshop's own discount, on what the code leaves (worker.js, atelierBooking: the same sums)
+  const remise = manualDiscount(q.total - off, b.remise?.type, b.remise?.value);
+  if (off + remise) q = withDiscount(q, Math.round((off + remise) * 100) / 100);
   const due = b.mode === 'none' ? 0 : b.mode === 'full' ? q.total : q.deposit;
-  return { items: q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price, minutes: i.minutes })), total: q.total, minutes: q.minutes, duration: formatDuration(q.minutes), deposit: q.deposit, due, discount: q.discount || 0, codeNote };
+  return { items: q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price, minutes: i.minutes })), total: q.total, minutes: q.minutes, duration: formatDuration(q.minutes), deposit: q.deposit, due, discount: q.discount || 0, codeNote, remise };
 }
 
 /** the word for the client, drafted from the form (the workshop changes it as it likes): the car,
@@ -886,13 +891,13 @@ function draftNote(b, p) {
         ? `Pour confirmer ce rendez-vous, il vous suffit de régler les ${eur(p.due)} avec le bouton ci-dessous.`
         : `Pour confirmer ce rendez-vous, il vous suffit de régler l’acompte de ${eur(p.due)} avec le bouton ci-dessous ; le reste, ${eur(left)}, se règle à l’atelier le jour du rendez-vous.`;
   const shade = p.items.some((i) => /teint|pare-brise/i.test(i.label)) ? '\n\nLa teinte se choisit ensemble à l’atelier, le jour du rendez-vous.' : '';
-  return `Bonjour ${b.customer.firstName || ''},\n\nMerci pour votre appel ! Comme convenu, ${when ? `je vous réserve ${when}` : 'voici votre rendez-vous'} pour ${car} : ${list}, soit ${eur(p.total)} au total${p.discount ? ` (remise de ${eur(p.discount)} comprise)` : ''}.\n\n${pay}${shade}\n\nÀ très vite,\n${(B.owner || '').split(' ')[0]}`;
+  return `Bonjour ${b.customer.firstName || ''},\n\nMerci pour votre confiance ! Comme convenu, ${when ? `je vous réserve ${when}` : 'voici votre rendez-vous'} pour ${car} : ${list}, soit ${eur(p.total)} au total${p.discount ? ` (remise de ${eur(p.discount)} comprise)` : ''}.\n\n${pay}${shade}\n\nÀ très vite,\n${(B.owner || '').split(' ')[0]}`;
 }
 
 function recapHtml(p, mode) {
   if (!p || p.error || !p.items?.length) return `<p class="empty">${esc(p?.error || 'Choisissez les prestations : le total s’affiche ici.')}</p>`;
   return `<ul class="recap">${p.items.map((i) => `<li><span>${esc(i.label)}${i.detail ? `<small>${esc(i.detail)}</small>` : ''}</span><b>${eur(i.price)}</b></li>`).join('')}</ul>
-${p.codeNote ? `<p class="dim" style="margin:8px 0 0">${esc(p.codeNote)}</p>` : ''}
+${p.codeNote ? `<p class="dim" style="margin:8px 0 0">${esc(p.codeNote)}</p>` : ''}${p.remise ? `<ul class="recap"><li><span>Remise</span><b>−${eur(p.remise)}</b></li></ul>` : ''}
 <div class="recap__tot"><span>Total · ${esc(p.duration)}</span><b>${eur(p.total)}</b></div>
 <div class="recap__due"><span>${mode === 'none' ? 'Réglé sur place' : mode === 'full' ? 'À payer en ligne' : 'Acompte en ligne (30 %)'}</span><b>${mode === 'none' ? '—' : eur(p.due)}</b></div>`;
 }
@@ -917,7 +922,7 @@ async function bookingForm(env, url, now, values = null, error = '') {
   const price = b ? await bookingPrice(env, b, now) : null;
   const today = paris(now).date;
   const body = `<a class="crumb" href="/atelier/rdv">${ico('back')} Rendez-vous</a>
-<h1>Nouveau <em>rendez-vous</em></h1><p class="lead">Un client au téléphone : sa fiche, ses prestations, le créneau. Il reçoit tout de suite un e-mail avec le récapitulatif et le lien de paiement de l’acompte ; dès qu’il a payé, le RDV est confirmé dans l’agenda et vous recevez l’e-mail « Nouveau RDV ».</p>
+<h1>Nouveau <em>rendez-vous</em></h1><p class="lead">Un client au téléphone ou à l’atelier : sa fiche, ses prestations, le créneau. Il reçoit tout de suite un e-mail avec le récapitulatif et le lien de paiement de l’acompte ; dès qu’il a payé, le RDV est confirmé dans l’agenda et vous recevez l’e-mail « Nouveau RDV ».</p>
 ${error ? `<p class="msg msg--err" role="alert">${esc(error)}</p>` : ''}
 <form method="post" action="/atelier/rdv/nouveau" id="rdv" class="rdvgrid" novalidate data-presets="${esc(JSON.stringify(Object.fromEntries(atelierExtras.map((x) => [x.id, { label: x.label, price: x.price, minutes: x.minutes }]))))}" data-prices="${esc(JSON.stringify(Object.fromEntries(bookableVehicles.map((x) => [x.id, Object.fromEntries(tintFormulas.map((t) => [t.id, t.price(x.cat)]))]))))}" data-minutes="${price?.minutes || 0}">
 <div>
@@ -949,7 +954,8 @@ ${extras}</section>
 <section class="card"><h2>${ico('card')} Paiement</h2>
 <div class="seg" role="radiogroup" aria-label="Paiement">${[['deposit', 'Acompte 30 %', 'lien de paiement'], ['full', 'Totalité', 'lien de paiement'], ['none', 'Sur place', 'sans paiement en ligne']].map(([id, label, hint]) => `<label><input type="radio" name="mode" value="${id}"${(f.get('mode') || 'deposit') === id ? ' checked' : ''}><span><b>${label}</b><small>${hint}</small></span></label>`).join('')}</div>
 <div class="row"><div><label for="r-code">Code promo ou parrainage</label><input id="r-code" name="code" value="${v('code')}" autocomplete="off" style="text-transform:uppercase" placeholder="facultatif"></div>
-<div><label for="r-duree">Lien valable</label><select id="r-duree" name="duree">${opt([['2', '2 heures'], ['6', '6 heures'], ['24', '24 heures (le maximum de Stripe)']], f.get('duree') || '24')}</select></div></div>
+<div><label for="r-remise">Remise (cas exceptionnel)</label><div class="remise"><input id="r-remise" name="remise" inputmode="decimal" value="${v('remise')}" placeholder="facultatif"><select name="remise_type" aria-label="Remise en % ou en €">${opt([['percent', '%'], ['amount', '€']], f.get('remise_type') || 'percent')}</select></div></div></div>
+<div class="row"><div><label for="r-duree">Lien valable</label><select id="r-duree" name="duree">${opt([['2', '2 heures'], ['6', '6 heures'], ['24', '24 heures (le maximum de Stripe)']], f.get('duree') || '24')}</select></div><div></div></div>
 <div class="notehead"><label for="r-note">Mot pour le client (en tête de l’e-mail)</label><button type="button" class="ghost small" id="note-auto">↺ Message automatique</button></div><textarea id="r-note" name="note" style="min-height:190px"${f.get('note') ? '' : ' data-auto'} placeholder="Rempli tout seul d’après le rendez-vous : modifiez-le à votre guise.">${v('note')}</textarea></section>
 </div>
 <aside><section class="card recapcard"><h2>${ico('check')} Récapitulatif</h2><div id="recap">${recapHtml(price, f.get('mode') || 'deposit')}</div>
@@ -998,8 +1004,8 @@ async function appointments(env, url, now) {
   // the links sent lately: waiting first, then the last ones settled (two weeks)
   const shownLinks = links.links.filter((l) => l.status === 'attente' || now - l.created < 14 * DAY);
   const linkRow = (l) => `<tr><td><a href="/atelier/rdv/lien/${l.id}"><b>${esc(name(l))}</b></a><small>${esc(l.vehicle || '')}</small></td><td class="hide-s">${l.date ? `<b>${esc(dayLabel(l.date))}</b><small>${esc(hour(l.time))}</small>` : ''}</td><td>${linkTag(l.status === 'attente' && l.expires < now ? 'expire' : l.status)}${l.status === 'attente' ? `<small>expire <time data-until="${l.expires}">bientôt</time></small>` : ''}</td><td class="n">${eur(l.total)}${l.mode !== 'none' ? `<small>${l.mode === 'full' ? 'totalité' : 'acompte'} ${eur(l.due)}</small>` : '<small>sur place</small>'}</td></tr>`;
-  const linksHtml = shownLinks.length ? `<section class="card"><h2>${ico('send')} Pris par téléphone</h2><table><tbody>${shownLinks.map(linkRow).join('')}</tbody></table></section>` : '';
-  const body = `<div class="qhead"><h1>Rendez-<em>vous</em></h1><a class="btn right" href="/atelier/rdv/nouveau">${ico('plus')} Nouveau RDV</a></div><p class="lead">Un client au téléphone : « Nouveau RDV » lui envoie le lien de paiement de l’acompte, et le RDV se confirme tout seul dans l’agenda quand il a payé. Déplacer ou supprimer un RDV : dans l’agenda SOLAR CAR 37 ; rembourser : dans Stripe.</p>
+  const linksHtml = shownLinks.length ? `<section class="card"><h2>${ico('send')} Pris à l’atelier</h2><table><tbody>${shownLinks.map(linkRow).join('')}</tbody></table></section>` : '';
+  const body = `<div class="qhead"><h1>Rendez-<em>vous</em></h1><a class="btn right" href="/atelier/rdv/nouveau">${ico('plus')} Nouveau RDV</a></div><p class="lead">Un client au téléphone ou à l’atelier : « Nouveau RDV » lui envoie le lien de paiement de l’acompte, et le RDV se confirme tout seul dans l’agenda quand il a payé. Déplacer ou supprimer un RDV : dans l’agenda SOLAR CAR 37 ; rembourser : dans Stripe.</p>
 ${linksHtml}
 <section class="card"><h2>À venir</h2>${nextHtml}</section>
 ${gone.length ? `<section class="card"><h2>Retirés de l’agenda</h2><p class="dim">Réservés et payés en ligne, mais supprimés de l’agenda : pensez au remboursement dans Stripe si le client a annulé.</p><table><tbody>${gone.map(pastRow).join('')}</tbody></table></section>` : ''}

@@ -250,6 +250,27 @@ export function withDiscount(q, amount) {
   return { ...q, discount: amount, total, deposit: Math.round(total * bookingRules.depositRate * 100) / 100 };
 }
 
+/** a discount given by hand by the workshop (« Nouveau rendez-vous », an exceptional case):
+ *  `value` % of the total, or `value` euros, never more than the total; 0 when none */
+export function manualDiscount(total, type, value) {
+  const v = Number(String(value ?? '').replace(/\s/g, '').replace(',', '.'));
+  if (!(v > 0) || !(total > 0)) return 0;
+  const d = type === 'percent' ? (total * Math.min(100, v)) / 100 : Math.min(total, v);
+  return Math.round(d * 100) / 100;
+}
+
+/** the discounts of a booking, one line each, for the e-mails and the calendar: the code's
+ *  (promotion or referral) and the workshop's own (« Remise »); [[label, euros]] */
+export function discountLines(discount, { code = '', codeKind = '', remise = 0 } = {}) {
+  const hand = Math.min(Number(remise) || 0, Number(discount) || 0);
+  const byCode = Math.round(((Number(discount) || 0) - hand) * 100) / 100;
+  const out = [];
+  if (code && byCode > 0) out.push([codeKind === 'promo' ? `Code promo ${code}` : `Parrainage (code ${code})`, byCode]);
+  else if (byCode > 0) out.push(['Remise', byCode]);
+  if (hand > 0) out.push(['Remise', hand]);
+  return out;
+}
+
 /** the amount to pay now (EUR): the deposit or the total */
 export const amountDue = (q, mode) => (mode === 'full' ? q.total : q.deposit);
 

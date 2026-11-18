@@ -69,15 +69,17 @@ téléphone), même l'espace fermé ; la toucher ouvre la bonne page de l'espace
   d'accueil », l'ouvrir depuis son icône, puis « Activer » et accepter. Apple n'autorise les
   notifications qu'aux applications web posées sur l'écran d'accueil.
 - **Ordinateur** : « Activer » et accepter dans le navigateur (Chrome, Edge, Firefox, Safari).
+- **Journaux du serveur** (Workers Logs, `[observability]` dans `booking/wrangler.toml`) : chaque
+  requête et chaque ligne d'erreur, gardées 3 jours sur Cloudflare, pour contrôler un parcours.
 - « Envoyer un essai » vérifie ; « Désactiver ici » arrête sur cet appareil ; 10 appareils au plus.
 - Technique : `booking/push.js` (Web Push : clés VAPID faites une fois et gardées dans la base,
   messages chiffrés pour chaque appareil, aucun service extérieur), service worker
   `/atelier/sw.js`, table `push_subs`. Tests : `booking/test/push.test.mjs`.
 
-## Rendez-vous par téléphone (« Nouveau RDV »)
+## Nouveau rendez-vous (au téléphone ou à l'atelier)
 
-Un client appelle : **+ Nouveau → Rendez-vous par téléphone** (ou Rendez-vous → « Nouveau RDV »,
-ou depuis sa fiche client, déjà remplie).
+Un client appelle ou passe à l'atelier : **+ Nouveau → Nouveau rendez-vous** (ou Rendez-vous →
+« Nouveau RDV », ou depuis sa fiche client, déjà remplie).
 
 1. **Client** : prénom, nom, téléphone, e-mail (il faut l'e-mail pour le lien de paiement),
    véhicule, année, immatriculation. Un client déjà connu (même e-mail ou même téléphone) est
@@ -119,7 +121,11 @@ ou depuis sa fiche client, déjà remplie).
    - **Sur place** (sans paiement en ligne), ou un code qui couvre tout : le RDV est inscrit tout de
      suite dans l'agenda, le client reçoit sa confirmation s'il a donné son e-mail.
    - Un code promo ou de parrainage se tape comme en ligne.
-5. Rendez-vous → « Pris par téléphone » : les liens des deux dernières semaines et leur état
+   - **Remise (cas exceptionnel)** : en % ou en €, sans créer de code ; elle s'ajoute au code s'il y
+     en a un (calculée sur ce qu'il laisse), jamais plus que le total. Elle figure sur sa ligne
+     « Remise » dans le récapitulatif, l'e-mail, l'agenda et la confirmation ; à 100 %, le RDV est
+     inscrit sans paiement.
+5. Rendez-vous → « Pris à l'atelier » : les liens des deux dernières semaines et leur état
    (en attente, payé, expiré, annulé, sur place).
 
 Code : `booking/worker.js` (`atelierBooking`, `atelierSlots`, `atelierCancel`), `booking/atelier.js`

@@ -476,7 +476,7 @@ export async function startBookingDone(root) {
   lead.textContent = 'Merci ! Votre créneau est réservé à l’atelier. Un reçu de paiement vous a été envoyé par e-mail.';
   $('[data-done-when]').textContent = `${dateLabel(b.date)} · ${hour(b.time)} – ${hour(end)}`;
   $('[data-done-items]').innerHTML = b.items.map((i) => `<li><span><b>${i.label.replace(/</g, '&lt;')}</b><small>${(i.detail || '').replace(/</g, '&lt;')}</small></span><span class="booking__price">${formatEuros(i.price)}</span></li>`).join('');
-  $('[data-done-totals]').innerHTML = `${b.discount ? `<div><dt>${b.codeKind === 'promo' ? `Code ${String(b.code).replace(/</g, '&lt;')}` : 'Parrainage'}</dt><dd>−${formatEuros(b.discount)}</dd></div>` : ''}<div><dt>Total</dt><dd>${formatEuros(b.total)}</dd></div><div><dt>Payé en ligne</dt><dd>${formatEuros(b.amount)}</dd></div><div><dt>À régler à l’atelier</dt><dd>${b.remaining ? formatEuros(b.remaining) : 'rien'}</dd></div>`;
+  $('[data-done-totals]').innerHTML = `${b.discount ? `<div><dt>${b.code ? `${b.codeKind === 'promo' ? `Code ${String(b.code).replace(/</g, '&lt;')}` : 'Parrainage'}${b.remise ? ' et remise' : ''}` : 'Remise'}</dt><dd>−${formatEuros(b.discount)}</dd></div>` : ''}<div><dt>Total</dt><dd>${formatEuros(b.total)}</dd></div><div><dt>Payé en ligne</dt><dd>${formatEuros(b.amount)}</dd></div><div><dt>À régler à l’atelier</dt><dd>${b.remaining ? formatEuros(b.remaining) : 'rien'}</dd></div>`;
   $('[data-done-card]').hidden = false;
   $('[data-done-ics]').addEventListener('click', () => {
     const stamp = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');

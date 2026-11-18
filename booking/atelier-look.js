@@ -319,6 +319,7 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 .recap__due{color:var(--text-2);font-size:14px;padding-top:6px}.recap__due b{color:var(--text)}
 .seg--2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .push__state{font-weight:650;margin:0 0 14px}
+.remise{display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:8px}
 .notehead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 6px}.notehead label{margin:0}
 html:not(.js) #note-auto{display:none}
 /* the slot: the agenda's free slots, as on the site's booking page, or a date and a time typed

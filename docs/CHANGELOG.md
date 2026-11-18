@@ -1,5 +1,13 @@
 # Journal des changements
 
+## Nouveau rendez-vous : remise exceptionnelle en % ou en € ; journaux du serveur (18 novembre 2026)
+
+- « Nouveau rendez-vous » (au téléphone ou à l'atelier, plus seulement « par téléphone ») : champ
+  **Remise** en % ou en €, sans créer de code promo, cumulable avec un code ; ligne « Remise » dans
+  le récapitulatif, l'e-mail, l'agenda et la page de confirmation du site. Message automatique
+  neutre (« Merci pour votre confiance ! »).
+- Workers Logs activés (3 jours) pour contrôler les parcours de réservation.
+
 ## Accueil : nouveau titre « Contraste » (18 novembre 2026)
 
 - « SOLAR / CAR » en capitales très larges et grasses (Archivo, ivoire) et un « 37 » géant en

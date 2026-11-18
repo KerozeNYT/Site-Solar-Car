@@ -8,7 +8,7 @@
  * A failed e-mail never fails the booking: the appointment is in the calendar all the same.
  */
 import { business as B } from '../content/site.js';
-import { bookingRules as R, formatDuration } from '../content/booking.js';
+import { bookingRules as R, formatDuration, discountLines } from '../content/booking.js';
 import { vatNote } from '../content/pricing.js';
 
 const euros = (n) => `${n.toFixed(2).replace('.', ',').replace(',00', '')} €`;
@@ -94,7 +94,7 @@ export async function sendBookingMails(env, b) {
             ['E-mail', `<a href="mailto:${esc(c.email)}" style="color:#111">${esc(c.email)}</a>`],
             ['Véhicule', esc(`${c.vehicle}${c.plate ? ` (${c.plate})` : ''}`)],
             ['Prestations', items],
-            [b.codeKind === 'promo' ? 'Code promo' : 'Parrainage', q.discount ? `−${euros(q.discount)} (code ${esc(b.code || '')})` : ''],
+            ...discountLines(q.discount, b).map(([label, off]) => [label, `−${euros(off)}`]),
             ['Total', euros(q.total)],
             ['Payé en ligne', b.mode === 'none' ? '' : `${euros(paid)} (${b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`],
             ['Reste à régler', due ? euros(due) : 'rien'],
@@ -123,7 +123,7 @@ export async function sendBookingMails(env, b) {
             ['Quand', esc(when)],
             ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
             ['Prestations', items],
-            [b.codeKind === 'promo' ? `Code ${esc(b.code || '')}` : 'Parrainage', q.discount ? `−${euros(q.discount)}` : ''],
+            ...discountLines(q.discount, b).map(([label, off]) => [label, `−${euros(off)}`]),
             ['Total', `${euros(q.total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
             ['Payé en ligne', b.mode === 'none' ? '' : euros(paid)],
             ['À régler à l’atelier', due ? euros(due) : 'rien'],
@@ -150,7 +150,7 @@ export async function sendBookingMails(env, b) {
 /**
  * An appointment taken by the workshop (on the phone): the client gets the recap and the button to
  * pay the deposit (or the whole) online, which confirms the slot, held until `expires`.
- * b: { q, c, date, time, end, due, mode, url, expires, note, code, codeKind }
+ * b: { q, c, date, time, end, due, mode, url, expires, note, code, codeKind, remise }
  */
 export async function sendPaymentLink(env, b) {
   if (!env.RESEND_API_KEY) throw new Error('mail not set');
@@ -163,12 +163,12 @@ export async function sendPaymentLink(env, b) {
     subject: `Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)} : confirmez-le en ligne`,
     html: shell(
       'Votre rendez-vous vous attend',
-      `${note ? `<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#111;white-space:pre-wrap">${esc(note)}</p>` : `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>comme convenu au téléphone, voici votre rendez-vous à l’atelier. Il est confirmé dès que ${what} est réglé en ligne.</p>`}<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
+      `${note ? `<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#111;white-space:pre-wrap">${esc(note)}</p>` : `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName)},<br>comme convenu, voici votre rendez-vous à l’atelier. Il est confirmé dès que ${what} est réglé en ligne.</p>`}<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
         ['Quand', esc(`${dayLabel(date)}, ${hour(time)} – ${endOf(end)}`)],
         ['Où', `${esc(address)}<br><a href="${route}" style="color:#9a7a2c">Itinéraire</a>`],
         ['Véhicule', esc(`${c.vehicle || ''}${c.plate ? ` (${c.plate})` : ''}`)],
         ['Prestations', itemsOf(q)],
-        [b.codeKind === 'promo' ? `Code ${esc(b.code || '')}` : 'Parrainage', q.discount ? `−${euros(q.discount)}` : ''],
+        ...discountLines(q.discount, b).map(([label, off]) => [label, `−${euros(off)}`]),
         ['Total', `${euros(q.total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
         [mode === 'full' ? 'À régler en ligne' : 'Acompte en ligne', euros(due)],
         ['À régler à l’atelier', q.total - due > 0 ? euros(q.total - due) : 'rien'],

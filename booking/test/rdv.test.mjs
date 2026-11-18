@@ -89,7 +89,7 @@ test('signed in; the form, its price and the free slots of the day', async () =>
   assert.match(price.html, /349\s€/);
   assert.match(price.html, /104,70\s€/);
   // the word for the client, drafted from the form
-  assert.match(price.draft, /^Bonjour Kevin,\n\nMerci pour votre appel ! Comme convenu, je vous réserve le jeudi \d+ \S+ à 8 h 00 pour votre Audi A3 Sportback \(2021\) : vitres teintées \(complet\) et rénovation de phares, soit 349\s€ au total\./);
+  assert.match(price.draft, /^Bonjour Kevin,\n\nMerci pour votre confiance ! Comme convenu, je vous réserve le jeudi \d+ \S+ à 8 h 00 pour votre Audi A3 Sportback \(2021\) : vitres teintées \(complet\) et rénovation de phares, soit 349\s€ au total\./);
   assert.match(price.draft, /régler l’acompte de 104,70\s€ avec le bouton ci-dessous ; le reste, 244,30\s€, se règle à l’atelier/);
   assert.match(price.draft, /La teinte se choisit ensemble à l’atelier[^]*À très vite,\nNicolas$/);
   // a month of free slots at once, as on the site
@@ -149,7 +149,36 @@ test('a payment link: the slot held, the client e-mailed; paid: confirmed in the
   assert.deepEqual([b.total, b.paid], [349, 104.7]);
   assert.deepEqual(mails.map((x) => x.subject.split(' — ')[0]).sort(), ['Nouveau RDV', `Votre rendez-vous du ${new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`))} à 8 h 00 est confirmé`].sort());
   assert.match(await (await go(to.pathname)).text(), /Payé · confirmé/);
-  assert.match(await (await go('/atelier/rdv')).text(), /Pris par téléphone/);
+  assert.match(await (await go('/atelier/rdv')).text(), /Pris à l’atelier/);
+});
+
+test('a discount given by hand (an exceptional case), in % or in €: on the price, the payment, the e-mail, the calendar', async () => {
+  const f = form({ heure: '10:00', date: addDays(day, 7), email: 'nina@example.com', prenom: 'Nina', tel: '06 44 44 44 44', remise: '10', remise_type: 'percent' });
+  // 349 € − 10 % = 314,10 €, deposit 94,23 €
+  const price = await (await go('/atelier/rdv/prix', { method: 'POST', form: f })).json();
+  assert.match(price.html, /Remise<\/span><b>−34,90\s€/);
+  assert.match(price.html, /314,10\s€/);
+  assert.match(price.draft, /soit 314,10\s€ au total \(remise de 34,90\s€ comprise\)/);
+  mails.length = 0;
+  const res = await go('/atelier/rdv/nouveau', { method: 'POST', form: f });
+  const id = Number(where(res).pathname.split('/').pop());
+  const link = sql('SELECT * FROM links WHERE id = ?', id)[0];
+  assert.deepEqual([link.total, link.due], [314.1, 94.23]);
+  const s = sessions.get(link.session);
+  assert.equal(s.amount_total, 9423);
+  assert.deepEqual([s.metadata.discount, s.metadata.remise, s.metadata.code], ['34.9', '34.9', undefined]);
+  const m = mails.find((x) => x.to[0] === 'nina@example.com');
+  assert.match(m.html, /Remise<\/td><td[^>]*>−34,90 €/);
+  assert.doesNotMatch(m.html, /Parrainage/);
+  assert.match(cal[CAR].find((e) => e.id === link.event).description, /Remise : −34,90 €\nTotal : 314,10 €/);
+  // paid: the confirmation says « Remise » too
+  mails.length = 0;
+  Object.assign(s, { status: 'complete', payment_status: 'paid' });
+  await hook({ type: 'checkout.session.completed', data: { object: s } });
+  assert.match(mails.find((x) => x.to[0] === 'nina@example.com').html, /Remise<\/td><td[^>]*>−34,90 €/);
+  // in €: never more than the total
+  const all = await (await go('/atelier/rdv/prix', { method: 'POST', form: form({ remise: '1000', remise_type: 'amount' }) })).json();
+  assert.match(all.html, /Remise<\/span><b>−349\s€/);
 });
 
 test('a slot taken in the calendar is refused unless kept on purpose; a link cancelled frees its slot', async () => {
