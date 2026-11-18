@@ -192,19 +192,20 @@ export async function sendPaymentLink(env, b) {
 
 /**
  * An appointment changed at the workshop (services added): the client gets the new recap and what
- * is left to pay at the workshop. b: { c: { firstName, email, vehicle }, date, time, items, total, paid }
+ * is left to pay at the workshop. b: { c: { firstName, email, vehicle }, date, time, items, total, paid,
+ * preview: the workshop's addresses to send it to instead of the client (« M'envoyer un aperçu ») }
  */
 export async function sendBookingUpdate(env, b) {
-  const { c, date, time, items, total, paid } = b;
+  const { c, date, time, items, total, paid, preview } = b;
   const due = Math.max(0, Math.round((total - paid) * 100) / 100);
   const list = items.map((i) => `${esc(i.label)}<br><span style="font-weight:400;color:#6b6b6b">${[i.detail ? esc(i.detail) : '', euros(Number(i.price) || 0)].filter(Boolean).join(' · ')}</span>`).join('<br>');
   await send(env, {
-    to: [c.email],
+    to: preview?.length ? preview : [c.email],
     reply_to: B.email,
-    subject: `Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} : récapitulatif mis à jour`,
+    subject: `${preview?.length ? '[Aperçu] ' : ''}Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} : récapitulatif mis à jour`,
     html: shell(
       'Votre rendez-vous, mis à jour',
-      `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName || '')},<br>comme convenu, voici le récapitulatif de votre rendez-vous avec les prestations ajoutées.</p>
+      `${preview?.length ? `<p style="margin:0 0 16px;padding:10px 12px;border-radius:8px;background:#fff4d6;color:#7a5a00;font-size:13px">Aperçu pour l’atelier : rien n’a été enregistré ni envoyé à ${esc(c.email || 'au client')}. Voici l’e-mail qu’il recevra.</p>` : ''}<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName || '')},<br>comme convenu, voici le récapitulatif de votre rendez-vous avec les prestations ajoutées.</p>
 <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
         ['Quand', esc(`${dayLabel(date)}, ${hour(time)}`)],
         ['Véhicule', esc(c.vehicle || '')],

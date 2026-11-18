@@ -29,7 +29,7 @@ import { db, referralFor, redeemReferral, checkCode, dayStart, atelierFetch, QUO
 import { gmailReady, gmailState, gmailSync, consentUrl, callback as gmailCallback, disconnect as gmailDisconnect } from './gmail.js';
 import { bookedEvents, listEvents } from './google.js';
 import { getSession } from './stripe.js';
-import { send, shell as mailShell } from './mail.js';
+import { send, shell as mailShell, sendBookingUpdate } from './mail.js';
 import { utcToZoned, addDays } from './schedule.js';
 import { siteThemes } from '../content/themes.js';
 import { CSS, JS, CSS_V, JS_V } from './atelier-look.js';
@@ -849,7 +849,8 @@ ${b.discount ? `<div class="recap__due"><span>Remises</span><b>−${eur(b.discou
 <div class="row3"><div><label for="a-prix">Prix (€)</label><input id="a-prix" name="prix" inputmode="decimal" required placeholder="37,50"></div><div><label for="a-remise">Remise (%)</label><input id="a-remise" name="remise" inputmode="decimal" placeholder="20"></div><div><label for="a-min">Durée (min)</label><input id="a-min" name="minutes" type="number" min="0" max="600" step="15" placeholder="facultatif"></div></div>
 <p class="hint" id="a-net" style="margin:-4px 0 12px"></p>
 <div class="checks"><label><input type="checkbox" name="allonger" value="1"> Allonger le RDV dans l’agenda de cette durée</label><label><input type="checkbox" name="mail" value="1"${b.email ? '' : ' disabled'}> Envoyer le récapitulatif mis à jour au client${b.email ? '' : ' (pas d’e-mail)'}</label></div>
-<button>${ico('plus')} Ajouter</button></form></div>`;
+<div class="btns"><button>${ico('plus')} Ajouter</button><button class="ghost" name="apercu" value="1">${ico('mail')} M’envoyer un aperçu</button></div>
+<p class="hint">« M’envoyer un aperçu » : l’e-mail que recevrait le client, avec cette prestation, envoyé à vous seul ; rien n’est enregistré.</p></form></div>`;
   return page(`RDV ${who}`, '/atelier/rdv', body, url, { now });
 }
 
@@ -865,6 +866,17 @@ async function bookingChangePost(req, env, session, action, now) {
     const net = Math.round(price * (1 - Math.max(0, Math.min(100, pct)) / 100) * 100) / 100;
     change = { add: { label: g('label'), detail: pct > 0 ? `${eur(price)} − ${String(pct).replace('.', ',')} %` : '', price: net, minutes: Number(g('minutes')) || 0 }, lengthen: !!f.get('allonger'), mail: !!f.get('mail') };
   } else change = { remove: Number(g('ligne')), mail: false };
+  // « M'envoyer un aperçu »: the client's e-mail with this service added, to the workshop only;
+  // nothing saved, nothing sent to the client
+  if (action === 'ajout' && f.get('apercu')) {
+    const { booking: b } = await db(env, 'booking/get', { session });
+    if (!b) return back('/atelier/rdv', { err: 'Rendez-vous introuvable.' });
+    const items = [...itemsOf(b), { label: change.add.label, detail: change.add.detail, price: change.add.price }];
+    const total = Math.round((b.total + change.add.price) * 100) / 100;
+    const to = String(env.ATELIER_EMAILS || env.NOTIFY_TO || '').split(',').map((x) => x.trim()).filter(Boolean);
+    const sent = to.length && (await sendBookingUpdate(env, { c: { firstName: b.first, email: b.email, vehicle: b.vehicle }, date: b.date, time: b.time, items, total, paid: b.paid, preview: to }).then(() => true).catch((err) => (console.error('[mail] preview', err.message), false)));
+    return back(bookingHref(session), sent ? { ok: `Aperçu envoyé à ${to.join(', ')} : rien n’a été enregistré ni envoyé au client.` } : { err: 'L’aperçu n’est pas parti : réessayez.' });
+  }
   const r = await atelierBookingChange(env, session, change, now);
   if (!r.ok) return back(bookingHref(session), { err: r.error });
   const left = Math.max(0, Math.round((r.booking.total - r.booking.paid) * 100) / 100);

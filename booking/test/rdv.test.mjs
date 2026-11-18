@@ -162,6 +162,14 @@ test('an appointment changed at the workshop: services added with a discount, th
   assert.ok((await (await go('/atelier/rdv')).text()).includes(href));
   const page = await (await go(href)).text();
   assert.match(page, /Reste à régler à l’atelier<\/span><b>244,30\s€/);
+  // « M'envoyer un aperçu »: to the workshop only, nothing saved
+  mails.length = 0;
+  const pre = await go(`${href}/ajout`, { method: 'POST', form: { label: 'Lame avant noir brillant', prix: '37,50', remise: '20', apercu: '1' } });
+  assert.match(where(pre).searchParams.get('ok'), /Aperçu envoyé à contact\.solarcar37@gmail\.com : rien n’a été enregistré ni envoyé au client/);
+  assert.deepEqual(mails.map((x) => x.to), [[CAR]]);
+  assert.match(mails[0].subject, /^\[Aperçu\] Votre rendez-vous du/);
+  assert.match(mails[0].html, /Lame avant noir brillant[^]*À régler à l’atelier<\/td><td[^>]*>274,30 €/);
+  assert.equal(sql('SELECT total FROM bookings WHERE session = ?', b.session)[0].total, 349);
   // the front blade in gloss black, 37,50 € − 20 % = 30 €, half an hour more in the calendar, the client told
   mails.length = 0;
   const end0 = Date.parse(cal[CAR].find((e) => e.id === b.event).end.dateTime);
