@@ -1361,8 +1361,10 @@ export class Atelier {
       }
       case 'members/list': {
         const rows = this.all('SELECT * FROM members ORDER BY expires DESC LIMIT 1000').map((m) => ({ ...m, active: m.expires >= now, ...this.memberState(m) }));
-        const paid = this.one("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS amount FROM member_payments WHERE ref NOT LIKE 'cs_test_%'");
-        return { members: rows, active: rows.filter((m) => m.active).length, payments: { n: paid.n, amount: round2(paid.amount) } };
+        const paid = this.one("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS amount FROM member_payments WHERE ref NOT LIKE 'cs_test_%' AND amount > 0");
+        // cards offered by the workshop (0 € at the counter; not the free year of a level)
+        const offered = this.one("SELECT COUNT(*) AS n FROM member_payments WHERE amount = 0 AND source <> 'niveau'").n;
+        return { members: rows, active: rows.filter((m) => m.active).length, payments: { n: paid.n, amount: round2(paid.amount), offered } };
       }
       // the members' appointments of the day (and before) not counted yet for the levels (the
       // morning job checks each in the calendar, then member/count)

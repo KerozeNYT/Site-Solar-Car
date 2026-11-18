@@ -1355,7 +1355,7 @@ function giftsDue(m, retour, named = false) {
 function memberCard(c) {
   const m = c.member;
   const hidden = `<input type="hidden" name="action" value="member-add"><input type="hidden" name="retour" value="/atelier/clients/${c.id}"><input type="hidden" name="firstName" value="${esc(c.first)}"><input type="hidden" name="lastName" value="${esc(c.last)}"><input type="hidden" name="email" value="${esc(c.email)}"><input type="hidden" name="phone" value="${esc(c.phone)}">`;
-  const pay = `<div class="row" style="align-items:end"><div><label for="pm-amount">Encaissé à l’atelier (€)</label><input id="pm-amount" name="amount" inputmode="decimal" value="${esc(String(P.price).replace('.', ','))}"></div><div class="checks" style="padding-bottom:12px"><label><input type="checkbox" name="welcome" value="1"${c.email ? ' checked' : ' disabled'}> Envoyer l’e-mail de bienvenue${c.email ? '' : ' (pas d’e-mail)'}</label></div></div>`;
+  const pay = `<div class="row" style="align-items:end"><div><label for="pm-amount">Encaissé à l’atelier (€) · 0 si offerte</label><input id="pm-amount" name="amount" inputmode="decimal" value="${esc(String(P.price).replace('.', ','))}"></div><div class="checks" style="padding-bottom:12px"><label><input type="checkbox" name="welcome" value="1"${c.email ? ' checked' : ' disabled'}> Envoyer l’e-mail de bienvenue${c.email ? '' : ' (pas d’e-mail)'}</label></div></div>`;
   if (!m)
     return `<form class="card" method="post" action="/atelier/premium" id="premium"><h2>${ico('card')} SOLAR CAR Premium</h2><p class="dim">Pas encore membre. −${P.percent} % sur tout pendant ${P.months} mois, un niveau et un cadeau à chaque prestation.</p>${hidden}${pay}<button>${ico('card')} Passer Premium</button></form>`;
   return `<section class="card" id="premium"><h2>${ico('card')} SOLAR CAR Premium ${m.active ? PREMIUM_TAG : '<span class="tag tag--off">expirée</span>'}</h2>
@@ -1398,13 +1398,13 @@ async function premiumPage(env, url, now) {
     : '<p class="empty">Aucune carte cadeau pour l’instant : elles s’achètent sur la page « Carte cadeau » du site, ou se créent ci-dessous.</p>';
   const body = `<h1>Cartes &amp; <em>Premium</em></h1>
 <p class="lead">Les cartes cadeaux vendues et ce qu’il reste à dépenser dessus, les membres SOLAR CAR Premium, leurs niveaux et les cadeaux à leur remettre.</p>
-<div class="figs"><a class="fig" href="#membres"><b>${ml.active}</b><span>membres Premium actifs</span></a><div class="fig"><b>${eur(ml.payments.amount)}</b><span>${ml.payments.n} adhésion${ml.payments.n > 1 ? 's' : ''} encaissée${ml.payments.n > 1 ? 's' : ''}</span></div><a class="fig" href="#cadeaux"><b>${eur(gl.sold.paid)}</b><span>${gl.sold.n} carte${gl.sold.n > 1 ? 's' : ''} cadeau vendue${gl.sold.n > 1 ? 's' : ''}</span></a><div class="fig"><b>${eur(gl.outstanding)}</b><span>encore à dépenser à l’atelier</span></div></div>
+<div class="figs"><a class="fig" href="#membres"><b>${ml.active}</b><span>membres Premium actifs</span></a><div class="fig"><b>${eur(ml.payments.amount)}</b><span>${ml.payments.n} adhésion${ml.payments.n > 1 ? 's' : ''} encaissée${ml.payments.n > 1 ? 's' : ''}${ml.payments.offered ? ` · ${ml.payments.offered} offerte${ml.payments.offered > 1 ? 's' : ''}` : ''}</span></div><a class="fig" href="#cadeaux"><b>${eur(gl.sold.paid)}</b><span>${gl.sold.n} carte${gl.sold.n > 1 ? 's' : ''} cadeau vendue${gl.sold.n > 1 ? 's' : ''}</span></a><div class="fig"><b>${eur(gl.outstanding)}</b><span>encore à dépenser à l’atelier</span></div></div>
 <section class="card" id="a-remettre"><h2>${ico('gift')} Cadeaux à remettre</h2><p class="dim" style="margin-top:-6px">Un niveau par prestation : le cadeau se remet le jour du rendez-vous qui l’a débloqué. « Remis » le range.</p>${pendingHtml}</section>
 <section class="card" id="membres"><h2>${ico('card')} Membres Premium</h2>${memberRows}
-<form method="post" action="/atelier/premium" id="nouveau-membre"><h3>Ajouter un membre (adhésion payée à l’atelier)</h3><input type="hidden" name="action" value="member-add">
+<form method="post" action="/atelier/premium" id="nouveau-membre"><h3>Ajouter un membre (payé à l’atelier, ou offert)</h3><input type="hidden" name="action" value="member-add">
 <div class="row"><div><label for="nm-first">Prénom</label><input id="nm-first" name="firstName" required autocomplete="off"></div><div><label for="nm-last">Nom</label><input id="nm-last" name="lastName" required autocomplete="off"></div></div>
 <div class="row"><div><label for="nm-email">E-mail</label><input id="nm-email" name="email" type="email" autocomplete="off" placeholder="pour sa carte numérique"></div><div><label for="nm-tel">Téléphone</label><input id="nm-tel" name="phone" type="tel" autocomplete="off"></div></div>
-<div class="row" style="align-items:end"><div><label for="nm-amount">Encaissé (€)</label><input id="nm-amount" name="amount" inputmode="decimal" value="${esc(String(P.price).replace('.', ','))}"></div><div class="checks" style="padding-bottom:12px"><label><input type="checkbox" name="welcome" value="1" checked> Envoyer l’e-mail de bienvenue</label></div></div>
+<div class="row" style="align-items:end"><div><label for="nm-amount">Encaissé (€) · 0 si offerte</label><input id="nm-amount" name="amount" inputmode="decimal" value="${esc(String(P.price).replace('.', ','))}"></div><div class="checks" style="padding-bottom:12px"><label><input type="checkbox" name="welcome" value="1" checked> Envoyer l’e-mail de bienvenue</label></div></div>
 <button>${ico('card')} Créer sa carte Premium</button><p class="hint">Même e-mail qu’une carte existante : elle est prolongée d’un an.</p></form></section>
 <form class="card" method="post" action="/atelier/premium" id="ecrire"><h2>${ico('mail')} Écrire aux membres</h2><input type="hidden" name="action" value="offer-send">
 <p class="dim" style="margin-top:-6px">Une offre, une avant-première, une nouveauté : un e-mail à chaque membre actif qui accepte les offres (<b>${mailing.members.length}</b> aujourd’hui), « Bonjour Prénom », avec son lien pour ne plus les recevoir. Pour une remise, créez d’abord un code « Réservé aux membres Premium » dans <a href="/atelier/codes#promo">Codes et promos</a>.</p>
@@ -1445,12 +1445,14 @@ async function premiumPost(req, env, now) {
   if (action === 'member-add') {
     const r = await db(env, 'member/join', { now, ref: '', amount: money('amount'), firstName: g('firstName'), lastName: g('lastName'), email: g('email'), phone: g('phone'), source: 'atelier', live });
     if (!r.ok) return back(retour, { err: r.error });
+    // nothing taken (0 €): a card offered by the workshop, said so in the e-mail
+    const offered = money('amount') === 0;
     let mailed = false;
     if (f.get('welcome') && r.member.email && env.RESEND_API_KEY) {
       const pub = await db(env, 'member/public', { number: r.member.number, t: r.member.token, now });
-      mailed = pub.ok && (await sendPremiumWelcome(env, pub.member, { to: r.member.email, renewed: r.renewed }).then(() => true).catch((err) => (console.error('[mail] premium welcome', err.message), false)));
+      mailed = pub.ok && (await sendPremiumWelcome(env, pub.member, { to: r.member.email, renewed: r.renewed, offered }).then(() => true).catch((err) => (console.error('[mail] premium welcome', err.message), false)));
     }
-    return back(retour, { ok: `${r.renewed ? 'Carte prolongée' : 'Carte Premium créée'} : ${r.member.number} pour ${name(r.member)}, jusqu’au ${dateOf(r.member.expires)}${mailed ? ', e-mail de bienvenue envoyé' : ''}.` });
+    return back(retour, { ok: `${r.renewed ? 'Carte prolongée' : offered ? 'Carte Premium offerte' : 'Carte Premium créée'} : ${r.member.number} pour ${name(r.member)}, jusqu’au ${dateOf(r.member.expires)}${mailed ? `, e-mail ${offered ? '« vous offre la carte »' : 'de bienvenue'} envoyé` : ''}.` });
   }
   if (action === 'offer-send') {
     const o = { subject: g('subject'), title: g('title'), text: String(f.get('text') || '').replace(/\r\n?/g, '\n').trim().slice(0, 4000), code: g('code') };

@@ -647,16 +647,22 @@ function levelsHtml(m) {
  * referral code for the relatives, the link to « Mon espace Premium ». m: the public member
  * (booking/store.js publicMember) with `email` the real address in `to`.
  */
-export async function sendPremiumWelcome(env, m, { to, renewed = false } = {}) {
+export async function sendPremiumWelcome(env, m, { to, renewed = false, offered = false } = {}) {
   const tier = P.tiers.find((t) => t.id === m.tier?.id) || P.tiers[0];
   const optOut = `${String(R.api || '').replace(/\/$/, '')}/api/premium/offres?n=${encodeURIComponent(m.number)}&t=${m.token}&off=1`;
   await send(env, {
     to: [to],
     reply_to: B.email,
-    subject: renewed ? `Votre carte SOLAR CAR Premium est renouvelée jusqu’au ${fullDate(m.expires)}` : `Bienvenue dans SOLAR CAR Premium, ${m.firstName}`,
+    subject: offered ? `${B.name} vous offre la carte SOLAR CAR Premium` : renewed ? `Votre carte SOLAR CAR Premium est renouvelée jusqu’au ${fullDate(m.expires)}` : `Bienvenue dans SOLAR CAR Premium, ${m.firstName}`,
     html: luxShell(
-      renewed ? 'Une année de plus ensemble' : `Bienvenue, ${m.firstName}`,
-      `${lp(renewed ? `Merci de rester des nôtres ! Votre carte est prolongée jusqu’au <b>${esc(fullDate(m.expires))}</b>, et vous gardez votre niveau <b style="color:${tier.color}">${esc(tier.label)}</b> : vos prestations continuent de compter.` : `Merci de nous rejoindre. À partir d’aujourd’hui, vous profitez de <b>−${P.percent} % sur toutes les prestations de l’atelier</b>, toute l’année, et chaque rendez-vous vous fait monter d’un niveau, avec un cadeau à la clé.`)}
+      offered ? `Un cadeau pour vous, ${m.firstName}` : renewed ? 'Une année de plus ensemble' : `Bienvenue, ${m.firstName}`,
+      `${lp(
+        offered
+          ? `Pour vous remercier de votre confiance, nous vous ${renewed ? `offrons une année de plus de <b>SOLAR CAR Premium</b>, jusqu’au <b>${esc(fullDate(m.expires))}</b>` : `offrons <b>un an de SOLAR CAR Premium</b>`} : <b>−${P.percent} % sur toutes les prestations de l’atelier</b>, toute l’année, et chaque rendez-vous vous fait monter d’un niveau, avec un cadeau à la clé. Rien à payer, rien à faire : votre carte est prête.`
+          : renewed
+            ? `Merci de rester des nôtres ! Votre carte est prolongée jusqu’au <b>${esc(fullDate(m.expires))}</b>, et vous gardez votre niveau <b style="color:${tier.color}">${esc(tier.label)}</b> : vos prestations continuent de compter.`
+            : `Merci de nous rejoindre. À partir d’aujourd’hui, vous profitez de <b>−${P.percent} % sur toutes les prestations de l’atelier</b>, toute l’année, et chaque rendez-vous vous fait monter d’un niveau, avec un cadeau à la clé.`
+      )}
 ${premiumCardHtml(env, m, tier)}
 <p style="margin:22px 0 0">${goldButton(m.cardUrl, 'Ouvrir mon espace Premium')}</p>
 ${lp('Votre carte, vos rendez-vous et vos cadeaux, au même endroit. Sur votre téléphone, ajoutez-le à l’écran d’accueil : il s’ouvre comme une application.', 'margin-top:10px;font-size:13px;color:#a9a396')}
@@ -669,7 +675,7 @@ ${lp('Votre carte, vos rendez-vous et vos cadeaux, au même endroit. Sur votre t
 ${levelsHtml(m)}
 ${m.referral ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;background:#141519;border:1px dashed #6b5a33;border-radius:14px"><tr><td style="padding:16px 18px;font-size:14px;line-height:1.55;color:${INK}"><b style="color:${GOLD}">Pour vos proches</b><br>Offrez-leur ${euros(m.referral.amount)} sur leur première prestation avec votre code personnel <span style="font-family:'Courier New',monospace;font-weight:700;color:${GOLD};letter-spacing:.1em">${esc(m.referral.code)}</span>.</td></tr></table>` : ''}
 ${lp(`À très vite à l’atelier,<br><b>${esc((B.owner || '').split(' ')[0] || B.name)}</b> — ${esc(B.name)}`, 'margin-top:22px')}`,
-      { preheader: renewed ? `Prolongée jusqu’au ${fullDate(m.expires)}.` : `−${P.percent} % toute l’année, et un cadeau à chaque prestation.`, kicker: 'SOLAR CAR Premium', foot: `Carte nominative · valable jusqu’au ${esc(fullDate(m.expires))} · sans renouvellement automatique. Vous recevrez de temps en temps nos offres réservées aux membres : <a href="${esc(optOut)}" style="color:#9c927c">ne plus les recevoir</a>.` }
+      { preheader: offered ? `Un an de −${P.percent} % et un cadeau à chaque prestation, offerts.` : renewed ? `Prolongée jusqu’au ${fullDate(m.expires)}.` : `−${P.percent} % toute l’année, et un cadeau à chaque prestation.`, kicker: offered ? 'Offerte par SOLAR CAR 37' : 'SOLAR CAR Premium', foot: `Carte nominative · valable jusqu’au ${esc(fullDate(m.expires))} · sans renouvellement automatique. Vous recevrez de temps en temps nos offres réservées aux membres : <a href="${esc(optOut)}" style="color:#9c927c">ne plus les recevoir</a>.` }
     ),
   });
 }

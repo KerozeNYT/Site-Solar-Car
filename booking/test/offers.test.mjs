@@ -371,6 +371,12 @@ test('the workshop: « Cartes & Premium », a gift handed over, a member added a
   r = await go('/atelier/premium', { method: 'POST', form: { action: 'member-add', firstName: 'Kevin', lastName: 'Morel', email: 'kevin@example.com', phone: '06 10 20 30 40', amount: '19,99', welcome: '1' } });
   assert.match(where(r).searchParams.get('ok'), /Carte Premium créée : PREMIUM-.* e-mail de bienvenue envoyé/);
   assert.ok(mails.some((x) => x.to[0] === 'kevin@example.com'));
+  // a card offered (0 €): « SOLAR CAR 37 vous offre la carte Premium »
+  mails.length = 0;
+  r = await go('/atelier/premium', { method: 'POST', form: { action: 'member-add', firstName: 'Inès', lastName: 'Garnier', email: 'ines@example.com', amount: '0', welcome: '1' } });
+  assert.match(where(r).searchParams.get('ok'), /Carte Premium offerte : PREMIUM-.* « vous offre la carte » envoyé/);
+  assert.match(mails.find((x) => x.to[0] === 'ines@example.com').subject, /SOLAR CAR 37 vous offre la carte SOLAR CAR Premium/);
+  assert.match(await (await go('/atelier/premium')).text(), /adhésions? encaissées? · 1 offerte/);
   // the clients list shows the badge
   assert.match(await (await go('/atelier/clients?q=kevin')).text(), /tag--premium/);
   // a gift card sold at the counter, e-mailed to the recipient
@@ -392,8 +398,8 @@ test('the workshop: « Cartes & Premium », a gift handed over, a member added a
   assert.match(where(r).searchParams.get('err'), /Cochez/);
   mails.length = 0;
   r = await go('/atelier/premium', { method: 'POST', form: { action: 'offer-send', subject: 'Avant-première membres', text: 'Le ciel étoilé à −20 %.', code: 'VIP20', envoi: 'membres', confirme: '1' } });
-  assert.match(where(r).searchParams.get('ok'), /Offre envoyée à 2 membres/);
-  assert.deepEqual(mails.map((m) => m.to[0]).sort(), ['kevin@example.com', 'zoe@example.com']);
+  assert.match(where(r).searchParams.get('ok'), /Offre envoyée à 3 membres/);
+  assert.deepEqual(mails.map((m) => m.to[0]).sort(), ['ines@example.com', 'kevin@example.com', 'zoe@example.com']);
   assert.match(mails[0].html, /VIP20/);
   assert.match(mails[0].headers['List-Unsubscribe'], /api\/premium\/offres\?n=PREMIUM-/);
   // the promotion form offers « réservé aux membres »
