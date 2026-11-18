@@ -361,7 +361,9 @@ async function webhook(req, env) {
   const event = await verifyWebhook(payload, req.headers.get('stripe-signature'), env.STRIPE_WEBHOOK_SECRET);
   if (!event) return json({ error: 'signature' }, 400);
   const s = event.data?.object;
-  if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && s?.payment_status === 'paid') {
+  if (s?.metadata?.kind === 'supplement') {
+    if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && s.payment_status === 'paid' && env.ATELIER) await supplementPaid(env, s);
+  } else if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && s?.payment_status === 'paid') {
     await confirm(env, s);
   } else if (event.type === 'checkout.session.expired' || event.type === 'checkout.session.async_payment_failed') {
     const id = s?.metadata?.event;
@@ -528,22 +530,85 @@ export async function atelierBookingChange(env, session, change, now) {
       return [];
     }
   })();
-  const ev = bk.event ? await getEvent(env, env.CALENDAR_WRITE, bk.event).catch(() => null) : null;
-  if (ev && ev.status !== 'cancelled') {
-    const added = items.filter((i) => i.added);
-    const base = String(ev.description || '').replace(/\n*— Ajouts à l’atelier —[^]*$/, '');
-    const block = added.length ? `\n\n— Ajouts à l’atelier —\n${added.map((i) => `• ${i.label}${i.detail ? ` — ${i.detail}` : ''} : ${euros(Number(i.price) || 0)}`).join('\n')}\nNouveau total : ${euros(bk.total)} — déjà réglé : ${euros(bk.paid)} — reste à régler : ${euros(Math.max(0, bk.total - bk.paid))}` : '';
-    const patch = { description: base + block };
-    const shift = (add?.lengthened ? add.minutes : 0) - (r.removed?.lengthened ? Number(r.removed.minutes) || 0 : 0);
-    if (shift && ev.end?.dateTime) patch.end = { dateTime: new Date(Date.parse(ev.end.dateTime) + shift * 60000).toISOString(), timeZone: R.timeZone };
-    await patchEvent(env, env.CALENDAR_WRITE, ev.id, patch).catch((err) => console.error('[atelier] change event', err.message));
-  }
+  await refreshEvent(env, bk, (add?.lengthened ? add.minutes : 0) - (r.removed?.lengthened ? Number(r.removed.minutes) || 0 : 0));
   let mailed = false;
   if (change.mail && bk.email)
     mailed = await sendBookingUpdate(env, { c: { firstName: bk.first, email: bk.email, vehicle: bk.vehicle }, date: bk.date, time: bk.time, items, total: bk.total, paid: bk.paid })
       .then(() => true)
       .catch((err) => (console.error('[mail] booking update', err.message), false));
   return { ok: true, booking: bk, mailed };
+}
+
+const itemsOfBooking = (bk) => {
+  try {
+    return JSON.parse(bk.items || '[]');
+  } catch {
+    return [];
+  }
+};
+
+/** the appointment's calendar event after a change: the block « Ajouts à l’atelier » under its
+ *  description (services added, new total, paid, left), its end moved by `shift` minutes */
+async function refreshEvent(env, bk, shift = 0) {
+  const ev = bk.event ? await getEvent(env, env.CALENDAR_WRITE, bk.event).catch(() => null) : null;
+  if (!ev || ev.status === 'cancelled') return;
+  const added = itemsOfBooking(bk).filter((i) => i.added);
+  const base = String(ev.description || '').replace(/\n*— Ajouts à l’atelier —[^]*$/, '');
+  const block = added.length ? `\n\n— Ajouts à l’atelier —\n${added.map((i) => `• ${i.label}${i.detail ? ` — ${i.detail}` : ''} : ${euros(Number(i.price) || 0)}`).join('\n')}\nNouveau total : ${euros(bk.total)} — déjà réglé : ${euros(bk.paid)} — reste à régler : ${euros(Math.max(0, bk.total - bk.paid))}` : '';
+  const patch = { description: base + block };
+  if (shift && ev.end?.dateTime) patch.end = { dateTime: new Date(Date.parse(ev.end.dateTime) + shift * 60000).toISOString(), timeZone: R.timeZone };
+  await patchEvent(env, env.CALENDAR_WRITE, ev.id, patch).catch((err) => console.error('[atelier] change event', err.message));
+}
+
+/**
+ * « Prévenir le client » of an appointment changed at the workshop: the new recap by e-mail, with,
+ * when the workshop asks for it, a deposit for the services added (a Stripe page valid `hours`,
+ * 1 to 24; paid: added to what is paid, booking/store.js « booking/payment »). opts: { deposit
+ * (EUR, 0: none), hours, note, preview (the workshop's addresses: the e-mail to them only, no
+ * payment page made) }. Returns { ok, sent, url } or { ok: false, error }.
+ */
+export async function atelierBookingNotify(env, session, opts, now) {
+  const { booking: bk } = await db(env, 'booking/get', { session });
+  if (!bk) return { ok: false, error: 'Rendez-vous introuvable.' };
+  if (!opts.preview && !bk.email) return { ok: false, error: 'Ce client n’a pas d’adresse e-mail : prévenez-le par téléphone.' };
+  const items = itemsOfBooking(bk);
+  const due = Math.max(0, Math.round((bk.total - bk.paid) * 100) / 100);
+  const deposit = Math.round(Math.min(due, Math.max(0, Number(opts.deposit) || 0)) * 100) / 100;
+  if (opts.deposit && deposit < 0.5) return { ok: false, error: 'Acompte trop faible (0,50 € au moins) ou rien à régler.' };
+  const hours = Math.max(1, Math.min(24, Math.round(Number(opts.hours) || 24)));
+  const expires = now + hours * 3600000 - 60000;
+  let pay = null;
+  if (deposit && opts.preview) pay = { url: String(env.SITE_URL || B.siteUrl), amount: deposit, expires };
+  if (deposit && !opts.preview) {
+    const when = longDate(bk.date, bk.time);
+    const s = await createSession(env, {
+      mode: 'payment',
+      locale: 'fr',
+      customer_email: bk.email,
+      line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(deposit * 100), product_data: { name: 'Acompte — prestations ajoutées', description: `RDV du ${when} à l’atelier SOLAR CAR 37, Vouvray. Total ${euros(bk.total)}, reste ${euros(due - deposit)} à régler à l’atelier.` } } }],
+      payment_intent_data: { description: `SOLAR CAR 37 — acompte des prestations ajoutées — ${when}`.slice(0, 250), receipt_email: bk.email },
+      expires_at: Math.floor(expires / 1000),
+      success_url: `${String(env.WORKER_URL || '').replace(/\/$/, '')}/api/paiement/merci`,
+      cancel_url: `${String(env.SITE_URL || B.siteUrl).replace(/\/$/, '')}/`,
+      metadata: { kind: 'supplement', booking: bk.session, amount: String(deposit) },
+    }).catch((err) => (console.error('[atelier] supplement', err.message), null));
+    if (!s) return { ok: false, error: 'Stripe n’a pas pu créer le lien de l’acompte : réessayez dans un instant.' };
+    pay = { url: s.url, amount: deposit, expires };
+  }
+  const sent = await sendBookingUpdate(env, { c: { firstName: bk.first, email: bk.email, vehicle: bk.vehicle }, date: bk.date, time: bk.time, items, total: bk.total, paid: bk.paid, note: String(opts.note || '').trim().slice(0, 1500), pay, preview: opts.preview })
+    .then(() => true)
+    .catch((err) => (console.error('[mail] booking update', err.message), false));
+  return sent ? { ok: true, sent, url: pay?.url || '' } : { ok: false, error: 'L’e-mail n’est pas parti : réessayez.' };
+}
+
+/** a deposit paid for services added: what is paid follows, the calendar says it, the workshop is told */
+async function supplementPaid(env, s) {
+  const m = s.metadata || {};
+  const r = await db(env, 'booking/payment', { session: m.booking, amount: (s.amount_total || 0) / 100, ref: s.id });
+  if (!r.ok || r.again) return;
+  const bk = r.booking;
+  await refreshEvent(env, bk);
+  await notify(env, { title: 'Acompte reçu (prestations ajoutées)', body: `${[bk.first, bk.last].filter(Boolean).join(' ')} — ${euros((s.amount_total || 0) / 100)} · reste ${euros(Math.max(0, bk.total - bk.paid))} à l’atelier`, url: `/atelier/rdv/r/${encodeURIComponent(bk.session)}`, tag: `rdv-${bk.session}` });
 }
 
 /** a link the workshop takes back: the payment page closed, the slot freed */
@@ -657,17 +722,30 @@ export async function dailyMails(env, now = Date.now()) {
       const start = Date.parse(ev.start?.dateTime || '');
       if (ev.status === 'cancelled' || p[job.flag] || !p.session || !(start >= from && start < to)) continue;
       try {
-        const session = await getSession(env, p.session);
-        if (session.payment_status !== 'paid') continue;
-        const m = session.metadata || {};
-        const q = priced(m);
-        const c = JSON.parse(m.customer || '{}');
-        if (q.error || !c.email) continue;
+        // the appointment as the space knows it: services added, payments made since
+        const kept = env.ATELIER ? (await db(env, 'booking/get', { session: p.session }).catch(() => ({}))).booking : null;
+        let q = null;
+        let c = null;
+        let paidNow = 0;
+        if (/^cs_/.test(p.session)) {
+          const session = await getSession(env, p.session);
+          if (session.payment_status !== 'paid') continue;
+          const m = session.metadata || {};
+          q = priced(m);
+          c = JSON.parse(m.customer || '{}');
+          paidNow = (session.amount_total || 0) / 100;
+        } else if (!kept) continue;
+        if (kept) {
+          q = { items: itemsOfBooking(kept).map((i) => ({ ...i, detail: i.detail || '' })), total: kept.total, minutes: kept.minutes };
+          c = c?.email ? c : { firstName: kept.first, lastName: kept.last, email: kept.email, phone: kept.phone, vehicle: kept.vehicle };
+          paidNow = kept.paid;
+        }
+        if (!q || q.error || !c?.email) continue;
         const at = utcToZoned(start, R.timeZone);
         // a week after: the client's own referral code (a gift card to give), the same one if the
         // e-mail is sent again
         const referral = job.flag === 'followedUp' && env.ATELIER ? await referralFor(env, { owner: c.firstName, email: c.email, origin: p.session }, now).catch((err) => (console.error('[parrainage]', err.message), null)) : null;
-        await job.send(env, { q, c, date: at.date, time: at.time, end: Date.parse(ev.end.dateTime), paid: (session.amount_total || 0) / 100, referral });
+        await job.send(env, { q, c, date: at.date, time: at.time, end: Date.parse(ev.end.dateTime), paid: paidNow, referral });
         await patchEvent(env, env.CALENDAR_WRITE, ev.id, { extendedProperties: { private: { ...p, [job.flag]: String(now) } } });
         out[job.count]++;
       } catch (err) {
@@ -809,6 +887,8 @@ export default {
       if (req.method === 'POST' && url.pathname === '/api/demande') return await quoteRequest(req, env, now);
       // the client accepts a quote (www.solarcar37.fr/devis/): what it is, then « J'accepte »
       if (url.pathname === '/api/devis' && req.method === 'GET') return await quotePublic(req, env, url);
+      if (url.pathname === '/api/paiement/merci' && req.method === 'GET')
+        return new Response(`<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Merci — ${B.name}</title><body style="margin:0;background:#07080a;color:#f3f0ea;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;display:grid;place-items:center;min-height:100vh;padding:24px"><main style="max-width:460px;text-align:center"><p style="font-size:44px;margin:0">✓</p><h1 style="font-size:24px;margin:8px 0 12px">Merci, votre acompte est bien reçu</h1><p style="color:#c7c3ba;line-height:1.55;margin:0 0 20px">Le reçu Stripe arrive par e-mail. À bientôt à l’atelier ${B.name} !</p><a href="${String(env.SITE_URL || B.siteUrl)}" style="display:inline-block;background:#e3c27a;color:#0a0a0b;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:999px">Retour au site</a></main></body></html>`, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } });
       if (url.pathname === '/api/devis/accepter' && req.method === 'POST') return await quoteAccept(req, env, now);
       if (url.pathname === '/atelier' || url.pathname.startsWith('/atelier/')) return await atelier(req, env, url, now);
       // atelier.solarcar37.fr: the workshop's space only (its address bar shows /atelier…)

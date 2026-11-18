@@ -135,11 +135,15 @@ Un client appelle ou passe à l'atelier : **+ Nouveau → Nouveau rendez-vous** 
 
 **Modifier un RDV confirmé** (une prestation demandée en plus) : Rendez-vous → la date du RDV (ou
 sa fiche client, ou « Ouvrir le RDV » sur la page du lien) → **Ajouter une prestation** : libellé
-(ou une prestation de la liste), prix, remise en % (le prix net s'affiche), durée ; cases « Allonger
-le RDV dans l'agenda » et « Envoyer le récapitulatif mis à jour au client ». Le total et le **reste à
-régler à l'atelier** se recalculent (ce qui est payé ne bouge pas), l'agenda reçoit un bloc « Ajouts
-à l'atelier ». Une prestation ajoutée par erreur se retire (la corbeille) ; celles réservées au départ
-ne se retirent pas d'ici.
+(ou une prestation de la liste), prix, remise en % (le prix net s'affiche), durée, case « Allonger
+le RDV dans l'agenda ». Le total et le **reste à régler à l'atelier** se recalculent (ce qui est payé
+ne bouge pas), l'agenda reçoit un bloc « Ajouts à l'atelier » ; rien ne part au client. Une
+prestation ajoutée par erreur se retire (la corbeille) ; celles réservées au départ ne se retirent
+pas d'ici. Puis **Prévenir le client** : mot facultatif, case **« Demander un acompte en ligne »**
+(30 % des ajouts proposés, modifiable, lien Stripe de 2 h à 24 h), **« M'envoyer un aperçu »** (à vous
+seul, aucun paiement créé) et **« Envoyer la mise à jour au client »**. L'acompte payé s'ajoute au
+« déjà réglé » (notification, agenda à jour). Les rappels de la veille reprennent les prestations
+ajoutées et ce qui reste vraiment à régler (y compris pour les RDV réglés sur place).
 
 Code : `booking/worker.js` (`atelierBooking`, `atelierSlots`, `atelierCancel`, `atelierBookingChange`), `booking/atelier.js`
 (le formulaire, la page du lien), table `links` (`booking/store.js`), e-mail `sendPaymentLink`

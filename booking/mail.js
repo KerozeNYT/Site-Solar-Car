@@ -193,10 +193,11 @@ export async function sendPaymentLink(env, b) {
 /**
  * An appointment changed at the workshop (services added): the client gets the new recap and what
  * is left to pay at the workshop. b: { c: { firstName, email, vehicle }, date, time, items, total, paid,
- * preview: the workshop's addresses to send it to instead of the client (« M'envoyer un aperçu ») }
+ * preview: the workshop's addresses to send it to instead of the client (« M'envoyer un aperçu »),
+ * note: the workshop's word, pay: { url, amount, expires } a deposit asked for the services added }
  */
 export async function sendBookingUpdate(env, b) {
-  const { c, date, time, items, total, paid, preview } = b;
+  const { c, date, time, items, total, paid, preview, note, pay } = b;
   const due = Math.max(0, Math.round((total - paid) * 100) / 100);
   const list = items.map((i) => `${esc(i.label)}<br><span style="font-weight:400;color:#6b6b6b">${[i.detail ? esc(i.detail) : '', euros(Number(i.price) || 0)].filter(Boolean).join(' · ')}</span>`).join('<br>');
   await send(env, {
@@ -205,15 +206,17 @@ export async function sendBookingUpdate(env, b) {
     subject: `${preview?.length ? '[Aperçu] ' : ''}Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} : récapitulatif mis à jour`,
     html: shell(
       'Votre rendez-vous, mis à jour',
-      `${preview?.length ? `<p style="margin:0 0 16px;padding:10px 12px;border-radius:8px;background:#fff4d6;color:#7a5a00;font-size:13px">Aperçu pour l’atelier : rien n’a été enregistré ni envoyé à ${esc(c.email || 'au client')}. Voici l’e-mail qu’il recevra.</p>` : ''}<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName || '')},<br>comme convenu, voici le récapitulatif de votre rendez-vous avec les prestations ajoutées.</p>
+      `${preview?.length ? `<p style="margin:0 0 16px;padding:10px 12px;border-radius:8px;background:#fff4d6;color:#7a5a00;font-size:13px">Aperçu pour l’atelier : rien n’a été enregistré ni envoyé à ${esc(c.email || 'au client')}. Voici l’e-mail qu’il recevra.</p>` : ''}${note ? `<p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#111;white-space:pre-wrap">${esc(note)}</p>` : `<p style="margin:0 0 16px;font-size:15px;color:#111">Bonjour ${esc(c.firstName || '')},<br>comme convenu, voici le récapitulatif de votre rendez-vous avec les prestations ajoutées.</p>`}
 <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
         ['Quand', esc(`${dayLabel(date)}, ${hour(time)}`)],
         ['Véhicule', esc(c.vehicle || '')],
         ['Prestations', list],
         ['Total', `${euros(total)}<br><span style="font-weight:400;color:#6b6b6b;font-size:12px">${esc(vatNote)}</span>`],
         ['Déjà réglé', paid ? euros(paid) : ''],
-        ['À régler à l’atelier', due ? euros(due) : 'rien, tout est réglé'],
+        pay ? ['Acompte demandé', euros(pay.amount)] : ['', ''],
+        ['À régler à l’atelier', pay ? `${euros(Math.max(0, due - pay.amount))} après l’acompte` : due ? euros(due) : 'rien, tout est réglé'],
       ])}</table>
+${pay ? `<p style="margin:22px 0 8px">${button(pay.url, `Régler l’acompte de ${euros(pay.amount)}`)}</p><p style="margin:0;font-size:13px;color:#6b6b6b">Paiement sécurisé par Stripe, possible jusqu’au ${esc(new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: R.timeZone }).format(new Date(pay.expires)).replace(':', ' h '))}.</p>` : ''}
 <p style="margin:18px 0 0;font-size:13px;color:#6b6b6b">Une question ? Répondez à cet e-mail ou appelez-nous au ${esc(B.phone)}.</p>`
     ),
   });

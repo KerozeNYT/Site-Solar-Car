@@ -155,47 +155,71 @@ test('a payment link: the slot held, the client e-mailed; paid: confirmed in the
   assert.match(await (await go('/atelier/rdv')).text(), /Pris à l’atelier/);
 });
 
-test('an appointment changed at the workshop: services added with a discount, the rest to pay follows, the calendar and the client told; one taken off again', async () => {
+test('an appointment changed at the workshop: services added, then the client told (an optional deposit for them, paid online), a preview for the workshop first; one taken off again', async () => {
   const [b] = sql("SELECT * FROM bookings WHERE session LIKE 'cs_%'");
   const href = `/atelier/rdv/r/${b.session}`;
   // reached from the list of the appointments
   assert.ok((await (await go('/atelier/rdv')).text()).includes(href));
-  const page = await (await go(href)).text();
-  assert.match(page, /Reste à régler à l’atelier<\/span><b>244,30\s€/);
-  // « M'envoyer un aperçu »: to the workshop only, nothing saved
-  mails.length = 0;
-  const pre = await go(`${href}/ajout`, { method: 'POST', form: { label: 'Lame avant noir brillant', prix: '37,50', remise: '20', apercu: '1' } });
-  assert.match(where(pre).searchParams.get('ok'), /Aperçu envoyé à contact\.solarcar37@gmail\.com : rien n’a été enregistré ni envoyé au client/);
-  assert.deepEqual(mails.map((x) => x.to), [[CAR]]);
-  assert.match(mails[0].subject, /^\[Aperçu\] Votre rendez-vous du/);
-  assert.match(mails[0].html, /Lame avant noir brillant[^]*À régler à l’atelier<\/td><td[^>]*>274,30 €/);
-  assert.equal(sql('SELECT total FROM bookings WHERE session = ?', b.session)[0].total, 349);
-  // the front blade in gloss black, 37,50 € − 20 % = 30 €, half an hour more in the calendar, the client told
+  assert.match(await (await go(href)).text(), /Reste à régler à l’atelier<\/span><b>244,30\s€/);
+  // the front blade in gloss black, 37,50 € − 20 % = 30 €, half an hour more in the calendar; nothing sent
   mails.length = 0;
   const end0 = Date.parse(cal[CAR].find((e) => e.id === b.event).end.dateTime);
-  let res = await go(`${href}/ajout`, { method: 'POST', form: { label: 'Lame avant noir brillant', prix: '37,50', remise: '20', minutes: '30', allonger: '1', mail: '1' } });
-  assert.match(where(res).searchParams.get('ok'), /Prestation ajoutée : reste à régler à l’atelier 274,30\s€\. Récapitulatif envoyé au client\./);
+  let res = await go(`${href}/ajout`, { method: 'POST', form: { label: 'Lame avant noir brillant', prix: '37,50', remise: '20', minutes: '30', allonger: '1' } });
+  assert.match(where(res).searchParams.get('ok'), /^Prestation ajoutée : reste à régler à l’atelier 274,30\s€\.$/);
   // the reflectors and the brake light, 30 € net, no time
   res = await go(`${href}/ajout`, { method: 'POST', form: { label: 'Catadioptres + feu stop arrière', prix: '30' } });
   assert.match(where(res).searchParams.get('ok'), /reste à régler à l’atelier 304,30\s€/);
+  assert.equal(mails.length, 0);
   const row = sql('SELECT total, paid, minutes FROM bookings WHERE session = ?', b.session)[0];
   assert.deepEqual([row.total, row.paid, row.minutes], [409, 104.7, 240]);
   const ev = cal[CAR].find((e) => e.id === b.event);
   assert.equal(Date.parse(ev.end.dateTime) - end0, 30 * 60000);
   assert.match(ev.description, /— Ajouts à l’atelier —\n• Lame avant noir brillant — 37,50\s€ − 20 % : 30 €\n• Catadioptres \+ feu stop arrière : 30 €\nNouveau total : 409 € — déjà réglé : 104,70 € — reste à régler : 304,30 €/);
+  // « Prévenir le client »: 30 % of the services added offered as a deposit
+  assert.match(await (await go(href)).text(), /name="montant" inputmode="decimal" value="18"/);
+  // a preview first: to the workshop only, no payment page made
+  const before = sessions.size;
+  res = await go(`${href}/maj`, { method: 'POST', form: { acompte: '1', montant: '18', duree: '24', note: 'Bonjour Kevin, comme vu ensemble : la lame et les catadioptres.', envoi: 'apercu' } });
+  assert.match(where(res).searchParams.get('ok'), /Aperçu envoyé à contact\.solarcar37@gmail\.com : rien n’est parti au client/);
+  assert.deepEqual(mails.map((x) => x.to), [[CAR]]);
+  assert.match(mails[0].subject, /^\[Aperçu\] Votre rendez-vous du/);
+  assert.match(mails[0].html, /Bonjour Kevin, comme vu ensemble/);
+  assert.match(mails[0].html, /Acompte demandé<\/td><td[^>]*>18 €[^]*286,30 € après l’acompte/);
+  assert.equal(sessions.size, before);
+  // then to the client, with the deposit to pay online
+  mails.length = 0;
+  res = await go(`${href}/maj`, { method: 'POST', form: { acompte: '1', montant: '18', duree: '24', note: 'Bonjour Kevin, comme vu ensemble : la lame et les catadioptres.', envoi: 'client' } });
+  assert.match(where(res).searchParams.get('ok'), /Mise à jour envoyée au client, avec l’acompte de 18\s€ à régler en ligne/);
+  const sup = [...sessions.values()].at(-1);
+  assert.deepEqual([sup.amount_total, sup.metadata.kind, sup.metadata.booking], [1800, 'supplement', b.session]);
+  assert.match(sup.success_url, /\/api\/paiement\/merci$/);
   const m = mails.find((x) => x.to[0] === 'kevin@example.com');
   assert.match(m.subject, /récapitulatif mis à jour/);
-  assert.match(m.html, /Lame avant noir brillant/);
-  assert.match(m.html, /À régler à l’atelier<\/td><td[^>]*>274,30 €/);
+  assert.match(m.html, /Régler l’acompte de 18 €/);
+  assert.ok(m.html.includes(sup.url));
+  // without the deposit: the recap only
+  mails.length = 0;
+  await go(`${href}/maj`, { method: 'POST', form: { envoi: 'client' } });
+  assert.doesNotMatch(mails[0].html, /Acompte demandé/);
+  assert.match(mails[0].html, /À régler à l’atelier<\/td><td[^>]*>304,30 €/);
+  // the deposit paid: added once to what is paid, the calendar follows; nothing booked twice
+  Object.assign(sup, { status: 'complete', payment_status: 'paid' });
+  await hook({ type: 'checkout.session.completed', data: { object: sup } });
+  await hook({ type: 'checkout.session.completed', data: { object: sup } });
+  assert.equal(sql('SELECT paid FROM bookings WHERE session = ?', b.session)[0].paid, 122.7);
+  assert.match(cal[CAR].find((e) => e.id === b.event).description, /déjà réglé : 122,70 € — reste à régler : 286,30 €/);
+  assert.match(await (await go(href)).text(), /Acomptes reçus depuis : 18\s€/);
   // the blade taken off again: the total and the calendar follow
   const items = JSON.parse(sql('SELECT items FROM bookings WHERE session = ?', b.session)[0].items);
   const blade = items.findIndex((i) => i.label === 'Lame avant noir brillant');
   res = await go(`${href}/retirer`, { method: 'POST', form: { ligne: String(blade) } });
-  assert.match(where(res).searchParams.get('ok'), /Prestation retirée : reste à régler à l’atelier 274,30\s€/);
+  assert.match(where(res).searchParams.get('ok'), /Prestation retirée : reste à régler à l’atelier 256,30\s€/);
   assert.equal(Date.parse(cal[CAR].find((e) => e.id === b.event).end.dateTime), end0);
   assert.doesNotMatch(cal[CAR].find((e) => e.id === b.event).description, /Lame avant/);
   // a service booked online is never taken off from here
   assert.match(where(await go(`${href}/retirer`, { method: 'POST', form: { ligne: '0' } })).searchParams.get('err'), /Seules les prestations ajoutées/);
+  // the thank-you page of the deposit
+  assert.match(await (await worker.fetch(new Request(`${SELF}/api/paiement/merci`), env)).text(), /votre acompte est bien reçu/);
 });
 
 test('a discount given by hand (an exceptional case), in % or in €: on the price, the payment, the e-mail, the calendar', async () => {

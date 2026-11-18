@@ -205,6 +205,10 @@ export class Atelier {
     x('CREATE INDEX IF NOT EXISTS clients_email ON clients (email)');
     x(`CREATE TABLE IF NOT EXISTS bookings (session TEXT PRIMARY KEY, client_id INTEGER NOT NULL DEFAULT 0, event TEXT NOT NULL DEFAULT '', date TEXT NOT NULL, time TEXT NOT NULL, minutes INTEGER NOT NULL DEFAULT 0, items TEXT NOT NULL DEFAULT '[]', total REAL NOT NULL DEFAULT 0, discount REAL NOT NULL DEFAULT 0, code TEXT NOT NULL DEFAULT '', code_kind TEXT NOT NULL DEFAULT '', mode TEXT NOT NULL DEFAULT '', paid REAL NOT NULL DEFAULT 0, vehicle TEXT NOT NULL DEFAULT '', live INTEGER NOT NULL DEFAULT 1, created INTEGER NOT NULL)`);
     x('CREATE INDEX IF NOT EXISTS bookings_client ON bookings (client_id)');
+    // payments after the booking (a deposit for services added at the workshop): [{ ref, amount, at }]
+    try {
+      x("ALTER TABLE bookings ADD COLUMN payments TEXT NOT NULL DEFAULT '[]'");
+    } catch {}
     x('CREATE INDEX IF NOT EXISTS bookings_date ON bookings (date)');
     x(`CREATE TABLE IF NOT EXISTS requests (id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL, services TEXT NOT NULL DEFAULT '', vehicle TEXT NOT NULL DEFAULT '', wish TEXT NOT NULL DEFAULT '', message TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '')`);
     x('CREATE INDEX IF NOT EXISTS requests_client ON requests (client_id)');
@@ -944,6 +948,23 @@ export class Atelier {
         const minutes = Math.max(0, (Number(row.minutes) || 0) + (b.add?.lengthened ? Number(items.at(-1).minutes) || 0 : 0) - (removed?.lengthened ? Number(removed.minutes) || 0 : 0));
         this.run('UPDATE bookings SET items = ?, total = ?, minutes = ? WHERE session = ?', JSON.stringify(items).slice(0, 4000), Math.max(0, Math.round(total * 100) / 100), minutes, row.session);
         return { ok: true, removed, booking: this.one('SELECT b.*, c.first, c.last, c.phone, c.email FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.session = ?', row.session) };
+      }
+      // a deposit paid for the services added (Stripe, booking/worker.js): added once to what is paid
+      case 'booking/payment': {
+        const row = this.one('SELECT * FROM bookings WHERE session = ?', clip(b.session, 120));
+        if (!row) return { ok: false, error: 'Rendez-vous introuvable.' };
+        const payments = (() => {
+          try {
+            return JSON.parse(row.payments || '[]');
+          } catch {
+            return [];
+          }
+        })();
+        if (payments.some((p) => p.ref === b.ref)) return { ok: true, again: true, booking: row };
+        const amount = Math.round((Number(b.amount) || 0) * 100) / 100;
+        payments.push({ ref: clip(b.ref, 120), amount, at: now });
+        this.run('UPDATE bookings SET paid = ?, payments = ? WHERE session = ?', Math.round((row.paid + amount) * 100) / 100, JSON.stringify(payments), row.session);
+        return { ok: true, booking: this.one('SELECT b.*, c.first, c.last, c.phone, c.email FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.session = ?', row.session) };
       }
       case 'bookings/list': {
         const where = b.from ? 'WHERE b.date BETWEEN ? AND ?' : '';

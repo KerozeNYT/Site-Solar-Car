@@ -22,7 +22,7 @@
 import { bookingRules as R, codeServices, formatEuros, formatDuration, quote, withDiscount, withExtra, discountFor, manualDiscount, bookableVehicles, tintFormulas, lightsBooking, atelierExtras, windshieldMinutes } from '../content/booking.js';
 import { tint, tintOnQuote } from '../content/pricing.js';
 // the appointments taken by the workshop (used at request time only: worker.js imports this module)
-import { atelierBooking, atelierSlots, atelierCancel, atelierBookingChange, DROP_OFF } from './worker.js';
+import { atelierBooking, atelierSlots, atelierCancel, atelierBookingChange, atelierBookingNotify, DROP_OFF } from './worker.js';
 import { business as B } from '../content/site.js';
 import { report, totalsOf } from './stats.js';
 import { db, referralFor, redeemReferral, checkCode, dayStart, atelierFetch, QUOTE_STATUS } from './store.js';
@@ -356,7 +356,7 @@ export async function atelier(req, env, url, now) {
     return new Response(JSON.stringify(r), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
   }
   // one appointment: its page, a service added or taken off again
-  const rm = path.match(/^\/atelier\/rdv\/r\/([A-Za-z0-9_-]{6,120})(?:\/(ajout|retirer))?$/);
+  const rm = path.match(/^\/atelier\/rdv\/r\/([A-Za-z0-9_-]{6,120})(?:\/(ajout|retirer|maj))?$/);
   if (rm && req.method === 'GET' && !rm[2]) return bookingPage(env, url, rm[1], now);
   if (rm && req.method === 'POST' && rm[2]) return bookingChangePost(req, env, rm[1], rm[2], now);
   const lm = path.match(/^\/atelier\/rdv\/lien\/(\d+)(\/annuler)?$/);
@@ -848,9 +848,10 @@ ${b.discount ? `<div class="recap__due"><span>Remises</span><b>−${eur(b.discou
 <label for="a-label">Libellé</label><input id="a-label" name="label" required placeholder="ex. Lame avant noir brillant">
 <div class="row3"><div><label for="a-prix">Prix (€)</label><input id="a-prix" name="prix" inputmode="decimal" required placeholder="37,50"></div><div><label for="a-remise">Remise (%)</label><input id="a-remise" name="remise" inputmode="decimal" placeholder="20"></div><div><label for="a-min">Durée (min)</label><input id="a-min" name="minutes" type="number" min="0" max="600" step="15" placeholder="facultatif"></div></div>
 <p class="hint" id="a-net" style="margin:-4px 0 12px"></p>
-<div class="checks"><label><input type="checkbox" name="allonger" value="1"> Allonger le RDV dans l’agenda de cette durée</label><label><input type="checkbox" name="mail" value="1"${b.email ? '' : ' disabled'}> Envoyer le récapitulatif mis à jour au client${b.email ? '' : ' (pas d’e-mail)'}</label></div>
-<div class="btns"><button>${ico('plus')} Ajouter</button><button class="ghost" name="apercu" value="1">${ico('mail')} M’envoyer un aperçu</button></div>
-<p class="hint">« M’envoyer un aperçu » : l’e-mail que recevrait le client, avec cette prestation, envoyé à vous seul ; rien n’est enregistré.</p></form></div>`;
+<div class="checks"><label><input type="checkbox" name="allonger" value="1"> Allonger le RDV dans l’agenda de cette durée</label></div>
+<button>${ico('plus')} Ajouter</button>
+<p class="hint">Rien ne part au client : ajoutez tout ce qui a été convenu, puis « Prévenir le client » ci-dessous.</p></form></div>
+${notifyCard(b, items, due)}`;
   return page(`RDV ${who}`, '/atelier/rdv', body, url, { now });
 }
 
@@ -864,23 +865,44 @@ async function bookingChangePost(req, env, session, action, now) {
     if (!g('label')) return back(bookingHref(session), { err: 'Écrivez la prestation ajoutée.' });
     if (!(price >= 0)) return back(bookingHref(session), { err: 'Prix à vérifier.' });
     const net = Math.round(price * (1 - Math.max(0, Math.min(100, pct)) / 100) * 100) / 100;
-    change = { add: { label: g('label'), detail: pct > 0 ? `${eur(price)} − ${String(pct).replace('.', ',')} %` : '', price: net, minutes: Number(g('minutes')) || 0 }, lengthen: !!f.get('allonger'), mail: !!f.get('mail') };
-  } else change = { remove: Number(g('ligne')), mail: false };
-  // « M'envoyer un aperçu »: the client's e-mail with this service added, to the workshop only;
-  // nothing saved, nothing sent to the client
-  if (action === 'ajout' && f.get('apercu')) {
-    const { booking: b } = await db(env, 'booking/get', { session });
-    if (!b) return back('/atelier/rdv', { err: 'Rendez-vous introuvable.' });
-    const items = [...itemsOf(b), { label: change.add.label, detail: change.add.detail, price: change.add.price }];
-    const total = Math.round((b.total + change.add.price) * 100) / 100;
-    const to = String(env.ATELIER_EMAILS || env.NOTIFY_TO || '').split(',').map((x) => x.trim()).filter(Boolean);
-    const sent = to.length && (await sendBookingUpdate(env, { c: { firstName: b.first, email: b.email, vehicle: b.vehicle }, date: b.date, time: b.time, items, total, paid: b.paid, preview: to }).then(() => true).catch((err) => (console.error('[mail] preview', err.message), false)));
-    return back(bookingHref(session), sent ? { ok: `Aperçu envoyé à ${to.join(', ')} : rien n’a été enregistré ni envoyé au client.` } : { err: 'L’aperçu n’est pas parti : réessayez.' });
+    change = { add: { label: g('label'), detail: pct > 0 ? `${eur(price)} − ${String(pct).replace('.', ',')} %` : '', price: net, minutes: Number(g('minutes')) || 0 }, lengthen: !!f.get('allonger') };
+  } else if (action === 'retirer') change = { remove: Number(g('ligne')) };
+  // « Prévenir le client »: the new recap, with a deposit for the services added when asked; or
+  // « M'envoyer un aperçu »: that e-mail to the workshop only, no payment page made
+  if (action === 'maj') {
+    const preview = g('envoi') === 'apercu' ? String(env.ATELIER_EMAILS || env.NOTIFY_TO || '').split(',').map((x) => x.trim()).filter(Boolean) : null;
+    const deposit = f.get('acompte') ? Number(g('montant').replace(/\s/g, '').replace(',', '.')) || 0 : 0;
+    if (f.get('acompte') && !(deposit > 0)) return back(bookingHref(session), { err: 'Indiquez le montant de l’acompte.' });
+    const r = await atelierBookingNotify(env, session, { deposit, hours: g('duree'), note: g('note'), preview }, now);
+    if (!r.ok) return back(bookingHref(session), { err: r.error });
+    return back(bookingHref(session), { ok: preview ? `Aperçu envoyé à ${preview.join(', ')} : rien n’est parti au client.` : `Mise à jour envoyée au client${deposit ? `, avec l’acompte de ${eur(deposit)} à régler en ligne` : ''}.` });
   }
   const r = await atelierBookingChange(env, session, change, now);
   if (!r.ok) return back(bookingHref(session), { err: r.error });
   const left = Math.max(0, Math.round((r.booking.total - r.booking.paid) * 100) / 100);
-  return back(bookingHref(session), { ok: `${action === 'ajout' ? 'Prestation ajoutée' : 'Prestation retirée'} : reste à régler à l’atelier ${eur(left)}.${r.mailed ? ' Récapitulatif envoyé au client.' : ''}` });
+  return back(bookingHref(session), { ok: `${action === 'ajout' ? 'Prestation ajoutée' : 'Prestation retirée'} : reste à régler à l’atelier ${eur(left)}.` });
+}
+
+/** « Prévenir le client »: the new recap by e-mail, a deposit for the services added if wanted */
+function notifyCard(b, items, due) {
+  const added = items.filter((i) => i.added);
+  const addedTotal = Math.round(added.reduce((a, i) => a + (Number(i.price) || 0), 0) * 100) / 100;
+  const suggest = addedTotal ? Math.min(due, Math.round(addedTotal * R.depositRate * 100) / 100) : 0;
+  const payments = (() => {
+    try {
+      return JSON.parse(b.payments || '[]');
+    } catch {
+      return [];
+    }
+  })();
+  return `<form class="card" method="post" action="${bookingHref(b.session)}/maj" id="prevenir"><h2>${ico('send')} Prévenir le client</h2>
+<p class="dim" style="margin:-6px 0 14px">Le récapitulatif à jour (prestations, total, déjà réglé, reste à régler) par e-mail${b.email ? ` à ${esc(b.email)}` : ' : <b>ce client n’a pas d’e-mail</b>, prévenez-le par téléphone'}.${added.length ? ` Ajouts : ${eur(addedTotal)}.` : ''}</p>
+${payments.length ? `<p class="dim" style="margin:-6px 0 14px">Acomptes reçus depuis : ${payments.map((p) => `${eur(p.amount)} le ${esc(dateOf(p.at))}`).join(', ')}.</p>` : ''}
+<div class="checks"><label><input type="checkbox" name="acompte" value="1"> Demander un acompte en ligne (facultatif, à vous de voir)</label></div>
+<div class="row"><div><label for="m-montant">Montant de l’acompte (€)</label><input id="m-montant" name="montant" inputmode="decimal" value="${suggest ? esc(String(suggest).replace('.', ',')) : ''}" placeholder="${suggest ? '' : 'ex. 20'}"></div><div><label for="m-duree">Lien valable</label><select id="m-duree" name="duree"><option value="24">24 heures</option><option value="6">6 heures</option><option value="2">2 heures</option></select></div></div>
+<label for="m-note">Mot pour le client (facultatif, en tête de l’e-mail)</label><textarea id="m-note" name="note" style="min-height:90px" placeholder="Bonjour ${esc(b.first || '')}, comme vu ensemble, j’ai ajouté…"></textarea>
+<div class="btns"><button class="ghost" name="envoi" value="apercu">${ico('mail')} M’envoyer un aperçu</button><button name="envoi" value="client"${b.email ? '' : ' disabled'}>${ico('send')} Envoyer la mise à jour au client</button></div>
+<p class="hint">Proposé : 30 % des prestations ajoutées. Payé, l’acompte s’ajoute tout seul au « déjà réglé » et vous recevez une notification.</p></form>`;
 }
 
 // ---------------------------------------------------------------- Nouveau RDV (taken on the phone)
