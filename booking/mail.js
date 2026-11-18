@@ -696,17 +696,17 @@ export async function sendLevelUp(env, m, reached) {
   await send(env, {
     to: [m.email],
     reply_to: B.email,
-    subject: `Niveau ${t.label} débloqué : un cadeau vous attend`,
+    subject: reached.card ? `Niveau ${t.label} débloqué : votre carte cadeau de ${euros(reached.card.row.amount)}` : `Niveau ${t.label} débloqué : un cadeau vous attend`,
     html: luxShell(
       `Niveau ${t.label}`,
       `<p style="margin:0 0 18px;text-align:center"><span style="display:inline-block;border:1px solid ${t.color};color:${t.color};border-radius:999px;padding:8px 18px;font-size:13px;font-weight:800;letter-spacing:.24em;text-transform:uppercase">${esc(t.label)} · niveau ${P.tiers.indexOf(t)}</span></p>
 ${lp(`Bonjour ${esc(m.first)},`)}
 ${lp(`avec votre ${t.visits === 1 ? 'première' : `${t.visits}e`} prestation en tant que membre, vous passez au niveau <b style="color:${t.color}">${esc(t.label)}</b>. Votre cadeau :`)}
-<p style="margin:0 0 18px;padding:16px 18px;border:1px solid ${t.color};border-radius:14px;background:#141519;font-size:16px;line-height:1.5;color:${INK}"><b>${esc(t.gift)}</b><br><span style="font-size:13px;color:${MUTED}">remis à l’atelier, aujourd’hui ou lors de votre prochain passage.</span></p>
+${reached.card ? `${giftCardHtml(env, reached.card.row)}<p style="margin:14px 0 18px;font-size:14px;line-height:1.55;color:#cfc9bc">Votre carte cadeau de <b>${euros(reached.card.row.amount)}</b> est là, valable jusqu’au ${esc(fullDate(reached.card.row.expires))} : gardez-la pour vous, ou transférez cet e-mail à un proche. Elle se dépense en ligne ou à l’atelier, en une ou plusieurs fois.</p><p style="margin:0 0 18px">${ghostButton(reached.card.card.viewUrl, 'Voir la carte et l’imprimer')}</p>` : `<p style="margin:0 0 18px;padding:16px 18px;border:1px solid ${t.color};border-radius:14px;background:#141519;font-size:16px;line-height:1.5;color:${INK}"><b>${esc(t.gift)}</b><br><span style="font-size:13px;color:${MUTED}">remis à l’atelier, aujourd’hui ou lors de votre prochain passage.</span></p>`}
 ${m.extended ? lp(`Et votre année SOLAR CAR Premium suivante est offerte : votre carte est prolongée jusqu’au <b>${esc(fullDate(m.extended))}</b>.`, 'font-size:15px') : ''}
 ${next ? lp(`Prochain niveau : <b style="color:${next.color}">${esc(next.label)}</b>, à votre prochaine prestation — ${esc(next.gift.charAt(0).toLowerCase() + next.gift.slice(1))}.`, 'font-size:14px;color:#cfc9bc') : lp('Vous avez atteint le plus haut niveau. Merci, sincèrement, pour votre fidélité.', 'font-size:14px;color:#cfc9bc')}
 <p style="margin:18px 0 6px">${goldButton(m.cardUrl, 'Voir mon espace Premium')}</p>`,
-      { preheader: `${t.gift} : remis le jour de votre rendez-vous.`, kicker: 'SOLAR CAR Premium' }
+      { preheader: reached.card ? `${t.gift} : la voici.` : `${t.gift} : remis à l’atelier.`, kicker: 'SOLAR CAR Premium' }
     ),
   });
 }

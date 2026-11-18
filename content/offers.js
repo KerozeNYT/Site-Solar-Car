@@ -45,20 +45,24 @@ export const premium = {
    * if the appointment is still in the workshop's calendar then (a booking cancelled and refunded
    * never counts), and if it comes to `countFrom` EUR at least (0: every service). Counted from the
    * first day of membership, renewals included. The level's `gift` is handed over at the
-   * appointment that opens it; the workshop ticks « Remis » in its space. `freeYear`: the card is
-   * extended by a year by itself when the level is reached. `color`: the level's neon on the card
-   * and the pages.
+   * appointment that opens it; the workshop ticks « Remis » in its space. `giftCard`: a gift card of
+   * that amount made and e-mailed by itself (nothing to hand over). `freeYear` (none now): the card
+   * extended by a year by itself. `color`: the level's neon on the card and the pages. Nine gifts
+   * chosen by the workshop on 18 November 2026.
    */
   countFrom: 80,
   tiers: [
     { id: 'membre', label: 'Membre', visits: 0, color: '#d9dde4', gift: null, perks: ['−10 % sur toutes les prestations, toute l’année', 'Offres et avant-premières réservées aux membres', 'Votre espace Premium : carte, rendez-vous, cadeaux'] },
-    { id: 'ignition', label: 'Ignition', visits: 1, color: '#ff8a3d', gift: 'Une microfibre neuve et un parfum d’habitacle', perks: ['Débloqué à votre 1re prestation'] },
-    { id: 'turbo', label: 'Turbo', visits: 2, color: '#3dd6ff', gift: 'Un kit d’entretien SOLAR CAR : nettoyant vitres premium, avec sa fiche technique', perks: ['Débloqué à votre 2e prestation'] },
-    { id: 'nitro', label: 'Nitro', visits: 3, color: '#8a6bff', gift: 'Un traitement déperlant du pare-brise, posé pendant votre rendez-vous', perks: ['Débloqué à votre 3e prestation'] },
-    { id: 'hyper', label: 'Hyper', visits: 4, color: '#ff3d8b', gift: 'Les 2 vitres avant teintées offertes (film homologué)', perks: ['Débloqué à votre 4e prestation'] },
-    { id: 'legende', label: 'Légende', visits: 5, color: '#e9cd82', gift: 'Une paire de feux teintés offerte, pour vous ou pour un proche', perks: ['Débloqué à votre 5e prestation'] },
-    { id: 'mythique', label: 'Mythique', visits: 6, color: '#2ef2a0', gift: 'Le 3/4 arrière teinté offert', perks: ['Débloqué à votre 6e prestation'] },
-    { id: 'infini', label: 'Infini', visits: 7, color: '#ff4b3e', gift: 'Le detailing complet offert, et votre année Premium suivante offerte', freeYear: true, perks: ['Débloqué à votre 7e prestation'] },
+    { id: 'ignition', label: 'Ignition', visits: 1, color: '#ff8a3d', gift: 'Une microfibre premium et un parfum d’habitacle' },
+    { id: 'turbo', label: 'Turbo', visits: 2, color: '#3dd6ff', gift: 'Le porte-clés Premium et les stickers SOLAR CAR' },
+    { id: 'nitro', label: 'Nitro', visits: 3, color: '#8a6bff', gift: 'Une microfibre vitres et un nettoyant vitres premium' },
+    // `giftCard`: a gift card of this amount made and e-mailed by itself, to keep or to give
+    { id: 'hyper', label: 'Hyper', visits: 4, color: '#ff3d8b', gift: 'Une carte cadeau de 50 €, pour vous ou pour un proche', giftCard: 50 },
+    { id: 'apex', label: 'Apex', visits: 5, color: '#c6ff3d', gift: 'Un traitement déperlant du pare-brise, posé pendant votre rendez-vous' },
+    { id: 'elite', label: 'Élite', visits: 6, color: '#2ef2a0', gift: 'Les vitres avant teintées offertes (film conforme à la loi)' },
+    { id: 'legende', label: 'Légende', visits: 7, color: '#e9cd82', gift: 'Voiture du mois : un shooting photo complet et la mise en avant sur notre Instagram' },
+    { id: 'mythique', label: 'Mythique', visits: 8, color: '#ff4b3e', gift: 'Une paire de feux teintés offerte' },
+    { id: 'infini', label: 'Infini', visits: 9, color: '#4d7cff', gift: '−50 % sur votre ciel étoilé ou votre detailing complet' },
   ],
 };
 

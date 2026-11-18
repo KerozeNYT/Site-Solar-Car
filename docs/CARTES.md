@@ -53,7 +53,7 @@ un cadeau change à un seul endroit.
   - À l'atelier (« Nouveau RDV ») : si l'e-mail du client est celui d'un membre, les −10 %
     s'appliquent tout seuls.
   - Sur devis : le badge Premium s'affiche, la remise s'applique au devis.
-- **Un niveau par prestation** (`premium.tiers`, 7 niveaux, cadeaux choisis par l'atelier le 18
+- **Un niveau par prestation** (`premium.tiers`, 9 niveaux, cadeaux choisis par l'atelier le 18
   novembre 2026). Une prestation compte :
   - **le jour du rendez-vous** (tâche du matin, `countLevels`), et seulement si le RDV est encore
     dans l'agenda ce jour-là : un RDV annulé et remboursé ne compte jamais ;
@@ -64,13 +64,19 @@ un cadeau change à un seul endroit.
   stock.
   | Niveau | Prestation | Cadeau |
   |---|---|---|
-  | Ignition | 1re | Une microfibre neuve et un parfum d'habitacle (stock à commander) |
-  | Turbo | 2e | Kit d'entretien SOLAR CAR : nettoyant vitres premium, étiqueté, avec sa fiche technique |
-  | Nitro | 3e | Traitement déperlant du pare-brise, posé pendant le RDV |
-  | Hyper | 4e | Les 2 vitres avant teintées offertes (film homologué) |
-  | Légende | 5e | Une paire de feux teintés offerte, pour soi ou pour un proche |
-  | Mythique | 6e | Le 3/4 arrière teinté offert |
-  | Infini | 7e | Le detailing complet offert, et l'année Premium suivante offerte (la carte est prolongée d'un an toute seule) |
+  | Ignition | 1re | Une microfibre premium et un parfum d'habitacle |
+  | Turbo | 2e | Le porte-clés Premium et les stickers SOLAR CAR |
+  | Nitro | 3e | Une microfibre vitres et un nettoyant vitres premium |
+  | Hyper | 4e | Une carte cadeau de 50 €, pour soi ou un proche : **créée et envoyée toute seule** dans l'e-mail du niveau (`giftCard`), rien à remettre |
+  | Apex | 5e | Traitement déperlant du pare-brise, posé pendant le RDV |
+  | Élite | 6e | Les vitres avant teintées offertes (film conforme à la loi) |
+  | Légende | 7e | Voiture du mois : shooting photo complet et mise en avant sur Instagram |
+  | Mythique | 8e | Une paire de feux teintés offerte |
+  | Infini | 9e | −50 % sur le ciel étoilé ou le detailing complet |
+
+  Les 9 cadeaux ont été choisis par l'atelier le 18 novembre 2026 ; plus d'année Premium offerte.
+  Avantages proposés en plus à tous les membres, pas encore retenus : accès prioritaire aux
+  créneaux, « voiture du mois ».
 - **Offres réservées aux membres** : dans **Codes et promos**, cocher « Réservé aux membres SOLAR CAR
   Premium » (le code n'est accepté qu'avec l'e-mail d'un membre actif). Puis **Cartes & Premium →
   Écrire aux membres** : un e-mail à chaque membre qui accepte les offres (« Bonjour Prénom », le code
@@ -129,7 +135,7 @@ un cadeau change à un seul endroit.
 ## Mise en ligne (à faire par l'atelier, après validation)
 
 1. Cadeaux, prix et règles validés le 18 novembre 2026 (`content/offers.js`) : commander le stock
-   (microfibres, parfums d'habitacle, nettoyant vitres et ses étiquettes).
+   (microfibres, parfums d'habitacle, porte-clés, stickers, nettoyant vitres).
 2. Comptabilité : une carte cadeau vendue est un encaissement à l'avance. Voir avec le comptable
    comment la déclarer (micro-entreprise : recette encaissée), et si la vente de produits (kits
    d'entretien) change quelque chose.

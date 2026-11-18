@@ -991,7 +991,7 @@ async function giftBooking(env, { q, c, date, time, mode, span, code, codeKind, 
 async function levelUp(env, member) {
   if (!member?.reached?.length) return;
   for (const t of member.reached) {
-    await notify(env, { title: `Cadeau Premium à remettre · ${t.label}`, body: `${member.first || 'Un membre'} passe au niveau ${t.label} : ${t.gift}`, url: '/atelier/premium', tag: `niveau-${member.number}-${t.id}` });
+    await notify(env, { title: t.card ? `Niveau ${t.label} : carte cadeau envoyée` : `Cadeau Premium à remettre · ${t.label}`, body: t.card ? `${member.first || 'Un membre'} passe au niveau ${t.label} : sa carte cadeau de ${euros(t.card.row.amount)} (${t.card.row.code}) vient de lui être envoyée.` : `${member.first || 'Un membre'} passe au niveau ${t.label} : ${t.gift}`, url: '/atelier/premium', tag: `niveau-${member.number}-${t.id}` });
     if (env.MAIL_CLIENTS === '1' && env.RESEND_API_KEY && member.email) await sendLevelUp(env, { first: member.first, email: member.email, cardUrl: cardUrlOf(env, member), extended: member.extended }, t).catch((err) => console.error('[mail] level', err.message));
   }
 }

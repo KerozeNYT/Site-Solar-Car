@@ -1381,7 +1381,13 @@ export class Atelier {
         const st = this.memberState(m);
         const gifts = jsonList(m.gifts);
         const reached = P.tiers.filter((t) => t.gift && st.visits >= t.visits && !gifts.some((x) => x.tier === t.id));
-        if (reached.length) this.run('UPDATE members SET gifts = ? WHERE number = ?', JSON.stringify([...gifts, ...reached.map((t) => ({ tier: t.id, reached: now, given: 0, booking: bk.session }))]), m.number);
+        // a level whose gift is a gift card: made now, for the member to keep or give (nothing to hand over)
+        const cards = {};
+        for (const t of reached.filter((x) => x.giftCard > 0)) {
+          const c = this.route('gift/create', { now, amount: t.giftCard, paid: 0, look: 'or', sender: B.name, delivery: 'moi', buyer: { firstName: m.first, lastName: m.last, email: m.email, phone: m.phone }, source: 'niveau', note: `Niveau ${t.label} de ${m.number}`, live: !!m.live }, now);
+          if (c.ok) cards[t.id] = { row: c.row, card: c.card };
+        }
+        if (reached.length) this.run('UPDATE members SET gifts = ? WHERE number = ?', JSON.stringify([...gifts, ...reached.map((t) => ({ tier: t.id, reached: now, given: cards[t.id] ? now : 0, booking: bk.session, ...(cards[t.id] ? { card: cards[t.id].row.code } : {}) }))]), m.number);
         // the free year: the card goes on a year more from its current end
         let extended = 0;
         if (reached.some((t) => t.freeYear)) {
@@ -1389,7 +1395,7 @@ export class Atelier {
           this.run('UPDATE members SET expires = ?, reminded = 0 WHERE number = ?', extended, m.number);
           this.run('INSERT OR IGNORE INTO member_payments (ref, number, amount, at, source) VALUES (?, ?, 0, ?, ?)', `offert-${m.number}-${reached.find((t) => t.freeYear).id}`, m.number, now, 'niveau');
         }
-        return { ok: true, counted: true, member: { number: m.number, token: m.token, first: m.first, email: m.email, visits: st.visits, extended, reached: reached.map((t) => ({ id: t.id, label: t.label, gift: t.gift, visits: t.visits, freeYear: !!t.freeYear })) } };
+        return { ok: true, counted: true, member: { number: m.number, token: m.token, first: m.first, email: m.email, visits: st.visits, extended, reached: reached.map((t) => ({ id: t.id, label: t.label, gift: t.gift, visits: t.visits, freeYear: !!t.freeYear, ...(cards[t.id] ? { card: cards[t.id] } : {}) })) } };
       }
       // the level a member's appointment to come will open (its gift to prepare), or null
       case 'member/next-level': {
