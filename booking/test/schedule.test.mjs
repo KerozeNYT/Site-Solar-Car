@@ -65,8 +65,8 @@ test('free start times: notice, weekends, holidays, busy calendars', () => {
 test('prices and durations of the bookable services', () => {
   const q = quote({ tint: { vehicle: 'berline', formula: 'full' }, lights: { pairs: 'rear' } });
   assert.equal(q.total, 270 + 50 + 120);
-  // one slot of 2 h for any appointment of the catalogue
-  assert.equal(q.minutes, 120);
+  // window tint 2 h, tinted lights 1 h a pair, added: 3 h (8:00-11:00)
+  assert.equal(q.minutes, 180);
   assert.equal(quote({ tint: { vehicle: 'citadine', formula: 'front' } }).minutes, 120);
   assert.equal(q.deposit, 132);
   assert.equal(amountDue(q, 'full'), 440);
@@ -79,7 +79,7 @@ test('prices and durations of the bookable services', () => {
   // tinted lights alone: 1 h a pair; with window tint: the 2 h slot
   assert.equal(quote({ lights: { pairs: 'rear' } }).minutes, 60);
   assert.equal(quote({ lights: { pairs: 'both' } }).minutes, 120);
-  assert.equal(quote({ tint: { vehicle: 'berline', formula: 'rear' }, lights: { pairs: 'both' } }).minutes, 120);
+  assert.equal(quote({ tint: { vehicle: 'berline', formula: 'rear' }, lights: { pairs: 'both' } }).minutes, 240);
   // the shade is chosen at the workshop: none is asked
   assert.match(quote({ lights: { pairs: 'rear' } }).items[0].detail, /teinte choisie à l’atelier/);
 });

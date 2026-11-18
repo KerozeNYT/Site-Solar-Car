@@ -1,5 +1,12 @@
 # Journal des changements
 
+## Réservation : vitres 2 h + feux 1 h la paire ; un « Dépôt » ne bloque rien (18 novembre 2026)
+
+- Les durées s'additionnent : vitres teintées 2 h, feux 1 h la paire (complet + feux arrière : 8 h-11 h).
+- Un événement « Dépôt » (dépôt du véhicule) ou marqué « Disponible » dans l'agenda SOLAR CAR ne
+  bloque plus de créneau (`busyFor`, `DROP_OFF` dans `booking/worker.js`) ; l'accueil de l'atelier
+  le montre à part, jamais comme « prochain RDV ».
+
 ## Nouveau rendez-vous : « Par téléphone » ou « À l'atelier » (18 novembre 2026)
 
 - Choix en haut du formulaire, repris dans l'e-mail « Nouveau RDV » (« pris par téléphone · acompte

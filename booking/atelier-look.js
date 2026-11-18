@@ -282,6 +282,7 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 .ev span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ev--hold{background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 6px,transparent 6px 12px);border-left-color:var(--dim);color:var(--text-2)}.ev--hold b{color:var(--dim)}
 .ev--online{background:rgba(var(--gold-rgb),.1);border-left-color:var(--gold)}.ev--online b{color:var(--gold-2)}
+.ev--depot{background:transparent;border-left:3px dotted var(--dim);color:var(--text-2)}.ev--depot b{color:var(--dim)}
 .day__none{color:rgba(255,255,255,.18);font-size:12px;margin:auto 0}
 .month{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:0 0 18px}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin:0 0 18px}

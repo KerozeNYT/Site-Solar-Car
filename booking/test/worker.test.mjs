@@ -72,6 +72,15 @@ test('slots: busy in SOLAR HOME 37 or PERSO blocks the workshop', async () => {
   cal[PERSO].push({ id: 'p1', status: 'confirmed', start: { dateTime: new Date(zonedToUtc(day, '16:00', TZ)).toISOString() }, end: { dateTime: new Date(zonedToUtc(day, '16:30', TZ)).toISOString() } });
   // 8-10 h overlaps 9:00 (SOLAR HOME), 15-17 h overlaps 16:00 (PERSO)
   assert.deepEqual(await slotsOf(), ['10:00', '13:00']);
+  // a car dropped off (« Dépôt ») and an event marked « Disponible » in the workshop's calendar block nothing
+  const ev = (id, summary, from, to, extra = {}) => cal[CAR].push({ id, status: 'confirmed', summary, start: { dateTime: new Date(zonedToUtc(day, from, TZ)).toISOString() }, end: { dateTime: new Date(zonedToUtc(day, to, TZ)).toISOString() }, ...extra });
+  ev('d1', 'Dépôt Golf 7 — M. Martin', '10:00', '12:00');
+  ev('d2', 'Note', '13:00', '15:00', { transparency: 'transparent' });
+  assert.deepEqual(await slotsOf(), ['10:00', '13:00']);
+  // a real appointment does
+  ev('r1', 'RDV vitres (noté à la main)', '13:00', '14:00');
+  assert.deepEqual(await slotsOf(), ['10:00']);
+  cal[CAR].splice(0, cal[CAR].length, ...cal[CAR].filter((e) => !['d1', 'd2', 'r1'].includes(e.id)));
 });
 
 let sessionId;

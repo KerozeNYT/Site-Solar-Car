@@ -48,7 +48,7 @@
 import { business as B } from '../content/site.js';
 import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor, withExtra, manualDiscount, discountLines, CANALS, takenText } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
-import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents } from './google.js';
+import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents, listEvents } from './google.js';
 import { createSession, getSession, expireSession, verifyWebhook } from './stripe.js';
 import { sendBookingMails, sendReminderMail, sendFollowUpMail, sendPaymentLink } from './mail.js';
 import { record, hitFromPage, heardRows } from './stats.js';
@@ -87,12 +87,34 @@ const priced = (m) => withDiscount(withExtra(quote(JSON.parse(m.config || '{}'))
 /** today in Paris */
 const today = (now) => utcToZoned(now, R.timeZone).date;
 
+/** a car dropped off (« Dépôt », « dépôt véhicule »…) is written in the calendar but takes no
+ *  working time: never a busy slot (SOLAR CAR 37, 18 November 2026) */
+export const DROP_OFF = /\bd[ée]p[ôo]ts?\b/i;
+
+/**
+ * Busy intervals [[startMs, endMs]] of the calendars of CALENDARS_BUSY. The workshop's own calendar
+ * (CALENDAR_WRITE) is read event by event, so that a « Dépôt » and an event marked « Disponible »
+ * block nothing; the others (SOLAR HOME, PERSO) through free/busy, which shows no title.
+ */
+export async function busyFor(env, fromMs, toMs) {
+  const calendars = list(env.CALENDARS_BUSY);
+  const own = env.CALENDAR_WRITE;
+  const others = calendars.filter((c) => c !== own);
+  const [events, rest] = await Promise.all([calendars.includes(own) ? listEvents(env, own, fromMs, toMs) : [], others.length ? busyIntervals(env, others, fromMs, toMs) : []]);
+  const at = (t) => (t?.dateTime ? Date.parse(t.dateTime) : t?.date ? zonedToUtc(t.date, '00:00', R.timeZone) : NaN);
+  const mine = events
+    .filter((e) => e.status !== 'cancelled' && e.transparency !== 'transparent' && !DROP_OFF.test(e.summary || ''))
+    .map((e) => [at(e.start), at(e.end)])
+    .filter(([a, b]) => a < b);
+  return [...mine, ...rest];
+}
+
 /** free start times of one or more days, for a job of `minutes` */
 async function slotsFor(env, from, days, minutes, now) {
   const fromMs = zonedToUtc(from, '00:00', R.timeZone);
   const toMs = zonedToUtc(addDays(from, days), '00:00', R.timeZone);
   await releaseStaleHolds(env, fromMs, toMs, now);
-  const busy = await busyIntervals(env, list(env.CALENDARS_BUSY), fromMs, toMs);
+  const busy = await busyFor(env, fromMs, toMs);
   return freeStarts({ from, days, minutes, busy, now, rules: R });
 }
 
@@ -365,7 +387,7 @@ export async function atelierSlots(env, date, minutes, now, days = 1) {
   const fromMs = zonedToUtc(date, '00:00', R.timeZone);
   const toMs = zonedToUtc(addDays(date, n), '00:00', R.timeZone);
   await releaseStaleHolds(env, fromMs, toMs, now).catch(() => {});
-  const busy = await busyIntervals(env, list(env.CALENDARS_BUSY), fromMs, toMs);
+  const busy = await busyFor(env, fromMs, toMs);
   const out = freeStarts({ from: date, days: n, minutes: Math.max(15, Number(minutes) || 60), busy, now, rules: atelierRules });
   return { from: date, days: out, times: out.find((x) => x.date === date)?.times || [] };
 }
@@ -419,7 +441,7 @@ export async function atelierBooking(env, b, now) {
   if (span.end < now) return { error: 'Ce créneau est déjà passé.' };
   if (!b.force) {
     await releaseStaleHolds(env, span.start - DAY, span.end + DAY, now).catch(() => {});
-    const busy = await busyIntervals(env, list(env.CALENDARS_BUSY), span.start, span.end);
+    const busy = await busyFor(env, span.start, span.end);
     if (span.segments.some(([a, z]) => busy.some(([x, y]) => a < y && x < z))) return { error: 'Ce créneau chevauche un autre rendez-vous de l’agenda. Choisissez-en un autre, ou cochez « Garder ce créneau quand même ».', taken: true };
   }
   const configText = JSON.stringify(b.config || {}).slice(0, 500);

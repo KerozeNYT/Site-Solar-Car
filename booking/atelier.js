@@ -22,7 +22,7 @@
 import { bookingRules as R, codeServices, formatEuros, formatDuration, quote, withDiscount, withExtra, discountFor, manualDiscount, bookableVehicles, tintFormulas, lightsBooking, atelierExtras, windshieldMinutes } from '../content/booking.js';
 import { tint, tintOnQuote } from '../content/pricing.js';
 // the appointments taken by the workshop (used at request time only: worker.js imports this module)
-import { atelierBooking, atelierSlots, atelierCancel } from './worker.js';
+import { atelierBooking, atelierSlots, atelierCancel, DROP_OFF } from './worker.js';
 import { business as B } from '../content/site.js';
 import { report, totalsOf } from './stats.js';
 import { db, referralFor, redeemReferral, checkCode, dayStart, atelierFetch, QUOTE_STATUS } from './store.js';
@@ -639,7 +639,9 @@ async function agenda(env, from, to) {
       const named = (online || hold || b) && parts.length > 1 ? parts.pop() : '';
       const who = b ? name(b) : named;
       const at = paris(start);
-      return { start, end, date: at.date, time: at.time, endTime: paris(end).time, allDay, title: parts.join(' — '), who, hold, online, b, id: e.id };
+      // a car dropped off: shown, never an appointment (worker.js, DROP_OFF)
+      const depot = DROP_OFF.test(e.summary || '');
+      return { start, end, date: at.date, time: at.time, endTime: paris(end).time, allDay, title: parts.join(' — '), who, hold, online, depot, b, id: e.id };
     });
 }
 
@@ -681,7 +683,7 @@ async function home(env, url, now) {
   const qf = sum.quotes;
   const remind = list.quotes.filter((q) => q.remind);
   const dl = list.delays || { remind: 7, close: 14 };
-  const timed = (events || []).filter((x) => !x.allDay && !x.hold);
+  const timed = (events || []).filter((x) => !x.allDay && !x.hold && !x.depot);
   const todayN = timed.filter((x) => x.date === today).length;
 
   // the greeting, and what waits, in a few words
@@ -750,7 +752,7 @@ async function home(env, url, now) {
         evs.length
           ? evs
               .map(
-                (x) => `<${x.b ? `a href="/atelier/clients/${x.b.client_id}"` : 'span'} class="ev${x.hold ? ' ev--hold' : x.online ? ' ev--online' : ''}"><b>${x.allDay ? 'Journée' : `${esc(hour(x.time))}${x.hold ? ' · paiement en cours' : ''}`}</b><span>${esc(x.who || x.title)}</span>${x.who ? `<span class="dim">${esc(x.title)}</span>` : ''}</${x.b ? 'a' : 'span'}>`
+                (x) => `<${x.b ? `a href="/atelier/clients/${x.b.client_id}"` : 'span'} class="ev${x.hold ? ' ev--hold' : x.depot ? ' ev--depot' : x.online ? ' ev--online' : ''}"><b>${x.allDay ? 'Journée' : `${esc(hour(x.time))}${x.hold ? ' · paiement en cours' : x.depot ? ' · dépôt' : ''}`}</b><span>${esc(x.who || x.title)}</span>${x.who ? `<span class="dim">${esc(x.title)}</span>` : ''}</${x.b ? 'a' : 'span'}>`
               )
               .join('')
           : `<span class="day__none">${off ? 'fermé' : 'libre'}</span>`
