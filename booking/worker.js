@@ -520,8 +520,8 @@ export async function atelierBooking(env, b, now) {
       extendedProperties: { private: { solarcarHold: '0', session: id, atelier: '1' } },
     });
     if (code) await useCode(env, code, codeKind, { by: `${c.firstName} ${c.lastName}`, ref: id, where: 'à l’atelier' });
-    await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: 'none', paid: 0, customer: c });
-    const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: 0, mode: 'none', status: 'confirme', canal, customer: c });
+    await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: 'none', paid: 0, customer: c, atelier: true });
+    const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: 0, mode: 'none', status: 'confirme', canal, customer: c, request: b.request });
     await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: 'none', paid: 0, sessionId: id, code, codeKind, remise, note, canal, clientMail: !!c.email }).catch((err) => console.error('[mail] atelier booking', err.message));
     return { ok: true, id: link.id, confirmed: true };
   }
@@ -559,7 +559,8 @@ export async function atelierBooking(env, b, now) {
     return { error: 'Stripe n’a pas pu créer le lien de paiement : réessayez dans un instant.' };
   }
   await patchEvent(env, env.CALENDAR_WRITE, hold.id, { extendedProperties: { private: { solarcarHold: '1', holdUntil: String(expires + 120000), session: session.id, atelier: '1' } } });
-  const link = await db(env, 'link/add', { now, session: session.id, event: hold.id, date, time, minutes: q.minutes, items, total: q.total, due, mode, url: session.url, expires, canal, customer: c });
+  // b.request: the quote it answers (« Envoyer un lien de paiement » on the quote), else found by the client
+  const link = await db(env, 'link/add', { now, session: session.id, event: hold.id, date, time, minutes: q.minutes, items, total: q.total, due, mode, url: session.url, expires, canal, customer: c, request: b.request });
   const mailed = await sendPaymentLink(env, { q, c, date, time, start: span.start, end: span.end, due, mode, url: session.url, expires, note, code, codeKind, remise, canal })
     .then(() => true)
     .catch((err) => (console.error('[mail] payment link', err.message), false));

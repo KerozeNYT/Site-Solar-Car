@@ -223,7 +223,7 @@ test('an appointment changed at the workshop: services added, then the client to
 });
 
 test('a discount given by hand (an exceptional case), in % or in €: on the price, the payment, the e-mail, the calendar', async () => {
-  const f = form({ heure: '10:00', date: addDays(day, 7), email: 'nina@example.com', prenom: 'Nina', tel: '06 44 44 44 44', remise: '10', remise_type: 'percent' });
+  const f = form({ heure: '10:00', date: addDays(day, 7), email: 'nina@example.com', prenom: 'Nina', tel: '06 12 34 56 02', remise: '10', remise_type: 'percent' });
   // 349 € − 10 % = 314,10 €, deposit 94,23 €
   const price = await (await go('/atelier/rdv/prix', { method: 'POST', form: f })).json();
   assert.match(price.html, /Remise<\/span><b>−34,90\s€/);
@@ -291,4 +291,106 @@ test('paid on the spot: written in the calendar at once; a code that covers ever
   const gift = await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ heure: '08:00', date: addDays(day, 1), code: 'cadeau', email: 'zoe@example.com', prenom: 'Zoé', tel: '06 33 33 33 33' }) });
   assert.match(where(gift).searchParams.get('ok'), /Rendez-vous inscrit dans l’agenda, confirmation envoyée au client/);
   assert.equal(sql("SELECT uses FROM promos WHERE code = 'CADEAU'")[0].uses, 1);
+});
+
+// ------------------------------------------------------------------ a payment link answers a quote
+const { db } = await import('../store.js');
+const ask = async (who) => {
+  const r = await worker.fetch(new Request(`${SELF}/api/demande`, { method: 'POST', body: JSON.stringify({ make: 'Tesla', model: 'Model 3', services: 'Vitres teintées', message: 'Bonjour, un devis svp', ...who }), headers: { origin: 'https://www.solarcar37.fr', 'content-type': 'text/plain;charset=UTF-8' } }), env);
+  assert.equal(r.status, 204);
+  return (await db(env, 'quotes/list', {})).quotes.find((q) => q.email === who.email);
+};
+const later = addDays(day, 14);
+
+test('a payment link sent for a quote: « Lien de paiement envoyé », the client’s message answered; paid: « Validé », the client confirmed', async () => {
+  const q = await ask({ firstName: 'Matthieu', lastName: 'Deroi', email: 'matthieu@example.com', phone: '0698700001' });
+  const t0 = Date.now();
+  // answered from Gmail, then the client agrees: « Réponse reçue », to read
+  await db(env, 'gmail/import', { items: [{ requestId: q.id, dir: 'out', gid: 'a1', msgid: '<a1@x>', at: t0 - 9000, text: 'Bonjour, 420 € pour le complet.' }, { requestId: q.id, dir: 'in', gid: 'a2', msgid: '<a2@x>', at: t0 - 8000, text: 'Ok pour 420 €, je prends rendez-vous.' }] });
+  let r = await db(env, 'quote/get', { id: q.id });
+  assert.deepEqual([r.quote.status, r.quote.unread], ['reponse', 1]);
+  // a client still a prospect; the quote offers the payment link, the client filled in
+  const cid = r.quote.client_id;
+  assert.match(await (await go(`/atelier/clients/${cid}`)).text(), /Prospect/);
+  const page = await (await go(`/atelier/devis/${q.id}`)).text();
+  assert.ok(page.includes(`href="/atelier/rdv/nouveau?client=${cid}&amp;devis=${q.id}"`));
+  const formPage = await (await go(`/atelier/rdv/nouveau?client=${cid}&devis=${q.id}`)).text();
+  assert.ok(formPage.includes(`<input type="hidden" name="devis" value="${q.id}">`));
+  assert.match(formPage, /Pour le <a href="\/atelier\/devis\/\d+">devis n°\d+<\/a>/);
+  assert.match(formPage, /value="matthieu@example\.com"/);
+  // the link sent from « Nouveau RDV »
+  const res = await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ devis: String(q.id), prenom: 'Matthieu', nom: 'Deroi', email: 'matthieu@example.com', tel: '06 98 70 00 01', vehicule: 'Tesla Model 3', x_preset: '', date: later, heure: '08:00' }) });
+  const linkId = Number(where(res).pathname.split('/').pop());
+  r = await db(env, 'quote/get', { id: q.id });
+  assert.deepEqual([r.quote.status, r.quote.unread, r.quote.link, r.quote.amount], ['lien', 0, linkId, 270]);
+  const said = r.messages.at(-1);
+  assert.deepEqual([said.dir, said.via], ['out', 'lien']);
+  assert.match(said.text, /^Lien de paiement envoyé : acompte de 81 € pour confirmer le rendez-vous du jeudi \d+ \S+ à 8 h 00 \(Vitres teintées Complet, 270 € au total\)\. Valable jusqu’au /);
+  // the list says it, not the client’s message; nothing left to do on it
+  const list = await (await go('/atelier/devis')).text();
+  assert.match(list, /Lien de paiement envoyé<\/span>/);
+  assert.match(list, /Vous : Lien de paiement envoyé : acompte de 81 €/);
+  assert.equal((await db(env, 'quotes/badge', {})).n, (await db(env, 'quotes/list', {})).quotes.filter((x) => x.unread || ['nouveau', 'reponse'].includes(x.status)).length);
+  assert.ok(!(await db(env, 'quotes/list', {})).quotes.find((x) => x.id === q.id).unread);
+  // the quote shows the link; the link its quote
+  assert.match(await (await go(`/atelier/devis/${q.id}`)).text(), /En attente du paiement/);
+  assert.match(await (await go(`/atelier/rdv/lien/${linkId}`)).text(), new RegExp(`href="/atelier/devis/${q.id}">Devis n°${q.id}`));
+  // a client's e-mail read late from Gmail, written before the link: answered already
+  await db(env, 'gmail/import', { items: [{ requestId: q.id, dir: 'in', gid: 'a3', msgid: '<a3@x>', at: t0 - 7000, text: 'Je suis dispo le jeudi.' }] });
+  r = await db(env, 'quote/get', { id: q.id });
+  assert.deepEqual([r.quote.status, r.quote.unread], ['lien', 0]);
+  // paid: « Validé », said in the discussion; the client is confirmed
+  const link = sql('SELECT * FROM links WHERE id = ?', linkId)[0];
+  const s = sessions.get(link.session);
+  Object.assign(s, { status: 'complete', payment_status: 'paid' });
+  assert.equal((await hook({ type: 'checkout.session.completed', data: { object: s } })).status, 200);
+  r = await db(env, 'quote/get', { id: q.id });
+  assert.deepEqual([r.quote.status, r.quote.unread, r.quote.booking], ['valide', 0, link.session]);
+  assert.match(r.messages.at(-1).text, /^Acompte de 81 € payé en ligne : rendez-vous confirmé pour le jeudi .+ à 8 h 00\. Devis validé\.$/);
+  assert.equal(r.messages.filter((m) => m.dir === 'note' && /payé/.test(m.text)).length, 1);
+  const card = await (await go(`/atelier/clients/${cid}`)).text();
+  assert.match(card, /<span class="tag tag--ok">Client confirmé<\/span>/);
+  assert.match(card, /Client confirmé depuis le /);
+  // the client writes afterwards: to read, the quote stays validated
+  await db(env, 'gmail/import', { items: [{ requestId: q.id, dir: 'in', gid: 'a4', msgid: '<a4@x>', at: Date.now() + 5000, text: 'Merci, à jeudi !' }] });
+  r = await db(env, 'quote/get', { id: q.id });
+  assert.deepEqual([r.quote.status, r.quote.unread], ['valide', 1]);
+});
+
+test('a link sent without going through the quote: found by the client; expired, the quote back to « Devis envoyé »; paid on the spot: « Validé » at once', async () => {
+  const q = await ask({ firstName: 'Inès', lastName: 'Blanc', email: 'ines@example.com', phone: '0698700002' });
+  await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ prenom: 'Inès', nom: 'Blanc', email: 'ines@example.com', tel: '06 98 70 00 02', x_preset: '', date: later, heure: '14:00', mode: 'full' }) });
+  let r = await db(env, 'quote/get', { id: q.id });
+  assert.equal(r.quote.status, 'lien');
+  assert.match(r.messages.at(-1).text, /^Lien de paiement envoyé : règlement de 270 €/);
+  // Stripe closes the page unpaid: the quote is to follow up again
+  const link = sql('SELECT * FROM links WHERE id = ?', r.quote.link)[0];
+  assert.equal((await hook({ type: 'checkout.session.expired', data: { object: { ...sessions.get(link.session), status: 'expired' } } })).status, 200);
+  r = await db(env, 'quote/get', { id: q.id });
+  assert.equal(r.quote.status, 'envoye');
+  assert.match(r.messages.at(-1).text, /^Lien de paiement expiré sans paiement : devis repassé en « Devis envoyé »/);
+  assert.match(await (await go(`/atelier/devis/${q.id}`)).text(), /Nouveau lien/);
+  // the same quote, the appointment paid on the spot: validated at once
+  await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ devis: String(q.id), prenom: 'Inès', nom: 'Blanc', email: 'ines@example.com', tel: '06 98 70 00 02', x_preset: '', date: addDays(later, 1), heure: '08:00', mode: 'none' }) });
+  r = await db(env, 'quote/get', { id: q.id });
+  assert.equal(r.quote.status, 'valide');
+  assert.match(r.messages.at(-1).text, /^Rendez-vous confirmé dans l’agenda pour le vendredi .+ à 8 h 00, réglé sur place : devis validé\.$/);
+  assert.equal(r.messages.filter((m) => m.dir === 'note' && /validé/.test(m.text)).length, 1);
+});
+
+test('the links sent before: said once in their quote, the paid one validated, the client’s message answered', async () => {
+  const q = await ask({ firstName: 'Paul', lastName: 'Henry', email: 'paul@example.com', phone: '0698700003' });
+  const now = Date.now();
+  await db(env, 'gmail/import', { items: [{ requestId: q.id, dir: 'in', gid: 'p1', msgid: '<p1@x>', at: now + 1000, text: 'Ok je réserve' }] });
+  // a link written as it was before (no quote tied), then paid
+  env.ATELIER.db.prepare("INSERT INTO links (session, client_id, date, time, minutes, items, total, due, mode, url, expires, status, created) VALUES ('cs_old', ?, ?, '09:00', 240, ?, 357, 107.1, 'deposit', 'https://x', ?, 'paye', ?)").run(q.client_id, later, JSON.stringify([{ label: 'Vitres teintées Complet - TESLA', price: 420 }]), now + 86400000, now + 2000);
+  env.ATELIER.db.prepare("DELETE FROM settings WHERE key = 'linkQuotes'").run();
+  await db(env, 'quotes/list', {});
+  const r = await db(env, 'quote/get', { id: q.id });
+  assert.deepEqual([r.quote.status, r.quote.unread, r.quote.amount], ['valide', 0, 357]);
+  assert.match(r.messages.find((m) => m.via === 'lien').text, /^Lien de paiement envoyé : acompte de 107,10 €/);
+  // once
+  env.ATELIER.db.prepare("DELETE FROM settings WHERE key = 'linkQuotes'").run();
+  await db(env, 'quotes/list', {});
+  assert.equal((await db(env, 'quote/get', { id: q.id })).messages.filter((m) => m.via === 'lien').length, 1);
 });

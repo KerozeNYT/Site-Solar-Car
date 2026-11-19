@@ -168,10 +168,24 @@ const digits = (p) => String(p || '').replace(/\D/g, '').slice(-9);
 // ---------------------------------------------------------------- quote discussions
 /** the statuses of a quote request, in the workshop's words, in the order of the work:
  *  nouveau (to answer) → envoye (the workshop answered, waiting for the client) → reponse (the
- *  client wrote back: to read and answer) → valide (accepted, or booked online); sans_suite (no
- *  answer from the client for QUOTE_DELAYS.close days, or by hand: back to « reponse » by itself
- *  when the client writes) */
-export const QUOTE_STATUS = { nouveau: 'Nouveau', envoye: 'Devis envoyé', reponse: 'Réponse reçue', valide: 'Validé', sans_suite: 'Sans suite' };
+ *  client wrote back: to read and answer) → lien (a payment link sent from « Nouveau RDV »: back
+ *  to « envoye » if it expires or is cancelled) → valide (accepted, paid, or booked online);
+ *  sans_suite (no answer from the client for QUOTE_DELAYS.close days, or by hand: back to
+ *  « reponse » by itself when the client writes) */
+export const QUOTE_STATUS = { nouveau: 'Nouveau', envoye: 'Devis envoyé', reponse: 'Réponse reçue', lien: 'Lien de paiement envoyé', valide: 'Validé', sans_suite: 'Sans suite' };
+/** a client's first appointment or quote validated (SQL, for the client c): null for a prospect */
+const CONFIRMED = "(SELECT MIN(t) FROM (SELECT created AS t FROM bookings WHERE client_id = c.id UNION ALL SELECT status_at FROM requests WHERE client_id = c.id AND status = 'valide'))";
+/** the quotes still open (a payment link may answer them) */
+const OPEN = "('nouveau', 'envoye', 'reponse', 'lien', 'sans_suite')";
+/** 357 → « 357 € », 107.1 → « 107,10 € » */
+const eurText = (n) => `${new Intl.NumberFormat('fr-FR', { minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2 }).format(Number(n) || 0)} €`;
+/** '2026-12-28', '08:00' → « lundi 28 décembre à 8 h 00 » */
+const dayText = (date, time) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) return '';
+  const d = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
+  const [h, m] = String(time || '').split(':');
+  return h ? `${d} à ${Number(h)} h ${m || '00'}` : d;
+};
 /** days without news from the client after the workshop's last message: « à relancer » after
  *  `remind`, « Sans suite » after `close` (0: never); changed in the space (setting quoteDelays) */
 export const QUOTE_DELAYS = { remind: 7, close: 14 };
@@ -253,6 +267,8 @@ export class Atelier {
       ['subject', "TEXT NOT NULL DEFAULT ''"],
       ['refs', "TEXT NOT NULL DEFAULT ''"],
       ['owner_refs', "TEXT NOT NULL DEFAULT ''"],
+      // the payment link sent for it (links.id)
+      ['link', 'INTEGER NOT NULL DEFAULT 0'],
     ])
       if (!have.has(col)) x(`ALTER TABLE requests ADD COLUMN ${col} ${def}`);
     x(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, request_id INTEGER NOT NULL, at INTEGER NOT NULL, dir TEXT NOT NULL, via TEXT NOT NULL DEFAULT '', text TEXT NOT NULL DEFAULT '', files TEXT NOT NULL DEFAULT '[]', msgid TEXT NOT NULL DEFAULT '', sender TEXT NOT NULL DEFAULT '')`);
@@ -499,7 +515,7 @@ export class Atelier {
   }
 
   clientCard(id) {
-    const c = this.one('SELECT * FROM clients WHERE id = ?', id);
+    const c = this.one(`SELECT c.*, ${CONFIRMED} AS confirmed FROM clients c WHERE c.id = ?`, id);
     if (!c) return null;
     return {
       ...c,
@@ -654,7 +670,7 @@ export class Atelier {
       return { id, name: clip(f.filename, 120), type: clip(f.type, 80), size };
     });
     this.run('INSERT INTO messages (request_id, at, dir, via, text, files, msgid, sender) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', requestId, at, dir, via, String(text).slice(0, 20000), JSON.stringify(meta), clip(msgid, 300), clip(sender, 200));
-    this.run('UPDATE requests SET last_at = ? WHERE id = ?', at, requestId);
+    this.run('UPDATE requests SET last_at = MAX(last_at, ?) WHERE id = ?', at, requestId);
     return meta;
   }
   /** a new status, said in the discussion */
@@ -675,6 +691,86 @@ export class Atelier {
       this.setStatus(id, answered ? 'reponse' : 'nouveau', now, r.status === 'sans_suite' ? `Le client a écrit : la demande quitte « Sans suite » et revient en « ${answered ? QUOTE_STATUS.reponse : QUOTE_STATUS.nouveau} ».` : notes.in);
     }
   }
+  // ---------------------------------------------------------------- payment links ↔ quotes
+  /** the quotes a link of « Nouveau RDV » answers: the one it was made from (« Envoyer un lien de
+   *  paiement » on the quote), else the client's open quotes asked within 6 months before it
+   *  (several: those for the same services, else the latest) */
+  quotesFor(link, requestId) {
+    if (requestId) {
+      const r = this.one(`SELECT id FROM requests WHERE id = ? AND status IN ${OPEN}`, requestId);
+      return r ? [r.id] : [];
+    }
+    if (!link.client_id) return [];
+    const rows = this.all(`SELECT id, services FROM requests WHERE client_id = ? AND status IN ${OPEN} AND at <= ? AND at > ? ORDER BY at DESC`, link.client_id, link.created, link.created - 180 * DAY);
+    if (rows.length <= 1) return rows.map((r) => r.id);
+    const booked = kinds(this.itemsOf(link).map((i) => i.label).join(' '));
+    const same = rows.filter((r) => kinds(r.services).some((k) => booked.includes(k)));
+    return (same.length ? same : rows.slice(0, 1)).map((r) => r.id);
+  }
+  itemsOf(row) {
+    try {
+      return JSON.parse(row.items || '[]');
+    } catch {
+      return [];
+    }
+  }
+  /** a link said in a quote's discussion (a message of the workshop: it answers the client's last
+   *  one): « Lien de paiement envoyé » while it waits, « Validé » when the appointment is confirmed
+   *  without payment online (or when it was paid already: the link read again, once) */
+  linkQuote(id, link, now) {
+    const what = this.itemsOf(link).map((i) => String(i.label).replace(' — ', ' ')).join(' + ');
+    const when = dayText(link.date, link.time);
+    const end = link.expires ? utcToZoned(link.expires, R.timeZone) : null;
+    const until = end ? `Valable jusqu’au ${dayText(end.date, end.time)}.` : '';
+    const text =
+      link.mode === 'none'
+        ? `Rendez-vous fixé le ${when}${what ? ` : ${what}` : ''}, ${eurText(link.total)} à régler à l’atelier.`
+        : `Lien de paiement envoyé : ${link.mode === 'full' ? 'règlement' : 'acompte'} de ${eurText(link.due)} pour confirmer le rendez-vous du ${when}${what ? ` (${what}, ${eurText(link.total)} au total)` : ''}. ${until}`.trim();
+    this.addMessage(id, { at: link.created, dir: 'out', via: 'lien', text });
+    // the price agreed: the quote's amount (the « Validés » of the month are counted with it)
+    this.run('UPDATE requests SET link = ?, amount = ? WHERE id = ?', link.id, Number(link.total) || 0, id);
+    // the client's message before it is answered
+    if (!this.one("SELECT id FROM messages WHERE request_id = ? AND dir = 'in' AND at > ?", id, link.created)) this.run('UPDATE requests SET unread = 0 WHERE id = ?', id);
+    if (link.status === 'attente') this.setStatus(id, 'lien', now);
+    else if (link.status === 'confirme') this.setStatus(id, 'valide', now, `Rendez-vous confirmé dans l’agenda pour le ${when}, réglé sur place : devis validé.`);
+    else if (link.status === 'paye') this.linkPaid(id, link, now);
+  }
+  /** the link paid: its quote « Validé » (once) */
+  linkPaid(id, link, now) {
+    const r = this.one('SELECT status FROM requests WHERE id = ?', id);
+    if (!r || r.status === 'valide') return;
+    this.run('UPDATE requests SET booking = ? WHERE id = ?', link.session, id);
+    this.setStatus(id, 'valide', now, `${link.mode === 'full' ? 'Règlement' : 'Acompte'} de ${eurText(link.due)} payé en ligne : rendez-vous confirmé pour le ${dayText(link.date, link.time)}. Devis validé.`);
+  }
+  /** a link expired or cancelled: its quote back to « Devis envoyé », to follow up */
+  linkEnded(link, status, now) {
+    for (const r of this.all("SELECT id FROM requests WHERE link = ? AND status = 'lien'", link.id))
+      this.setStatus(r.id, 'envoye', now, status === 'annule' ? 'Lien de paiement annulé : devis repassé en « Devis envoyé ».' : 'Lien de paiement expiré sans paiement : devis repassé en « Devis envoyé ». Relancez le client ou envoyez-lui un nouveau lien.');
+  }
+  /** links set to a new status (from « attente » only): their quotes follow */
+  endLinks(rows, status, now) {
+    for (const l of rows) {
+      this.run("UPDATE links SET status = ? WHERE id = ? AND status = 'attente'", status, l.id);
+      this.linkEnded(l, status, now);
+    }
+  }
+  /** the waiting links past their time: expired (the slot was freed by Stripe's notice) */
+  sweepLinks(now) {
+    this.endLinks(this.all("SELECT * FROM links WHERE status = 'attente' AND expires > 0 AND expires < ?", now), 'expire', now);
+  }
+  /** once: the links sent before they were said in the quotes (waiting, paid or confirmed) */
+  linkPast(now) {
+    if (this.setting('linkQuotes')) return;
+    for (const l of this.all("SELECT * FROM links WHERE status IN ('attente', 'paye', 'confirme') AND client_id > 0 AND created > ? ORDER BY created", now - 180 * DAY)) {
+      if (this.one('SELECT id FROM requests WHERE link = ?', l.id)) continue;
+      // a quote validated already by its booking (the same services) is said too
+      const ids = this.all(`SELECT id FROM requests WHERE client_id = ? AND link = 0 AND at <= ? AND at > ? AND (status IN ${OPEN} OR (status = 'valide' AND booking = ?)) ORDER BY at DESC`, l.client_id, l.created, l.created - 180 * DAY, l.session).map((r) => r.id);
+      const open = ids.length > 1 ? this.quotesFor(l, 0).filter((x) => ids.includes(x)) : ids;
+      for (const id of open.length ? open : ids.slice(0, 1)) this.linkQuote(id, l, now);
+    }
+    this.set('linkQuotes', now);
+  }
+
   /** the delays of the quotes (QUOTE_DELAYS, as changed in the space) */
   delays() {
     const d = this.setting('quoteDelays', {}) || {};
@@ -690,6 +786,9 @@ export class Atelier {
       for (const r of this.all("SELECT id FROM requests WHERE status = 'envoye' AND unread > 0")) this.follow(r.id, now);
       this.set('statusReply', now);
     }
+    // the payment links: the expired ones put their quote back, the ones sent before said once
+    this.sweepLinks(now);
+    this.linkPast(now);
     const { close } = this.delays();
     if (!close) return 0;
     let n = 0;
@@ -954,16 +1053,21 @@ export class Atelier {
           clip(b.session, 120), id, clip(b.event, 120), clip(b.date, 10), clip(b.time, 5), Number(b.minutes) || 0, JSON.stringify(b.items || []).slice(0, 2000), Number(b.total) || 0, Number(b.discount) || 0, referralCode(b.code), clip(b.codeKind, 20), clip(b.mode, 10), Number(b.paid) || 0, clip(b.customer?.vehicle, 80), b.live === false ? 0 : 1, Number(b.created) || now, b.gift ? referralCode(b.gift) : '', round2(b.giftAmount), member?.number || ''
         );
         // (a member's appointment counts for the levels on its day: member/count, the morning job)
-        // a link sent by the workshop, now paid
+        // a link sent by the workshop, now paid: the quote it answered is « Validé »
+        const link = this.one("SELECT * FROM links WHERE session = ? AND session <> ''", clip(b.session, 120));
         this.run("UPDATE links SET status = 'paye' WHERE session = ? AND session <> ''", clip(b.session, 120));
-        // the client had asked for a quote for what they booked: that quote is « Validé »
+        const tied = link ? this.all('SELECT id FROM requests WHERE link = ?', link.id) : [];
+        for (const r of tied) this.linkPaid(r.id, link, now);
+        // else, the client had asked for a quote for what they booked: that quote is « Validé »
+        // (not for an appointment written at the workshop: its link, made next, says it)
         const booked = kinds((b.items || []).map((i) => i.label).join(' '));
         const when = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date)) ? `${String(b.date).split('-').reverse().join('/')} à ${String(b.time).replace(':', ' h ')}` : '';
-        for (const r of this.all("SELECT id, services FROM requests WHERE client_id = ? AND status IN ('nouveau', 'envoye', 'reponse', 'sans_suite') AND at > ?", id, now - 180 * DAY))
-          if (kinds(r.services).some((k) => booked.includes(k))) {
-            this.run('UPDATE requests SET booking = ?, unread = unread + 1 WHERE id = ?', clip(b.session, 120), r.id);
-            this.setStatus(r.id, 'valide', now, `Rendez-vous réservé et payé en ligne${when ? ` pour le ${when}` : ''}.`);
-          }
+        if (!tied.length && !b.atelier)
+          for (const r of this.all("SELECT id, services FROM requests WHERE client_id = ? AND status IN ('nouveau', 'envoye', 'reponse', 'sans_suite') AND at > ?", id, now - 180 * DAY))
+            if (kinds(r.services).some((k) => booked.includes(k))) {
+              this.run('UPDATE requests SET booking = ?, unread = unread + 1 WHERE id = ?', clip(b.session, 120), r.id);
+              this.setStatus(r.id, 'valide', now, `Rendez-vous réservé et payé en ligne${when ? ` pour le ${when}` : ''}.`);
+            }
         return { ok: true, clientId: id, member: member ? { number: member.number, first: member.first } : null };
       }
       case 'request/add': {
@@ -1002,7 +1106,8 @@ export class Atelier {
         let messages = this.all('SELECT * FROM messages WHERE request_id = ? ORDER BY at, id', r.id).map((x) => ({ ...x, files: JSON.parse(x.files || '[]') }));
         // a request made before the discussions: its message as the first one
         if (!messages.length) messages = [{ id: 0, at: r.at, dir: 'in', via: 'site', text: r.message, files: [] }];
-        return { quote: this.ready(r), messages };
+        const link = r.link ? this.one('SELECT id, status, mode, due, total, date, time, expires FROM links WHERE id = ?', r.link) : null;
+        return { quote: this.ready(r), messages, link };
       }
       case 'quotes/badge':
         return { n: this.one("SELECT COUNT(*) AS n FROM requests WHERE unread > 0 OR status IN ('nouveau', 'reponse')").n };
@@ -1071,10 +1176,14 @@ export class Atelier {
           const dir = it.dir === 'out' ? 'out' : 'in';
           this.addMessage(r.id, { at: Number(it.at) || now, dir, via: 'gmail', text: String(it.text || '').slice(0, 10000) || '(message sans texte)', msgid: key });
           imported++;
-          if (dir === 'in') {
+          const at = Number(it.at) || now;
+          // the client's message: unread, unless the workshop answered after it (a reply or a
+          // payment link sent since); the workshop's: what the client wrote before is answered
+          if (dir === 'in' && !this.one("SELECT id FROM messages WHERE request_id = ? AND dir = 'out' AND at > ?", r.id, at)) {
             this.run('UPDATE requests SET unread = unread + 1 WHERE id = ?', r.id);
             incoming.push({ n: r.id, who: r.first || r.email, text: snippetOf(it.text) });
           }
+          if (dir === 'out' && !this.one("SELECT id FROM messages WHERE request_id = ? AND dir = 'in' AND at > ?", r.id, at)) this.run('UPDATE requests SET unread = 0 WHERE id = ?', r.id);
           this.follow(r.id, now, { out: 'Réponse envoyée depuis Gmail : devis passé en « Devis envoyé ».', in: 'Réponse du client lue dans Gmail : « Réponse reçue ».' });
         }
         return { ok: true, imported, incoming };
@@ -1145,15 +1254,23 @@ export class Atelier {
       }
       case 'clients/list': {
         const q = `%${clip(b.q, 60).toLowerCase()}%`;
+        // « Client confirmé » (kind confirme) from the first appointment or quote validated, else « Prospect »
+        const kind = b.kind === 'confirme' || b.kind === 'prospect' ? b.kind : '';
         const rows = this.all(
-          `SELECT c.*, (SELECT COUNT(*) FROM bookings WHERE client_id = c.id) AS n_bookings, (SELECT COALESCE(SUM(paid), 0) FROM bookings WHERE client_id = c.id) AS paid, (SELECT COUNT(*) FROM requests WHERE client_id = c.id) AS n_requests, (SELECT code FROM codes WHERE client_id = c.id ORDER BY created DESC LIMIT 1) AS referral,
+          `SELECT * FROM (SELECT c.*, (SELECT COUNT(*) FROM bookings WHERE client_id = c.id) AS n_bookings, (SELECT COALESCE(SUM(paid), 0) FROM bookings WHERE client_id = c.id) AS paid, (SELECT COUNT(*) FROM requests WHERE client_id = c.id) AS n_requests, (SELECT code FROM codes WHERE client_id = c.id ORDER BY created DESC LIMIT 1) AS referral,
             (SELECT number FROM members m WHERE m.client_id = c.id OR (m.email <> '' AND m.email = c.email) ORDER BY m.expires DESC LIMIT 1) AS premium,
-            (SELECT expires FROM members m WHERE m.client_id = c.id OR (m.email <> '' AND m.email = c.email) ORDER BY m.expires DESC LIMIT 1) AS premium_until
-           FROM clients c WHERE ? = '%%' OR lower(c.first || ' ' || c.last || ' ' || c.email || ' ' || c.phone || ' ' || c.vehicles || ' ' || c.plate) LIKE ? ORDER BY c.last_seen DESC LIMIT ${b.all ? 5000 : 300}`,
+            (SELECT expires FROM members m WHERE m.client_id = c.id OR (m.email <> '' AND m.email = c.email) ORDER BY m.expires DESC LIMIT 1) AS premium_until,
+            ${CONFIRMED} AS confirmed
+           FROM clients c WHERE ? = '%%' OR lower(c.first || ' ' || c.last || ' ' || c.email || ' ' || c.phone || ' ' || c.vehicles || ' ' || c.plate) LIKE ?)
+           WHERE ? = '' OR (? = 'confirme') = (confirmed IS NOT NULL) ORDER BY last_seen DESC LIMIT ${b.all ? 5000 : 300}`,
           q,
-          q
+          q,
+          kind,
+          kind
         );
-        return { clients: rows, total: this.one('SELECT COUNT(*) AS n FROM clients').n };
+        const confirmed = this.one(`SELECT COUNT(*) AS n FROM clients c WHERE ${CONFIRMED} IS NOT NULL`).n;
+        const total = this.one('SELECT COUNT(*) AS n FROM clients').n;
+        return { clients: rows, total, confirmed, prospects: total - confirmed };
       }
       case 'client/get':
         return { client: this.clientCard(Number(b.id)) };
@@ -1194,6 +1311,7 @@ export class Atelier {
             open: this.one("SELECT COUNT(*) AS n FROM requests WHERE status = 'nouveau'").n,
             reply: this.one("SELECT COUNT(*) AS n FROM requests WHERE status = 'reponse'").n,
             sent: this.one("SELECT COUNT(*) AS n FROM requests WHERE status = 'envoye'").n,
+            link: this.one("SELECT COUNT(*) AS n FROM requests WHERE status = 'lien'").n,
             lost: this.one("SELECT COUNT(*) AS n FROM requests WHERE status = 'sans_suite' AND status_at BETWEEN ? AND ?", dayStart(from), dayEnd(to)).n,
             unread: this.one('SELECT COUNT(*) AS n FROM requests WHERE unread > 0').n,
             won: this.one("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS amount FROM requests WHERE status = 'valide' AND status_at BETWEEN ? AND ?", dayStart(from), dayEnd(to)),
@@ -1229,17 +1347,23 @@ export class Atelier {
           'INSERT INTO links (session, client_id, event, date, time, minutes, items, total, due, mode, url, expires, status, vehicle, created, canal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           clip(b.session, 120), clientId, clip(b.event, 200), clip(b.date, 10), clip(b.time, 5), Number(b.minutes) || 0, JSON.stringify(b.items || []).slice(0, 2000), Number(b.total) || 0, Number(b.due) || 0, clip(b.mode, 10), clip(b.url, 1000), Number(b.expires) || 0, clip(b.status, 12) || 'attente', clip(b.customer?.vehicle, 80), now, canal
         );
-        return { ok: true, id: this.one('SELECT last_insert_rowid() AS id').id, clientId };
+        const linkId = this.one('SELECT last_insert_rowid() AS id').id;
+        // the quote it answers: « Lien de paiement envoyé » (or « Validé », paid on the spot)
+        const link = this.one('SELECT * FROM links WHERE id = ?', linkId);
+        const quotes = this.quotesFor(link, Number(b.request) || 0);
+        for (const id of quotes) this.linkQuote(id, link, now);
+        return { ok: true, id: linkId, clientId, quotes };
       }
       case 'link/get':
-        return { link: this.one('SELECT l.*, c.first, c.last, c.email, c.phone FROM links l LEFT JOIN clients c ON c.id = l.client_id WHERE l.id = ?', Number(b.id) || 0) };
+        this.sweepLinks(now);
+        return { link: this.one('SELECT l.*, c.first, c.last, c.email, c.phone, (SELECT id FROM requests r WHERE r.link = l.id ORDER BY r.at DESC LIMIT 1) AS request FROM links l LEFT JOIN clients c ON c.id = l.client_id WHERE l.id = ?', Number(b.id) || 0) };
       case 'links/list': {
-        // the waiting links past their time: expired (the slot was freed by Stripe's notice)
-        this.run("UPDATE links SET status = 'expire' WHERE status = 'attente' AND expires > 0 AND expires < ?", now);
+        this.sweepLinks(now);
         return { links: this.all('SELECT l.*, c.first, c.last, c.email, c.phone FROM links l LEFT JOIN clients c ON c.id = l.client_id ORDER BY l.created DESC LIMIT ?', Math.min(200, Number(b.limit) || 50)) };
       }
       case 'link/status':
-        this.run('UPDATE links SET status = ? WHERE (id = ? OR (session = ? AND session <> \'\')) AND status = \'attente\'', clip(b.status, 12), Number(b.id) || 0, clip(b.session, 120));
+        // expired (Stripe's notice) or cancelled at the workshop: the quote back to « Devis envoyé »
+        this.endLinks(this.all("SELECT * FROM links WHERE (id = ? OR (session = ? AND session <> '')) AND status = 'attente'", Number(b.id) || 0, clip(b.session, 120)), clip(b.status, 12), now);
         return { ok: true };
       // ------------------------------------------------ the workshop's devices (notifications)
       case 'push/add': {
