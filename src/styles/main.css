@@ -794,10 +794,10 @@ p {
   line-height: 0.74;
   letter-spacing: -0.04em;
   /* the gradient is painted in the box only, and the figure (line-height 0.74, italic) goes past
-     it: room around it, given back by the margins (the « 3 » was cut at the top, the « 7 » at the
-     left), and on the right for the italic that runs over */
-  padding: 0.2em 0.1em 0.14em 0.1em;
-  margin: -0.2em -0.02em -0.14em -0.1em;
+     it: room around it, given back by the margins (the « 3 » was cut at the top, the bar of the
+     « 7 » on the right: its italic runs far over), the 0.08em kept on the right as before */
+  padding: 0.2em 0.34em 0.14em 0.12em;
+  margin: -0.2em -0.26em -0.14em -0.12em;
   color: var(--gold-300);
   background: linear-gradient(180deg, var(--gold-200) 8%, var(--gold-300) 45%, var(--gold-400) 100%);
   -webkit-background-clip: text;
