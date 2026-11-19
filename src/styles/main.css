@@ -199,7 +199,7 @@ p {
   gap: 0.9em;
   font-family: var(--font-mono);
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--accent);
@@ -747,6 +747,7 @@ p {
 }
 .chapter .kicker {
   color: var(--gold-300);
+  text-shadow: 0 1px 12px rgba(5, 6, 8, 0.75);
 }
 .chapter__text {
   color: var(--on-dark);
@@ -792,7 +793,11 @@ p {
   font-size: 2.32em;
   line-height: 0.74;
   letter-spacing: -0.04em;
-  padding-right: 0.08em; /* the italic runs over on the right */
+  /* the gradient is painted in the box only, and the figure (line-height 0.74, italic) goes past
+     it: room around it, given back by the margins (the « 3 » was cut at the top, the « 7 » at the
+     left), and on the right for the italic that runs over */
+  padding: 0.2em 0.1em 0.14em 0.1em;
+  margin: -0.2em -0.02em -0.14em -0.1em;
   color: var(--gold-300);
   background: linear-gradient(180deg, var(--gold-200) 8%, var(--gold-300) 45%, var(--gold-400) 100%);
   -webkit-background-clip: text;
@@ -808,6 +813,7 @@ p {
   text-transform: uppercase;
   font-weight: 700;
   color: var(--gold-200);
+  text-shadow: 0 1px 12px rgba(5, 6, 8, 0.75);
 }
 .btn__arrow {
   display: inline-block;
@@ -4319,7 +4325,7 @@ p {
 }
 .chapter__line {
   font-family: var(--font-mono);
-  font-weight: 500;
+  font-weight: 700;
   font-size: clamp(0.72rem, 0.62rem + 0.35vw, 0.9rem);
   letter-spacing: 0.22em;
 }
