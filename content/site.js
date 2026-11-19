@@ -78,6 +78,14 @@ export const business = {
   // Towns close to the workshop, quoted in the "Accès" section (real places, no doorway pages).
   nearby: ['Tours', 'Rochecorbon', 'Vernou-sur-Brenne', 'Montlouis-sur-Loire', 'Saint-Pierre-des-Corps', 'Parçay-Meslay', 'Monnaie', 'Saint-Cyr-sur-Loire', 'Amboise'],
   siret: '890 162 761 00039',
+  // For the quotes (booking/devis.js), told by the workshop on 19/11/2026: registered at the
+  // Répertoire des métiers (now in the RNE: SIREN + RM + department); professional insurance at
+  // Abeille Assurances, Tours Nord agency (address from a directory, to be confirmed); the quote
+  // is valid one month. The consumer mediator is still to choose (mandatory on the quotes).
+  rm: '890 162 761 RM 37',
+  insurance: { name: 'Abeille Assurances', where: 'agence de Tours Nord, 50 avenue André Maginot, 37100 Tours', area: 'France' },
+  mediator: null,
+  quoteValidMonths: 1,
   priceRange: '€€',
   // The quote form (/contact/) goes to the site's own server (content/booking.js → api,
   // /api/demande): one e-mail to the workshop with the photos, answering it writes to the client,
