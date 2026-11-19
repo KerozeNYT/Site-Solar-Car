@@ -321,6 +321,13 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 .recap--edit li{align-items:center}.recap--edit li>span{flex:1}.recap--edit form{margin:0}.recap--edit button{padding:6px 9px}
 .recap__left{margin-top:8px;padding:12px 14px;border-radius:14px;background:rgba(var(--gold-rgb),.08);border:1px solid rgba(var(--gold-rgb),.3)}.recap__left b{font-size:26px}
 .seg--2{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* how the appointment was taken (three, always side by side); the payment (four) */
+.seg__q{margin:0 0 8px;font-size:13px;font-weight:650;color:var(--text-2)}
+.seg--4{grid-template-columns:repeat(4,minmax(0,1fr))}
+/* the payment link's life, or the amount paid at the card terminal: after the payment chosen */
+html.js #rdv:has([name=mode][value=tpe]:checked) .linkbox,html.js #rdv:has([name=mode][value=none]:checked) .linkbox{display:none}
+html.js #rdv:not(:has([name=mode][value=tpe]:checked)) .tpebox{display:none}
+.canalfix{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}.canalfix .remise{grid-template-columns:minmax(0,1fr) auto}
 .push__state{font-weight:650;margin:0 0 14px}
 .remise{display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:8px}
 .notehead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 6px}.notehead label{margin:0}
@@ -346,7 +353,7 @@ html.js .slotbox:has([name=creneau][value=libre]:checked) .pick{display:none}
 .pick h4{font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:12px 0 8px;font-weight:700}
 .picked{display:flex;align-items:center;gap:8px;margin:14px 0 0;padding:11px 14px;border-radius:14px;background:rgba(127,212,155,.1);border:1px solid rgba(127,212,155,.3);color:var(--ok);font-weight:650;font-size:14px}
 @media (max-width:1000px){.rdvgrid{grid-template-columns:minmax(0,1fr)}.rdvgrid>aside{position:static}}
-@media (max-width:640px){.xrow{grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:8px}.xrow select,.xrow [name=x_label]{grid-column:1/3}.seg{grid-template-columns:minmax(0,1fr)}.seg--2{grid-template-columns:repeat(2,minmax(0,1fr))}.seg--2 span{padding:10px 12px}.days{grid-auto-columns:76px;margin:0 -17px;padding:2px 17px 8px}}
+@media (max-width:640px){.xrow{grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:8px}.xrow select,.xrow [name=x_label]{grid-column:1/3}.seg{grid-template-columns:minmax(0,1fr)}.seg--2,.seg--4{grid-template-columns:repeat(2,minmax(0,1fr))}.seg--3{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.seg--2 span,.seg--4 span{padding:10px 12px}.seg--3 span{padding:10px 8px}.seg--3 b{font-size:13px}.seg--3 small{font-size:11px}.days{grid-auto-columns:76px;margin:0 -17px;padding:2px 17px 8px}}
 
 /* ---------------------------------------------------------------- toasts */
 .toasts{position:fixed;right:22px;bottom:22px;z-index:60;display:grid;gap:10px;width:min(380px,calc(100vw - 32px))}

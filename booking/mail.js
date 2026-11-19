@@ -8,7 +8,7 @@
  * A failed e-mail never fails the booking: the appointment is in the calendar all the same.
  */
 import { business as B } from '../content/site.js';
-import { bookingRules as R, formatDuration, discountLines, CANALS } from '../content/booking.js';
+import { bookingRules as R, formatDuration, discountLines, CANALS, canalLead } from '../content/booking.js';
 import { vatNote } from '../content/pricing.js';
 
 const euros = (n) => `${n.toFixed(2).replace('.', ',').replace(',00', '')} €`;
@@ -104,6 +104,10 @@ const practical = (c, withPlace = true) => `${h2('Infos pratiques')}<table role=
   .map(([k, v]) => `<tr><td style="padding:6px 14px 6px 0;color:#77736b;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:6px 0;color:#111;font-weight:600">${v}</td></tr>`)
   .join('')}</table>`;
 const tel = () => keep(B.phone);
+/** « suite à notre appel téléphonique », « suite à notre échange par e-mail », « suite à votre venue à l’atelier » */
+const leadOf = (canal) => (canalLead[canal] ? canalLead[canal].charAt(0).toLowerCase() + canalLead[canal].slice(1) : '');
+/** how what is already paid was paid: online (Stripe) or by card at the workshop */
+const paidLabel = (mode) => (mode === 'tpe' ? 'Acompte réglé à l’atelier' : 'Payé en ligne');
 const small = (t) => `<p style="margin:14px 0 0;font-size:13px;line-height:1.55;color:#77736b">${t}</p>`;
 const intro = (t) => `<p style="margin:0 0 4px;font-size:15px;line-height:1.6;color:#111;white-space:pre-wrap">${t}</p>`;
 
@@ -131,6 +135,15 @@ const goldStrong = (v) => `<span style="color:#a87b1f;font-weight:800;font-size:
 const itemsOf = (q) => q.items.map((i) => `${esc(i.label)}<br><span style="font-weight:400;color:#6b6b6b">${[i.detail ? esc(i.detail) : '', euros(i.price)].filter(Boolean).join(' · ')}</span>`).join('<br>');
 const button = (href, label) => `<a href="${esc(href)}" style="display:inline-block;background:#0b0c0f;color:#e9cd82;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:999px">${esc(label)}</a>`;
 
+/** the first words of the confirmation: the site's booking; or one taken by the workshop, after
+ *  the way it was taken (« suite à notre échange par e-mail, votre acompte de 117 € est bien reçu ») */
+function confirmWords(b, paid) {
+  const lead = leadOf(b.canal);
+  if (!lead) return 'merci pour votre réservation : votre créneau vous est réservé à l’atelier.';
+  if (b.mode === 'deposit' || b.mode === 'full') return `${lead}, votre ${b.mode === 'full' ? 'règlement' : 'acompte'} de ${euros(paid)} est bien reçu : votre rendez-vous est confirmé, le créneau vous est réservé à l’atelier.`;
+  return `${lead}, votre rendez-vous est confirmé : le créneau vous est réservé à l’atelier.`;
+}
+
 export async function sendBookingMails(env, b) {
   if (!env.RESEND_API_KEY) return [];
   const { q, c, date, time, start, end, paid } = b;
@@ -145,8 +158,9 @@ export async function sendBookingMails(env, b) {
         reply_to: c.email,
         subject: `Nouveau RDV — ${c.firstName} ${c.lastName} — ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)}`,
         html: shell(
-          // « réservé en ligne » (the site), « pris par téléphone · acompte payé en ligne » (the space)
-          CANALS[b.canal] ? `Nouveau rendez-vous pris ${CANALS[b.canal]}${b.mode === 'none' ? '' : ` · ${b.mode === 'full' ? 'payé' : 'acompte payé'} en ligne`}` : 'Nouveau rendez-vous réservé en ligne',
+          // « réservé en ligne » (the site), « pris par e-mail · acompte payé en ligne », « pris à
+          // l’atelier · acompte réglé au TPE » (the space)
+          CANALS[b.canal] ? `Nouveau rendez-vous pris ${CANALS[b.canal]}${b.mode === 'none' ? '' : b.mode === 'tpe' ? ' · acompte réglé au TPE' : ` · ${b.mode === 'full' ? 'payé' : 'acompte payé'} en ligne`}` : 'Nouveau rendez-vous réservé en ligne',
           `<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
             ['Quand', whenHtml(date, time, end)],
             ['Client', esc(`${c.firstName} ${c.lastName}`)],
@@ -156,7 +170,7 @@ export async function sendBookingMails(env, b) {
             ['Prestations', items],
             ...discountRows(q, b, true),
             ['Total', euros(q.total)],
-            ['Payé en ligne', b.mode === 'none' ? '' : gold(`${euros(paid)} (${b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`)],
+            [b.mode === 'tpe' ? 'Réglé au TPE' : 'Payé en ligne', b.mode === 'none' ? '' : gold(`${euros(paid)} (${b.mode === 'tpe' ? 'acompte en CB à l’atelier' : b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`)],
             ['Reste à régler', due ? euros(due) : 'rien'],
             ['Nous a connus', c.source ? esc(c.source) : ''],
             ['Message', c.message ? esc(c.message) : ''],
@@ -178,9 +192,9 @@ export async function sendBookingMails(env, b) {
         subject: `Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)} est confirmé`,
         html: card(
           { badge: ['Rendez-vous confirmé', 'ok'], kicker: 'Votre rendez-vous', ...bandWhen(date, time, end) },
-          `${intro(b.note ? esc(b.note) : `Bonjour ${esc(c.firstName)},\nmerci pour votre réservation : votre créneau vous est réservé à l’atelier.`)}
+          `${intro(b.note ? esc(b.note) : `Bonjour ${esc(c.firstName)},\n${confirmWords(b, paid)}`)}
 ${services(q.items)}
-${moneyBox([...discountRows(q, b, false), ['Total', euros(q.total)], ['Payé en ligne', b.mode === 'none' ? '' : gold(euros(paid))], ['À régler à l’atelier', goldStrong(due ? euros(due) : 'rien'), true]], vatNote)}
+${moneyBox([...discountRows(q, b, false), ['Total', euros(q.total)], [paidLabel(b.mode), b.mode === 'none' ? '' : gold(euros(paid))], ['À régler à l’atelier', goldStrong(due ? euros(due) : 'rien'), true]], vatNote)}
 ${practical(c)}
 ${small('La teinte se choisit avec vous à l’atelier, le jour du rendez-vous. Prévoyez de déposer le véhicule à l’heure indiquée.')}
 ${small(b.mode === 'none' ? `Un empêchement ? Prévenez-nous au plus vite au ${tel()}.` : `Un empêchement ? Prévenez-nous au moins ${R.cancelHours} h avant au ${tel()} : l’acompte vous est remboursé ou reporté. En dessous de ${R.cancelHours} h, il reste acquis à l’atelier (<a href="${esc(env.SITE_URL || B.siteUrl)}/conditions-reservation/" style="color:#9a7a2c">conditions de réservation</a>).`)}
@@ -189,7 +203,7 @@ ${small('Le rendez-vous est joint à cet e-mail : ouvrez le fichier pour l’ajo
         attachments: [
           {
             filename: 'rendez-vous-solar-car-37.ics',
-            content: btoa(unescape(encodeURIComponent(ics({ id: b.sessionId, start, end, title, text: `${b.mode === 'none' ? '' : `Payé en ligne : ${euros(paid)}. `}Reste à régler : ${euros(due)}. ${B.phone}` })))),
+            content: btoa(unescape(encodeURIComponent(ics({ id: b.sessionId, start, end, title, text: `${b.mode === 'none' ? '' : `${paidLabel(b.mode)} : ${euros(paid)}. `}Reste à régler : ${euros(due)}. ${B.phone}` })))),
           },
         ],
       });
@@ -217,7 +231,7 @@ export async function sendPaymentLink(env, b) {
     subject: `Votre rendez-vous du ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)} : confirmez-le en ligne`,
     html: card(
       { badge: [mode === 'full' ? 'En attente de votre règlement' : 'En attente de votre acompte', 'wait'], kicker: 'Votre rendez-vous', ...bandWhen(date, time, end) },
-      `${intro(note ? esc(note) : `Bonjour ${esc(c.firstName)},\ncomme convenu${b.canal === 'atelier' ? ' lors de votre passage' : b.canal === 'telephone' ? ' au téléphone' : ''}, voici votre rendez-vous à l’atelier. Il est confirmé dès que ${what} est réglé en ligne.`)}
+      `${intro(note ? esc(note) : `Bonjour ${esc(c.firstName)},\n${leadOf(b.canal) || 'comme convenu'}, voici votre rendez-vous à l’atelier. Il est confirmé dès que ${what} est réglé en ligne.`)}
 ${action(url, `Régler ${euros(due)} et confirmer`)}
 ${small(`Paiement sécurisé par Stripe. Le créneau vous est gardé jusqu’au ${esc(until)} ; passé ce délai, il est libéré : rappelez-nous au ${tel()}.`)}
 ${services(q.items)}

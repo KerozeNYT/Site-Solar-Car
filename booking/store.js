@@ -25,6 +25,9 @@ import { zonedToUtc, addDays } from './schedule.js';
 import { sendQuoteMails, sendToClient, notifyWorkshop, quoteSubject } from './mail.js';
 import { parseMail, freshText, htmlToText, bytesOf } from './mime.js';
 
+/** how an appointment taken by the workshop was taken (content/booking.js, CANALS) */
+const TAKEN = { telephone: 'par téléphone', mail: 'par e-mail', atelier: 'à l’atelier' };
+
 // no 0/O, 1/I: easy to read out and to type
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const DAY = 86400000;
@@ -1049,13 +1052,19 @@ export class Atelier {
       }
       // ------------------------------------------------ appointments taken by the workshop (links)
       case 'link/add': {
-        const canal = b.canal === 'atelier' ? 'atelier' : 'telephone';
-        const clientId = this.upsertClient(b.customer || {}, now, canal === 'atelier' ? 'RDV pris à l’atelier' : 'RDV pris par téléphone');
+        const canal = Object.hasOwn(TAKEN, b.canal) ? b.canal : 'telephone';
+        const clientId = this.upsertClient(b.customer || {}, now, `RDV pris ${TAKEN[canal]}`);
         this.run(
           'INSERT INTO links (session, client_id, event, date, time, minutes, items, total, due, mode, url, expires, status, vehicle, created, canal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           clip(b.session, 120), clientId, clip(b.event, 200), clip(b.date, 10), clip(b.time, 5), Number(b.minutes) || 0, JSON.stringify(b.items || []).slice(0, 2000), Number(b.total) || 0, Number(b.due) || 0, clip(b.mode, 10), clip(b.url, 1000), Number(b.expires) || 0, clip(b.status, 12) || 'attente', clip(b.customer?.vehicle, 80), now, canal
         );
         return { ok: true, id: this.one('SELECT last_insert_rowid() AS id').id, clientId };
+      }
+      // how it was taken, corrected by the workshop (a call, an e-mail, a visit to the counter)
+      case 'link/canal': {
+        if (!Object.hasOwn(TAKEN, b.canal)) return { ok: false, error: 'Canal inconnu.' };
+        this.run('UPDATE links SET canal = ? WHERE id = ?', b.canal, Number(b.id) || 0);
+        return { ok: true, link: this.one('SELECT * FROM links WHERE id = ?', Number(b.id) || 0) };
       }
       case 'link/get':
         return { link: this.one('SELECT l.*, c.first, c.last, c.email, c.phone FROM links l LEFT JOIN clients c ON c.id = l.client_id WHERE l.id = ?', Number(b.id) || 0) };

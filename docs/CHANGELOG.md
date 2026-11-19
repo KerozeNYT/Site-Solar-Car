@@ -1,5 +1,19 @@
 # Journal des changements
 
+## Nouveau RDV : téléphone, e-mail ou atelier ; acompte réglé au TPE ; nouveaux e-mails clients (19 novembre 2026)
+
+- « Rendez-vous pris… » : **Téléphone**, **E-mail** ou **Atelier**, à cocher à chaque fois (plus de
+  choix par défaut). Repris dans l'e-mail « Nouveau RDV » (« pris par e-mail · acompte payé en
+  ligne »), l'agenda, la liste des RDV et les e-mails au client : « Suite à notre appel
+  téléphonique » / « Suite à notre échange par e-mail » / « Suite à votre venue à l'atelier ».
+  Une erreur se corrige sur la page du RDV (« Rendez-vous pris » → Corriger), agenda compris.
+- Paiement : **Acompte au TPE** (déjà réglé en CB à l'atelier) en plus du lien Stripe et de « Sur
+  place » : montant tapé, ou 30 % si vide ; le RDV est confirmé tout de suite, « Acompte réglé au
+  TPE » dans l'agenda, l'e-mail atelier et la page du RDV, « Acompte réglé à l'atelier » pour le client.
+- E-mails des clients (lien de paiement, confirmation, mise à jour, rappel de la veille) : nouveau
+  design — bandeau noir, état du RDV, date en grand, prestations avec prix, encadré doré (déjà réglé
+  en doré, reste à régler en doré et en gras), bouton en haut ; 600 px au plus, net sur PC et téléphone.
+
 ## Espace atelier : modifier un RDV confirmé (prestations ajoutées) (18 novembre 2026)
 
 - Chaque RDV a sa page (Rendez-vous → la date) : prestations, remises, déjà réglé, **reste à régler à

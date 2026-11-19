@@ -70,6 +70,7 @@ const form = (extra = {}) => ({
   date: day,
   heure: '08:00',
   mode: 'deposit',
+  canal: 'telephone',
   duree: '24',
   note: 'Merci pour votre appel !',
   ...extra,
@@ -89,7 +90,7 @@ test('signed in; the form, its price and the free slots of the day', async () =>
   assert.match(price.html, /349\s€/);
   assert.match(price.html, /104,70\s€/);
   // the word for the client, drafted from the form
-  assert.match(price.draft, /^Bonjour Kevin,\n\nMerci pour votre appel ! Comme convenu, je vous réserve le jeudi \d+ \S+ à 8 h 00 pour votre Audi A3 Sportback \(2021\) : vitres teintées \(complet\) et rénovation de phares, soit 349\s€ au total\./);
+  assert.match(price.draft, /^Bonjour Kevin,\n\nSuite à notre appel téléphonique, je vous réserve comme convenu le jeudi \d+ \S+ à 8 h 00 pour votre Audi A3 Sportback \(2021\) : vitres teintées \(complet\) et rénovation de phares, soit 349\s€ au total\./);
   assert.match(price.draft, /régler l’acompte de 104,70\s€ avec le bouton ci-dessous ; le reste, 244,30\s€, se règle à l’atelier/);
   assert.match(price.draft, /La teinte se choisit ensemble à l’atelier[^]*À très vite,\nNicolas$/);
   // a month of free slots at once, as on the site
@@ -145,7 +146,7 @@ test('a payment link: the slot held, the client e-mailed; paid: confirmed in the
   assert.equal(sql('SELECT status FROM links')[0].status, 'paye');
   assert.equal(hold.extendedProperties.private.solarcarHold, '0');
   assert.match(hold.summary, /^RDV Vitres teintées Complet \+ Rénovation de phares — Kevin Durand/);
-  // taken on the phone (the default), said in the calendar and in the workshop's e-mail
+  // taken on the phone, said in the calendar and in the workshop's e-mail
   assert.match(hold.description, /Pris par téléphone le /);
   assert.match(mails.find((x) => /^Nouveau RDV/.test(x.subject)).html, /Nouveau rendez-vous pris par téléphone · acompte payé en ligne/);
   const [b] = sql('SELECT * FROM bookings');
@@ -275,14 +276,14 @@ test('paid on the spot: written in the calendar at once; a code that covers ever
   assert.deepEqual([link.total, link.due], [120, 0]);
   const ev = cal[CAR].find((e) => e.id === link.event);
   assert.equal(ev.extendedProperties.private.solarcarHold, '0');
-  assert.match(ev.description, /Pris à l’atelier, à régler sur place/);
+  assert.match(ev.description, /À régler sur place : 120\s€/);
   // taken at the counter: said so, and the workshop gets its « Nouveau RDV »
   assert.match(ev.description, /Pris à l’atelier le /);
   assert.equal(link.canal, 'atelier');
   assert.match(mails.find((x) => /^Nouveau RDV/.test(x.subject)).html, /Nouveau rendez-vous pris à l’atelier</);
   assert.match(await (await go('/atelier/rdv')).text(), /Marc Durand<\/b><\/a><small>Audi A3 Sportback \(2021\) · pris à l’atelier/);
   // the word for the client follows
-  assert.match((await (await go('/atelier/rdv/prix', { method: 'POST', form: form({ canal: 'atelier' }) })).json()).draft, /Merci pour votre visite à l’atelier !/);
+  assert.match((await (await go('/atelier/rdv/prix', { method: 'POST', form: form({ canal: 'atelier' }) })).json()).draft, /^Bonjour Kevin,\n\nSuite à votre venue à l’atelier, je vous réserve comme convenu le /);
   assert.equal(sql('SELECT paid, mode FROM bookings WHERE session = ?', link.session)[0].mode, 'none');
   // no e-mail address: nothing sent to the client, the workshop only told by the space
   assert.equal(mails.filter((m) => m.to[0] !== CAR).length, 0);
@@ -291,4 +292,59 @@ test('paid on the spot: written in the calendar at once; a code that covers ever
   const gift = await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ heure: '08:00', date: addDays(day, 1), code: 'cadeau', email: 'zoe@example.com', prenom: 'Zoé', tel: '06 33 33 33 33' }) });
   assert.match(where(gift).searchParams.get('ok'), /Rendez-vous inscrit dans l’agenda, confirmation envoyée au client/);
   assert.equal(sql("SELECT uses FROM promos WHERE code = 'CADEAU'")[0].uses, 1);
+});
+
+test('how it was taken: said each time (no default), an e-mail exchange followed by the e-mails; corrected afterwards on its page', async () => {
+  // not ticked: asked, nothing written
+  const none = await (await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ canal: '', heure: '13:00', date: addDays(day, 2) }) })).text();
+  assert.match(none, /Cochez comment le rendez-vous a été pris/);
+  // the drafted word after an e-mail exchange
+  const draft = (await (await go('/atelier/rdv/prix', { method: 'POST', form: form({ canal: 'mail' }) })).json()).draft;
+  assert.match(draft, /^Bonjour Kevin,\n\nSuite à notre échange par e-mail, je vous réserve comme convenu le /);
+  // a link sent after an e-mail, then paid: « pris par e-mail » for the workshop, the calendar, the client
+  mails.length = 0;
+  const res = await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ canal: 'mail', note: '', heure: '13:00', date: addDays(day, 2), prenom: 'Mathieu', nom: 'Desmoulins', email: 'mathieu@example.com', tel: '06 48 48 48 48' }) });
+  const id = where(res).pathname.split('/').pop();
+  const link = sql('SELECT * FROM links WHERE id = ?', Number(id))[0];
+  assert.equal(link.canal, 'mail');
+  assert.match(mails.find((x) => x.to[0] === 'mathieu@example.com').html, /suite à notre échange par e-mail, voici votre rendez-vous à l’atelier/);
+  mails.length = 0;
+  const s = sessions.get(link.session);
+  Object.assign(s, { status: 'complete', payment_status: 'paid' });
+  assert.equal((await hook({ type: 'checkout.session.completed', data: { object: s } })).status, 200);
+  assert.match(mails.find((x) => /^Nouveau RDV/.test(x.subject)).html, /Nouveau rendez-vous pris par e-mail · acompte payé en ligne/);
+  assert.match(mails.find((x) => x.to[0] === 'mathieu@example.com').html, /suite à notre échange par e-mail, votre acompte de 104,70 € est bien reçu : votre rendez-vous est confirmé/);
+  const ev = cal[CAR].find((e) => e.id === link.event);
+  assert.match(ev.description, /^Pris par e-mail le /m);
+  // ticked wrong: corrected on its page (and in the calendar)
+  const fixed = await go(`/atelier/rdv/lien/${id}/canal`, { method: 'POST', form: { canal: 'telephone' } });
+  assert.match(where(fixed).searchParams.get('ok'), /Corrigé : rendez-vous pris par téléphone/);
+  assert.equal(sql('SELECT canal FROM links WHERE id = ?', Number(id))[0].canal, 'telephone');
+  assert.match(ev.description, /^Pris par téléphone le /m);
+  assert.match(await (await go(`/atelier/rdv/lien/${id}`)).text(), /Mathieu Desmoulins<\/h1><span class="dim">Audi A3 Sportback \(2021\) · pris par téléphone/);
+});
+
+test('a deposit paid by card at the workshop (its terminal): confirmed at once, the amount said everywhere', async () => {
+  mails.length = 0;
+  // the price and the word: the 30 % by default, or the amount typed
+  const price = await (await go('/atelier/rdv/prix', { method: 'POST', form: form({ mode: 'tpe', canal: 'atelier', tpe: '' }) })).json();
+  assert.match(price.html, /Acompte réglé au TPE<\/span><b>104,70\s€/);
+  assert.match(price.draft, /Votre acompte de 104,70\s€ est bien réglé : votre rendez-vous est confirmé\. Le reste, 244,30\s€, se règle à l’atelier/);
+  const res = await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ mode: 'tpe', canal: 'atelier', tpe: '100', note: '', heure: '15:00', date: addDays(day, 2), force: '1', prenom: 'Léa', nom: 'Bernard', email: 'lea@example.com', tel: '06 58 58 58 58' }) });
+  assert.match(where(res).searchParams.get('ok'), /Rendez-vous inscrit dans l’agenda, confirmation envoyée au client/);
+  const id = where(res).pathname.split('/').pop();
+  const link = sql('SELECT * FROM links WHERE id = ?', Number(id))[0];
+  assert.deepEqual([link.status, link.mode, link.due], ['confirme', 'tpe', 100]);
+  const [b] = sql('SELECT paid, mode FROM bookings WHERE session = ?', link.session);
+  assert.deepEqual([b.paid, b.mode], [100, 'tpe']);
+  const ev = cal[CAR].find((e) => e.id === link.event);
+  assert.equal(ev.extendedProperties.private.solarcarHold, '0');
+  assert.match(ev.description, /Acompte réglé au TPE \(CB à l’atelier\) : 100\s€ — reste à régler : 249\s€/);
+  assert.match(mails.find((x) => /^Nouveau RDV/.test(x.subject)).html, /Nouveau rendez-vous pris à l’atelier · acompte réglé au TPE/);
+  const client = mails.find((x) => x.to[0] === 'lea@example.com').html;
+  assert.match(client, /suite à votre venue à l’atelier, votre rendez-vous est confirmé/);
+  assert.match(client, /Acompte réglé à l’atelier<\/td><td[^>]*><span[^>]*>100\s€/);
+  assert.match(client, /À régler à l’atelier<\/td><td[^>]*><span[^>]*>249\s€/);
+  const page = await (await go(`/atelier/rdv/lien/${id}`)).text();
+  assert.match(page, /Confirmé · acompte réglé au TPE/);
 });

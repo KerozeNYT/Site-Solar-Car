@@ -46,7 +46,7 @@
  *   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET (secrets) its Google sign-in (OAuth client)
  */
 import { business as B } from '../content/site.js';
-import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor, withExtra, manualDiscount, discountLines, CANALS, takenText } from '../content/booking.js';
+import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor, withExtra, manualDiscount, discountLines, CANALS, takenText, tpeAmount } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents, listEvents } from './google.js';
 import { createSession, getSession, expireSession, verifyWebhook } from './stripe.js';
@@ -182,7 +182,14 @@ function eventText(q, c, { date, time, mode, paid, sessionId, code, codeKind, re
     // « Code promo NOEL : −40 € », « Parrainage : −20 € (code MARIE-7K2QX) », « Remise : −30 € »
     q.discount ? discountLines(q.discount, { code, codeKind, remise }).map(([label, off]) => (label.startsWith('Parrainage (') ? `Parrainage : −${euros(off)} ${label.slice(11)}` : `${label} : −${euros(off)}`)).join('\n') : null,
     `Total : ${euros(q.total)} — durée ${formatDuration(q.minutes)}`,
-    paid != null ? `Payé en ligne : ${euros(paid)} (${mode === 'full' ? 'totalité' : 'acompte 30 %'}) — reste à régler : ${euros(Math.max(0, q.total - paid))}` : `Paiement en cours (${mode === 'full' ? 'totalité' : 'acompte 30 %'} : ${euros(amountDue(q, mode))})`,
+    // paid online (Stripe), paid by card at the workshop (its terminal), or all at the workshop
+    mode === 'none'
+      ? `À régler sur place : ${euros(q.total)}`
+      : mode === 'tpe'
+        ? `Acompte réglé au TPE (CB à l’atelier) : ${euros(paid)} — reste à régler : ${euros(Math.max(0, q.total - paid))}`
+        : paid != null
+          ? `Payé en ligne : ${euros(paid)} (${mode === 'full' ? 'totalité' : 'acompte 30 %'}) — reste à régler : ${euros(Math.max(0, q.total - paid))}`
+          : `Paiement en cours (${mode === 'full' ? 'totalité' : 'acompte 30 %'} : ${euros(amountDue(q, mode))})`,
     c.message ? `\nMessage : ${c.message}` : '',
     '',
     `${takenText(canal)} le ${new Date().toLocaleDateString('fr-FR', { timeZone: R.timeZone })} pour le ${longDate(date, time)}.`,
@@ -413,12 +420,14 @@ export async function atelierBooking(env, b, now) {
   const c = { firstName: s(b.customer?.firstName, 60), lastName: s(b.customer?.lastName, 60), email: s(b.customer?.email, 120).toLowerCase(), phone: s(b.customer?.phone, 30), vehicle: s(b.customer?.vehicle, 80), plate: s(b.customer?.plate, 15).toUpperCase(), message: '', source: s(b.customer?.source, 180) };
   // the workshop's word for the client (lines kept): at the head of the e-mail
   const note = String(b.note ?? '').replace(/\r\n?/g, '\n').trim().slice(0, 1500);
-  // taken on the phone or at the counter
-  const canal = Object.hasOwn(CANALS, b.canal) ? b.canal : 'telephone';
+  // taken after a call, an e-mail or a visit to the counter: said each time (the e-mails follow it)
+  if (!Object.hasOwn(CANALS, b.canal)) return { error: 'Cochez comment le rendez-vous a été pris : téléphone, e-mail ou atelier.' };
+  const canal = b.canal;
   if (!c.firstName && !c.lastName) return { error: 'Indiquez le nom du client.' };
-  const mode = ['deposit', 'full', 'none'].includes(b.mode) ? b.mode : 'deposit';
+  // a payment link (deposit or whole), a deposit already paid by card at the workshop, or nothing
+  const mode = ['deposit', 'full', 'tpe', 'none'].includes(b.mode) ? b.mode : 'deposit';
   if (c.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c.email)) return { error: 'Adresse e-mail à vérifier.' };
-  if (mode !== 'none' && !c.email) return { error: 'Il faut l’e-mail du client pour lui envoyer le lien de paiement.' };
+  if ((mode === 'deposit' || mode === 'full') && !c.email) return { error: 'Il faut l’e-mail du client pour lui envoyer le lien de paiement.' };
   if (c.phone && c.phone.replace(/\D/g, '').length < 9) return { error: 'Numéro de téléphone à vérifier.' };
   // a code: checked as online, counted once the appointment is confirmed
   let code = '';
@@ -450,24 +459,27 @@ export async function atelierBooking(env, b, now) {
   // the lines beyond the online catalogue, for the payment's metadata (priced() reads them back)
   const extraText = JSON.stringify(q.items.slice(base.error ? 0 : base.items.length).map((i) => ({ kind: i.kind, label: i.label, price: i.price, minutes: i.minutes })));
   if (extraText.length > 500) return { error: 'Libellés des prestations trop longs : raccourcissez-les.' };
-  const due = mode === 'none' ? 0 : amountDue(q, mode);
+  const due = mode === 'none' ? 0 : mode === 'tpe' ? tpeAmount(b.tpe, q) : amountDue(q, mode);
   const items = q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price }));
 
-  // no payment online: the appointment is written at once
-  if (mode === 'none' || due < 0.5) {
+  // no payment online (all at the workshop, or the deposit paid at its card terminal): the
+  // appointment is written at once
+  if (mode === 'none' || mode === 'tpe' || due < 0.5) {
+    const how = mode === 'tpe' && due > 0 ? 'tpe' : 'none';
+    const paid = how === 'tpe' ? due : 0;
     const id = `atelier-${now.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
     const ev = await insertEvent(env, env.CALENDAR_WRITE, {
       summary: `RDV ${titleOf(q, c)}`,
-      description: eventText(q, c, { date, time, mode: 'none', paid: 0, code, codeKind, remise, canal }).replace(/Payé en ligne : 0 € \([^)]*\)/, 'Pris à l’atelier, à régler sur place'),
+      description: eventText(q, c, { date, time, mode: how, paid, code, codeKind, remise, canal }),
       colorId: '9',
       start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone },
       end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
       extendedProperties: { private: { solarcarHold: '0', session: id, atelier: '1' } },
     });
     if (code) await (codeKind === 'promo' ? db(env, 'promo/use', { code }) : redeemReferral(env, code, { by: `${c.firstName} ${c.lastName}`, ref: id, where: 'à l’atelier' })).catch(() => {});
-    await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: 'none', paid: 0, customer: c });
-    const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: 0, mode: 'none', status: 'confirme', canal, customer: c });
-    await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: 'none', paid: 0, sessionId: id, code, codeKind, remise, note, canal, clientMail: !!c.email }).catch((err) => console.error('[mail] atelier booking', err.message));
+    await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: how, paid, customer: c });
+    const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: paid, mode: how, status: 'confirme', canal, customer: c });
+    await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: how, paid, sessionId: id, code, codeKind, remise, note, canal, clientMail: !!c.email }).catch((err) => console.error('[mail] atelier booking', err.message));
     return { ok: true, id: link.id, confirmed: true };
   }
 
@@ -509,6 +521,20 @@ export async function atelierBooking(env, b, now) {
     .then(() => true)
     .catch((err) => (console.error('[mail] payment link', err.message), false));
   return { ok: true, id: link.id, url: session.url, mailed };
+}
+
+/**
+ * How an appointment taken by the workshop was taken, corrected (a call, an e-mail, a visit): its
+ * page and list say it, and the line « Pris par … le … » of the calendar follows.
+ */
+export async function atelierLinkCanal(env, id, canal) {
+  const r = await db(env, 'link/canal', { id, canal });
+  if (!r.ok || !r.link) return { ok: false, error: r.error || 'Rendez-vous introuvable.' };
+  const ev = r.link.event ? await getEvent(env, env.CALENDAR_WRITE, r.link.event).catch(() => null) : null;
+  const text = ev?.description || '';
+  const line = /^(?:Pris (?:par téléphone|par e-mail|à l’atelier)|Réservé en ligne) le /m;
+  if (ev && ev.status !== 'cancelled' && line.test(text)) await patchEvent(env, env.CALENDAR_WRITE, ev.id, { description: text.replace(line, `${takenText(canal)} le `) }).catch((err) => console.error('[atelier] canal', err.message));
+  return { ok: true };
 }
 
 /**

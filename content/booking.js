@@ -271,11 +271,18 @@ export function discountLines(discount, { code = '', codeKind = '', remise = 0 }
   return out;
 }
 
-/** how an appointment was taken: on the site, or by the workshop on the phone or at the counter
- *  (« Nouveau rendez-vous » of its space) — said in the e-mails and the calendar */
-export const CANALS = { telephone: 'par téléphone', atelier: 'à l’atelier' };
-/** « Réservé en ligne », « Pris par téléphone », « Pris à l’atelier » */
+/** how an appointment was taken: on the site, or by the workshop after a call, an e-mail or a
+ *  visit to the counter (« Nouveau rendez-vous » of its space) — said in the e-mails and the calendar */
+export const CANALS = { telephone: 'par téléphone', mail: 'par e-mail', atelier: 'à l’atelier' };
+/** « Réservé en ligne », « Pris par téléphone », « Pris par e-mail », « Pris à l’atelier » */
 export const takenText = (canal) => (CANALS[canal] ? `Pris ${CANALS[canal]}` : 'Réservé en ligne');
+/** the first words of the e-mail to the client, after the way the appointment was taken */
+export const canalLead = { telephone: 'Suite à notre appel téléphonique', mail: 'Suite à notre échange par e-mail', atelier: 'Suite à votre venue à l’atelier' };
+/** a deposit paid by card at the workshop (its card terminal): the amount typed, else the 30 % */
+export const tpeAmount = (typed, q) => {
+  const n = Number(String(typed ?? '').replace(/\s/g, '').replace(',', '.'));
+  return Math.round(Math.min(q.total, n > 0 ? n : q.deposit) * 100) / 100;
+};
 
 /** the amount to pay now (EUR): the deposit or the total */
 export const amountDue = (q, mode) => (mode === 'full' ? q.total : q.deposit);
