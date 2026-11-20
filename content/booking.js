@@ -274,7 +274,7 @@ export function discountLines(discount, { code = '', codeKind = '', remise = 0 }
 
 /** how an appointment was taken: on the site, or by the workshop after a call, an e-mail or a
  *  visit to the counter (« Nouveau rendez-vous » of its space) — said in the e-mails and the calendar */
-export const CANALS = { telephone: 'par téléphone', mail: 'par e-mail', atelier: 'à l’atelier' };
+export const CANALS = { telephone: 'par téléphone', mail: 'par e-mail', atelier: 'à l’atelier', pro: 'par un partenaire pro' };
 /** « Réservé en ligne », « Pris par téléphone », « Pris par e-mail », « Pris à l’atelier » */
 export const takenText = (canal) => (CANALS[canal] ? `Pris ${CANALS[canal]}` : 'Réservé en ligne');
 /** the first words of the e-mail to the client, after the way the appointment was taken */

@@ -648,3 +648,55 @@ test('a car dropped off: in the calendar as « Dépôt », free time, blocking n
   assert.equal(made.status, 303);
   assert.equal(sql("SELECT vehicle FROM bookings ORDER BY created DESC LIMIT 1")[0].vehicle, 'Peugeot 3008 (2022)');
 });
+
+test('the client file: the type, several vehicles, a selection (pros, no news, sorted) and its export', async () => {
+  const id = sql("SELECT id FROM clients WHERE email = 'ines@example.com'")[0].id;
+  await go('/atelier/clients', { method: 'POST', form: { id: String(id), firstName: 'Inès', lastName: 'Morel', email: 'ines@example.com', phone: '06 10 10 10 10', vehicles: 'Peugeot 3008 (2022)', plate: '', source: '', notes: '', type: 'pro' } });
+  assert.equal(sql('SELECT ctype FROM clients WHERE id = ?', id)[0].ctype, 'pro');
+  // a second car, then the first taken off
+  await go(`/atelier/clients/${id}/vehicule`, { method: 'POST', form: { marque: 'Renault', modele: 'Clio', annee: '2019', plaque: 'cd-456-ef' } });
+  assert.equal(sql('SELECT vehicles FROM clients WHERE id = ?', id)[0].vehicles, 'Peugeot 3008 (2022) · Renault Clio (2019) — CD-456-EF');
+  await go(`/atelier/clients/${id}/vehicule`, { method: 'POST', form: { retirer: '0' } });
+  assert.equal(sql('SELECT vehicles FROM clients WHERE id = ?', id)[0].vehicles, 'Renault Clio (2019) — CD-456-EF');
+  const card = await (await go(`/atelier/clients/${id}`)).text();
+  assert.match(card, /Inscrit le/);
+  assert.match(card, /Renault Clio \(2019\) — CD-456-EF/);
+  // the selection: the pros only; its export carries the same choice
+  const list = await (await go('/atelier/clients?type=pro')).text();
+  assert.match(list, /Inès Morel/);
+  assert.doesNotMatch(list, /Kevin Durand/);
+  const csv = await (await go('/atelier/clients.csv?type=pro')).text();
+  assert.match(csv, /Inès;Morel/);
+  assert.doesNotMatch(csv, /Kevin;Durand/);
+  // nobody without news for a year here
+  assert.doesNotMatch(await (await go('/atelier/clients?silence=12')).text(), /Inès Morel/);
+});
+
+test('a partner books two cars from its space: the free slots for both, one after the other, its discount, the workshop told', async () => {
+  const { db } = await import('../store.js');
+  const { hashPassword } = await import('../pro-space.js');
+  const r = await db(env, 'pro/save', { name: 'Auto Plus', email: 'atelier@autoplus.fr', contact: 'Paul Roy', phone: '02 47 11 22 33', discount: '10' });
+  await db(env, 'pro/code', { id: r.id });
+  await db(env, 'pro/invite', { id: r.id, token: 'x'.repeat(40) });
+  await db(env, 'pro/password', { token: 'x'.repeat(40), pass: await hashPassword('motdepasse2') });
+  await db(env, 'pro/sign', { id: r.id, who: 'pro', name: 'Paul Roy', image: `data:image/png;base64,${'A'.repeat(200)}` });
+  const proGo = (path, { method = 'GET', form, jar = '' } = {}) => worker.fetch(new Request(`${SELF}${path}`, { method, body: form ? new URLSearchParams(form) : undefined, redirect: 'manual', headers: { origin: SELF, cookie: jar } }), env);
+  const jar = (await proGo('/pro/connexion', { method: 'POST', form: { email: 'atelier@autoplus.fr', password: 'motdepasse2' } })).headers.get('set-cookie').split(';')[0];
+  assert.match(await (await proGo('/pro/reserver', { jar })).text(), /Vos véhicules/);
+  const cars = { lieu: 'atelier', cat0: 'citadine', vt0: 'full', modele0: 'Renault Clio', plaque0: 'aa-111-bb', cat1: 'berline', feux1: 'rear', modele1: 'BMW Série 3' };
+  const step2 = await (await proGo('/pro/reserver', { method: 'POST', form: { ...cars, action: 'creneaux' }, jar })).text();
+  assert.match(step2, /2 véhicules à la suite · 3 h en tout/);
+  assert.match(step2, /-10 %/);
+  const slot = step2.match(/name="creneau" value="([^"]+)"/)[1];
+  mails.length = 0;
+  const done = await proGo('/pro/reserver', { method: 'POST', form: { ...cars, action: 'reserver', creneau: slot }, jar });
+  assert.match(where(done).searchParams.get('ok'), /C’est réservé : 2 véhicules/);
+  const made = sql("SELECT b.date, b.time, b.vehicle, b.code, b.total, b.discount FROM bookings b JOIN clients c ON c.id = b.client_id WHERE c.email = 'atelier@autoplus.fr' ORDER BY b.time");
+  assert.equal(made.length, 2);
+  const [d0, t0] = slot.split('|');
+  assert.deepEqual([made[0].date, made[0].time, made[0].vehicle], [d0, t0, 'Renault Clio']);
+  assert.ok(made[1].time > made[0].time);
+  assert.ok(made.every((b) => /^PRO-/.test(b.code) && b.discount > 0));
+  assert.ok(mails.some((m) => /^Réservation pro — Auto Plus — 2 véhicules/.test(m.subject)));
+  assert.match(await (await go(`/atelier/journee?date=${d0}`)).text(), /Renault Clio/);
+});

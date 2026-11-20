@@ -533,8 +533,9 @@ export async function atelierBooking(env, b, now) {
     if (code) await useCode(env, code, codeKind, { by: `${c.firstName} ${c.lastName}`, ref: id, where: 'à l’atelier' });
     await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: how, paid, customer: c, atelier: true });
     const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: paid, mode: how, status: 'confirme', canal, customer: c, request: b.request });
-    await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: how, paid, sessionId: id, code, codeKind, remise, note, canal, clientMail: !!c.email }).catch((err) => console.error('[mail] atelier booking', err.message));
-    return { ok: true, id: link.id, confirmed: true };
+    // b.quiet: several cars booked at once by a partner (booking/pro-space.js): one e-mail for all
+    if (!b.quiet) await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: how, paid, sessionId: id, code, codeKind, remise, note, canal, clientMail: !!c.email }).catch((err) => console.error('[mail] atelier booking', err.message));
+    return { ok: true, id: link.id, confirmed: true, session: id, total: q.total, minutes: q.minutes, end: span.end };
   }
 
   // a payment link: the slot held while the client pays (Stripe: 30 minutes to 24 hours)

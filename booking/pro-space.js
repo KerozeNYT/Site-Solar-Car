@@ -16,6 +16,11 @@ import { vatNote } from '../content/pricing.js';
 import { glazing } from '../content/regulation.js';
 import { db, atelierFetch } from './store.js';
 import { proSheetPdf } from './pro-sheet.js';
+import { quote, withExtra, bookableVehicles, tintFormulas, lightsBooking, atelierExtras, formatDuration } from '../content/booking.js';
+import { utcToZoned } from './schedule.js';
+import { atelierBooking, atelierSlots } from './worker.js';
+import { send, card as mailCard, shell as mailShell } from './mail.js';
+import { notify } from './push.js';
 
 const COOKIE = 'sc37_pro';
 const DAYS = 90;
@@ -120,6 +125,13 @@ background:linear-gradient(115deg,rgba(255,255,255,.10) 0%,rgba(255,255,255,0) 3
 .conv h3{font-size:14px;margin:16px 0 4px;color:var(--gold-2)}.conv p{margin:0;color:#d9d3c5;font-size:14px}
 .sigs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.sigs>div{background:#fff;color:#111;border-radius:14px;padding:12px;min-height:110px}.sigs img{display:block;width:100%;height:70px;object-fit:contain}.sigs small{display:block;color:#555;font-size:11px}
 .pad{display:block;width:100%;height:180px;background:#fff;border-radius:16px;touch-action:none;margin:6px 0 8px}
+/* booking cars */
+select{width:100%;font:inherit;color:var(--text);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.cars details,.car{border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin:0 0 12px;background:rgba(0,0,0,.2)}.cars summary{cursor:pointer;font-weight:700;color:var(--gold-2)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.radios{display:grid;gap:8px;margin:8px 0}.radios label{display:flex;gap:10px;align-items:center;margin:0;color:var(--text);font-size:15px}.radios input{width:auto}
+.days{display:grid;gap:12px}.days h3{margin:6px 0 6px;font-size:14px;color:var(--gold-2)}.times{display:flex;flex-wrap:wrap;gap:8px}.times label{margin:0}.times input{position:absolute;opacity:0}.times span{display:inline-block;padding:9px 14px;border-radius:999px;border:1px solid var(--line);color:var(--text);font-weight:650;cursor:pointer}.times input:checked+span{background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#141006;border-color:transparent}
+.sum{list-style:none;margin:0;padding:0}.sum li{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}.sum s{color:var(--dim);margin-right:6px}
+@media (max-width:560px){.row2{grid-template-columns:1fr}}
 @media print{body{background:#fff;color:#111}.box{border:0}.conv p{color:#111}.btns,.top .x{display:none}}`;
 
 // the 3D card (drag, tap to turn) and the signature pad; no inline script (CSP)
@@ -232,6 +244,7 @@ export async function proSpace(req, env, url, now) {
     const bytes = await proSheetPdf({ ...pro, logo, logoType: pro.logo_type }, { terms: { ...terms, discount: Number(pro.discount) || terms.discount }, now, logo: assets.logo ? new Uint8Array(assets.logo) : null, shades: Object.fromEntries(Object.entries(assets.shades || {}).map(([k, v]) => [k, new Uint8Array(v)])) });
     return new Response(bytes, { headers: { 'content-type': 'application/pdf', 'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(`Tarifs pros ${B.name}.pdf`)}`, 'cache-control': 'no-store' } });
   }
+  if (path === '/pro/reserver') return pro.sign_pro_at ? proBook(req, env, url, s, now) : redirect('/pro');
   if (path !== '/pro') return redirect('/pro');
 
   // its space: before the signature, the agreement to sign; after, everything
@@ -241,8 +254,8 @@ export async function proSpace(req, env, url, now) {
   const body = signed
     ? `${top(pro)}${msg(url)}<p class="dim" style="margin:0">Espace partenaire</p><h1>${esc(pro.contact ? `Bonjour ${String(pro.contact).split(' ')[0]}` : pro.name)}</h1>
 ${card3d(pro, terms)}${monthBox(month)}
-<section class="box"><h2>Prendre rendez-vous</h2><p style="margin:0 0 6px"><b>1 véhicule</b> : réservez en ligne, votre code ${esc(pro.code)} applique la remise tout seul.</p><p style="margin:0"><b>2 véhicules ou plus</b> : appelez-nous, nous calons le créneau ensemble, avec plus de souplesse que l’agenda en ligne${terms.travelFrom ? ` ; dès ${terms.travelFrom} véhicules, nous pouvons venir chez vous` : ''}.</p>
-<div class="btns"><a class="btn" href="${esc(book)}">Réserver un véhicule</a><a class="btn ghost" href="tel:${esc(tel)}">Appeler ${esc(B.phone)}</a></div></section>
+<section class="box"><h2>Prendre rendez-vous</h2><p style="margin:0 0 6px">Réservez <b>un ou plusieurs véhicules</b> (jusqu’à 5 à la suite) sur nos créneaux libres : à l’atelier ou chez vous${terms.travelFrom ? ` (sans frais de déplacement dès ${terms.travelFrom} véhicules)` : ''}. Votre remise s’applique toute seule.</p><p style="margin:0" class="dim">Un besoin particulier, une journée entière ? Appelez-nous, nous calons ça ensemble.</p>
+<div class="btns"><a class="btn" href="/pro/reserver">Réserver des véhicules</a><a class="btn ghost" href="${esc(book)}">Réservation en ligne</a><a class="btn ghost" href="tel:${esc(tel)}">Appeler ${esc(B.phone)}</a></div></section>
 <section class="box"><h2>Nos tarifs ensemble</h2><p class="dim" style="margin:0">Prix public, prix pro (-${esc(pro.discount || terms.discount)} %) et prix dès le ${esc(terms.volumeFrom)}e véhicule du mois (-${esc(terms.volumeDiscount)} %), avec les teintes et les fiches techniques.</p><div class="btns"><a class="btn ghost" href="/pro/tarifs.pdf">Ouvrir le PDF des tarifs</a></div></section>
 <section class="box"><h2>Notre convention</h2><p class="dim" style="margin:0">Signée le ${esc(dateFr(pro.sign_pro_at))}${pro.sign_me_at ? `, contre-signée par ${esc(B.name)} le ${esc(dateFr(pro.sign_me_at))}` : ` ; contre-signature de ${esc(B.name)} en cours`}.</p><div class="btns"><a class="btn ghost" href="/pro/convention">Lire la convention</a></div></section>
 <p class="dim" style="font-size:13px">Sur iPhone : Partager → « Sur l’écran d’accueil » pour garder votre espace comme une application. <a href="/pro/deconnexion">Se déconnecter</a></p>`
@@ -250,4 +263,140 @@ ${card3d(pro, terms)}${monthBox(month)}
 ${card3d(pro, terms)}<section class="box">${agreementHtml(pro, terms)}</section>
 <form class="box" method="post" action="/pro/signer"><h2>Signature</h2><label for="nm">Nom et prénom du signataire</label><input id="nm" name="name" value="${esc(pro.contact || '')}" required autocomplete="name"><label>Signez dans le cadre</label><canvas class="pad" aria-label="Cadre de signature"></canvas><input type="hidden" name="image"><div class="btns"><button>Je signe la convention</button><button type="button" class="ghost" data-clear>Effacer</button></div><p class="dim" style="margin:12px 0 0;font-size:13px">En signant, vous acceptez la convention ci-dessus. Date et heure enregistrées.</p></form>`;
   return page('Mon espace', body);
+}
+
+
+// ---------------------------------------------------------------- the partner books its cars (21 November 2026)
+// One to five cars at once: for each, its category, its window tint, its lights, its headlights;
+// where (the workshop or the partner's own place); then the free slots of the workshop's calendar
+// for them all, one after the other; booked at once (no payment online: invoiced), each car its own
+// appointment in the calendar (« Ma journée »), counted for the month's step to −15 %.
+const MAXCARS = 5;
+const PHARES = atelierExtras.filter((x) => /phares/i.test(x.id));
+const carsOf = (f) =>
+  Array.from({ length: MAXCARS }, (_, i) => {
+    const g = (k) => String(f.get(`${k}${i}`) ?? '').trim();
+    return { cat: g('cat'), vt: g('vt'), feux: g('feux'), phares: g('phares'), model: g('modele').slice(0, 60), plate: g('plaque').toUpperCase().slice(0, 15) };
+  }).filter((c) => c.vt || c.feux || c.phares);
+function pricedCar(c) {
+  const cat = bookableVehicles.find((v) => v.id === c.cat) || bookableVehicles[0];
+  const config = {};
+  if (c.vt) config.tint = { vehicle: cat.id, formula: c.vt };
+  if (c.feux) config.lights = { pairs: c.feux };
+  const ph = PHARES.find((x) => x.id === c.phares);
+  const extra = ph ? [{ kind: 'other', label: ph.label, price: ph.price, minutes: ph.minutes }] : [];
+  const q = withExtra(quote(config), extra);
+  return { cat, config, extra, q };
+}
+const hidden = (f) =>
+  Array.from({ length: MAXCARS }, (_, i) => ['cat', 'vt', 'feux', 'phares', 'modele', 'plaque'].map((k) => `<input type="hidden" name="${k}${i}" value="${esc(f.get(`${k}${i}`) ?? '')}">`).join('')).join('') + `<input type="hidden" name="lieu" value="${esc(f.get('lieu') ?? 'atelier')}">`;
+
+async function proBook(req, env, url, s, now) {
+  const { pro, month, terms } = s;
+  const f = req.method === 'POST' ? await req.formData() : new URLSearchParams();
+  const action = String(f.get('action') || '');
+  const D = Number(pro.discount) || Number(terms.discount);
+  const V = Number(terms.volumeDiscount);
+  const pctAt = (i) => (month.n + i >= Number(terms.volumeFrom) - 1 ? V : D);
+  const cars = carsOf(f);
+  const priced = cars.map(pricedCar);
+  const bad = priced.find((p) => p.q.error);
+  const place = f.get('lieu') === 'chez' ? 'chez' : 'atelier';
+  const total = priced.reduce((a, p) => a + (p.q.minutes || 0), 0);
+  const sumHtml = () =>
+    `<ul class="sum">${priced
+      .map((p, i) => {
+        const pct = pctAt(i);
+        const net = Math.round(p.q.total * (1 - pct / 100) * 100) / 100;
+        return `<li><span><b>Véhicule ${i + 1}</b> · ${esc(cars[i].model || p.cat.label)}${cars[i].plate ? ` · ${esc(cars[i].plate)}` : ''}<br><small>${esc(p.q.items.map((x) => x.label).join(' + '))} · ${esc(formatDuration(p.q.minutes))}</small></span><span><s>${eur(p.q.total)}</s><b>${eur(net)}</b><br><small>-${pct} %</small></span></li>`;
+      })
+      .join('')}</ul>`;
+  const back = (q) => redirect(`/pro/reserver?${new URLSearchParams(q)}`);
+
+  // 3. booked: the cars one after the other from the slot chosen
+  if (action === 'reserver') {
+    if (!cars.length || bad) return back({ err: bad ? bad.q.error : 'Choisissez au moins une prestation.' });
+    const [date, time] = String(f.get('creneau') || '').split('|');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '') || !/^\d{2}:\d{2}$/.test(time || '')) return back({ err: 'Choisissez un créneau.' });
+    const free = await atelierSlots(env, date, total, now, 1).catch(() => ({ times: [] }));
+    if (!(free.times || []).includes(time)) return back({ err: 'Ce créneau vient d’être pris : choisissez-en un autre.' });
+    const [first, ...rest] = String(pro.contact || '').split(' ');
+    const where = place === 'chez' ? `chez ${pro.name}${pro.address ? ` (${pro.address})` : ''}` : 'à l’atelier';
+    let t = time;
+    const made = [];
+    for (let i = 0; i < cars.length; i++) {
+      const p = priced[i];
+      const r = await atelierBooking(
+        env,
+        {
+          customer: { firstName: first || pro.name, lastName: [rest.join(' '), `(${pro.name})`].filter(Boolean).join(' '), email: pro.email, phone: pro.phone, vehicle: cars[i].model || p.cat.label, plate: cars[i].plate },
+          config: p.config,
+          extra: p.extra,
+          date,
+          time: t,
+          force: true,
+          mode: 'none',
+          canal: 'pro',
+          code: pro.code,
+          note: `Réservé par ${pro.name} depuis son espace pro · ${where}`,
+          quiet: true,
+        },
+        now
+      ).catch((err) => ({ error: err.message }));
+      if (!r.ok) {
+        console.error('[pro] booking', r.error);
+        break;
+      }
+      made.push({ ...r, car: cars[i], label: p.q.items.map((x) => x.label).join(' + '), time: t });
+      t = utcToZoned(r.end, R.timeZone).time;
+    }
+    if (!made.length) return back({ err: 'La réservation n’a pas pu être enregistrée : appelez-nous.' });
+    const when = `${dayFr(date)} à ${time.replace(':', ' h ')}`;
+    const lines = made.map((m, i) => `${m.time.replace(':', ' h ')} · ${m.car.model || 'véhicule ' + (i + 1)}${m.car.plate ? ` (${m.car.plate})` : ''} · ${m.label}`);
+    await notify(env, { title: `Réservation pro : ${pro.name}`, body: `${made.length} véhicule${made.length > 1 ? 's' : ''} le ${when} · ${where}`, url: `/atelier/journee?date=${date}`, tag: `pro-${pro.id}-${date}` }, now).catch(() => {});
+    if (env.NOTIFY_TO && env.RESEND_API_KEY)
+      await send(env, {
+        to: env.NOTIFY_TO.split(',').map((x) => x.trim()),
+        reply_to: pro.email || undefined,
+        subject: `Réservation pro — ${pro.name} — ${made.length} véhicule${made.length > 1 ? 's' : ''} le ${when}`,
+        html: mailShell(`Réservation de ${pro.name}`, `<p style="margin:0 0 12px;font-size:15px;color:#111"><b>${esc(pro.name)}</b> a réservé ${made.length} véhicule${made.length > 1 ? 's' : ''} le <b>${esc(when)}</b>, ${esc(where)}.</p><ul style="margin:0;padding-left:18px;font-size:14px;color:#111">${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><p style="margin:14px 0 0;font-size:13px;color:#6b6b6b">Code ${esc(pro.code)} appliqué · ${esc(pro.contact || '')} ${esc(pro.phone || '')}</p>`),
+      }).catch((err) => console.error('[mail] pro booking', err.message));
+    if (pro.email && env.MAIL_CLIENTS === '1' && env.RESEND_API_KEY)
+      await send(env, {
+        to: [pro.email],
+        reply_to: B.email,
+        subject: `Vos rendez-vous du ${when} chez ${B.name}`,
+        html: mailCard({ badge: ['Réservation confirmée', 'ok'], kicker: 'Vos rendez-vous', big: esc(dayFr(date)), sub: esc(time.replace(':', ' h ')) }, `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#111">Bonjour ${esc(first || pro.name)},<br>vos ${made.length} véhicule${made.length > 1 ? 's sont' : ' est'} réservé${made.length > 1 ? 's' : ''}, ${esc(where)} :</p><ul style="margin:0 0 14px;padding-left:18px;font-size:14px;line-height:1.7;color:#111">${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><p style="margin:0;font-size:13px;color:#77736b">Votre remise pro s’applique sur la facture. Un changement ? Appelez-nous au ${esc(B.phone)}.</p>`),
+      }).catch((err) => console.error('[mail] pro confirm', err.message));
+    return redirect(`/pro?${new URLSearchParams({ ok: `C’est réservé : ${made.length} véhicule${made.length > 1 ? 's' : ''} le ${when}.${made.length < cars.length ? ' Un véhicule n’a pas pu être ajouté : appelez-nous.' : ''}` })}`);
+  }
+
+  // 2. the free slots for them all
+  if (action === 'creneaux') {
+    if (!cars.length) return back({ err: 'Choisissez au moins une prestation.' });
+    if (bad) return back({ err: bad.q.error });
+    const today = utcToZoned(now, R.timeZone).date;
+    const r = await atelierSlots(env, today, total, now, 30).catch(() => ({ days: [] }));
+    const days = (r.days || []).filter((d) => d.times?.length).slice(0, 14);
+    const body = `${top(pro)}<p class="dim" style="margin:0">Réserver</p><h1>Choisissez le créneau</h1><p class="lead">${cars.length} véhicule${cars.length > 1 ? 's' : ''} à la suite · ${esc(formatDuration(total))} en tout · ${place === 'chez' ? `chez vous${cars.length < Number(terms.travelFrom) ? ' (frais de déplacement pour un seul véhicule)' : ''}` : 'à l’atelier de ' + esc(B.address.city)}.</p>
+<section class="box"><h2>Vos véhicules</h2>${sumHtml()}</section>
+<form class="box" method="post" action="/pro/reserver">${hidden(f)}<input type="hidden" name="action" value="reserver"><h2>Créneaux libres</h2>${
+      days.length
+        ? `<div class="days">${days.map((d) => `<div><h3>${esc(dayFr(d.date))}</h3><div class="times">${d.times.map((t) => `<label><input type="radio" name="creneau" value="${d.date}|${t}" required><span>${t.replace(':', ' h ')}</span></label>`).join('')}</div></div>`).join('')}</div><div class="btns"><button>Réserver</button><a class="btn ghost" href="/pro/reserver">Modifier</a></div>`
+        : `<p>Pas de créneau assez long dans les 30 prochains jours pour ces ${cars.length} véhicules : appelez-nous au <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}">${esc(B.phone)}</a>, nous trouvons une solution.</p>`
+    }</form>`;
+    return page('Réserver', body);
+  }
+
+  // 1. the cars and the services
+  const opt = (list, cur) => list.map(([v, l]) => `<option value="${esc(v)}"${String(cur) === String(v) ? ' selected' : ''}>${esc(l)}</option>`).join('');
+  const carForm = (i) => `<div class="row2"><div><label for="cat${i}">Catégorie</label><select id="cat${i}" name="cat${i}">${opt(bookableVehicles.map((v) => [v.id, `${v.label} — ${(v.models || [v.example]).slice(0, 2).join(', ')}`]), 'citadine')}</select></div><div><label for="modele${i}">Modèle (facultatif)</label><input id="modele${i}" name="modele${i}" placeholder="ex. Peugeot 3008" autocomplete="off"></div></div>
+<div class="row2"><div><label for="vt${i}">Vitres teintées</label><select id="vt${i}" name="vt${i}">${opt([['', 'Non'], ...tintFormulas.filter((x) => ['rear', 'full'].includes(x.id)).map((x) => [x.id, x.label])], '')}</select></div><div><label for="feux${i}">Feux teintés</label><select id="feux${i}" name="feux${i}">${opt([['', 'Non'], ...lightsBooking.pairs.map((x) => [x.id, x.label])], '')}</select></div></div>
+<div class="row2"><div><label for="phares${i}">Rénovation de phares</label><select id="phares${i}" name="phares${i}">${opt([['', 'Non'], ...PHARES.map((x) => [x.id, x.label])], '')}</select></div><div><label for="plaque${i}">Immatriculation (facultatif)</label><input id="plaque${i}" name="plaque${i}" autocomplete="off" style="text-transform:uppercase"></div></div>`;
+  const body = `${top(pro)}${msg(url)}<p class="dim" style="margin:0">Réserver</p><h1>Vos véhicules</h1><p class="lead">Jusqu’à ${MAXCARS} véhicules à la suite. Ce mois-ci : ${month.n} véhicule${month.n > 1 ? 's' : ''} confirmé${month.n > 1 ? 's' : ''}, remise -${pctAt(0)} %.</p>
+<form method="post" action="/pro/reserver"><input type="hidden" name="action" value="creneaux">
+<section class="box"><h2>Où ?</h2><div class="radios"><label><input type="radio" name="lieu" value="atelier" checked> À l’atelier de ${esc(B.address.city)}</label><label><input type="radio" name="lieu" value="chez"> Chez vous${pro.address ? ` (${esc(pro.address)})` : ''}${terms.travelFrom ? ` — sans frais dès ${esc(terms.travelFrom)} véhicules` : ''}</label></div></section>
+<div class="cars"><div class="car"><b style="color:var(--gold-2)">Véhicule 1</b>${carForm(0)}</div>${Array.from({ length: MAXCARS - 1 }, (_, k) => `<details><summary>+ Véhicule ${k + 2}</summary>${carForm(k + 1)}</details>`).join('')}</div>
+<div class="btns"><button>Voir les créneaux libres</button><a class="btn ghost" href="/pro">Retour</a></div></form>`;
+  return page('Réserver', body);
 }

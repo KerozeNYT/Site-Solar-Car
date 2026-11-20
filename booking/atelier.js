@@ -461,7 +461,15 @@ export async function atelier(req, env, url, now) {
     return back('/atelier/pros', { ok: 'Fiche supprimée.' });
   }
   if (path === '/atelier/clients' && req.method === 'GET') return clients(env, url);
-  if (path === '/atelier/clients.csv' && req.method === 'GET') return clientsCsv(env, now);
+  if (path === '/atelier/clients.csv' && req.method === 'GET') return clientsCsv(env, now, url);
+  const cv = path.match(/^\/atelier\/clients\/(\d+)\/vehicule$/);
+  if (cv && req.method === 'POST') {
+    const f = await req.formData();
+    const g = (k) => String(f.get(k) ?? '').trim();
+    const add = f.has('retirer') ? null : [[g('marque'), g('modele')].filter(Boolean).join(' '), /^(19|20)\d{2}$/.test(g('annee')) ? `(${g('annee')})` : ''].filter(Boolean).join(' ') + (g('plaque') ? ` — ${g('plaque').toUpperCase()}` : '');
+    const r = await db(env, 'client/vehicle', { id: Number(cv[1]), add, remove: f.has('retirer') ? Number(g('retirer')) : null, plate: g('plaque') });
+    return back(`/atelier/clients/${cv[1]}`, r.ok ? { ok: f.has('retirer') ? 'Véhicule retiré.' : 'Véhicule ajouté.' } : { err: r.error });
+  }
   if (path === '/atelier/clients/nouveau' && req.method === 'GET') return clientCard(env, url, null);
   if (path === '/atelier/clients' && req.method === 'POST') return clientSave(req, env, now);
   const m = path.match(/^\/atelier\/clients\/(\d+)(?:\/(supprimer|code))?$/);
@@ -1296,13 +1304,21 @@ const clientTag = (c) => (c.confirmed ? '<span class="tag tag--ok">Client confir
 async function clients(env, url) {
   const q = url.searchParams.get('q') || '';
   const kind = ['confirme', 'prospect'].includes(url.searchParams.get('statut')) ? url.searchParams.get('statut') : '';
-  const r = await db(env, 'clients/list', { q, kind });
+  const sel = { type: url.searchParams.get('type') || '', premium: url.searchParams.get('premium') ? '1' : '', quiet: url.searchParams.get('silence') || '', mail: url.searchParams.get('email') ? '1' : '', sort: url.searchParams.get('tri') || '' };
+  const r = await db(env, 'clients/list', { q, kind, ...sel, now: Date.now() });
+  const keep = new URLSearchParams([...url.searchParams].filter(([k]) => ['q', 'statut', 'type', 'premium', 'silence', 'email', 'tri'].includes(k) && k !== 'ok' && k !== 'err'));
+  const optsOf = (name, list, cur) => `<select name="${name}" aria-label="${name}">${list.map(([v, l]) => `<option value="${v}"${String(cur) === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const filters = `<form class="card filters" method="get" action="/atelier/clients">${kind ? `<input type="hidden" name="statut" value="${kind}">` : ''}${q ? `<input type="hidden" name="q" value="${esc(q)}">` : ''}
+<div class="filters__row">${optsOf('type', [['', 'Particuliers et pros'], ['particulier', 'Particuliers'], ['pro', 'Professionnels']], sel.type)}${optsOf('silence', [['', 'Toute date de contact'], ['3', 'Sans nouvelles depuis 3 mois'], ['6', 'Sans nouvelles depuis 6 mois'], ['12', 'Sans nouvelles depuis 1 an']], sel.quiet)}${optsOf('tri', [['', 'Tri : dernier contact'], ['nom', 'Tri : nom'], ['ca', 'Tri : montant réglé'], ['rdv', 'Tri : nombre de RDV'], ['ancien', 'Tri : les plus anciens']], sel.sort)}</div>
+<div class="checks"><label><input type="checkbox" name="premium" value="1"${sel.premium ? ' checked' : ''}> Membres Premium</label><label><input type="checkbox" name="email" value="1"${sel.mail ? ' checked' : ''}> Avec un e-mail</label></div>
+<div class="btns"><button class="small">Filtrer</button><a class="btn ghost small" href="/atelier/clients.csv?${keep}">${ico('download')} Exporter cette sélection (${r.clients.length})</a>${[...keep].length ? '<a class="btn ghost small" href="/atelier/clients">Tout effacer</a>' : ''}</div></form>`;
   const chip = (k, label, n, c) => `<a href="/atelier/clients${k || q ? `?${new URLSearchParams({ ...(k ? { statut: k } : {}), ...(q ? { q } : {}) })}` : ''}"${k === kind ? ' aria-current="page"' : ''} style="--c:${c}">${k ? '<i></i>' : ''}${esc(label)} <b>${n}</b></a>`;
-  const row = (c) => `<tr><td><a href="/atelier/clients/${c.id}"><b>${esc(name(c))}</b></a> ${clientTag(c)}${c.premium && c.premium_until >= Date.now() ? ` ${PREMIUM_TAG}` : ''}<small>${esc(c.vehicles || '')}</small></td><td>${c.phone ? `<a href="tel:${esc(tel(c.phone))}">${esc(c.phone)}</a>` : ''}<small class="hide-s">${esc(c.email)}</small></td><td class="n hide-s">${c.n_bookings ? `${c.n_bookings} RDV<small>${eur(c.paid)}</small>` : c.n_requests ? `<span class="tag tag--gold">devis</span>` : ''}</td><td class="n hide-s">${esc(dateOf(c.last_seen))}</td></tr>`;
+  const row = (c) => `<tr><td><a href="/atelier/clients/${c.id}"><b>${esc(name(c))}</b></a> ${clientTag(c)}${c.ctype === 'pro' ? ' <span class="tag tag--pro">Pro</span>' : ''}${c.premium && c.premium_until >= Date.now() ? ` ${PREMIUM_TAG}` : ''}<small>${esc(c.vehicles || '')}</small></td><td>${c.phone ? `<a href="tel:${esc(tel(c.phone))}">${esc(c.phone)}</a>` : ''}<small class="hide-s">${esc(c.email)}</small></td><td class="n hide-s">${c.n_bookings ? `${c.n_bookings} RDV<small>${eur(c.paid)}</small>` : c.n_requests ? `<span class="tag tag--gold">devis</span>` : ''}</td><td class="n hide-s">${esc(dateOf(c.last_seen))}</td></tr>`;
   const body = `<h1>Fichier clients <span class="dim">${r.total}</span></h1>
 <p class="lead">Chaque réservation en ligne et chaque demande de devis s’y ajoutent toutes seules ; un même client est reconnu à son e-mail ou à son téléphone. Il passe de prospect à client confirmé tout seul, à son premier rendez-vous ou devis validé.</p>
 <div class="btns" style="margin:0 0 12px"><a class="btn small" href="/atelier/clients/nouveau">Ajouter un client</a><a class="btn ghost small" href="/atelier/clients.csv">Télécharger pour Excel</a></div>
 <nav class="chips" aria-label="Filtrer les clients">${chip('', 'Tous', r.total, 'var(--dim)')}${chip('confirme', 'Clients confirmés', r.confirmed, 'var(--ok)')}${chip('prospect', 'Prospects', r.prospects, 'var(--gold)')}</nav>
+${filters}
 <form class="search card" method="get" action="/atelier/clients">${kind ? `<input type="hidden" name="statut" value="${kind}">` : ''}<input name="q" value="${esc(q)}" placeholder="Nom, téléphone, e-mail, véhicule, immatriculation…" aria-label="Rechercher"><button>Rechercher</button></form>
 <section class="card">${r.clients.length ? `<table><thead><tr><th>Client</th><th>Contact</th><th class="n hide-s">Historique</th><th class="n hide-s">Dernier contact</th></tr></thead><tbody>${r.clients.map(row).join('')}</tbody></table>` : `<p class="empty">${q || kind ? 'Aucun client ne correspond.' : 'Le fichier se remplit avec les prochaines réservations et demandes de devis.'}</p>`}</section>`;
   return page('Clients', '/atelier/clients', body, url);
@@ -1317,7 +1333,7 @@ async function clientCard(env, url, id) {
 <div class="row">${field('firstName', 'Prénom', v.first, 'autocomplete="off"')}${field('lastName', 'Nom', v.last, 'autocomplete="off"')}</div>
 <div class="row">${field('phone', 'Téléphone', v.phone, 'type="tel" autocomplete="off"')}${field('email', 'E-mail', v.email, 'type="email" autocomplete="off"')}</div>
 <div class="row">${field('vehicles', 'Véhicule(s)', v.vehicles, 'placeholder="ex. Peugeot 308 SW · BMW E36"')}${field('plate', 'Immatriculation', v.plate)}</div>
-${field('source', 'Nous a connus', v.source, 'placeholder="Instagram, bouche-à-oreille…"')}
+<div class="row">${field('source', 'Nous a connus', v.source, 'placeholder="Instagram, bouche-à-oreille…"')}<div><label for="f-type">Type</label><select id="f-type" name="type">${[['', 'Non précisé'], ['particulier', 'Particulier'], ['pro', 'Professionnel']].map(([k, l]) => `<option value="${k}"${(v.ctype || '') === k ? ' selected' : ''}>${l}</option>`).join('')}</select></div></div>
 <div><label for="f-notes">Notes</label><textarea id="f-notes" name="notes" placeholder="Teinte posée, remarques, préférences…">${esc(v.notes)}</textarea></div>
 <div class="btns"><button>Enregistrer</button><a class="btn ghost" href="/atelier/clients">Annuler</a></div></form>`;
   if (!c) return page('Nouveau client', '/atelier/clients', `<h1>Ajouter un client</h1>${form}`, url);
@@ -1329,6 +1345,16 @@ ${field('source', 'Nous a connus', v.source, 'placeholder="Instagram, bouche-à-
   const body = `<h1>${esc(name(c))} ${clientTag(c)}${c.member?.active ? ` ${PREMIUM_TAG} ${lvl(c.member.tier.id)}` : ''}</h1><p class="lead">${c.confirmed ? `Client confirmé depuis le ${esc(dateOf(c.confirmed))} · premier contact le ${esc(dateOf(c.created))}` : `Prospect · premier contact le ${esc(dateOf(c.created))}`}${c.origin ? ` · ${esc(c.origin)}` : ''}</p>
 ${c.member ? giftsDue(c.member, `/atelier/clients/${c.id}`) : ''}
 <div class="btns" style="margin:0 0 14px">${c.phone ? `<a class="btn small" href="tel:${esc(tel(c.phone))}">${ico('phone')} Appeler</a>` : ''}<a class="btn small" href="/atelier/rdv/nouveau?client=${c.id}">${ico('cal')} Nouveau RDV</a>${c.email ? `<a class="btn ghost small" href="mailto:${esc(c.email)}">Écrire</a>` : ''}</div>
+<div class="grid"><section class="card"><h2>${ico('clock')} Dates</h2><dl class="facts"><div><dt>Inscrit le</dt><dd>${esc(dateOf(c.created))}</dd></div><div><dt>Client depuis</dt><dd>${c.confirmed ? esc(dateOf(c.confirmed)) : 'pas encore (prospect)'}</dd></div><div><dt>Dernier contact</dt><dd>${esc(dateOf(c.last_seen))}</dd></div><div><dt>Type</dt><dd>${c.ctype === 'pro' ? 'Professionnel' : c.ctype === 'particulier' ? 'Particulier' : 'non précisé'}</dd></div></dl></section>
+<section class="card"><h2>${ico('car')} Véhicules</h2>${
+    String(c.vehicles || '').trim()
+      ? `<ul class="recap">${String(c.vehicles)
+          .split(' · ')
+          .filter(Boolean)
+          .map((x, i) => `<li><span>${esc(x)}</span><form method="post" action="/atelier/clients/${c.id}/vehicule" class="inline"><button class="ghost small" name="retirer" value="${i}" aria-label="Retirer ${esc(x)}">${ico('trash')}</button></form></li>`)
+          .join('')}</ul>`
+      : '<p class="dim">Aucun véhicule noté.</p>'
+  }<form method="post" action="/atelier/clients/${c.id}/vehicule" style="margin-top:12px"><div class="row"><div><label for="v-marque">Marque</label><input id="v-marque" name="marque" required autocomplete="off"></div><div><label for="v-modele">Modèle</label><input id="v-modele" name="modele" autocomplete="off"></div></div><div class="row"><div><label for="v-annee">Année</label><input id="v-annee" name="annee" inputmode="numeric" maxlength="4"></div><div><label for="v-plaque">Immatriculation</label><input id="v-plaque" name="plaque" style="text-transform:uppercase" autocomplete="off"></div></div><button class="small">${ico('plus')} Ajouter le véhicule</button></form></section></div>
 ${form}
 <div class="grid"><section class="card"><h2>Rendez-vous</h2>${bookings}</section><section class="card"><h2>Demandes de devis</h2>${requests}</section></div>
 <section class="card" id="parrainage"><h2>Parrainage</h2>${codes}</section>
@@ -1342,14 +1368,15 @@ async function clientSave(req, env) {
   const f = await req.formData();
   const g = (k) => String(f.get(k) || '');
   const id = Number(g('id')) || 0;
-  const r = await db(env, 'client/save', { id, client: { firstName: g('firstName'), lastName: g('lastName'), email: g('email'), phone: g('phone'), vehicles: g('vehicles'), plate: g('plate'), source: g('source'), notes: g('notes') } });
+  const r = await db(env, 'client/save', { id, client: { firstName: g('firstName'), lastName: g('lastName'), email: g('email'), phone: g('phone'), vehicles: g('vehicles'), plate: g('plate'), source: g('source'), notes: g('notes'), type: g('type') } });
   if (!r.ok) return back(id ? `/atelier/clients/${id}` : '/atelier/clients/nouveau', { err: r.error });
   return back(`/atelier/clients/${r.id}`, { ok: 'Fiche enregistrée.' });
 }
 
 /** the client file for Excel: semicolons, UTF-8 with its mark, no cell read as a formula */
-async function clientsCsv(env, now) {
-  const r = await db(env, 'clients/list', { all: true });
+async function clientsCsv(env, now, url) {
+  const p = url?.searchParams || new URLSearchParams();
+  const r = await db(env, 'clients/list', { all: true, q: p.get('q') || '', kind: p.get('statut') || '', type: p.get('type') || '', premium: p.get('premium') ? '1' : '', quiet: p.get('silence') || '', mail: p.get('email') ? '1' : '', sort: p.get('tri') || '', now });
   const cell = (v) => {
     let s = String(v ?? '').replace(/\r?\n/g, ' ');
     if (/^[=+\-@\t]/.test(s)) s = `'${s}`;

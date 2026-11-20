@@ -31,7 +31,7 @@ import { sendQuoteMails, sendToClient, notifyWorkshop, quoteSubject } from './ma
 import { parseMail, freshText, htmlToText, bytesOf } from './mime.js';
 
 /** how an appointment taken by the workshop was taken (content/booking.js, CANALS) */
-const TAKEN = { telephone: 'par téléphone', mail: 'par e-mail', atelier: 'à l’atelier' };
+const TAKEN = { telephone: 'par téléphone', mail: 'par e-mail', atelier: 'à l’atelier', pro: 'par un partenaire pro' };
 
 // no 0/O, 1/I: easy to read out and to type
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -344,6 +344,8 @@ export class Atelier {
       ['review_at', 'INTEGER NOT NULL DEFAULT 0'],
     ])
       if (!bcols.has(col)) x(`ALTER TABLE bookings ADD COLUMN ${col} ${def}`);
+    // the client's type (21 November 2026): '' (not said), particulier, pro
+    if (!new Set(this.all("SELECT name FROM pragma_table_info('clients')").map((c) => c.name)).has('ctype')) x("ALTER TABLE clients ADD COLUMN ctype TEXT NOT NULL DEFAULT ''");
     // the photos of an appointment: before (the check-in) and after
     x('CREATE TABLE IF NOT EXISTS rdv_files (id INTEGER PRIMARY KEY AUTOINCREMENT, session TEXT NOT NULL, kind TEXT NOT NULL DEFAULT \'avant\', name TEXT NOT NULL DEFAULT \'\', type TEXT NOT NULL DEFAULT \'\', size INTEGER NOT NULL DEFAULT 0, data BLOB, at INTEGER NOT NULL)');
     x('CREATE INDEX IF NOT EXISTS rdv_files_session ON rdv_files (session)');
@@ -1436,28 +1438,61 @@ export class Atelier {
         const q = `%${clip(b.q, 60).toLowerCase()}%`;
         // « Client confirmé » (kind confirme) from the first appointment or quote validated, else « Prospect »
         const kind = b.kind === 'confirme' || b.kind === 'prospect' ? b.kind : '';
+        // the selection: individuals or professionals, Premium members, no news for n months, with an e-mail
+        const extra = [];
+        const args2 = [];
+        if (b.type === 'pro' || b.type === 'particulier') {
+          extra.push("ctype = ?");
+          args2.push(b.type);
+        }
+        if (b.premium) {
+          extra.push('premium IS NOT NULL AND premium_until >= ?');
+          args2.push(now);
+        }
+        if (Number(b.quiet) > 0) {
+          extra.push('last_seen < ?');
+          args2.push(now - Number(b.quiet) * 30 * DAY);
+        }
+        if (b.mail) extra.push("email <> ''");
+        const order = { nom: 'lower(last), lower(first)', ca: 'paid DESC, last_seen DESC', rdv: 'n_bookings DESC, last_seen DESC', ancien: 'created ASC' }[b.sort] || 'last_seen DESC';
         const rows = this.all(
           `SELECT * FROM (SELECT c.*, (SELECT COUNT(*) FROM bookings WHERE client_id = c.id) AS n_bookings, (SELECT COALESCE(SUM(paid), 0) FROM bookings WHERE client_id = c.id) AS paid, (SELECT COUNT(*) FROM requests WHERE client_id = c.id) AS n_requests, (SELECT code FROM codes WHERE client_id = c.id ORDER BY created DESC LIMIT 1) AS referral,
             (SELECT number FROM members m WHERE m.client_id = c.id OR (m.email <> '' AND m.email = c.email) ORDER BY m.expires DESC LIMIT 1) AS premium,
             (SELECT expires FROM members m WHERE m.client_id = c.id OR (m.email <> '' AND m.email = c.email) ORDER BY m.expires DESC LIMIT 1) AS premium_until,
             ${CONFIRMED} AS confirmed
            FROM clients c WHERE ? = '%%' OR lower(c.first || ' ' || c.last || ' ' || c.email || ' ' || c.phone || ' ' || c.vehicles || ' ' || c.plate) LIKE ?)
-           WHERE ? = '' OR (? = 'confirme') = (confirmed IS NOT NULL) ORDER BY last_seen DESC LIMIT ${b.all ? 5000 : 300}`,
+           WHERE (? = '' OR (? = 'confirme') = (confirmed IS NOT NULL))${extra.map((e) => ` AND ${e}`).join('')} ORDER BY ${order} LIMIT ${b.all ? 5000 : 300}`,
           q,
           q,
           kind,
-          kind
+          kind,
+          ...args2
         );
         const confirmed = this.one(`SELECT COUNT(*) AS n FROM clients c WHERE ${CONFIRMED} IS NOT NULL`).n;
         const total = this.one('SELECT COUNT(*) AS n FROM clients').n;
-        return { clients: rows, total, confirmed, prospects: total - confirmed };
+        return { clients: rows, total, confirmed, prospects: total - confirmed, pros: this.one("SELECT COUNT(*) AS n FROM clients WHERE ctype = 'pro'").n };
       }
       case 'client/get':
         return { client: this.clientCard(Number(b.id)) };
+      case 'client/vehicle': {
+        const c = this.one('SELECT id, vehicles, plate FROM clients WHERE id = ?', Number(b.id) || 0);
+        if (!c) return { ok: false, error: 'Client introuvable.' };
+        const list = String(c.vehicles || '').split(' · ').map((x) => x.trim()).filter(Boolean);
+        if (b.add) {
+          const v = clip(b.add, 90);
+          if (!v) return { ok: false, error: 'Indiquez le véhicule.' };
+          if (!list.includes(v)) list.push(v);
+        }
+        if (b.remove != null) list.splice(Number(b.remove), 1);
+        const vehicles = list.join(' · ').slice(0, 600);
+        this.run('UPDATE clients SET vehicles = ?, plate = CASE WHEN plate = \'\' AND ? <> \'\' THEN ? ELSE plate END WHERE id = ?', vehicles, clip(b.plate, 15).toUpperCase(), clip(b.plate, 15).toUpperCase(), c.id);
+        return { ok: true };
+      }
       case 'client/save': {
         const c = b.client || {};
         if (!clip(c.firstName, 60) && !clip(c.lastName, 60)) return { ok: false, error: 'Indiquez au moins le prénom ou le nom.' };
         if (b.id) {
+          if (['', 'particulier', 'pro'].includes(c.type ?? '')) this.run('UPDATE clients SET ctype = ? WHERE id = ?', c.type || '', Number(b.id));
           this.run('UPDATE clients SET first = ?, last = ?, email = ?, phone = ?, vehicles = ?, plate = ?, source = ?, notes = ? WHERE id = ?', clip(c.firstName, 60), clip(c.lastName, 60), clip(c.email, 120).toLowerCase(), clip(c.phone, 30), clip(c.vehicles, 300), clip(c.plate, 15).toUpperCase(), clip(c.source, 180), String(c.notes || '').trim().slice(0, 2000), Number(b.id));
           return { ok: true, id: Number(b.id) };
         }

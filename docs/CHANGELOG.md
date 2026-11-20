@@ -1,5 +1,25 @@
 # Journal des changements
 
+## Espace atelier : la journée, les papiers, l'écran du bureau, l'agenda, les pros (21 novembre 2026)
+
+- **Ma journée** (/atelier/journee) : les voitures du jour, Arrivé / En cours / Prêt (e-mail « votre
+  véhicule est prêt ») / Rendu ; état des lieux, photos, certificat, encaisser ; caisse du jour ;
+  suivis J+7 avec « Demander un avis Google » (l'e-mail de J+7 n'a plus de lien d'avis).
+- **Fiche RDV** : encaisser (TPE, espèces, virement, chèque), déplacer (créneaux libres, e-mail),
+  annuler (acompte reporté / remboursé Stripe / remboursé à l'atelier / conservé, e-mail), photos
+  avant/après compressées dans le navigateur.
+- **État des lieux** (points, photos, signature du client) → bon de dépôt PDF ; **certificat de pose**
+  (teinte par vitre, schéma, film nanocéramique gamme Beluga, garanties à vie, entretien, loi des 70 %)
+  → PDF envoyé au client. Textes du film et des garanties : `content/pricing.js` (`tintFilm`).
+- **Recherche** (nom, plaque, téléphone, e-mail, code pro, « / »), **chiffre du mois** et objectif sur
+  l'accueil, **écran du bureau** (/atelier/ecran : plein écran, frise du jour, son), **agenda**
+  semaine/mois en couleurs par prestation, **dépôt de véhicule** (non bloquant), gestes sur téléphone
+  (glisser un devis, tirer pour actualiser).
+- **Fiche client** : type particulier/pro, dates, plusieurs véhicules, filtres et tri, export de la
+  sélection. **Réservation du site et Nouveau RDV** : Marque / Modèle / Année / Immatriculation.
+- **Espace pro** : réservation de 1 à 5 véhicules à la suite sur les créneaux libres, à l'atelier ou
+  chez le pro, remise appliquée (10 %, 15 % dès le 11e du mois), atelier prévenu.
+
 ## Nouveau RDV : téléphone, e-mail ou atelier ; acompte réglé au TPE ; nouveaux e-mails clients (19 novembre 2026)
 
 - « Rendez-vous pris… » : **Téléphone**, **E-mail** ou **Atelier**, à cocher à chaque fois (plus de

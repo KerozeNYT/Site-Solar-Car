@@ -369,6 +369,9 @@ html.js #rdv:not(:has([name=mode][value=tpe]:checked)) .tpebox{display:none}
 .certgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 14px;margin-top:8px}
 .slot.is-on{background:rgba(var(--gold-rgb),.18);border-color:rgba(var(--gold-rgb),.7)}
 .now__day{align-self:flex-start;margin-top:12px}
+/* the client file: the selection (type, silence, sorting), the pro tag */
+.filters__row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.filters .checks{margin:10px 0}.tag--pro{background:rgba(110,160,255,.14);color:#9cc0ff;border-color:rgba(110,160,255,.4)}
+@media (max-width:640px){.filters__row{grid-template-columns:minmax(0,1fr)}}
 /* gestures: a quote card slid open, the page pulled down */
 .qswipe{position:relative;border-radius:20px;overflow:hidden}.qswipe .q{position:relative;z-index:1;will-change:transform}
 .qswipe__acts{position:absolute;right:0;top:0;bottom:0;display:flex;align-items:stretch;gap:6px;padding:6px;z-index:0}.qswipe__acts form{display:flex;margin:0}.qswipe__acts button{border:0;border-radius:14px;padding:0 14px;font:inherit;font-weight:700;font-size:13px;color:#0b0c0f;background:var(--c);min-width:76px}
