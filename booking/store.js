@@ -21,7 +21,7 @@
 import { bookingRules as R, referralCode, howHeardText } from '../content/booking.js';
 import { promoSeeds, bannerSeeds } from '../content/promos.js';
 import { business as B, services as SERVICES } from '../content/site.js';
-import { zonedToUtc, addDays } from './schedule.js';
+import { zonedToUtc, addDays, utcToZoned } from './schedule.js';
 import { sendQuoteMails, sendToClient, notifyWorkshop, quoteSubject } from './mail.js';
 import { parseMail, freshText, htmlToText, bytesOf } from './mime.js';
 
@@ -244,6 +244,25 @@ export class Atelier {
     // the professionals the workshop works with (garages, dealers…): their card, their logo (PNG or
     // JPEG, for the partnership file, booking/pro-sheet.js), their discount
     x(`CREATE TABLE IF NOT EXISTS pros (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL DEFAULT '', siret TEXT NOT NULL DEFAULT '', legal TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '', activity TEXT NOT NULL DEFAULT '', contact TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', discount REAL NOT NULL DEFAULT 10, logo BLOB, logo_type TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL, updated INTEGER NOT NULL DEFAULT 0)`);
+    // their space (/pro, booking/pro-space.js): their code (a promo code: −10 %, −15 % from the 11th
+    // confirmed appointment of the month), their password (PBKDF2, never seen by the workshop), the
+    // invitation that lets them choose it, the partnership agreement signed by both
+    const proCols = new Set(this.all("SELECT name FROM pragma_table_info('pros')").map((c) => c.name));
+    for (const [col, def] of [
+      ['code', "TEXT NOT NULL DEFAULT ''"],
+      ['pass', "TEXT NOT NULL DEFAULT ''"],
+      ['invite', "TEXT NOT NULL DEFAULT ''"],
+      ['invite_exp', 'INTEGER NOT NULL DEFAULT 0'],
+      ['fails', 'INTEGER NOT NULL DEFAULT 0'],
+      ['locked', 'INTEGER NOT NULL DEFAULT 0'],
+      ['seen', 'INTEGER NOT NULL DEFAULT 0'],
+      ['sign_pro', "TEXT NOT NULL DEFAULT ''"],
+      ['sign_pro_name', "TEXT NOT NULL DEFAULT ''"],
+      ['sign_pro_at', 'INTEGER NOT NULL DEFAULT 0'],
+      ['sign_me', "TEXT NOT NULL DEFAULT ''"],
+      ['sign_me_at', 'INTEGER NOT NULL DEFAULT 0'],
+    ])
+      if (!proCols.has(col)) x(`ALTER TABLE pros ADD COLUMN ${col} ${def}`);
     x(`CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, p256dh TEXT NOT NULL, auth TEXT NOT NULL, label TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL)`);
   }
 
@@ -305,6 +324,24 @@ export class Atelier {
     if (r.used) return { ok: false, error: 'Ce code de parrainage a déjà été utilisé.' };
     if (r.expires < now) return { ok: false, error: 'Ce code de parrainage a expiré.' };
     return { ok: true, kind: 'parrainage', code: r.code, label: 'Parrainage', owner: r.owner, amount: R.referral.amount, expires: r.expires };
+  }
+  /** the terms of the professionals (booking/pro-sheet.js PRO_TERMS, changed in the space) */
+  proTerms() {
+    return { discount: 10, volumeDiscount: 15, volumeFrom: 11, travelFrom: 2, kmRate: '', ...(this.setting('proTerms', null) || {}) };
+  }
+  /** a professional's month: its confirmed appointments (with its code), its discount now */
+  proMonth(pro, now) {
+    const month = utcToZoned(now, R.timeZone).date.slice(0, 7);
+    const rows = pro.code ? this.all("SELECT session, date, time, items, total, paid, vehicle, discount FROM bookings WHERE code = ? AND substr(date, 1, 7) = ? ORDER BY date, time", pro.code, month) : [];
+    const T = this.proTerms();
+    const n = rows.length;
+    const percent = n >= T.volumeFrom - 1 ? Number(T.volumeDiscount) : Number(pro.discount) || Number(T.discount);
+    return { month, n, percent, base: Number(pro.discount) || Number(T.discount), volume: Number(T.volumeDiscount), from: Number(T.volumeFrom), rows };
+  }
+  proStatus(pro, now) {
+    if (!pro.sign_pro_at) return { ok: false, error: 'Ce code pro sera actif dès la signature de la convention de partenariat.' };
+    const m = this.proMonth(pro, now);
+    return { ok: true, kind: 'promo', pro: pro.id, code: pro.code, label: `Code pro ${pro.code}`, percent: m.percent, amount: 0, services: [], expires: now + 365 * DAY };
   }
   promoStatus(p, now) {
     if (!p) return null;
@@ -715,6 +752,8 @@ export class Atelier {
       }
       case 'code/check': {
         const code = referralCode(b.code);
+        const pro = code ? this.one('SELECT * FROM pros WHERE code = ?', code) : null;
+        if (pro) return this.proStatus(pro, now);
         return this.promoStatus(this.one('SELECT * FROM promos WHERE code = ?', code), now) || this.referralStatus(this.one('SELECT * FROM codes WHERE code = ?', code), now) || { ok: false, error: 'Ce code n’existe pas : vérifiez-le.' };
       }
       case 'code/redeem': {
@@ -1078,7 +1117,7 @@ export class Atelier {
       case 'pros/list':
         return { pros: this.all('SELECT id, name, siret, address, activity, contact, phone, email, discount, created, updated, (logo IS NOT NULL) AS has_logo FROM pros ORDER BY name COLLATE NOCASE') };
       case 'pro/get':
-        return { pro: this.one('SELECT id, name, siret, legal, address, activity, contact, phone, email, notes, discount, logo_type, created, updated, (logo IS NOT NULL) AS has_logo FROM pros WHERE id = ?', Number(b.id) || 0) };
+        return { pro: this.one("SELECT id, name, siret, legal, address, activity, contact, phone, email, notes, discount, logo_type, created, updated, (logo IS NOT NULL) AS has_logo, code, invite, invite_exp, seen, (pass <> '') AS active, sign_pro, sign_pro_name, sign_pro_at, sign_me, sign_me_at FROM pros WHERE id = ?", Number(b.id) || 0) };
       // with b.logo (base64, PNG or JPEG, 1.5 MB at most) or b.dropLogo
       case 'pro/save': {
         const name = clip(b.name, 120);
@@ -1114,6 +1153,68 @@ export class Atelier {
         this.run('DELETE FROM pros WHERE id = ?', Number(b.id) || 0);
         return { ok: true };
       // the professional terms (discount, volume, travel), the same for every partner
+      // the code of a professional: made once from its name (PRO-GARAGE…), never changed after
+      case 'pro/code': {
+        const pro = this.one('SELECT id, name, code FROM pros WHERE id = ?', Number(b.id) || 0);
+        if (!pro) return { ok: false, error: 'Fiche introuvable.' };
+        if (pro.code) return { ok: true, code: pro.code };
+        const stem = `PRO-${referralCode(pro.name).replace(/-/g, '').replace(/^(GARAGE|SARL|SAS|SASU|EURL|STE|SOCIETE|ETS|AUTOS?)(?=.{3})/, '').slice(0, 8) || 'PARTENAIRE'}`;
+        let code = stem;
+        for (let i = 2; this.one('SELECT code FROM promos WHERE code = ?', code) || this.one('SELECT code FROM codes WHERE code = ?', code) || this.one('SELECT id FROM pros WHERE code = ?', code); i++) code = `${stem}${i}`;
+        this.run('UPDATE pros SET code = ? WHERE id = ?', code, pro.id);
+        return { ok: true, code };
+      }
+      case 'pro/month': {
+        const pro = this.one('SELECT * FROM pros WHERE id = ?', Number(b.id) || 0);
+        return pro ? { ok: true, ...this.proMonth(pro, now) } : { ok: false };
+      }
+      // the invitation: a link valid 7 days to choose a password (the old one stays until then)
+      case 'pro/invite': {
+        const token = clip(b.token, 80);
+        if (!/^[A-Za-z0-9_-]{30,80}$/.test(token)) return { ok: false };
+        this.run('UPDATE pros SET invite = ?, invite_exp = ? WHERE id = ?', token, now + 7 * DAY, Number(b.id) || 0);
+        return { ok: true, expires: now + 7 * DAY };
+      }
+      case 'pro/by-invite': {
+        const pro = b.token ? this.one('SELECT id, name, email, contact, invite_exp FROM pros WHERE invite = ? AND invite <> \'\'', clip(b.token, 80)) : null;
+        return pro && pro.invite_exp > now ? { ok: true, pro } : { ok: false };
+      }
+      case 'pro/password': {
+        const pro = this.one('SELECT id FROM pros WHERE invite = ? AND invite <> \'\' AND invite_exp > ?', clip(b.token, 80), now);
+        if (!pro || !/^pbkdf2\$/.test(String(b.pass || ''))) return { ok: false, error: 'Lien expiré : demandez-en un nouveau à l’atelier.' };
+        this.run("UPDATE pros SET pass = ?, invite = '', invite_exp = 0, fails = 0, locked = 0 WHERE id = ?", String(b.pass).slice(0, 300), pro.id);
+        return { ok: true, id: pro.id };
+      }
+      // the login: the stored hash (checked by the worker); 5 wrong passwords lock 15 minutes
+      case 'pro/login': {
+        const pro = this.one("SELECT id, pass, locked FROM pros WHERE email = ? AND email <> '' AND pass <> ''", clip(String(b.email || '').toLowerCase(), 120));
+        if (!pro) return { ok: false };
+        if (pro.locked > now) return { ok: false, locked: true };
+        return { ok: true, id: pro.id, pass: pro.pass };
+      }
+      case 'pro/login-result': {
+        if (b.good) this.run('UPDATE pros SET fails = 0, seen = ? WHERE id = ?', now, Number(b.id) || 0);
+        else this.run('UPDATE pros SET fails = fails + 1, locked = CASE WHEN fails + 1 >= 5 THEN ? ELSE locked END, fails = CASE WHEN fails + 1 >= 5 THEN 0 ELSE fails + 1 END WHERE id = ?', now + 15 * 60000, Number(b.id) || 0);
+        return { ok: true };
+      }
+      // its space: the card, the month, the agreement (no password, no logo bytes)
+      case 'pro/space': {
+        const pro = this.one('SELECT id, name, siret, legal, address, activity, contact, phone, email, discount, code, pass, invite, invite_exp, seen, sign_pro, sign_pro_name, sign_pro_at, sign_me, sign_me_at, created, updated, (logo IS NOT NULL) AS has_logo FROM pros WHERE id = ?', Number(b.id) || 0);
+        if (!pro) return { ok: false };
+        const { pass, invite, ...rest } = pro;
+        return { ok: true, pro: { ...rest, stamp: pass.slice(-12), active: !!pass, invited: !!invite && pro.invite_exp > now }, month: this.proMonth(pro, now), terms: this.proTerms() };
+      }
+      // the agreement signed: by the professional (in its space), then by the workshop
+      case 'pro/sign': {
+        const img = String(b.image || '');
+        if (!/^data:image\/png;base64,[A-Za-z0-9+/=]{100,200000}$/.test(img)) return { ok: false, error: 'Signature illisible : signez dans le cadre.' };
+        if (b.who === 'pro') {
+          const name = clip(b.name, 80);
+          if (!name) return { ok: false, error: 'Écrivez votre nom et prénom.' };
+          this.run('UPDATE pros SET sign_pro = ?, sign_pro_name = ?, sign_pro_at = ? WHERE id = ?', img, name, now, Number(b.id) || 0);
+        } else this.run('UPDATE pros SET sign_me = ?, sign_me_at = ? WHERE id = ?', img, now, Number(b.id) || 0);
+        return { ok: true };
+      }
       case 'pros/terms':
         if (b.set) this.set('proTerms', b.set);
         return { terms: this.setting('proTerms', null) };

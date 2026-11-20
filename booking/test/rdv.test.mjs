@@ -385,3 +385,50 @@ test('the professionals: a card with its logo, the terms, the partnership file a
   assert.match(pdf.headers.get('content-disposition'), /Partenariat%20SOLAR%20CAR%2037%20-%20Garage%20du%20Centre\.pdf/);
   assert.equal(Buffer.from(new Uint8Array(await pdf.arrayBuffer()).slice(0, 5)).toString(), '%PDF-');
 });
+
+test('the partner\'s own space: invited, its password, the agreement signed, its code at −10 % then −15 % from the 11th of the month', async () => {
+  const [p] = sql('SELECT * FROM pros');
+  // the workshop makes its access
+  const inv = await go(`/atelier/pros/${p.id}/invitation`, { method: 'POST', form: {} });
+  assert.match(where(inv).searchParams.get('ok'), /Lien d’accès créé/);
+  const { code, invite } = sql('SELECT code, invite FROM pros WHERE id = ?', p.id)[0];
+  assert.match(code, /^PRO-[A-Z0-9]+$/);
+  const card = await (await go(`/atelier/pros/${p.id}`)).text();
+  assert.ok(card.includes(`/pro/invitation/${invite}`));
+  // its code waits for the signature
+  const { checkCode, db } = await import('../store.js');
+  assert.equal((await checkCode(env, code)).ok, false);
+  // the partner, on its phone: the password (not the same twice: asked again)
+  const pro = (path, { method = 'GET', form, jar = '' } = {}) => worker.fetch(new Request(`${SELF}${path}`, { method, body: form ? new URLSearchParams(form) : undefined, redirect: 'manual', headers: { origin: SELF, cookie: jar } }), env);
+  assert.match(await (await pro(`/pro/invitation/${invite}`)).text(), /Bienvenue, Garage du Centre/);
+  assert.match(where(await pro(`/pro/invitation/${invite}`, { method: 'POST', form: { password: 'motdepasse1', password2: 'autre' } })).searchParams.get('err'), /pas les mêmes/);
+  const made = await pro(`/pro/invitation/${invite}`, { method: 'POST', form: { password: 'motdepasse1', password2: 'motdepasse1' } });
+  const jar = made.headers.get('set-cookie').split(';')[0];
+  assert.match(jar, /^sc37_pro=\d+\./);
+  assert.match(sql('SELECT pass FROM pros WHERE id = ?', p.id)[0].pass, /^pbkdf2\$100000\$/);
+  // the link is used up; the login works with the e-mail
+  assert.equal((await pro(`/pro/invitation/${invite}`)).status, 410);
+  assert.match(where(await pro('/pro/connexion', { method: 'POST', form: { email: 'contact@garage.fr', password: 'faux' } })).searchParams.get('err'), /incorrect/);
+  assert.ok((await pro('/pro/connexion', { method: 'POST', form: { email: 'contact@garage.fr', password: 'motdepasse1' } })).headers.get('set-cookie').startsWith('sc37_pro='));
+  // before the signature: the agreement to sign, nothing else
+  const first = await (await pro('/pro', { jar })).text();
+  assert.match(first, /Je signe la convention/);
+  assert.ok(!first.includes('Votre mois'));
+  const sig = `data:image/png;base64,${'A'.repeat(200)}`;
+  assert.match(where(await pro('/pro/signer', { method: 'POST', form: { name: 'Julien Martin', image: sig }, jar })).searchParams.get('ok'), /Convention signée/);
+  const space = await (await pro('/pro', { jar })).text();
+  assert.match(space, /Votre mois de/);
+  assert.ok(space.includes(code));
+  assert.match(space, /reservation\/\?code=PRO-/);
+  // another partner's space is not reachable; no session, the login
+  assert.equal(where(await pro('/pro')).pathname, '/pro/connexion');
+  // the code: −10 %, then −15 % once 10 appointments of the month are confirmed with it
+  assert.equal((await checkCode(env, code)).percent, 10);
+  const month = utcToZoned(Date.now(), TZ).date.slice(0, 7);
+  for (let i = 0; i < 10; i++) await db(env, 'booking/add', { session: `pro-${i}`, date: `${month}-15`, time: '08:00', items: [{ label: 'Vitres teintées' }], total: 243, code, codeKind: 'promo', mode: 'none', paid: 0, customer: { firstName: 'Julien', lastName: 'Martin', email: `client${i}@example.com` } });
+  assert.equal((await checkCode(env, code)).percent, 15);
+  assert.match(await (await pro('/pro', { jar })).text(), /Palier atteint/);
+  // the workshop countersigns
+  assert.match(where(await go(`/atelier/pros/${p.id}/signer`, { method: 'POST', form: { image: sig } })).searchParams.get('ok'), /contre-signée/);
+  assert.match(await (await pro('/pro/convention', { jar })).text(), /Pour SOLAR CAR 37<\/b><img/);
+});

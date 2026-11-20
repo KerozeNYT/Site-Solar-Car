@@ -315,7 +315,7 @@ export async function proSheetPdf(pro, opts = {}) {
       if (n >= glazing.frontMin) text('autorisé à l’avant*', cx, cy - 28, { size: 7.8, f: bold, color: GOLD });
     }
     y -= 2 * (gh + 46) + 4;
-    text('Rendus du simulateur 3D de solarcar37.fr, à titre indicatif : la teinte se choisit sur nuancier, à la lumière du jour.', M, y, { size: 7.8, f: oblique, color: DIM });
+    text('Le garage 3D de solarcar37.fr vu à travers la vitre : simulation indicative, la teinte se choisit sur nuancier, à la lumière du jour.', M, y, { size: 7.8, f: oblique, color: DIM });
     y -= 26;
     kicker('Le film nanocéramique');
     y -= 16;

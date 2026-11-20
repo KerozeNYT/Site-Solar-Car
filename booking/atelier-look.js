@@ -334,6 +334,10 @@ html.js #rdv:not(:has([name=mode][value=tpe]:checked)) .tpebox{display:none}
 .pro__logo,.avatar--logo{width:60px;height:60px;border-radius:14px;background:#fff;display:grid;place-items:center;overflow:hidden;flex:none;color:#111}
 .pro__logo img,.avatar--logo img{max-width:52px;max-height:52px;object-fit:contain}
 .remise--btn{grid-template-columns:minmax(0,1fr) auto}
+/* the partnership agreement and its signatures; the signature pad */
+.conv h3{font-size:14px;margin:16px 0 4px;color:var(--gold-2)}.conv p{margin:0;color:var(--text-2);font-size:14px}
+.sigs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.sigs>div{background:#fff;color:#111;border-radius:14px;padding:12px;min-height:110px}.sigs img{display:block;width:100%;height:70px;object-fit:contain}.sigs small{display:block;color:#555;font-size:11px}
+.pad{display:block;width:100%;height:170px;background:#fff;border-radius:16px;touch-action:none;margin:6px 0 8px}
 .canalfix{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}.canalfix .remise{grid-template-columns:minmax(0,1fr) auto}
 .push__state{font-weight:650;margin:0 0 14px}
 .remise{display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:8px}
@@ -823,6 +827,18 @@ export const JS = String.raw`(function () {
     loadSlots();
     loadDays();
   }
+  // the signature pad (a partnership agreement countersigned by the workshop)
+  Array.prototype.forEach.call(d.querySelectorAll('canvas.pad'), function (cv) {
+    var x = cv.getContext('2d'), r = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight, dirty = false, last = null;
+    cv.width = w * r; cv.height = h * r; x.scale(r, r); x.lineWidth = 2.4; x.lineCap = 'round'; x.lineJoin = 'round'; x.strokeStyle = '#111';
+    function at(e) { var b = cv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; }
+    cv.addEventListener('pointerdown', function (e) { last = at(e); e.preventDefault(); });
+    cv.addEventListener('pointermove', function (e) { if (!last) return; var q = at(e); x.beginPath(); x.moveTo(last[0], last[1]); x.lineTo(q[0], q[1]); x.stroke(); last = q; dirty = true; e.preventDefault(); });
+    ['pointerup', 'pointercancel'].forEach(function (k) { window.addEventListener(k, function () { last = null; }); });
+    var f = cv.closest('form'), clr = f.querySelector('[data-clear]');
+    if (clr) clr.addEventListener('click', function () { x.clearRect(0, 0, w, h); dirty = false; });
+    f.addEventListener('submit', function (e) { if (!dirty) { e.preventDefault(); alert('Signez dans le cadre blanc.'); return; } f.querySelector('[name=image]').value = cv.toDataURL('image/png'); });
+  });
   // « Ajouter une prestation » to an appointment: the preset fills the line, the price after discount shown
   (function () {
     var form = d.getElementById('ajout');

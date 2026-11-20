@@ -35,6 +35,7 @@ import { siteThemes } from '../content/themes.js';
 import { CSS, JS, CSS_V, JS_V } from './atelier-look.js';
 import { notify, vapidKeys, SW } from './push.js';
 import { proSheetPdf, PRO_TERMS, SHEETS } from './pro-sheet.js';
+import { agreementHtml, inviteToken } from './pro-space.js';
 
 const COOKIE = 'sc37_atelier';
 const SESSION_DAYS = 30;
@@ -380,7 +381,23 @@ export async function atelier(req, env, url, now) {
   // the professionals (partners): their card, their logo, their partnership file
   if (path === '/atelier/pros' && req.method === 'GET') return prosPage(env, url, now);
   if (path === '/atelier/pros' && req.method === 'POST') return proTermsPost(req, env, now);
-  const pm = path.match(/^\/atelier\/pros\/(nouveau|\d+)(?:\/(logo|dossier\.pdf|supprimer))?$/);
+  const pm = path.match(/^\/atelier\/pros\/(nouveau|\d+)(?:\/(logo|dossier\.pdf|supprimer|invitation|signer|convention))?$/);
+  // its space: the invitation link (the partner chooses its password), the workshop's signature
+  if (pm && req.method === 'POST' && pm[2] === 'invitation') {
+    await db(env, 'pro/code', { id: Number(pm[1]) });
+    const r = await db(env, 'pro/invite', { id: Number(pm[1]), token: inviteToken(), now });
+    return back(`/atelier/pros/${pm[1]}`, r.ok ? { ok: 'Lien d’accès créé (valable 7 jours) : envoyez-le au partenaire, ou ouvrez-le sur son téléphone.' } : { err: 'Lien pas créé : réessayez.' });
+  }
+  if (pm && req.method === 'POST' && pm[2] === 'signer') {
+    const f = await req.formData();
+    const r = await db(env, 'pro/sign', { id: Number(pm[1]), who: 'me', image: String(f.get('image') || ''), now });
+    return back(`/atelier/pros/${pm[1]}`, r.ok ? { ok: 'Convention contre-signée : le partenariat est actif.' } : { err: r.error });
+  }
+  if (pm && req.method === 'GET' && pm[2] === 'convention') {
+    const s = await db(env, 'pro/space', { id: Number(pm[1]), now });
+    if (!s.ok) return back('/atelier/pros', { err: 'Fiche introuvable.' });
+    return page('Convention', '/atelier/pros', `<a class="crumb" href="/atelier/pros/${pm[1]}">${ico('back')} ${esc(s.pro.name)}</a><h1>Convention de <em>partenariat</em></h1><section class="card">${agreementHtml(s.pro, s.terms)}</section>`, url, { now });
+  }
   if (pm && req.method === 'GET' && !pm[2]) return proCard(env, url, pm[1] === 'nouveau' ? 0 : Number(pm[1]), now);
   if (pm && req.method === 'POST' && !pm[2]) return proSavePost(req, env, pm[1] === 'nouveau' ? 0 : Number(pm[1]), now);
   if (pm && req.method === 'GET' && pm[2] === 'logo') {
@@ -1042,6 +1059,14 @@ async function bookingForm(env, url, now, values = null, error = '') {
   const f = values || new URLSearchParams();
   const v = (k, d = '') => esc(f.get(k) ?? d);
   // from a client's card: the client filled in
+  if (!values && url.searchParams.get('pro')) {
+    const p = (await db(env, 'pro/get', { id: Number(url.searchParams.get('pro')) })).pro;
+    if (p) {
+      const code = p.code || (await db(env, 'pro/code', { id: p.id })).code || '';
+      const [first, ...rest] = String(p.contact || '').split(' ');
+      for (const [k, x] of [['prenom', first || ''], ['nom', [rest.join(' '), `(${p.name})`].filter(Boolean).join(' ')], ['tel', p.phone], ['email', p.email], ['code', code]]) f.set(k, x || '');
+    }
+  }
   if (!values && url.searchParams.get('client')) {
     const c = (await db(env, 'client/get', { id: Number(url.searchParams.get('client')) })).client;
     if (c) for (const [k, x] of [['prenom', c.first], ['nom', c.last], ['tel', c.phone], ['email', c.email], ['vehicule', (c.vehicles || '').split(' · ')[0]], ['plaque', c.plate]]) f.set(k, x || '');
@@ -1412,8 +1437,21 @@ ${field('address', 'Adresse')}
 ${p.has_logo ? `<div class="checks"><label><input type="checkbox" name="sans_logo" value="1"> Retirer le logo</label></div>` : ''}
 <label for="p-notes">Notes</label><textarea id="p-notes" name="notes" style="min-height:80px">${v('notes')}</textarea>
 <button>${ico('check')} Enregistrer</button></form>`;
+  let space = '';
+  if (id) {
+    if (!p.code) p.code = (await db(env, 'pro/code', { id })).code || '';
+    const m = await db(env, 'pro/month', { id, now });
+    const link = p.invite && p.invite_exp > now ? `${url.origin}/pro/invitation/${p.invite}` : '';
+    const intl = String(p.phone || '').replace(/\D/g, '').replace(/^0/, '33');
+    const say = `Bonjour${p.contact ? ` ${String(p.contact).split(' ')[0]}` : ''}, voici votre accès à l’espace partenaire ${B.name} (convention, carte et code pro, rendez-vous du mois) : ${link}`;
+    space = `<section class="card"><h2>${ico('user')} Espace pro</h2>
+<dl class="facts"><div><dt>Code pro</dt><dd><b>${esc(p.code)}</b> · ${p.sign_pro_at ? 'actif' : 'actif dès la signature'}</dd></div><div><dt>Ce mois-ci</dt><dd>${m.n || 0} RDV confirmé${(m.n || 0) > 1 ? 's' : ''} · remise ${esc(m.percent ?? p.discount)} %</dd></div><div><dt>Accès</dt><dd>${p.active ? `Espace créé${p.seen ? ` · vu le ${esc(dateOf(p.seen))}` : ''}` : link ? 'Invitation envoyée, en attente' : 'Pas encore invité'}</dd></div><div><dt>Convention</dt><dd>${p.sign_pro_at ? `Signée par ${esc(p.sign_pro_name)} le ${esc(dateOf(p.sign_pro_at))}` : 'Pas encore signée'}${p.sign_me_at ? ' · contre-signée' : ''}</dd></div></dl>
+${link ? `<input readonly value="${esc(link)}" aria-label="Lien d’accès" data-select style="margin-top:12px"><div class="btns"><button type="button" class="small" data-copy="${esc(link)}">Copier le lien</button>${p.phone ? `<a class="btn ghost small" href="sms:${esc(String(p.phone).replace(/[^\d+]/g, ''))}?&body=${encodeURIComponent(say)}">${ico('chat')} SMS</a><a class="btn ghost small" href="https://wa.me/${esc(intl)}?text=${encodeURIComponent(say)}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${p.email ? `<a class="btn ghost small" href="mailto:${esc(p.email)}?subject=${encodeURIComponent(`Votre espace partenaire ${B.name}`)}&body=${encodeURIComponent(say)}">${ico('mail')} E-mail</a>` : ''}<a class="btn ghost small" href="${esc(link)}" target="_blank" rel="noopener">Ouvrir ici</a></div><p class="hint">Valable jusqu’au ${esc(dateOf(p.invite_exp))}. Avec lui, en direct : ouvrez-le sur son téléphone, il choisit son mot de passe (vous ne le voyez pas), signe la convention, et son espace s’installe sur l’écran d’accueil.</p>` : ''}
+<div class="btns"><form method="post" action="/atelier/pros/${id}/invitation" class="inline"><button class="${link ? 'ghost ' : ''}small">${ico('send')} ${p.active || link ? 'Nouveau lien d’accès' : 'Créer son accès'}</button></form><a class="btn ghost small" href="/atelier/pros/${id}/convention">Voir la convention</a><a class="btn ghost small" href="/atelier/rdv/nouveau?pro=${id}">${ico('cal')} Nouveau RDV</a></div>
+${p.sign_pro_at && !p.sign_me_at ? `<form method="post" action="/atelier/pros/${id}/signer" style="margin-top:16px"><label>Votre contre-signature</label><canvas class="pad" aria-label="Cadre de signature"></canvas><input type="hidden" name="image"><div class="btns"><button class="small">${ico('check')} Contre-signer la convention</button><button type="button" class="ghost small" data-clear>Effacer</button></div></form>` : ''}</section>`;
+  }
   const dossier = id
-    ? `<form class="card" method="get" action="/atelier/pros/${id}/dossier.pdf" target="_blank"><h2>${ico('download')} Dossier de partenariat</h2>
+    ? `${space}<form class="card" method="get" action="/atelier/pros/${id}/dossier.pdf" target="_blank"><h2>${ico('download')} Dossier de partenariat</h2>
 <p class="dim" style="margin:-6px 0 14px">Un PDF à remettre : vos deux logos, le mot d’accueil, les conditions (remise, volume, déplacement), puis une page par prestation avec prix public, prix pro et prix volume.</p>
 <div class="checks">${Object.entries(SHEETS).map(([k, label]) => `<label><input type="checkbox" name="s" value="${k}" checked> ${esc(label)}</label>`).join('')}<label><input type="checkbox" disabled> Detailing (tarifs à venir)</label></div>
 <button>${ico('download')} Préparer le dossier PDF</button>

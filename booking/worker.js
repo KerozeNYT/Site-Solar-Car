@@ -59,6 +59,7 @@ import { db, referralFor, checkCode, redeemReferral } from './store.js';
 import { atelier } from './atelier.js';
 import { gmailSync } from './gmail.js';
 import { notify } from './push.js';
+import { proSpace } from './pro-space.js';
 
 // the Durable Object class of the statistics database (booking/wrangler.toml)
 export { Stats } from './stats.js';
@@ -917,6 +918,8 @@ export default {
         return new Response(`<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Merci — ${B.name}</title><body style="margin:0;background:#07080a;color:#f3f0ea;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;display:grid;place-items:center;min-height:100vh;padding:24px"><main style="max-width:460px;text-align:center"><p style="font-size:44px;margin:0">✓</p><h1 style="font-size:24px;margin:8px 0 12px">Merci, votre acompte est bien reçu</h1><p style="color:#c7c3ba;line-height:1.55;margin:0 0 20px">Le reçu Stripe arrive par e-mail. À bientôt à l’atelier ${B.name} !</p><a href="${String(env.SITE_URL || B.siteUrl)}" style="display:inline-block;background:#e3c27a;color:#0a0a0b;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:999px">Retour au site</a></main></body></html>`, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } });
       if (url.pathname === '/api/devis/accepter' && req.method === 'POST') return await quoteAccept(req, env, now);
       if (url.pathname === '/atelier' || url.pathname.startsWith('/atelier/')) return await atelier(req, env, url, now);
+      // the partners' own space (booking/pro-space.js)
+      if (url.pathname === '/pro' || url.pathname.startsWith('/pro/')) return await proSpace(req, env, url, now);
       // atelier.solarcar37.fr: the workshop's space only (its address bar shows /atelier…)
       if (url.hostname.startsWith('atelier.') && !/^\/(stats|api|fiche-google)(\/|$)/.test(url.pathname)) return new Response(null, { status: 302, headers: { location: '/atelier' } });
       // the first referral page: now in the workshop's space
