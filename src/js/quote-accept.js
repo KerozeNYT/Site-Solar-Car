@@ -27,7 +27,7 @@ export function startQuoteAccept(box) {
     .then((r) => r.json())
     .then((info) => {
       if (!info.ok) return invalid();
-      title.textContent = `Votre devis n°${info.n}`;
+      title.textContent = 'Votre devis';
       const items = card.querySelector('[data-qa-items]');
       for (const [k, v] of [
         ['Véhicule', info.vehicle],
@@ -40,7 +40,7 @@ export function startQuoteAccept(box) {
         items.append(li);
       }
       card.hidden = false;
-      if (info.status === 'valide') return done(`Devis n°${info.n} accepté`, 'Ce devis est déjà accepté : nous vous appelons pour fixer la date du rendez-vous.');
+      if (info.status === 'valide') return done('Devis accepté', 'Ce devis est déjà accepté : nous vous appelons pour fixer la date du rendez-vous.');
       lead.textContent = `${info.firstName ? `${info.firstName}, ce` : 'Ce'} devis vous convient ? Confirmez-le ici : nous vous appelons ensuite pour fixer la date du rendez-vous.`;
       const btn = card.querySelector('[data-qa-accept]');
       btn.hidden = false;

@@ -117,7 +117,8 @@ test('the workshop answers from Gmail: the client gets a clean e-mail with the a
   assert.equal(m.from, 'SOLAR CAR 37 <contact@solarcar37.fr>');
   assert.deepEqual(m.to, ['lea@example.com']);
   assert.equal(m.reply_to, `"SOLAR CAR 37" <${RELAY}>`);
-  assert.equal(m.subject, `Re: Demande de devis n°${n} — Mini F56 2015 · Ciel étoilé`);
+  assert.equal(m.subject, 'Re: Votre demande de devis — Mini F56 2015 · Ciel étoilé');
+  assert.doesNotMatch(m.html + m.text, /n°\s*\d/);
   assert.match(m.html, /Voici le devis : 1 190 €\./);
   assert.doesNotMatch(m.html + m.text, /a écrit|reservation@solarcar37\.fr/);
   assert.match(m.html, new RegExp(`href="${SITE}/devis/\\?n=${n}&amp;t=${token}"`));
@@ -177,7 +178,7 @@ test('the workshop answers from its space: amount, accept button, its PDF; a cop
   assert.deepEqual(m.to, ['lea@example.com']);
   assert.deepEqual(m.bcc, [OWNER]);
   assert.equal(m.headers['In-Reply-To'], '<lea-1@example.com>');
-  assert.match(m.html, /DEVIS N°\d+ · 1\s190\s€/);
+  assert.match(m.html, /VOTRE DEVIS · 1\s190\s€/);
   assert.equal(m.attachments[0].filename, 'devis-signé.pdf');
   assert.equal(sql('SELECT amount FROM requests WHERE id = ?', n)[0].amount, 1190);
   // nothing to send: said

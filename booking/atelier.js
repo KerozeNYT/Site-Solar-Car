@@ -537,7 +537,7 @@ async function quotePage(env, url, id, now) {
   const days = Math.floor((now - quiet) / DAY);
   const remind = r.status === 'envoye' && dl.remind && now - quiet > dl.remind * DAY;
   const draft = remind
-    ? `Bonjour ${r.first || ''},\n\nJe reviens vers vous au sujet de votre demande de devis n°${r.id}${r.services ? ` (${String(r.services).toLowerCase()})` : ''}. Avez-vous pu y réfléchir ? Je reste à votre disposition pour toute question, ou pour fixer la date du rendez-vous.\n\n`
+    ? `Bonjour ${r.first || ''},\n\nJe reviens vers vous au sujet de votre demande de devis${r.services ? ` (${String(r.services).toLowerCase()})` : ''}. Avez-vous pu y réfléchir ? Je reste à votre disposition pour toute question, ou pour fixer la date du rendez-vous.\n\n`
     : `Bonjour ${r.first || ''},\n\n`;
   const remindBox = remind ? `<p class="msg msg--warn">${ico('clock')} Sans nouvelles de ${esc(r.first || 'ce client')} depuis ${days} jours : un message de relance est prêt ci-dessous.${dl.close ? ` Sans réponse, la demande passera en « Sans suite » dans ${Math.max(1, dl.close - days)} jour${dl.close - days > 1 ? 's' : ''}.` : ''}</p>` : '';
   const composer = r.email

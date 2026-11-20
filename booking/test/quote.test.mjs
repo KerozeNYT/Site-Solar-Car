@@ -77,7 +77,9 @@ test('a quote request: one clean e-mail to the workshop (photos, reply to the cl
   // the client: what they asked, from the workshop, the same subject
   assert.deepEqual(ack.to, ['Lea.Petit@example.com']);
   assert.equal(ack.reply_to, 'contact@solarcar37.fr');
-  assert.equal(ack.subject, shop.subject);
+  // the client never sees the workshop's numbers
+  assert.equal(ack.subject, 'Votre demande de devis — Peugeot 208 2021 · Vitres teintées');
+  assert.doesNotMatch(ack.html + ack.text, /n°\s*\d/);
   assert.match(ack.html, /Bonjour Léa,<br>merci pour votre demande de devis/);
   assert.match(ack.html, /Vitres teintées/);
   assert.match(ack.html, /1 fichier reçu/);

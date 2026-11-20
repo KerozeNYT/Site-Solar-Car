@@ -356,6 +356,8 @@ const plain = (pairs) =>
 /** « Demande de devis n°12 — Mini F56 JCW 2015 · Ciel étoilé »: the same subject for the workshop
  *  and the client; its number tells the replies apart (booking/store.js, mail/in) */
 export const quoteSubject = (q) => `Demande de devis n°${q.id} — ${[q.vehicle, q.services].filter(Boolean).join(' · ')}`.slice(0, 140);
+/** the client's side: no number (20 November 2026: the workshop keeps its numbers to itself) */
+export const clientSubject = (q) => `Votre demande de devis — ${[q.vehicle, q.services].filter(Boolean).join(' · ')}`.slice(0, 140);
 /** the address the replies of a quote discussion go to (Cloudflare Email Routing → this worker's
  *  email handler); empty: no discussion relay, the workshop answers the client directly */
 export const relayAddress = (env) => String(env.QUOTE_REPLY || '').trim();
@@ -435,7 +437,7 @@ export async function sendQuoteMails(env, q) {
     await send(env, {
       to: [c.email],
       reply_to: relayAddress(env) ? named(B.name, relayAddress(env)) : B.email,
-      subject,
+      subject: clientSubject(q),
       html: shell(
         'Nous avons bien reçu votre demande',
         `<p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:#111">Bonjour ${esc(c.firstName)},<br>merci pour votre demande de devis. Nous l’étudions et revenons vers vous rapidement avec un devis détaillé, par e-mail ou par téléphone.</p>
@@ -466,7 +468,7 @@ export async function sendToClient(env, r, x) {
   const amount = Number(r.amount) > 0 ? money(Number(r.amount)) : '';
   const accept = x.acceptUrl
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 18px;background:#0b0c0f;border:1px solid #e9cd82;border-radius:14px"><tr><td style="padding:18px 20px">
-<p style="margin:0 0 4px;color:#e9cd82;font-size:12px;font-weight:700;letter-spacing:.14em">DEVIS N°${r.id}${amount ? ` · ${esc(amount)}` : ''}</p>
+<p style="margin:0 0 4px;color:#e9cd82;font-size:12px;font-weight:700;letter-spacing:.14em">VOTRE DEVIS${amount ? ` · ${esc(amount)}` : ''}</p>
 <p style="margin:0 0 14px;color:#ffffff;font-size:16px;line-height:1.45">Ce devis vous convient ? Un clic suffit : nous vous appelons ensuite pour fixer la date.</p>
 <a href="${esc(x.acceptUrl)}" style="display:inline-block;background:#e9cd82;color:#0b0c0f;text-decoration:none;font-weight:800;padding:12px 22px;border-radius:999px">J’accepte ce devis</a></td></tr></table>`
     : '';
@@ -476,15 +478,15 @@ export async function sendToClient(env, r, x) {
     to: [r.email],
     ...(x.bcc?.length ? { bcc: x.bcc } : {}),
     reply_to: relayAddress(env) ? named(B.name, relayAddress(env)) : B.email,
-    subject: `Re: ${r.subject || quoteSubject(r)}`,
+    subject: `Re: ${clientSubject(r)}`,
     ...(threadHeaders(x.refs) ? { headers: threadHeaders(x.refs) } : {}),
     html: shell(
-      `Votre demande de devis n°${r.id}`,
+      'Votre demande de devis',
       `${paragraphs(x.text)}${files.length ? `<p style="margin:0 0 14px;font-size:13px;color:#6b6b6b">${esc(filesLine(files))}</p>` : ''}${accept}
 <p style="margin:0 0 6px;font-size:13px;line-height:1.5;color:#6b6b6b">Une question ? Répondez simplement à cet e-mail, ou appelez le <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${esc(B.phone)}</a>.</p>
-<p style="margin:14px 0 0;padding-top:12px;border-top:1px solid #eee;font-size:12px;line-height:1.5;color:#8a8a8a">Votre demande n°${r.id} du ${esc(recap)}</p>`
+<p style="margin:14px 0 0;padding-top:12px;border-top:1px solid #eee;font-size:12px;line-height:1.5;color:#8a8a8a">Votre demande du ${esc(recap)}</p>`
     ),
-    text: `${x.text}\n\n${files.length ? `${filesLine(files)}\n\n` : ''}${x.acceptUrl ? `Ce devis vous convient ? Acceptez-le en un clic : ${x.acceptUrl}\n\n` : ''}Une question ? Répondez simplement à cet e-mail, ou appelez le ${B.phone}.\n\n—\nVotre demande n°${r.id} du ${recap}\n`,
+    text: `${x.text}\n\n${files.length ? `${filesLine(files)}\n\n` : ''}${x.acceptUrl ? `Ce devis vous convient ? Acceptez-le en un clic : ${x.acceptUrl}\n\n` : ''}Une question ? Répondez simplement à cet e-mail, ou appelez le ${B.phone}.\n\n—\nVotre demande du ${recap}\n`,
     attachments: files.map((f) => ({ filename: f.filename, content: f.content })),
   });
 }

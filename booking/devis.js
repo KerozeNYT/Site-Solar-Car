@@ -140,7 +140,7 @@ export async function devisPdf(d, opts = {}) {
   them.forEach(([t, f, s, col], i) => text(t, M + colW + 28, y - 34 - i * 12.8, { size: s, f, color: col }));
   y -= bh + 20;
   if (d.request) {
-    text(`Suite à votre demande de devis n°${d.request}`, M, y, { size: 9, color: DIM });
+    text('Suite à votre demande de devis', M, y, { size: 9, color: DIM });
     y -= 16;
   }
 
