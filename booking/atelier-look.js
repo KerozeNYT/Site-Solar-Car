@@ -333,7 +333,7 @@ html.js #rdv:not(:has([name=mode][value=tpe]:checked)) .tpebox{display:none}
 .pro:hover{border-color:rgba(var(--gold-rgb),.5)}.pro>span:last-child{min-width:0}.pro b{display:block;color:var(--text)}.pro small{display:block;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pro__logo,.avatar--logo{width:60px;height:60px;border-radius:14px;background:#fff;display:grid;place-items:center;overflow:hidden;flex:none;color:#111}
 .pro__logo img,.avatar--logo img{max-width:52px;max-height:52px;object-fit:contain}
-.remise--btn{grid-template-columns:minmax(0,1fr) auto}
+.remise.remise--btn{grid-template-columns:minmax(0,1fr) auto}.remise--btn button{white-space:nowrap;padding-left:16px;padding-right:18px;border-radius:14px}
 /* the companies found by name: one to choose */
 .hits{display:grid;gap:8px;margin-top:14px}.hit{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line-2);background:rgba(0,0,0,.28);color:inherit;text-decoration:none}
 .hit:hover{border-color:rgba(var(--gold-rgb),.55)}.hit b{grid-column:1;color:var(--text)}.hit small{grid-column:1;color:var(--dim);font-size:12px}.hit__go{grid-column:2;grid-row:1/4;align-self:center;color:var(--gold-2);font-weight:700;font-size:13px}
