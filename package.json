@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",
-    "three": "^0.186.1"
+    "three": "^0.187.0"
   },
   "devDependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
@@ -30,7 +30,7 @@
     "@fontsource/instrument-serif": "^5.3.0",
     "@gltf-transform/cli": "^4.5.1",
     "esbuild": "^0.28.2",
-    "fontkit": "^2.0.4"
+    "fontkit": "^3.0.0"
   },
   "overrides": {
     "@donmccurdy/caporal": {
