@@ -534,3 +534,103 @@ test('the links sent before: said once in their quote, the paid one validated, t
   await db(env, 'quotes/list', {});
   assert.equal((await db(env, 'quote/get', { id: q.id })).messages.filter((m) => m.via === 'lien').length, 1);
 });
+
+// ------------------------------------------------------------------ the day at the workshop (21 November 2026)
+test('« Ma journée »: the stages (« prêt » e-mailed), the rest taken, the check-in and the certificate as PDF, the photos, moved, cancelled, the search, the month, the review asked by hand', async () => {
+  const { db } = await import('../store.js');
+  const dd = addDays(day, 3);
+  mails.length = 0;
+  const made = await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ mode: 'tpe', tpe: '81', canal: 'atelier', note: '', date: dd, heure: '08:00', force: '1', prenom: 'Hugo', nom: 'Leroy', email: 'hugo@example.com', tel: '06 71 71 71 71', vehicule: 'Peugeot 308', plaque: 'ab-123-cd', vt_formule: 'full', x_preset: '' }) });
+  assert.equal(made.status, 303);
+  const link = sql("SELECT * FROM links WHERE session LIKE 'atelier-%' ORDER BY id DESC LIMIT 1")[0];
+  const s = link.session;
+  const href = `/atelier/rdv/r/${s}`;
+  // the day: the car, its stage buttons, what is left; the deposit taken at the terminal in the till
+  const page = await (await go(`/atelier/journee?date=${dd}`)).text();
+  assert.match(page, /Hugo Leroy/);
+  assert.match(page, /name="etape" value="pret"/);
+  assert.match(page, /reste 189\s€/);
+  // the till of today: the deposit taken at the terminal when the appointment was made
+  assert.match(await (await go('/atelier/journee')).text(), /Hugo Leroy : 81\s€ \(Carte \(TPE\)\)/);
+  // arrived, then ready: the client told
+  await go(`${href}/etape`, { method: 'POST', form: { etape: 'arrive' } });
+  mails.length = 0;
+  const ready = await go(`${href}/etape`, { method: 'POST', form: { etape: 'pret', retour: `/atelier/journee?date=${dd}` } });
+  assert.match(where(ready).searchParams.get('ok'), /a reçu l’e-mail « votre véhicule est prêt »/);
+  const rm = mails.find((m) => m.to[0] === 'hugo@example.com');
+  assert.match(rm.subject, /Votre Peugeot 308 \(2021\) est prêt/);
+  assert.match(rm.html, /Reste à régler : 189/);
+  assert.match(rm.html, /ne les descendez pas pendant 3 à 4 jours/);
+  // the rest, paid by card: what is paid follows, the car handed back
+  const paid = await go(`${href}/encaisser`, { method: 'POST', form: { montant: '189', moyen: 'tpe', rendu: '1' } });
+  assert.match(where(paid).searchParams.get('ok'), /reste 0\s€/);
+  let [bk] = sql('SELECT * FROM bookings WHERE session = ?', s);
+  assert.deepEqual([bk.paid, bk.stage], [270, 'rendu']);
+  assert.equal(JSON.parse(bk.payments).filter((p) => p.how === 'tpe').length, 2);
+  // the check-in: the points, a photo, the client's signature; the PDF
+  const sig = `data:image/png;base64,${(await import('node:fs')).readFileSync(new URL('../assets/icone-180.png', import.meta.url)).toString('base64')}`;
+  const jpg = (await import('node:fs')).readFileSync(new URL('../assets/teinte-50.jpg', import.meta.url));
+  const fd = new FormData();
+  fd.set('plaque', 'ab-123-cd');
+  fd.set('km', '84 250');
+  fd.append('points', 'vitres_rayures');
+  fd.set('notes', 'Rayure vitre arrière gauche.');
+  fd.set('signataire', 'Hugo Leroy');
+  fd.set('image', sig);
+  fd.append('photos', new File([jpg], 'avant.jpg', { type: 'image/jpeg' }));
+  const post = (path, body) => worker.fetch(new Request(`${SELF}${path}`, { method: 'POST', body, redirect: 'manual', headers: { origin: SELF, cookie } }), env);
+  assert.match(where(await post(`${href}/etat`, fd)).searchParams.get('ok'), /État des lieux enregistré avec 1 photo/);
+  [bk] = sql('SELECT * FROM bookings WHERE session = ?', s);
+  assert.deepEqual(JSON.parse(bk.checkin).checks, ['vitres_rayures']);
+  const pdf = await go(`${href}/etat.pdf`);
+  assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+  // the certificate: the rear at 15 %, the front at 70 %; saved and sent with its PDF
+  mails.length = 0;
+  const cert = await go(`${href}/certificat`, { method: 'POST', form: { plaque: 'AB-123-CD', annee: '2021', v_pare_brise: '', v_avant_g: '70', v_avant_d: '70', v_arriere_g: '15', v_arriere_d: '15', v_custode_g: '15', v_custode_d: '15', v_lunette: '15', v_bidon: '5', image: sig, envoyer: '1' } });
+  assert.match(where(cert).searchParams.get('ok'), /Certificat envoyé à hugo@example\.com/);
+  const cm = mails.find((m) => m.to[0] === 'hugo@example.com');
+  assert.equal(cm.attachments[0].filename, 'Certificat de pose SOLAR CAR 37.pdf');
+  assert.equal(Buffer.from(cm.attachments[0].content, 'base64').slice(0, 5).toString(), '%PDF-');
+  assert.deepEqual(JSON.parse(sql('SELECT cert FROM bookings WHERE session = ?', s)[0].cert).shades.lunette, '15');
+  // a photo after
+  const ap = new FormData();
+  ap.set('moment', 'apres');
+  ap.append('photos', new File([jpg], 'apres.jpg', { type: 'image/jpeg' }));
+  assert.match(where(await post(`${href}/photos`, ap)).searchParams.get('ok'), /1 photo « après » ajoutée/);
+  const rdvPage = await (await go(href)).text();
+  assert.match(rdvPage, /Après <small class="dim">1<\/small>/);
+  assert.match(rdvPage, /Avant <small class="dim">1<\/small>/);
+  // the search: by plate (any spelling), by name, by phone
+  for (const q of ['AB123CD', 'ab-123', 'leroy', '0671717171']) {
+    const r = await (await go(`/atelier/recherche?json=1&q=${encodeURIComponent(q)}`)).json();
+    assert.ok(r.groups.some(([t, l]) => t === 'Rendez-vous' && l.some((x) => x[1].startsWith('Hugo Leroy'))), q);
+  }
+  // the month on the home page; a goal
+  await go('/atelier/objectif', { method: 'POST', form: { objectif: '5000' } });
+  const home = await (await go('/atelier')).text();
+  assert.match(home, /Chiffre de/);
+  assert.match(home, /% de l’objectif de 5\s000\s€/);
+  // the Google review, asked by hand
+  mails.length = 0;
+  assert.match(where(await go(`${href}/avis`, { method: 'POST', form: {} })).searchParams.get('ok'), /Demande d’avis Google envoyée à Hugo/);
+  assert.match(mails[0].html, /g\.page\/r\/[^"]+\/review/);
+  assert.ok(sql('SELECT review_at FROM bookings WHERE session = ?', s)[0].review_at > 0);
+  // moved: the calendar and the client follow
+  const ev0 = cal[CAR].find((e) => e.id === bk.event);
+  mails.length = 0;
+  const to = addDays(day, 4);
+  const moved = await go(`${href}/deplacer`, { method: 'POST', form: { date: to, heure: '13:00', prevenir: '1', force: '1' } });
+  assert.match(where(moved).searchParams.get('ok'), /Rendez-vous déplacé .* client prévenu par e-mail/);
+  assert.equal(sql('SELECT date, time FROM bookings WHERE session = ?', s)[0].date, to);
+  assert.equal(utcToZoned(Date.parse(ev0.start.dateTime), TZ).time, '13:00');
+  assert.match(mails.find((m) => m.to[0] === 'hugo@example.com').subject, /Votre rendez-vous est déplacé au .* à 13 h 00/);
+  // cancelled, the deposit carried over: out of the calendar, noted on the client's card, the client told
+  mails.length = 0;
+  const gone = await go(`${href}/annuler`, { method: 'POST', form: { acompte: 'report', prevenir: '1', confirme: '1' } });
+  assert.match(where(gone).searchParams.get('ok'), /Rendez-vous annulé, client prévenu/);
+  assert.ok(!cal[CAR].some((e) => e.id === bk.event));
+  assert.ok(sql('SELECT cancelled FROM bookings WHERE session = ?', s)[0].cancelled > 0);
+  assert.match(sql('SELECT notes FROM clients WHERE email = ?', 'hugo@example.com')[0].notes, /Acompte de 270\s€ reporté/);
+  assert.match(mails.find((m) => m.to[0] === 'hugo@example.com').html, /conservé : il sera déduit de votre prochain rendez-vous/);
+  assert.match(await (await go(href)).text(), /Rendez-vous annulé le/);
+});

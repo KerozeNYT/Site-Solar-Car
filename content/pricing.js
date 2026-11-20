@@ -173,3 +173,37 @@ export const priceText = {
   starlight: starlight.range.validated ? range(starlight.range) : null,
   detailing: detailing.range.validated ? range(detailing.range) : null,
 };
+
+/**
+ * The window film the workshop fits and its guarantees, for the tint certificate given at the end of
+ * the job (booking/rdv-docs.js, « Certificat de pose »), as told by SOLAR CAR 37 on 21 November 2026:
+ * nano-ceramic film, Beluga range, lifetime guarantee on the film and on the fitting.
+ */
+export const tintFilm = {
+  name: 'Film solaire nanocéramique',
+  range: 'gamme Beluga',
+  features: [
+    'Particules nanocéramiques : une part importante du rayonnement infrarouge (la chaleur du soleil) est filtrée, sans assombrir davantage le vitrage.',
+    'Sans métal : aucune gêne pour le téléphone, le GPS, le télépéage ou la radio.',
+    'Filtre les UV : l’habitacle, les sièges et le tableau de bord sont protégés du soleil.',
+    'Aspect neutre et teinte stable dans le temps, posé à la forme exacte de chaque vitre.',
+  ],
+  warranty: {
+    film: ['décollement ou perte d’adhérence', 'bulles ou cloques', 'délaminage', 'craquelures', 'décoloration ou virage de la teinte (violet)'],
+    fitting: ['bulle ou décollement en bordure apparus après la pose', 'défaut de découpe', 'poussière ou impureté gênante sous le film'],
+    excluded: [
+      'rayures, coupures ou arrachements dus à l’usage (objets, bagues, ceinture, animaux, chargement)',
+      'nettoyage avec un produit abrasif ou ammoniaqué, un grattoir ou une éponge abrasive',
+      'bris, remplacement ou réparation de la vitre',
+      'accident, vandalisme, intervention d’un tiers sur le film ou la vitre',
+      'usure des joints et des mécanismes de lève-vitre',
+    ],
+    terms: 'Garantie à vie sur le film et sur la pose, pour toute la durée de détention du véhicule désigné par le client titulaire de ce certificat. En cas de défaut couvert, la vitre concernée est reprise ou le film remplacé gratuitement à l’atelier, sur présentation de ce certificat. Ces garanties s’ajoutent aux garanties légales.',
+  },
+  care: [
+    'Ne descendez pas les vitres pendant 3 à 4 jours, le temps que le film sèche.',
+    'Un léger voile ou de petites gouttelettes peuvent apparaître quelques jours : c’est normal, ils disparaissent seuls.',
+    'Attendez 7 jours avant le premier nettoyage, puis utilisez un chiffon microfibre doux et un produit sans ammoniaque.',
+    'Jamais de grattoir ni d’éponge abrasive sur les vitres teintées.',
+  ],
+};

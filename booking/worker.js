@@ -54,8 +54,8 @@ import { business as B } from '../content/site.js';
 import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howHeardParse, withDiscount, discountFor, withExtra, manualDiscount, discountLines, CANALS, takenText, tpeAmount } from '../content/booking.js';
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents, listEvents } from './google.js';
-import { createSession, getSession, expireSession, verifyWebhook } from './stripe.js';
-import { sendBookingMails, sendReminderMail, sendFollowUpMail, sendPaymentLink, sendBookingUpdate, sendGiftBuyer, sendGiftRecipient, sendGiftDelivered, sendPremiumWelcome, sendPremiumLink, sendLevelUp, sendPremiumReminder } from './mail.js';
+import { createSession, getSession, expireSession, verifyWebhook, refund } from './stripe.js';
+import { sendBookingMoved, sendBookingCancelled, sendVehicleReady, sendReviewRequest, sendBookingMails, sendReminderMail, sendFollowUpMail, sendPaymentLink, sendBookingUpdate, sendGiftBuyer, sendGiftRecipient, sendGiftDelivered, sendPremiumWelcome, sendPremiumLink, sendLevelUp, sendPremiumReminder } from './mail.js';
 import { giftCard as G, premium as P, giftAmount } from '../content/offers.js';
 import { record, hitFromPage, heardRows } from './stats.js';
 import { statsPage } from './stats-page.js';
@@ -106,14 +106,14 @@ export const DROP_OFF = /\bd[ée]p[ôo]ts?\b/i;
  * (CALENDAR_WRITE) is read event by event, so that a « Dépôt » and an event marked « Disponible »
  * block nothing; the others (SOLAR HOME, PERSO) through free/busy, which shows no title.
  */
-export async function busyFor(env, fromMs, toMs) {
+export async function busyFor(env, fromMs, toMs, except = '') {
   const calendars = list(env.CALENDARS_BUSY);
   const own = env.CALENDAR_WRITE;
   const others = calendars.filter((c) => c !== own);
   const [events, rest] = await Promise.all([calendars.includes(own) ? listEvents(env, own, fromMs, toMs) : [], others.length ? busyIntervals(env, others, fromMs, toMs) : []]);
   const at = (t) => (t?.dateTime ? Date.parse(t.dateTime) : t?.date ? zonedToUtc(t.date, '00:00', R.timeZone) : NaN);
   const mine = events
-    .filter((e) => e.status !== 'cancelled' && e.transparency !== 'transparent' && !DROP_OFF.test(e.summary || ''))
+    .filter((e) => e.status !== 'cancelled' && e.transparency !== 'transparent' && !DROP_OFF.test(e.summary || '') && (!except || e.id !== except))
     .map((e) => [at(e.start), at(e.end)])
     .filter(([a, b]) => a < b);
   return [...mine, ...rest];
@@ -690,6 +690,110 @@ async function supplementPaid(env, s) {
   const bk = r.booking;
   await refreshEvent(env, bk);
   await notify(env, { title: 'Acompte reçu (prestations ajoutées)', body: `${[bk.first, bk.last].filter(Boolean).join(' ')} — ${euros((s.amount_total || 0) / 100)} · reste ${euros(Math.max(0, bk.total - bk.paid))} à l’atelier`, url: `/atelier/rdv/r/${encodeURIComponent(bk.session)}`, tag: `rdv-${bk.session}` });
+}
+
+// ---------------------------------------------------------------- the day of an appointment (21 November 2026)
+const clientOf = (bk) => ({ firstName: bk.first || '', lastName: bk.last || '', email: bk.email || '', phone: bk.phone || '', vehicle: bk.vehicle || '' });
+const isTint = (bk) => itemsOfBooking(bk).some((i) => /vitres teint|pare-brise/i.test(`${i.label} ${i.detail || ''}`));
+
+/** an appointment moved: the calendar, the space, the client told (o.mail). o: { date, time,
+ *  force (keep it even over the calendar), mail, note } */
+export async function atelierMove(env, session, o, now) {
+  const { booking: bk } = await db(env, 'booking/get', { session });
+  if (!bk) return { ok: false, error: 'Rendez-vous introuvable.' };
+  if (bk.cancelled) return { ok: false, error: 'Ce rendez-vous est annulé.' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(o.date || '') || !/^\d{2}:\d{2}$/.test(o.time || '')) return { ok: false, error: 'Choisissez la nouvelle date et l’heure.' };
+  const minutes = Number(bk.minutes) || 120;
+  const span = jobSpan(o.date, o.time, minutes, R) || { start: zonedToUtc(o.date, o.time, R.timeZone), end: zonedToUtc(o.date, o.time, R.timeZone) + minutes * 60000 };
+  span.segments ||= [[span.start, span.end]];
+  if (span.start < now) return { ok: false, error: 'Ce créneau est déjà passé.' };
+  if (!o.force) {
+    const busy = await busyFor(env, span.start, span.end, bk.event);
+    if (span.segments.some(([a, z]) => busy.some(([x, y]) => a < y && x < z))) return { ok: false, error: 'Ce créneau chevauche un autre rendez-vous de l’agenda : choisissez-en un autre, ou cochez « Garder ce créneau quand même ».', taken: true };
+  }
+  const ev = bk.event ? await getEvent(env, env.CALENDAR_WRITE, bk.event).catch(() => null) : null;
+  if (ev && ev.status !== 'cancelled') await patchEvent(env, env.CALENDAR_WRITE, ev.id, { start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone }, end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone }, extendedProperties: { private: { ...(ev.extendedProperties?.private || {}), reminded: '' } } });
+  const r = await db(env, 'booking/move', { session, date: o.date, time: o.time });
+  let mailed = false;
+  if (o.mail && bk.email)
+    mailed = await sendBookingMoved(env, { c: clientOf(bk), date: o.date, time: o.time, end: span.end, oldDate: bk.date, oldTime: bk.time, items: itemsOfBooking(bk), total: bk.total, paid: bk.paid, note: String(o.note || '').trim().slice(0, 1500) })
+      .then(() => true)
+      .catch((err) => (console.error('[mail] moved', err.message), false));
+  return { ok: true, booking: r.booking, mailed, calendar: !!ev };
+}
+
+/** an appointment cancelled: out of the calendar, the deposit refunded online (o.deposit 'refund':
+ *  the Stripe payments given back), at the workshop ('refundHand'), kept for the next one
+ *  ('report') or kept ('keep'); the client told (o.mail) */
+export async function atelierCancelBooking(env, session, o, now) {
+  const { booking: bk } = await db(env, 'booking/get', { session });
+  if (!bk) return { ok: false, error: 'Rendez-vous introuvable.' };
+  if (bk.cancelled) return { ok: false, error: 'Ce rendez-vous est déjà annulé.' };
+  const paid = Number(bk.paid) || 0;
+  let deposit = paid > 0 ? (['refund', 'refundHand', 'report', 'keep'].includes(o.deposit) ? o.deposit : 'report') : '';
+  let refunded = 0;
+  if (deposit === 'refund') {
+    // every payment made online for it: the first one (its session) and those of services added
+    let pays = [];
+    try {
+      pays = JSON.parse(bk.payments || '[]');
+    } catch {}
+    const sessions = [...new Set([bk.session, ...pays.map((p) => p.ref)].filter((x) => /^cs_/.test(String(x))))];
+    for (const id of sessions) {
+      const s = await getSession(env, id).catch(() => null);
+      if (!s?.payment_intent || s.payment_status !== 'paid') continue;
+      const r = await refund(env, { payment_intent: typeof s.payment_intent === 'string' ? s.payment_intent : s.payment_intent.id }).catch((err) => (console.error('[stripe] refund', id, err.message), null));
+      if (r) refunded += (r.amount || 0) / 100;
+    }
+    if (!refunded) return { ok: false, error: 'Aucun paiement en ligne à rembourser (acompte réglé à l’atelier ?) : choisissez « Remboursé à l’atelier » ou « Reporté ».' };
+  }
+  if (bk.event) await deleteEvent(env, env.CALENDAR_WRITE, bk.event).catch((err) => console.error('[atelier] cancel event', err.message));
+  const label = { refund: `acompte remboursé en ligne (${euros(refunded)})`, refundHand: 'acompte remboursé à l’atelier', report: 'acompte reporté sur le prochain RDV', keep: 'acompte conservé (annulation tardive)' }[deposit] || 'rien de payé';
+  await db(env, 'booking/cancel', { session, note: `${label}${o.note ? ` — ${String(o.note).slice(0, 200)}` : ''}`, now });
+  if (deposit === 'report' && bk.client_id) await db(env, 'client/note', { id: bk.client_id, text: `Acompte de ${euros(paid)} reporté (RDV du ${bk.date.split('-').reverse().join('/')} annulé) : à déduire du prochain RDV.`, now }).catch(() => {});
+  let mailed = false;
+  if (o.mail && bk.email)
+    mailed = await sendBookingCancelled(env, { c: clientOf(bk), date: bk.date, time: bk.time, paid: deposit === 'refund' ? refunded : paid, deposit, note: String(o.note || '').trim().slice(0, 1500) })
+      .then(() => true)
+      .catch((err) => (console.error('[mail] cancelled', err.message), false));
+  return { ok: true, mailed, refunded, deposit };
+}
+
+/** a stage of the day (arrive, encours, pret, rendu); « prêt »: the client told when o.mail */
+export async function atelierStage(env, session, stage, o, now) {
+  const r = await db(env, 'booking/stage', { session, stage, now });
+  if (!r.ok) return r;
+  const bk = r.booking;
+  let mailed = false;
+  if (stage === 'pret' && o.mail && bk.email)
+    mailed = await sendVehicleReady(env, { c: clientOf(bk), vehicle: bk.vehicle, due: Math.max(0, round2(bk.total - bk.paid)), tint: isTint(bk) })
+      .then(() => true)
+      .catch((err) => (console.error('[mail] ready', err.message), false));
+  return { ok: true, booking: bk, mailed };
+}
+
+/** the rest paid at the workshop (card terminal, cash, transfer, cheque): what is paid follows */
+export async function atelierPay(env, session, o, now) {
+  const amount = round2(Number(String(o.amount ?? '').replace(/\s/g, '').replace(',', '.')));
+  if (!(amount > 0)) return { ok: false, error: 'Indiquez le montant encaissé.' };
+  const how = ['tpe', 'especes', 'virement', 'cheque'].includes(o.how) ? o.how : 'tpe';
+  const r = await db(env, 'booking/payment', { session, amount, ref: `${how}-${now}`, how });
+  if (!r.ok) return r;
+  await refreshEvent(env, r.booking).catch(() => {});
+  if (o.done) await db(env, 'booking/stage', { session, stage: 'rendu', now });
+  return { ok: true, booking: r.booking };
+}
+
+/** the Google review asked, by hand, once the client said all went well */
+export async function atelierReview(env, session, now) {
+  const { booking: bk } = await db(env, 'booking/get', { session });
+  if (!bk?.email) return { ok: false, error: 'Ce client n’a pas d’adresse e-mail.' };
+  const sent = await sendReviewRequest(env, { c: clientOf(bk), vehicle: bk.vehicle })
+    .then(() => true)
+    .catch((err) => (console.error('[mail] review', err.message), false));
+  if (!sent) return { ok: false, error: 'L’e-mail n’est pas parti : réessayez.' };
+  await db(env, 'booking/review', { session, now });
+  return { ok: true };
 }
 
 /** a link the workshop takes back: the payment page closed, the slot freed */

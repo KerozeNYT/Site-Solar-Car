@@ -24,7 +24,8 @@
 import { bookingRules as R, codeServices, formatEuros, formatDuration, quote, withDiscount, withExtra, discountFor, manualDiscount, bookableVehicles, tintFormulas, lightsBooking, atelierExtras, windshieldMinutes, CANALS, canalLead, tpeAmount } from '../content/booking.js';
 import { tint, tintOnQuote } from '../content/pricing.js';
 // the appointments taken by the workshop (used at request time only: worker.js imports this module)
-import { atelierBooking, atelierSlots, atelierCancel, atelierBookingChange, atelierBookingNotify, atelierLinkCanal, DROP_OFF, refreshEvent } from './worker.js';
+import { atelierBooking, atelierSlots, atelierCancel, atelierBookingChange, atelierBookingNotify, atelierLinkCanal, DROP_OFF, refreshEvent, atelierMove, atelierCancelBooking, atelierStage, atelierPay, atelierReview } from './worker.js';
+import { depositPdf, certificatePdf, WINDOWS, WINDSHIELD, CHECKS, shadeText } from './rdv-docs.js';
 import { giftCard as G, premium as P, offerEuros } from '../content/offers.js';
 import { business as B } from '../content/site.js';
 import { report, totalsOf } from './stats.js';
@@ -32,7 +33,7 @@ import { db, referralFor, redeemReferral, checkCode, dayStart, atelierFetch, QUO
 import { gmailReady, gmailState, gmailSync, consentUrl, callback as gmailCallback, disconnect as gmailDisconnect } from './gmail.js';
 import { bookedEvents, listEvents } from './google.js';
 import { getSession } from './stripe.js';
-import { send, shell as mailShell, sendBookingUpdate, sendGiftBuyer, sendGiftRecipient, sendPremiumWelcome, sendMembersOffer } from './mail.js';
+import { sendRdvDocuments, send, shell as mailShell, sendBookingUpdate, sendGiftBuyer, sendGiftRecipient, sendPremiumWelcome, sendMembersOffer } from './mail.js';
 import { utcToZoned, addDays } from './schedule.js';
 import { siteThemes } from '../content/themes.js';
 import { CSS, JS, CSS_V, JS_V } from './atelier-look.js';
@@ -121,6 +122,12 @@ const ICONS = {
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/>',
+  car: '<path d="M4 16v-3.5l2-5h12l2 5V16M4 16h16M4 16v2.5h3V16M17 16v2.5h3V16"/><circle cx="7.5" cy="13" r=".8"/><circle cx="16.5" cy="13" r=".8"/>',
+  camera: '<path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.6"/>',
+  doc: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+  euro: '<path d="M17 6.5A6.5 6.5 0 1 0 17 17.5M4.5 10.5h9M4.5 13.5h9"/>',
+  star: '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>',
   inbox: '<path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   check: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',
@@ -136,6 +143,7 @@ const ico = (k) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${IC
 /** the rail of a wide screen: [address, label, icon, short label (dock)]; '' = a line between */
 const TABS = [
   ['/atelier', 'Accueil', 'home', 'Accueil'],
+  ['/atelier/journee', 'Ma journée', 'sun', 'Journée'],
   ['/atelier/devis', 'Devis', 'chat', 'Devis'],
   ['/atelier/rdv', 'Rendez-vous', 'cal', 'RDV'],
   ['/atelier/clients', 'Clients', 'users', 'Clients'],
@@ -149,7 +157,8 @@ const TABS = [
 ];
 /** the dock of a phone: the four places of every day, and « Plus » for the rest */
 const DOCK = [...TABS.slice(0, 4), ['/atelier/plus', 'Plus', 'grid', 'Plus']];
-const UNDER_PLUS = new Set(['/atelier/pros', '/atelier/codes', '/atelier/premium', '/atelier/stats', '/atelier/fiche', '/atelier/plus']);
+// (the dock: Accueil, Journée, Devis, RDV, Plus — the clients under « Plus » on a phone)
+const UNDER_PLUS = new Set(['/atelier/clients', '/atelier/pros', '/atelier/codes', '/atelier/premium', '/atelier/stats', '/atelier/fiche', '/atelier/plus', '/atelier/recherche']);
 /** « + Nouveau »: what is made most often */
 const NEW = [
   ['/atelier/rdv/nouveau', 'cal', 'Nouveau rendez-vous', 'Téléphone, e-mail ou atelier : créneau, acompte'],
@@ -192,13 +201,14 @@ function page(title, active, body, url, opts = {}) {
 <div class="shell">${
       signed
         ? `<aside class="rail"><a class="brand" href="/atelier" aria-label="Accueil de l’espace atelier"><img src="/atelier/logo.webp" alt="SOLAR CAR" width="400" height="154"><span class="brand__tag">Atelier</span></a>
+<a class="railsearch" href="/atelier/recherche" data-searchkey>${ico('search')}<span>Rechercher</span><kbd>/</kbd></a>
 <nav class="nav" aria-label="Espace atelier">${TABS.map((t) => (t ? link(t) : '<div class="nav__sep"></div>')).join('')}</nav>
 <div class="rail__foot">${newMenu('rail')}${liveLabel}<a class="out" href="/atelier/deconnexion">${ico('out')} Se déconnecter</a></div></aside>`
         : ''
     }
 <div>${
       signed
-        ? `<header class="top"><a class="brand" href="/atelier" aria-label="Accueil de l’espace atelier"><img src="/atelier/logo.webp" alt="SOLAR CAR" width="400" height="154"><span class="brand__tag">Atelier</span></a>${liveLabel}${newMenu('top')}</header>`
+        ? `<header class="top"><a class="brand" href="/atelier" aria-label="Accueil de l’espace atelier"><img src="/atelier/logo.webp" alt="SOLAR CAR" width="400" height="154"><span class="brand__tag">Atelier</span></a>${liveLabel}<a class="topsearch" href="/atelier/recherche" aria-label="Rechercher">${ico('search')}</a>${newMenu('top')}</header>`
         : ''
     }
 <main>${ok ? `<p class="msg msg--ok" role="status">${ico('check')}${esc(ok)}</p>` : ''}${err ? `<p class="msg msg--err" role="alert">${esc(err)}</p>` : ''}${body}</main></div></div>
@@ -373,6 +383,25 @@ export async function atelier(req, env, url, now) {
     return new Response(JSON.stringify(r), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
   }
   // one appointment: its page, a service added or taken off again
+  // « Ma journée », the search, the month's goal
+  if (path === '/atelier/journee' && req.method === 'GET') return dayPage(env, url, now);
+  if (path === '/atelier/recherche' && req.method === 'GET') return searchPage(env, url, now);
+  if (path === '/atelier/objectif' && req.method === 'POST') {
+    await db(env, 'month/goal', { goal: String((await req.formData()).get('objectif') ?? '') });
+    return back('/atelier', { ok: 'Objectif du mois enregistré.' });
+  }
+  // an appointment's day: its stage, the rest paid, moved, cancelled, its papers, its photos
+  const rd = path.match(/^\/atelier\/rdv\/r\/([A-Za-z0-9_-]{6,120})\/(etape|encaisser|deplacer|annuler|etat|etat\.pdf|photos|certificat|certificat\.pdf|avis|envoyer)$/);
+  if (rd) return rdvDay(req, env, url, rd[1], rd[2], now);
+  const rf = path.match(/^\/atelier\/rdv\/r\/([A-Za-z0-9_-]{6,120})\/photo\/(\d+)(\/supprimer)?$/);
+  if (rf && req.method === 'GET' && !rf[3]) {
+    const res = await atelierFetch(env, `rdv/file?id=${Number(rf[2])}`, { method: 'GET' });
+    return res.ok ? new Response(res.body, { headers: { 'content-type': res.headers.get('content-type') || 'image/jpeg', 'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff' } }) : new Response('', { status: 404 });
+  }
+  if (rf && req.method === 'POST' && rf[3]) {
+    await db(env, 'rdv/file/delete', { id: Number(rf[2]), session: rf[1] });
+    return back(bookingHref(rf[1]), { ok: 'Photo supprimée.' });
+  }
   const rm = path.match(/^\/atelier\/rdv\/r\/([A-Za-z0-9_-]{6,120})(?:\/(ajout|retirer|maj|cadeau))?$/);
   if (rm && req.method === 'GET' && !rm[2]) return bookingPage(env, url, rm[1], now);
   if (rm && req.method === 'POST' && rm[2]) return bookingChangePost(req, env, rm[1], rm[2], now);
@@ -775,7 +804,7 @@ async function home(env, url, now) {
   const nowCard = cur
     ? `<section class="card now"><span class="now__k"><i></i>En ce moment</span><p class="now__t">${what(cur)}</p><div><div class="now__when"><span>${esc(hour(cur.time))} – ${esc(hour(cur.endTime))}</span><span>fin <time data-until="${cur.end}">${esc(hour(cur.endTime))}</time></span></div><div class="bar" style="margin-top:10px"><i data-span="${cur.start}-${cur.end}" style="width:${Math.round(((now - cur.start) / (cur.end - cur.start)) * 100)}%"></i></div>${cur.b && cur.b.total - cur.b.paid > 0 ? `<p class="dim" style="margin:10px 0 0">Reste à encaisser : <b style="color:var(--gold-2)">${eur(cur.b.total - cur.b.paid)}</b></p>` : ''}</div></section>`
     : next
-      ? `<section class="card now"><span class="now__k"><i></i>Prochain rendez-vous</span><p class="now__t">${what(next)}</p><div class="now__when"><span>${esc(dayLabel(next.date, { weekday: 'long', day: 'numeric', month: 'long' }))} · ${esc(hour(next.time))}</span><b data-until="${next.start}">${esc(next.date === today ? 'aujourd’hui' : 'bientôt')}</b></div></section>`
+      ? `<section class="card now"><span class="now__k"><i></i>Prochain rendez-vous</span><p class="now__t">${what(next)}</p><div class="now__when"><span>${esc(dayLabel(next.date, { weekday: 'long', day: 'numeric', month: 'long' }))} · ${esc(hour(next.time))}</span><b data-until="${next.start}">${esc(next.date === today ? 'aujourd’hui' : 'bientôt')}</b></div><a class="btn ghost small now__day" href="/atelier/journee?date=${esc(next.date)}">${ico('sun')} Voir la journée</a></section>`
       : `<section class="card now"><span class="now__k"><i></i>Agenda</span><p class="now__t">${events === null ? 'Agenda indisponible pour le moment.' : 'Aucun rendez-vous dans les 7 prochains jours.'}<small>Les RDV de l’agenda SOLAR CAR 37 s’affichent ici.</small></p><a class="btn ghost small" href="/atelier/rdv" style="align-self:flex-start">${ico('cal')} Rendez-vous</a></section>`;
 
   // the quotes, step by step
@@ -843,9 +872,18 @@ async function home(env, url, now) {
     ...(visits ? [fig(visits.visits, 'visites du site')] : []),
   ].join('')}</div>`;
 
+  // the month's money: booked, paid, left, the average, the quotes won; the goal as a gauge
+  const ms = await db(env, 'month/summary', { month: today.slice(0, 7) });
+  const pct = ms.goal ? Math.min(100, Math.round((ms.ca / ms.goal) * 100)) : 0;
+  const moneyCard = `<section class="card ca"><div class="ca__head"><h2>${ico('euro')} Chiffre de ${esc(month)}</h2><a class="btn small" href="/atelier/journee">${ico('sun')} Ma journée</a></div>
+<div class="ca__big"><b data-n="${ms.ca}" data-eur>${eur(ms.ca)}</b><span>réservés sur ${ms.n} RDV${ms.cancelled ? ` · ${ms.cancelled} annulé${ms.cancelled > 1 ? 's' : ''}` : ''}</span></div>
+${ms.goal ? `<div class="goal"><div class="goal__bar"><i style="width:${pct}%"></i></div><span>${pct} % de l’objectif de ${eur(ms.goal)}</span></div>` : ''}
+<div class="kpis">${[['Encaissé', eur(ms.paid)], ['Reste à encaisser', eur(ms.left)], ['Panier moyen', eur(ms.basket)], ['Devis validés', `${ms.won} sur ${ms.asked}`]].map(([k, v]) => `<div><small>${esc(k)}</small><b>${esc(v)}</b></div>`).join('')}</div>
+<details class="goalset"><summary>${ms.goal ? 'Changer l’objectif du mois' : 'Fixer un objectif mensuel'}</summary><form method="post" action="/atelier/objectif" class="remise remise--btn"><input name="objectif" inputmode="numeric" value="${ms.goal || ''}" placeholder="ex. 8000" aria-label="Objectif du mois en euros"><button class="small">Enregistrer</button></form></details></section>`;
   const b = band.banner;
   const bandNow = !b ? 'Aucun bandeau prévu.' : now < b.starts ? `Prochain bandeau : du ${dateOf(b.starts)} au ${dateOf(b.expires)}.` : `Affiché jusqu’au ${dateOf(b.expires)}.`;
   const body = `<div class="hero">${hello}${nowCard}</div>
+${moneyCard}
 ${pipe}
 <div class="two">${todoHtml}${feedHtml}</div>
 ${weekHtml}
@@ -861,6 +899,8 @@ async function morePage(env, url, now) {
   const tile = (href, icon, title, text) => `<a class="tile" href="${href}">${ico(icon)}<span><b>${esc(title)}</b><span>${esc(text)}</span></span></a>`;
   const body = `<h1>Plus <em>d’outils</em></h1><p class="lead">Les autres espaces de l’atelier, et les réglages.</p>
 <div class="tiles">${[
+    tile('/atelier/clients', 'users', 'Clients', 'Le fichier, les fiches, l’export'),
+    tile('/atelier/recherche', 'search', 'Rechercher', 'Nom, plaque, téléphone, code'),
     tile('/atelier/pros', 'briefcase', 'Pros', 'Partenaires, logos, dossiers de partenariat'),
     tile('/atelier/codes', 'tag', 'Codes et promos', 'Bandeaux du site, codes promo, parrainage'),
     tile('/atelier/stats', 'chart', 'Statistiques', 'Visites, demandes, réservations'),
@@ -909,6 +949,7 @@ async function bookingPage(env, url, session, now) {
 ${mem ? giftsDue(mem, `/atelier/rdv/r/${encodeURIComponent(b.session)}`) : ''}
 ${coming ? `<div class="giftdue" style="--c:${esc(tierById(coming.id).color)}"><div><b>${ico('gift')} Cadeau à prévoir pour ce RDV · ${lvl(coming.id)}</b><small>${esc(coming.gift)} · sa ${ordinal(coming.visits)} prestation en tant que membre : le niveau s’ouvre le jour du RDV.</small></div></div>` : ''}
 ${b.member && b.counted < 0 ? '<p class="dim">Ce RDV n’a pas compté pour les niveaux Premium (retiré de l’agenda avant son jour, ou sous le montant minimum).</p>' : ''}
+${await rdvTools(env, b, now)}
 <div class="grid"><section class="card"><h2>${ico('cal')} ${esc(when)}</h2>
 <ul class="recap recap--edit">${lines}</ul>
 ${b.discount ? `<div class="recap__due"><span>Remises</span><b>−${eur(b.discount)}</b></div>` : ''}
@@ -1786,4 +1827,305 @@ async function premiumPost(req, env, now) {
     return back('/atelier/premium#cadeaux', { ok: `Carte ${r.row.code} créée (${eur(amount)})${sent.length ? `, envoyée à ${sent.join(' et ')}` : ' : donnez le code au client'}.` });
   }
   return back('/atelier/premium', { err: 'Action inconnue.' });
+}
+
+// ---------------------------------------------------------------- the day at the workshop (21 November 2026)
+// « Ma journée »: the cars of the day in order, their stage (arrived, in progress, ready, handed
+// back), what is left to pay; the check-in, the photos, the tint certificate, the rest taken; the
+// money of the day; a week later, the clients to ask for a Google review (by hand).
+const STAGES = [
+  ['arrive', 'Arrivé', 'car'],
+  ['encours', 'En cours', 'bolt'],
+  ['pret', 'Prêt', 'check'],
+  ['rendu', 'Rendu', 'home'],
+];
+const STAGE_LABEL = Object.fromEntries(STAGES.map(([k, l]) => [k, l]));
+const HOW = { tpe: 'Carte (TPE)', especes: 'Espèces', virement: 'Virement', cheque: 'Chèque', stripe: 'En ligne (Stripe)', autre: 'Autre' };
+const jsonOf = (t, d) => {
+  try {
+    return t ? JSON.parse(t) : d;
+  } catch {
+    return d;
+  }
+};
+const tinted = (b) => itemsOf(b).some((i) => /vitres teint|pare-brise/i.test(`${i.label} ${i.detail || ''}`));
+const ymd = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
+
+/** the stage buttons of an appointment (« Prêt » tells the client by e-mail) */
+const stageForm = (b, back = '') => `<form method="post" action="${bookingHref(b.session)}/etape" class="stages">${back ? `<input type="hidden" name="retour" value="${esc(back)}">` : ''}${STAGES.map(([k, label]) => `<button name="etape" value="${k}" class="stage${b.stage === k ? ' is-on' : ''}"${b.stage === k ? ' aria-pressed="true"' : ''}>${esc(label)}</button>`).join('')}</form>`;
+
+async function dayPage(env, url, now) {
+  const today = paris(now).date;
+  const date = ymd(url.searchParams.get('date')) ? url.searchParams.get('date') : today;
+  const [events, cash, week] = await Promise.all([
+    calendarBookings(env, date, date),
+    db(env, 'day/cash', { from: dayStart(date), to: dayStart(addDays(date, 1)) }),
+    db(env, 'bookings/list', { from: addDays(date, -7), to: addDays(date, -7), limit: 50 }),
+  ]);
+  const files = {};
+  for (const x of events || []) if (x.b) files[x.b.session] = (await db(env, 'rdv/files', { session: x.b.session })).files;
+  const card = (x) => {
+    const b = x.b;
+    const time = `<div class="dayrdv__time"><b>${esc(hour(x.at.time))}</b><small>${esc(hour(x.end.time))}</small></div>`;
+    if (!b) {
+      const depot = DROP_OFF.test(x.event.summary || '');
+      return `<article class="dayrdv${depot ? ' dayrdv--depot' : ' dayrdv--free'}">${time}<div class="dayrdv__main"><h3>${esc(x.event.summary || 'Rendez-vous')}</h3><p class="dim">${depot ? 'Dépôt de véhicule' : 'Écrit dans l’agenda Google'}</p></div></article>`;
+    }
+    const due = Math.max(0, Math.round((b.total - b.paid) * 100) / 100);
+    const ph = files[b.session] || [];
+    const ci = jsonOf(b.checkin, null);
+    const cert = jsonOf(b.cert, null);
+    const href = bookingHref(b.session);
+    return `<article class="dayrdv stage--${esc(b.stage || 'attendu')}">${time}<div class="dayrdv__main">
+<h3><a href="${href}">${esc(name(b))}</a> <span class="tag ${b.stage === 'rendu' ? 'tag--off' : b.stage === 'pret' ? 'tag--ok' : b.stage ? 'tag--warn' : ''}">${esc(STAGE_LABEL[b.stage] || 'Attendu')}</span></h3>
+<p><b>${esc(b.vehicle || 'Véhicule')}</b>${b.phone ? ` · <a href="tel:${esc(tel(b.phone))}">${esc(b.phone)}</a>` : ''}</p>
+<p class="dim">${esc(itemsOf(b).map((i) => i.label).join(' + '))}</p>
+<p class="dayrdv__money">Total ${eur(b.total)} · réglé ${eur(b.paid)} · ${due ? `<b>reste ${eur(due)}</b>` : '<b class="ok">tout est réglé</b>'}</p>
+${stageForm(b, `/atelier/journee?date=${date}`)}
+<div class="btns dayrdv__docs"><a class="btn ghost small" href="${href}/etat">${ico('doc')} État des lieux${ci ? ' ✓' : ''}</a><a class="btn ghost small" href="${href}#photos">${ico('camera')} Photos${ph.length ? ` (${ph.length})` : ''}</a>${tinted(b) ? `<a class="btn ghost small" href="${href}/certificat">${ico('star')} Certificat${cert ? ' ✓' : ''}</a>` : ''}${due ? `<a class="btn small" href="${href}#encaisser">${ico('euro')} Encaisser ${eur(due)}</a>` : ''}</div>
+</div></article>`;
+  };
+  const list = (events || []).filter((x) => !x.b?.cancelled);
+  const total = Object.values(cash.byHow || {}).reduce((a, n) => a + n, 0);
+  const follow = (week.bookings || []).filter((b) => !b.cancelled);
+  const body = `<div class="dayhead"><a class="btn ghost small" href="/atelier/journee?date=${addDays(date, -1)}" aria-label="Jour précédent">‹</a><div><p class="dim" style="margin:0">${date === today ? 'Aujourd’hui' : date < today ? 'Journée passée' : 'Journée à venir'}</p><h1>${esc(cap(dayLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })))}</h1></div><a class="btn ghost small" href="/atelier/journee?date=${addDays(date, 1)}" aria-label="Jour suivant">›</a>${date !== today ? `<a class="btn small" href="/atelier/journee">Aujourd’hui</a>` : ''}</div>
+${events === null ? '<p class="msg msg--err">Agenda indisponible pour le moment : réessayez dans un instant.</p>' : list.length ? `<div class="daylist">${list.map(card).join('')}</div>` : '<section class="card"><p class="empty">Aucun rendez-vous ce jour-là.</p></section>'}
+<div class="grid"><section class="card"><h2>${ico('euro')} Caisse du ${esc(dayLabel(date, { day: 'numeric', month: 'long' }))}</h2>${
+    total
+      ? `<ul class="recap">${Object.entries(cash.byHow)
+          .map(([k, v]) => `<li><span>${esc(HOW[k] || k)}</span><b>${eur(v)}</b></li>`)
+          .join('')}</ul><div class="recap__tot"><span>Total encaissé</span><b>${eur(total)}</b></div><p class="dim" style="margin:10px 0 0">${cash.lines.map((l) => `${esc(l.who || 'Client')} : ${eur(l.amount)} (${esc(HOW[l.how] || l.how)})`).join(' · ')}</p>`
+      : '<p class="empty">Rien d’encaissé ce jour-là pour l’instant. « Encaisser » sur un rendez-vous l’ajoute ici.</p>'
+  }</section>
+<section class="card"><h2>${ico('star')} Suivis J+7</h2><p class="dim" style="margin:-6px 0 12px">Les clients du ${esc(dayLabel(addDays(date, -7), { weekday: 'long', day: 'numeric', month: 'long' }))} reçoivent un e-mail « Tout se passe bien ? ». S’ils sont contents, demandez-leur un avis Google.</p>${
+    follow.length
+      ? `<ul class="recap">${follow.map((b) => `<li><span><a href="${bookingHref(b.session)}">${esc(name(b))}</a><small>${esc(b.vehicle || '')}</small></span>${b.review_at ? `<small class="ok">avis demandé le ${esc(dateOf(b.review_at))}</small>` : b.email ? `<form method="post" action="${bookingHref(b.session)}/avis" class="inline"><input type="hidden" name="retour" value="/atelier/journee?date=${date}"><button class="ghost small">${ico('star')} Demander un avis</button></form>` : '<small class="dim">pas d’e-mail</small>'}</li>`).join('')}</ul>`
+      : '<p class="empty">Aucun rendez-vous ce jour-là, il y a une semaine.</p>'
+  }</section></div>`;
+  return page('Ma journée', '/atelier/journee', body, url, { now, refresh: true });
+}
+
+/** the tools of an appointment, at the top of its page: its stage, the rest taken, the papers and
+ *  the photos, moved, cancelled, the Google review */
+async function rdvTools(env, b, now) {
+  const href = bookingHref(b.session);
+  if (b.cancelled) return `<p class="msg msg--err">${ico('trash')} Rendez-vous annulé le ${esc(dateOf(b.cancelled))}${b.cancel_note ? ` : ${esc(b.cancel_note)}` : ''}.</p>`;
+  const due = Math.max(0, Math.round((b.total - b.paid) * 100) / 100);
+  const { files } = await db(env, 'rdv/files', { session: b.session });
+  const ci = jsonOf(b.checkin, null);
+  const cert = jsonOf(b.cert, null);
+  const pays = jsonOf(b.payments, []);
+  const thumbs = (kind) => files.filter((f) => f.kind === kind).map((f) => `<figure class="thumb"><a href="${href}/photo/${f.id}" target="_blank" rel="noopener"><img src="${href}/photo/${f.id}" alt="" loading="lazy"></a><form method="post" action="${href}/photo/${f.id}/supprimer" class="inline"><button class="ghost small" aria-label="Supprimer la photo">${ico('trash')}</button></form></figure>`).join('');
+  const past = b.date <= paris(now).date;
+  return `<section class="card stagebar"><h2>${ico('sun')} Où en est la voiture ?</h2>${stageForm(b)}<p class="hint">« Prêt » envoie au client l’e-mail « Votre véhicule est prêt »${due ? `, avec le reste à régler (${eur(due)})` : ''}.</p></section>
+<div class="grid">
+<section class="card" id="encaisser"><h2>${ico('euro')} Encaisser</h2>${
+    due
+      ? `<form method="post" action="${href}/encaisser"><div class="row"><div><label for="e-amount">Montant (€)</label><input id="e-amount" name="montant" inputmode="decimal" value="${esc(String(due).replace('.', ','))}" required></div><div><label for="e-how">Moyen de paiement</label><select id="e-how" name="moyen">${Object.entries(HOW).filter(([k]) => !['stripe', 'autre'].includes(k)).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></div></div>
+<div class="checks"><label><input type="checkbox" name="rendu" value="1" checked> Véhicule rendu au client</label></div><button>${ico('euro')} Encaisser</button></form>`
+      : '<p class="ok" style="margin:0 0 8px"><b>Tout est réglé.</b></p>'
+  }${pays.length ? `<p class="dim" style="margin:12px 0 0">Encaissé : ${pays.map((p) => `${eur(p.amount)} ${esc((HOW[p.how] || (String(p.ref).startsWith('cs_') ? HOW.stripe : '')).toLowerCase())} le ${esc(dateOf(p.at))}`).join(' · ')}</p>` : ''}</section>
+<section class="card" id="photos"><h2>${ico('camera')} Papiers et photos</h2>
+<div class="docs"><div><b>État des lieux</b><small>${ci ? `fait le ${esc(dateOf(ci.at))}${ci.checks?.length ? ` · ${ci.checks.length} point${ci.checks.length > 1 ? 's' : ''} noté${ci.checks.length > 1 ? 's' : ''}` : ' · rien à signaler'}` : 'à faire à l’arrivée du véhicule'}</small></div><div class="btns"><a class="btn ${ci ? 'ghost ' : ''}small" href="${href}/etat">${ci ? 'Refaire' : 'Faire l’état des lieux'}</a>${ci ? `<a class="btn ghost small" href="${href}/etat.pdf" target="_blank">PDF</a>${b.email ? `<form method="post" action="${href}/envoyer" class="inline"><input type="hidden" name="doc" value="etat"><button class="ghost small">${ico('send')} Au client</button></form>` : ''}` : ''}</div></div>
+${tinted(b) ? `<div class="docs"><div><b>Certificat de pose</b><small>${cert ? `fait le ${esc(dateOf(cert.at))}` : 'à remplir en fin de prestation (teinte de chaque vitre)'}</small></div><div class="btns"><a class="btn ${cert ? 'ghost ' : ''}small" href="${href}/certificat">${cert ? 'Modifier' : 'Faire le certificat'}</a>${cert ? `<a class="btn ghost small" href="${href}/certificat.pdf" target="_blank">PDF</a>${b.email ? `<form method="post" action="${href}/envoyer" class="inline"><input type="hidden" name="doc" value="certificat"><button class="ghost small">${ico('send')} Au client</button></form>` : ''}` : ''}</div></div>` : ''}
+<h3>Avant <small class="dim">${files.filter((f) => f.kind === 'avant').length}</small></h3><div class="thumbs">${thumbs('avant') || '<p class="dim">Pas encore de photo.</p>'}</div>
+<h3>Après <small class="dim">${files.filter((f) => f.kind === 'apres').length}</small></h3><div class="thumbs">${thumbs('apres') || '<p class="dim">Pas encore de photo.</p>'}</div>
+<form method="post" action="${href}/photos" enctype="multipart/form-data" class="photoform"><div class="seg seg--2" role="radiogroup" aria-label="Photos">${[['avant', 'Avant'], ['apres', 'Après']].map(([k, l]) => `<label><input type="radio" name="moment" value="${k}"${(b.stage === 'pret' || b.stage === 'rendu' ? 'apres' : 'avant') === k ? ' checked' : ''}><span><b>${l}</b></span></label>`).join('')}</div>
+<input type="file" name="photos" accept="image/*" multiple data-compress aria-label="Photos"><button class="small">${ico('camera')} Ajouter les photos</button></form></section>
+</div>
+<div class="grid">
+<details class="card fold" id="deplacer"><summary><h2>${ico('cal')} Déplacer le rendez-vous</h2></summary><form method="post" action="${href}/deplacer" data-move data-minutes="${Number(b.minutes) || 120}">
+<div class="row"><div><label for="d-date">Nouvelle date</label><input id="d-date" name="date" type="date" value="${esc(b.date)}" required></div><div><label for="d-heure">Heure</label><input id="d-heure" name="heure" type="time" step="900" value="${esc(b.time)}" required></div></div>
+<div class="slots" data-move-slots aria-live="polite"></div>
+<div class="checks"><label><input type="checkbox" name="prevenir" value="1"${b.email ? ' checked' : ' disabled'}> Prévenir le client par e-mail</label><label><input type="checkbox" name="force" value="1"> Garder ce créneau même s’il chevauche l’agenda</label></div>
+<label for="d-note">Mot pour le client (facultatif)</label><textarea id="d-note" name="note" style="min-height:70px"></textarea>
+<button>${ico('cal')} Déplacer</button></form></details>
+<details class="card fold"><summary><h2 class="danger-link">${ico('trash')} Annuler le rendez-vous</h2></summary><form method="post" action="${href}/annuler">
+${b.paid > 0 ? `<p class="dim" style="margin:0 0 10px">Déjà réglé : <b>${eur(b.paid)}</b>. Que devient-il ?</p><div class="checks radios">${[['report', 'Reporté sur le prochain RDV (noté sur sa fiche)'], ['refund', 'Remboursé en ligne (Stripe, automatique)'], ['refundHand', 'Remboursé à l’atelier (TPE, espèces)'], ['keep', `Conservé (annulation à moins de ${R.cancelHours} h)`]].map(([k, l], i) => `<label><input type="radio" name="acompte" value="${k}"${i ? '' : ' checked'}> ${esc(l)}</label>`).join('')}</div>` : ''}
+<div class="checks"><label><input type="checkbox" name="prevenir" value="1"${b.email ? ' checked' : ' disabled'}> Prévenir le client par e-mail</label><label><input type="checkbox" name="confirme" value="1" required> Je confirme l’annulation</label></div>
+<label for="x-note">Mot pour le client (facultatif)</label><textarea id="x-note" name="note" style="min-height:70px"></textarea>
+<button class="danger">${ico('trash')} Annuler le rendez-vous</button><p class="hint">Le rendez-vous est retiré de l’agenda Google.</p></form></details>
+</div>
+${past ? `<section class="card"><h2>${ico('star')} Avis Google</h2>${b.review_at ? `<p class="ok" style="margin:0">Demandé le ${esc(dateOf(b.review_at))}.</p>` : b.email ? `<p class="dim" style="margin:-6px 0 12px">Une semaine après, le client reçoit « Tout se passe bien ? ». S’il est content, envoyez-lui la demande d’avis.</p><form method="post" action="${href}/avis"><button class="small">${ico('star')} Demander un avis Google</button></form>` : '<p class="dim" style="margin:0">Pas d’e-mail pour ce client.</p>'}</section>` : ''}`;
+}
+
+/** the actions of an appointment's day */
+async function rdvDay(req, env, url, session, what, now) {
+  const href = bookingHref(session);
+  const { booking: b } = await db(env, 'booking/get', { session });
+  if (!b) return back('/atelier/rdv', { err: 'Rendez-vous introuvable.' });
+  const POST = req.method === 'POST';
+  const f = POST && !['etat', 'photos'].includes(what) ? await req.formData() : null;
+  const g = (k) => String(f?.get(k) ?? '').trim();
+  if (what === 'etape' && POST) {
+    const stage = g('etape') === b.stage ? '' : g('etape');
+    const r = await atelierStage(env, session, stage, { mail: true }, now);
+    const dest = /^\/atelier\/journee/.test(g('retour')) ? g('retour') : href;
+    const q = new URLSearchParams(r.ok ? { ok: stage === 'pret' ? (r.mailed ? `Prêt : ${b.first || 'le client'} a reçu l’e-mail « votre véhicule est prêt ».` : 'Prêt (pas d’e-mail envoyé : pas d’adresse ou e-mails clients désactivés).') : stage ? `Étape : ${STAGE_LABEL[stage]}.` : 'Étape retirée.' } : { err: r.error });
+    return redirect(`${dest}${dest.includes('?') ? '&' : '?'}${q}`);
+  }
+  if (what === 'encaisser' && POST) {
+    const r = await atelierPay(env, session, { amount: g('montant'), how: g('moyen'), done: !!f.get('rendu') }, now);
+    return back(href, r.ok ? { ok: `${g('montant')} € encaissés (${(HOW[g('moyen')] || '').toLowerCase()}) : reste ${eur(Math.max(0, r.booking.total - r.booking.paid))}.` } : { err: r.error });
+  }
+  if (what === 'deplacer' && POST) {
+    const r = await atelierMove(env, session, { date: g('date'), time: g('heure'), force: !!f.get('force'), mail: !!f.get('prevenir'), note: g('note') }, now);
+    if (!r.ok) return back(href, { err: r.error });
+    return redirect(`/atelier/journee?${new URLSearchParams({ date: g('date'), ok: `Rendez-vous déplacé au ${dayLabel(g('date'), { weekday: 'long', day: 'numeric', month: 'long' })} à ${hour(g('heure'))}${r.mailed ? ', client prévenu par e-mail' : ''}.` })}`);
+  }
+  if (what === 'annuler' && POST) {
+    if (!f.get('confirme')) return back(href, { err: 'Cochez « Je confirme l’annulation ».' });
+    const r = await atelierCancelBooking(env, session, { deposit: g('acompte'), mail: !!f.get('prevenir'), note: g('note') }, now);
+    return back(href, r.ok ? { ok: `Rendez-vous annulé${r.refunded ? `, ${eur(r.refunded)} remboursés en ligne` : ''}${r.mailed ? ', client prévenu' : ''}.` } : { err: r.error });
+  }
+  if (what === 'avis' && POST) {
+    const r = await atelierReview(env, session, now);
+    const dest = /^\/atelier\/journee/.test(g('retour')) ? g('retour') : href;
+    return redirect(`${dest}${dest.includes('?') ? '&' : '?'}${new URLSearchParams(r.ok ? { ok: `Demande d’avis Google envoyée à ${b.first || 'votre client'}.` } : { err: r.error })}`);
+  }
+  if (what === 'photos' && POST) {
+    const form = await req.formData();
+    const kind = form.get('moment') === 'apres' ? 'apres' : 'avant';
+    let n = 0;
+    let err = '';
+    for (const file of form.getAll('photos')) {
+      if (!file || typeof file !== 'object' || !file.size) continue;
+      const r = await db(env, 'rdv/file/add', { session, kind, name: file.name, type: file.type, data: b64(new Uint8Array(await file.arrayBuffer())), now });
+      if (r.ok) n++;
+      else err = r.error;
+    }
+    return back(`${href}`, n ? { ok: `${n} photo${n > 1 ? 's' : ''} « ${kind === 'apres' ? 'après' : 'avant'} » ajoutée${n > 1 ? 's' : ''}.${err ? ` ${err}` : ''}` } : { err: err || 'Choisissez au moins une photo.' });
+  }
+  if (what === 'etat' && !POST) return checkinPage(env, url, b, now);
+  if (what === 'etat' && POST) {
+    const form = await req.formData();
+    const k = (x) => String(form.get(x) ?? '').trim();
+    const data = { at: now, km: k('km').replace(/\D/g, '').slice(0, 7), plate: k('plaque').toUpperCase().slice(0, 15), checks: form.getAll('points').map(String).filter((x) => CHECKS.some(([c]) => c === x)), notes: k('notes').slice(0, 1500), sign: /^data:image\/png;base64,/.test(k('image')) ? k('image').slice(0, 250000) : '', signName: k('signataire').slice(0, 80) };
+    if (!data.sign) return back(`${href}/etat`, { err: 'Le client signe dans le cadre avant d’enregistrer.' });
+    let n = 0;
+    for (const file of form.getAll('photos')) {
+      if (!file || typeof file !== 'object' || !file.size) continue;
+      if ((await db(env, 'rdv/file/add', { session, kind: 'avant', name: file.name, type: file.type, data: b64(new Uint8Array(await file.arrayBuffer())), now })).ok) n++;
+    }
+    await db(env, 'booking/checkin', { session, data });
+    if (!b.stage) await db(env, 'booking/stage', { session, stage: 'arrive', now });
+    return back(href, { ok: `État des lieux enregistré${n ? ` avec ${n} photo${n > 1 ? 's' : ''}` : ''} : le bon de dépôt est prêt (PDF).` });
+  }
+  if (what === 'certificat' && !POST) return certPage(env, url, b, now);
+  if (what === 'certificat' && POST) {
+    const shades = {};
+    for (const [key] of WINDOWS) {
+      const v = g(`v_${key}`);
+      shades[key] = key === 'pare_brise' ? (Object.hasOwn(WINDSHIELD, v) ? v : '') : /^(5|15|25|35|50|70)$/.test(v) ? v : '';
+    }
+    if (!Object.values(shades).some(Boolean)) return back(`${href}/certificat`, { err: 'Indiquez la teinte d’au moins une vitre.' });
+    if (/^data:image\/png;base64,/.test(g('image'))) await db(env, 'setting/set', { key: 'signature', value: g('image').slice(0, 250000) });
+    await db(env, 'booking/cert', { session, cert: { at: jsonOf(b.cert, null)?.at || now, plate: g('plaque').toUpperCase().slice(0, 15), year: g('annee').replace(/\D/g, '').slice(0, 4), shades, notes: g('notes').slice(0, 1000) } });
+    if (f.get('envoyer')) return sendDoc(env, href, session, 'certificat', now);
+    return back(href, { ok: 'Certificat de pose enregistré : ouvrez le PDF ou envoyez-le au client.' });
+  }
+  if (what === 'envoyer' && POST) return sendDoc(env, href, session, g('doc') === 'etat' ? 'etat' : 'certificat', now);
+  if (what === 'etat.pdf' || what === 'certificat.pdf') {
+    const bytes = await rdvPdf(env, session, what === 'etat.pdf' ? 'etat' : 'certificat');
+    if (!bytes) return back(href, { err: what === 'etat.pdf' ? 'Faites d’abord l’état des lieux.' : 'Remplissez d’abord le certificat.' });
+    return new Response(bytes, { headers: { 'content-type': 'application/pdf', 'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(`${what === 'etat.pdf' ? 'Bon de dépôt' : 'Certificat de pose'} ${name(b)}.pdf`)}`, 'cache-control': 'no-store' } });
+  }
+  return back(href);
+}
+
+/** the PDF of an appointment's check-in or certificate (null when not filled in yet) */
+async function rdvPdf(env, session, doc) {
+  const { booking: b } = await db(env, 'booking/get', { session });
+  const assets = await import('./brand.js').then((m) => m.PDF_ASSETS).catch(() => ({ logo: null }));
+  const logo = assets.logo ? new Uint8Array(assets.logo) : null;
+  if (doc === 'etat') {
+    const ci = jsonOf(b?.checkin, null);
+    if (!ci) return null;
+    const photos = [];
+    for (const f of (await db(env, 'rdv/files', { session })).files.filter((x) => x.kind === 'avant').slice(0, 18)) {
+      const res = await atelierFetch(env, `rdv/file?id=${f.id}`, { method: 'GET' });
+      if (res.ok) photos.push({ bytes: new Uint8Array(await res.arrayBuffer()), type: f.type });
+    }
+    return depositPdf({ ...b, plate: ci.plate || b.plate }, ci, photos, { logo });
+  }
+  const cert = jsonOf(b?.cert, null);
+  if (!cert) return null;
+  const sign = (await db(env, 'setting/get', { key: 'signature' })).value || '';
+  return certificatePdf(b, cert, { logo, sign });
+}
+
+async function sendDoc(env, href, session, doc, now) {
+  const { booking: b } = await db(env, 'booking/get', { session });
+  if (!b?.email) return back(href, { err: 'Ce client n’a pas d’adresse e-mail.' });
+  const bytes = await rdvPdf(env, session, doc);
+  if (!bytes) return back(href, { err: 'Le document n’est pas encore rempli.' });
+  const cert = doc === 'certificat';
+  const ok = await sendRdvDocuments(env, {
+    c: { firstName: b.first, email: b.email },
+    vehicle: b.vehicle,
+    title: cert ? 'Votre certificat de pose' : 'Votre bon de dépôt',
+    text: cert ? 'voici le certificat de pose de vos vitres teintées : la teinte de chaque vitre, le film posé et vos garanties à vie. Gardez-le avec les papiers du véhicule.' : 'voici le bon de dépôt de votre véhicule, avec l’état constaté à son arrivée à l’atelier.',
+    files: [{ filename: `${cert ? 'Certificat de pose' : 'Bon de dépôt'} ${B.name}.pdf`, content: b64(bytes) }],
+  })
+    .then(() => true)
+    .catch((err) => (console.error('[mail] documents', err.message), false));
+  return back(href, ok ? { ok: `${cert ? 'Certificat' : 'Bon de dépôt'} envoyé à ${b.email}.` } : { err: 'L’e-mail n’est pas parti : réessayez.' });
+}
+
+/** the check-in, on the phone at the car: the points, the photos, the client signs */
+async function checkinPage(env, url, b, now) {
+  const ci = jsonOf(b.checkin, {}) || {};
+  const href = bookingHref(b.session);
+  const body = `<a class="crumb" href="${href}">${ico('back')} ${esc(name(b))}</a>
+<h1>État des <em>lieux</em></h1><p class="lead">${esc([b.vehicle, dayLabel(b.date, { weekday: 'long', day: 'numeric', month: 'long' })].filter(Boolean).join(' · '))}. Faites le tour du véhicule avec le client, prenez les photos, il signe : le bon de dépôt est prêt en PDF.</p>
+<form method="post" action="${href}/etat" enctype="multipart/form-data" class="checkin">
+<section class="card"><h2>${ico('car')} Le véhicule</h2><div class="row"><div><label for="c-plaque">Immatriculation</label><input id="c-plaque" name="plaque" value="${esc(ci.plate || b.plate || '')}" style="text-transform:uppercase" autocomplete="off"></div><div><label for="c-km">Kilométrage</label><input id="c-km" name="km" inputmode="numeric" value="${esc(ci.km || '')}" placeholder="facultatif"></div></div></section>
+<section class="card"><h2>${ico('search')} Ce qu’on constate</h2><p class="dim" style="margin:-6px 0 12px">Cochez ce qui est déjà abîmé à l’arrivée. Rien de coché : « rien à signaler ».</p><div class="checks checks--grid">${CHECKS.map(([k, l]) => `<label><input type="checkbox" name="points" value="${k}"${(ci.checks || []).includes(k) ? ' checked' : ''}> ${esc(l)}</label>`).join('')}</div>
+<label for="c-notes">Remarques</label><textarea id="c-notes" name="notes" style="min-height:80px" placeholder="ex. rayure sur la vitre arrière gauche, côté bas">${esc(ci.notes || '')}</textarea></section>
+<section class="card"><h2>${ico('camera')} Photos à l’arrivée</h2><input type="file" name="photos" accept="image/*" multiple data-compress aria-label="Photos à l’arrivée"><p class="hint">Les quatre côtés, les vitres, les optiques, et chaque défaut de près. Elles sont rangées sur le rendez-vous (« Avant ») et dans le bon de dépôt.</p></section>
+<section class="card"><h2>${ico('check')} Signature du client</h2><label for="c-sign">Nom du client</label><input id="c-sign" name="signataire" value="${esc(ci.signName || name(b))}"><label>Le client signe dans le cadre</label><canvas class="pad" aria-label="Cadre de signature"></canvas><input type="hidden" name="image"><div class="btns"><button>${ico('check')} Enregistrer l’état des lieux</button><button type="button" class="ghost" data-clear>Effacer la signature</button></div><p class="hint">« Le client reconnaît l’état du véhicule décrit ci-dessus au moment du dépôt. »</p></section>
+</form>`;
+  return page('État des lieux', '/atelier/rdv', body, url, { now });
+}
+
+/** the tint certificate: the shade of each window (the rear in one go), the workshop's signature */
+async function certPage(env, url, b, now) {
+  const cert = jsonOf(b.cert, {}) || {};
+  const shades = cert.shades || {};
+  const sign = (await db(env, 'setting/get', { key: 'signature' })).value;
+  const href = bookingHref(b.session);
+  const opts = (key) => {
+    const list = key === 'pare_brise' ? [['', 'Non teinté'], ...Object.entries(WINDSHIELD)] : key.startsWith('avant') ? [['', 'Non teintée'], ['70', '70 %']] : [['', 'Non teintée'], ...['5', '15', '25', '35', '50', '70'].map((n) => [n, `${n} %`])];
+    return list.map(([v, l]) => `<option value="${v}"${String(shades[key] || '') === v ? ' selected' : ''}>${esc(l)}</option>`).join('');
+  };
+  const body = `<a class="crumb" href="${href}">${ico('back')} ${esc(name(b))}</a>
+<h1>Certificat de <em>pose</em></h1><p class="lead">${esc(b.vehicle || 'Véhicule')} · teinte de chaque vitre, le film (${esc('nanocéramique, gamme Beluga')}), les garanties à vie : un PDF à remettre au client.</p>
+<form method="post" action="${href}/certificat" class="cert">
+<section class="card"><h2>${ico('car')} Le véhicule</h2><div class="row"><div><label for="t-plaque">Immatriculation</label><input id="t-plaque" name="plaque" value="${esc(cert.plate || jsonOf(b.checkin, {})?.plate || b.plate || '')}" style="text-transform:uppercase" autocomplete="off"></div><div><label for="t-annee">Année</label><input id="t-annee" name="annee" inputmode="numeric" maxlength="4" value="${esc(cert.year || '')}" placeholder="facultatif"></div></div></section>
+<section class="card"><h2>${ico('star')} Les teintes posées</h2>
+<label for="t-rear">Tout l’arrière d’un coup (vitres, custodes, lunette)</label><select id="t-rear" data-rear><option value="">— choisir —</option>${['5', '15', '25', '35', '50', '70'].map((n) => `<option value="${n}">${n} %</option>`).join('')}</select>
+<div class="certgrid">${WINDOWS.map(([key, label]) => `<div><label for="v-${key}">${esc(label)}</label><select id="v-${key}" name="v_${key}"${key.startsWith('arriere') || key.startsWith('custode') || key === 'lunette' ? ' data-rearwin' : ''}>${opts(key)}</select></div>`).join('')}</div>
+<p class="hint">À l’avant (pare-brise et vitres latérales), 70 % minimum, vitre et film ensemble : seules ces teintes sont proposées.</p>
+<label for="t-notes">Remarques (facultatif)</label><textarea id="t-notes" name="notes" style="min-height:60px">${esc(cert.notes || '')}</textarea></section>
+<section class="card"><h2>${ico('check')} Votre signature</h2>${sign ? `<p class="ok" style="margin:0 0 8px">Signature enregistrée : elle figure sur chaque certificat.</p><details><summary>Refaire ma signature</summary><canvas class="pad pad--opt" aria-label="Cadre de signature"></canvas><input type="hidden" name="image"><button type="button" class="ghost small" data-clear>Effacer</button></details>` : `<p class="dim" style="margin:-6px 0 8px">Signez une fois : elle sera reprise sur tous les certificats.</p><canvas class="pad pad--opt" aria-label="Cadre de signature"></canvas><input type="hidden" name="image"><button type="button" class="ghost small" data-clear>Effacer</button>`}</section>
+<div class="btns"><button>${ico('check')} Enregistrer</button>${b.email ? `<button name="envoyer" value="1" class="ghost">${ico('send')} Enregistrer et envoyer au client</button>` : ''}</div>
+</form>`;
+  return page('Certificat de pose', '/atelier/rdv', body, url, { now });
+}
+
+// ---------------------------------------------------------------- the search
+async function searchPage(env, url, now) {
+  const q = String(url.searchParams.get('q') || '').trim().slice(0, 60);
+  const r = q.length >= 2 ? await db(env, 'search', { q }) : { clients: [], bookings: [], quotes: [], pros: [] };
+  const groups = [
+    ['Clients', r.clients.map((c) => [`/atelier/clients/${c.id}`, `${c.first} ${c.last}`.trim() || c.email, [c.phone, c.email, [c.vehicles, c.plate].filter(Boolean).join(' · ')].filter(Boolean).join(' · ')])],
+    ['Rendez-vous', r.bookings.map((b) => [bookingHref(b.session), `${[b.first, b.last].filter(Boolean).join(' ')} — ${dayLabel(b.date, { day: 'numeric', month: 'short', year: 'numeric' })} à ${hour(b.time)}`, [b.vehicle, eur(b.total), b.cancelled ? 'annulé' : ''].filter(Boolean).join(' · ')])],
+    ['Devis', r.quotes.map((x) => [`/atelier/devis/${x.id}`, `${[x.first, x.last].filter(Boolean).join(' ')} — devis n°${x.id}`, [x.vehicle, x.services, QUOTE_STATUS[x.status] || x.status].filter(Boolean).join(' · ')])],
+    ['Pros', r.pros.map((p) => [`/atelier/pros/${p.id}`, p.name, [p.contact, p.code, p.siret].filter(Boolean).join(' · ')])],
+  ].filter(([, l]) => l.length);
+  if (url.searchParams.get('json')) return new Response(JSON.stringify({ q, groups }), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+  const results = groups.map(([t, l]) => `<h3>${esc(t)}</h3><div class="hits">${l.map(([href, title, sub]) => `<a class="hit" href="${esc(href)}"><b>${esc(title)}</b><small>${esc(sub)}</small></a>`).join('')}</div>`).join('');
+  const body = `<h1>Rechercher</h1><form method="get" action="/atelier/recherche" class="searchbox" role="search"><input name="q" value="${esc(q)}" placeholder="Nom, plaque, téléphone, e-mail, code pro…" aria-label="Rechercher" autocomplete="off" autofocus data-search>${ico('search')}</form>
+<div data-search-out aria-live="polite">${q.length >= 2 ? results || `<p class="empty">Rien trouvé pour « ${esc(q)} ».</p>` : '<p class="dim">Tapez au moins deux lettres : un nom, une immatriculation (avec ou sans tirets), un numéro de téléphone, un e-mail, un code pro.</p>'}</div>`;
+  return page('Rechercher', '/atelier/recherche', body, url, { now });
 }

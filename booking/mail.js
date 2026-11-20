@@ -310,7 +310,8 @@ export async function sendFollowUpMail(env, b) {
     .join(' et ');
   const me = (B.owner || '').split(' ')[0] || B.name;
   const p = (html, last = false) => `<p style="margin:0 0 ${last ? 18 : 14}px;font-size:15px;line-height:1.5;color:#111">${html}</p>`;
-  const review = B.google?.reviewUrl;
+  // no Google review link here (21 November 2026): the workshop reads the answer, then asks for
+  // the review by hand when it went well (sendReviewRequest)
   await send(env, {
     to: [c.email],
     reply_to: B.email,
@@ -320,8 +321,6 @@ export async function sendFollowUpMail(env, b) {
       `${p(`Bonjour ${esc(c.firstName)},`)}
 ${p(`Cela fait une semaine que nous nous sommes occupés de votre ${esc(c.vehicle || 'véhicule')} : ${esc(what)}. Je voulais simplement prendre de vos nouvelles, et j’espère que le résultat vous plaît autant qu’à nous !`)}
 ${p(`Si quelque chose vous chiffonne, ou si vous avez la moindre question, <strong>répondez simplement à cet e-mail</strong> ou appelez-moi au <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9a7a2c">${esc(B.phone)}</a> : ce sera avec grand plaisir, et nous trouverons une solution ensemble.`)}
-${review ? `${p('Et si vous avez un petit moment, votre avis sur Google nous aiderait vraiment : pour un atelier comme le nôtre, c’est ce qui compte le plus pour se faire connaître en Touraine.', true)}
-<p style="margin:0 0 6px">${button(review, 'Donner mon avis sur Google')}</p>` : ''}
 <p style="margin:20px 0 0;font-size:15px;line-height:1.5;color:#111">Merci encore pour votre confiance, et à très bientôt à l’atelier,<br><strong>${esc(me)}</strong> — ${esc(B.name)}</p>
 ${b.referral?.code ? giftCard(env, b.referral) : ''}`
     ),
@@ -804,4 +803,107 @@ ${o.code ? `<table role="presentation" width="100%" cellpadding="0" cellspacing=
     sent += batch.length;
   }
   return sent;
+}
+
+
+// ---------------------------------------------------------------- the day of an appointment (21 November 2026)
+const longFr = (date) => new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
+const firstOf = (c) => esc(c.firstName || c.first || '');
+
+/** an appointment moved by the workshop: the new day and time. b: { c, date, time, end, oldDate,
+ *  oldTime, items, total, paid, note } */
+export async function sendBookingMoved(env, b) {
+  const { c } = b;
+  const due = Math.max(0, Math.round(((Number(b.total) || 0) - (Number(b.paid) || 0)) * 100) / 100);
+  return send(env, {
+    to: [c.email],
+    reply_to: B.email,
+    subject: `Votre rendez-vous est déplacé au ${longFr(b.date)} à ${hour(b.time)}`,
+    html: card(
+      { badge: ['Rendez-vous déplacé', 'info'], kicker: 'Votre nouveau rendez-vous', ...bandWhen(b.date, b.time, b.end) },
+      `${intro(b.note ? esc(b.note) : `Bonjour ${firstOf(c)},\ncomme convenu, votre rendez-vous du ${esc(longFr(b.oldDate))} à ${keep(hour(b.oldTime))} est déplacé au <b>${esc(longFr(b.date))} à ${keep(hour(b.time))}</b>.`)}
+${b.items?.length ? services(b.items) : ''}
+${moneyBox([['Total', euros(Number(b.total) || 0)], ['Déjà réglé', b.paid ? gold(euros(b.paid)) : ''], ['À régler à l’atelier', goldStrong(due ? euros(due) : 'rien'), true]], vatNote)}
+${practical(c)}
+${small(`Un empêchement ? Prévenez-nous au plus vite au ${tel()} ou en répondant à cet e-mail.`)}`
+    ),
+  });
+}
+
+/** an appointment cancelled: what becomes of the deposit. b: { c, date, time, paid, deposit:
+ *  'refund' (refunded online), 'refundHand' (refunded at the workshop), 'report' (kept for the next
+ *  appointment), 'keep' (kept: cancelled late), '' (nothing paid), note } */
+export async function sendBookingCancelled(env, b) {
+  const { c } = b;
+  const paid = Number(b.paid) || 0;
+  const what = {
+    refund: `Votre acompte de ${euros(paid)} vous est remboursé sur votre carte : comptez quelques jours selon votre banque.`,
+    refundHand: `Votre acompte de ${euros(paid)} vous est remboursé directement par l’atelier.`,
+    report: `Votre acompte de ${euros(paid)} est conservé : il sera déduit de votre prochain rendez-vous.`,
+    keep: `Comme l’annulation intervient moins de ${R.cancelHours} h avant le rendez-vous, l’acompte de ${euros(paid)} reste acquis à l’atelier, selon nos conditions de réservation.`,
+  }[b.deposit] || '';
+  return send(env, {
+    to: [c.email],
+    reply_to: B.email,
+    subject: `Votre rendez-vous du ${longFr(b.date)} est annulé`,
+    html: card(
+      { badge: ['Rendez-vous annulé', 'wait'], kicker: 'Rendez-vous annulé', ...bandWhen(b.date, b.time) },
+      `${intro(b.note ? esc(b.note) : `Bonjour ${firstOf(c)},\nvotre rendez-vous du ${esc(longFr(b.date))} à ${keep(hour(b.time))} est bien annulé.`)}
+${paid && what ? moneyBox([['Acompte', gold(euros(paid))]], '') + small(esc(what)) : ''}
+${small(`Pour reprendre un rendez-vous, répondez à cet e-mail ou appelez-nous au ${tel()} : ce sera avec plaisir.`)}`
+    ),
+  });
+}
+
+/** the car is ready: come and fetch it. b: { c, vehicle, due, tint (window tint done: the advice) } */
+export async function sendVehicleReady(env, b) {
+  const { c } = b;
+  const due = Math.max(0, Number(b.due) || 0);
+  return send(env, {
+    to: [c.email],
+    reply_to: B.email,
+    subject: `${b.vehicle ? `Votre ${b.vehicle}` : 'Votre véhicule'} est prêt`,
+    html: card(
+      { badge: ['Votre véhicule est prêt', 'ok'], kicker: 'Vous pouvez venir le chercher', big: esc(b.vehicle || 'Votre véhicule'), sub: due ? `Reste à régler : ${keep(euros(due))}` : 'Tout est réglé' },
+      `${intro(`Bonjour ${firstOf(c)},\nbonne nouvelle : ${b.vehicle ? `votre ${esc(b.vehicle)} est prêt` : 'votre véhicule est prêt'}. Vous pouvez passer le récupérer à l’atelier.`)}
+${due ? moneyBox([['À régler à l’atelier', goldStrong(euros(due)), true]], 'Carte bancaire, espèces ou virement.') : ''}
+${practical(c, true)}
+${b.tint ? small('Pour vos vitres teintées : ne les descendez pas pendant 3 à 4 jours, le temps que le film sèche. Un léger voile ou de petites gouttelettes peuvent apparaître quelques jours : c’est normal, ils disparaissent seuls.') : ''}
+${small(`Une question ? Appelez-nous au ${tel()}.`)}`
+    ),
+  });
+}
+
+/** the Google review, asked by the workshop when the client said all went well */
+export async function sendReviewRequest(env, b) {
+  const { c } = b;
+  const review = B.google?.reviewUrl;
+  if (!review) throw new Error('lien d’avis Google manquant');
+  const me = (B.owner || '').split(' ')[0] || B.name;
+  return send(env, {
+    to: [c.email],
+    reply_to: B.email,
+    subject: `Un petit mot sur Google pour ${B.name} ?`,
+    html: card(
+      { badge: ['Merci pour votre confiance', 'ok'], kicker: 'Votre avis compte', big: 'Un petit mot sur Google ?' },
+      `${intro(`Bonjour ${firstOf(c)},\nmerci pour votre retour, ça me fait vraiment plaisir que le résultat vous plaise${b.vehicle ? ` sur votre ${esc(b.vehicle)}` : ''} !`)}
+${intro('Si vous avez une minute, votre avis sur Google nous aiderait beaucoup : pour un atelier indépendant comme le nôtre, c’est ce qui compte le plus pour se faire connaître en Touraine.')}
+${action(review, 'Donner mon avis sur Google')}
+${small(`Merci d’avance, et à bientôt à l’atelier,<br><b>${esc(me)}</b> — ${esc(B.name)}`)}`
+    ),
+  });
+}
+
+/** documents of the appointment (certificate, check-in) to the client, as PDF attachments.
+ *  b: { c, vehicle, files: [{ filename, content (base64) }], title, text } */
+export async function sendRdvDocuments(env, b) {
+  const { c } = b;
+  return send(env, {
+    to: [c.email],
+    reply_to: B.email,
+    subject: b.title,
+    html: card({ badge: [b.title, 'ok'], kicker: B.name, big: esc(b.vehicle || 'Votre véhicule') }, `${intro(`Bonjour ${firstOf(c)},\n${esc(b.text)}`)}
+${small(`Le document est joint à cet e-mail (PDF) : gardez-le précieusement. Une question ? ${tel()}.`)}`),
+    attachments: b.files,
+  });
 }

@@ -339,7 +339,38 @@ html.js #rdv:not(:has([name=mode][value=tpe]:checked)) .tpebox{display:none}
 .pro:hover{border-color:rgba(var(--gold-rgb),.5)}.pro>span:last-child{min-width:0}.pro b{display:block;color:var(--text)}.pro small{display:block;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pro__logo,.avatar--logo{width:60px;height:60px;border-radius:14px;background:#fff;display:grid;place-items:center;overflow:hidden;flex:none;color:#111}
 .pro__logo img,.avatar--logo img{max-width:52px;max-height:52px;object-fit:contain}
-.remise.remise--btn{grid-template-columns:minmax(0,1fr) auto}.remise--btn button{white-space:nowrap;padding-left:16px;padding-right:18px;border-radius:14px}
+.remise.remise--btn{grid-template-columns:minmax(0,1fr) auto}
+/* the search: in the rail (« / » on a computer), a loupe in the top bar of a phone */
+.railsearch{display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:10px 12px;border-radius:14px;border:1px solid var(--line-2);background:rgba(0,0,0,.3);color:var(--dim);text-decoration:none;font-size:14px}.railsearch:hover{color:var(--text);border-color:rgba(var(--gold-rgb),.45)}.railsearch span{flex:1}.railsearch kbd{font:600 11px/1 inherit;padding:3px 6px;border-radius:6px;border:1px solid var(--line-2)}
+.topsearch{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;border:1px solid var(--line-2);color:var(--text);margin-left:auto}.topsearch .ico{width:19px;height:19px}
+.searchbox{position:relative;margin:0 0 18px}.searchbox input{padding-left:46px;font-size:17px;height:54px;border-radius:16px}.searchbox .ico{position:absolute;left:16px;top:17px;width:20px;height:20px;color:var(--gold-2)}
+/* the month's money on the home page */
+.ca__head{display:flex;align-items:center;justify-content:space-between;gap:12px}.ca__head h2{margin:0}
+.ca__big{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 14px;margin:14px 0 6px}.ca__big b{font-size:clamp(34px,7vw,46px);letter-spacing:-.03em;color:var(--gold-2);line-height:1}.ca__big span{color:var(--dim)}
+.goal{margin:8px 0 4px}.goal__bar{height:10px;border-radius:6px;background:rgba(255,255,255,.07);overflow:hidden}.goal__bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,rgba(var(--gold-rgb),.65),var(--gold-2));box-shadow:0 0 18px rgba(var(--gold-rgb),.45)}.goal span{display:block;margin-top:6px;font-size:13px;color:var(--dim)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.kpis>div{padding:12px;border-radius:14px;background:rgba(0,0,0,.28);border:1px solid var(--line)}.kpis small{display:block;color:var(--dim);font-size:12px}.kpis b{font-size:18px}
+.goalset{margin-top:12px}.goalset summary{cursor:pointer;color:var(--dim);font-size:13px}.goalset form{margin-top:8px;max-width:360px}
+/* « Ma journée » */
+.dayhead{display:flex;align-items:center;gap:12px;margin:0 0 18px}.dayhead h1{margin:0}.dayhead>a:first-child,.dayhead>a:nth-child(3){font-size:22px;width:44px;height:44px;padding:0;justify-content:center}
+.daylist{display:grid;gap:12px;margin:0 0 18px}
+.dayrdv{display:grid;grid-template-columns:72px minmax(0,1fr);gap:14px;padding:16px;border-radius:20px;border:1px solid var(--line-2);background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(0,0,0,.25));position:relative;overflow:hidden}
+.dayrdv::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line-2)}.dayrdv.stage--arrive::before,.dayrdv.stage--encours::before{background:var(--amber)}.dayrdv.stage--pret::before{background:var(--ok)}.dayrdv.stage--rendu{opacity:.72}.dayrdv.stage--rendu::before{background:var(--dim)}.dayrdv--depot::before{background:var(--blue)}
+.dayrdv__time b{display:block;font-size:20px;color:var(--gold-2)}.dayrdv__time small{color:var(--dim)}
+.dayrdv__main h3{margin:0 0 4px;font-size:17px;text-transform:none;letter-spacing:0;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap}.dayrdv__main h3 a{color:var(--text);text-decoration:none}.dayrdv__main p{margin:2px 0}.dayrdv__money{font-size:14px;margin-top:6px!important}.ok{color:var(--ok)}
+.dayrdv__docs{margin-top:10px}
+.stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:12px 0 0}.stage{padding:10px 6px;border-radius:12px;border:1px solid var(--line-2);background:rgba(0,0,0,.3);color:var(--text-2);font:inherit;font-weight:650;font-size:13px;cursor:pointer}.stage.is-on{background:linear-gradient(180deg,var(--gold-2),var(--gold));color:#141006;border-color:transparent;box-shadow:0 6px 20px -8px rgba(var(--gold-rgb),.7)}
+.stagebar .stages{margin:0}
+/* the papers and the photos of an appointment */
+.docs{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-bottom:1px solid var(--line)}.docs small{display:block;color:var(--dim);font-size:12px}.docs .btns{margin:0}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:6px 0 10px}.thumbs>p{grid-column:1/-1;margin:0}.thumb{position:relative;margin:0;aspect-ratio:1;border-radius:12px;overflow:hidden;background:rgba(0,0,0,.35)}.thumb img{width:100%;height:100%;object-fit:cover;display:block}.thumb form{position:absolute;right:4px;top:4px}.thumb button{padding:4px 6px;background:rgba(0,0,0,.55)}
+.photoform{display:grid;gap:10px;margin-top:12px}
+.fold>summary{list-style:none;cursor:pointer}.fold>summary::-webkit-details-marker{display:none}.fold>summary h2{margin:0}.fold[open]>summary{margin-bottom:14px}
+.checks--grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px}.radios label{display:block}
+.certgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 14px;margin-top:8px}
+.slot.is-on{background:rgba(var(--gold-rgb),.18);border-color:rgba(var(--gold-rgb),.7)}
+.now__day{align-self:flex-start;margin-top:12px}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.dayrdv{grid-template-columns:minmax(0,1fr);gap:6px}.dayrdv__time{display:flex;gap:8px;align-items:baseline}.checks--grid,.certgrid{grid-template-columns:minmax(0,1fr)}.stage{font-size:12px;padding:10px 2px}}
+@media (min-width:1001px){.topsearch{display:none}}.remise--btn button{white-space:nowrap;padding-left:16px;padding-right:18px;border-radius:14px}
 /* the companies found by name: one to choose */
 .hits{display:grid;gap:8px;margin-top:14px}.hit{text-align:left;font:inherit;font-weight:400;width:100%;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line-2);background:rgba(0,0,0,.28);color:inherit;text-decoration:none}
 .hit:hover{border-color:rgba(var(--gold-rgb),.55)}.hit b{grid-column:1;color:var(--text)}.hit small{grid-column:1;color:var(--dim);font-size:12px}.hit__go{grid-column:2;grid-row:1/4;align-self:center;color:var(--gold-2);font-weight:700;font-size:13px}
@@ -903,18 +934,123 @@ export const JS = String.raw`(function () {
       }).catch(function () { out.textContent = 'Recherche par le serveur…'; f.submit(); });
     });
   })();
-  // the signature pad (a partnership agreement countersigned by the workshop)
+  // the signature pads (an agreement countersigned, a check-in signed by the client, the workshop's
+  // signature for the certificates): drawn with a finger or the mouse; « pad--opt » may stay empty
   Array.prototype.forEach.call(d.querySelectorAll('canvas.pad'), function (cv) {
-    var x = cv.getContext('2d'), r = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight, dirty = false, last = null;
-    cv.width = w * r; cv.height = h * r; x.scale(r, r); x.lineWidth = 2.4; x.lineCap = 'round'; x.lineJoin = 'round'; x.strokeStyle = '#111';
+    var x = null, w = 0, h = 0, dirty = false, last = null;
+    function setup() {
+      if (x || !cv.clientWidth) return;
+      var r = window.devicePixelRatio || 1;
+      w = cv.clientWidth; h = cv.clientHeight;
+      cv.width = w * r; cv.height = h * r;
+      x = cv.getContext('2d'); x.scale(r, r); x.lineWidth = 2.4; x.lineCap = 'round'; x.lineJoin = 'round'; x.strokeStyle = '#111';
+    }
+    setup();
+    var fold = cv.closest('details');
+    if (fold) fold.addEventListener('toggle', setup);
     function at(e) { var b = cv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; }
-    cv.addEventListener('pointerdown', function (e) { last = at(e); e.preventDefault(); });
-    cv.addEventListener('pointermove', function (e) { if (!last) return; var q = at(e); x.beginPath(); x.moveTo(last[0], last[1]); x.lineTo(q[0], q[1]); x.stroke(); last = q; dirty = true; e.preventDefault(); });
+    cv.addEventListener('pointerdown', function (e) { setup(); last = at(e); e.preventDefault(); });
+    cv.addEventListener('pointermove', function (e) { if (!last || !x) return; var q = at(e); x.beginPath(); x.moveTo(last[0], last[1]); x.lineTo(q[0], q[1]); x.stroke(); last = q; dirty = true; e.preventDefault(); });
     ['pointerup', 'pointercancel'].forEach(function (k) { window.addEventListener(k, function () { last = null; }); });
     var f = cv.closest('form'), clr = f.querySelector('[data-clear]');
-    if (clr) clr.addEventListener('click', function () { x.clearRect(0, 0, w, h); dirty = false; });
-    f.addEventListener('submit', function (e) { if (!dirty) { e.preventDefault(); alert('Signez dans le cadre blanc.'); return; } f.querySelector('[name=image]').value = cv.toDataURL('image/png'); });
+    if (clr) clr.addEventListener('click', function () { if (x) x.clearRect(0, 0, w, h); dirty = false; });
+    f.addEventListener('submit', function (e) {
+      var out = f.querySelector('[name=image]');
+      if (dirty) { out.value = cv.toDataURL('image/png'); return; }
+      if (cv.classList.contains('pad--opt')) return;
+      e.preventDefault(); alert('Signez dans le cadre blanc.');
+    });
   });
+  // photos: made lighter in the browser before they leave (1600 px, JPEG): a phone's photo of
+  // 4 MB goes as 300 KB
+  Array.prototype.forEach.call(d.querySelectorAll('input[type=file][data-compress]'), function (inp) {
+    if (!window.DataTransfer || !window.createImageBitmap) return;
+    var busy = false;
+    inp.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(inp.files || []);
+      if (!files.length || busy) return;
+      busy = true;
+      var form = inp.closest('form'), btns = form.querySelectorAll('button');
+      Array.prototype.forEach.call(btns, function (b) { b.disabled = true; });
+      Promise.all(files.map(function (file) {
+        if (!/^image\//.test(file.type)) return Promise.resolve(null);
+        return createImageBitmap(file).then(function (img) {
+          var k = Math.min(1, 1600 / Math.max(img.width, img.height));
+          var c = d.createElement('canvas');
+          c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          return new Promise(function (ok) { c.toBlob(function (bl) { ok(bl ? new File([bl], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : file); }, 'image/jpeg', 0.82); });
+        }).catch(function () { return file; });
+      })).then(function (out) {
+        var dt = new DataTransfer();
+        out.forEach(function (f) { if (f) dt.items.add(f); });
+        inp.files = dt.files;
+      }).finally(function () { busy = false; Array.prototype.forEach.call(btns, function (b) { b.disabled = false; }); });
+    });
+  });
+  // the certificate: the whole rear in one go
+  (function () {
+    var rear = d.querySelector('[data-rear]');
+    if (rear) rear.addEventListener('change', function () { if (!rear.value) return; Array.prototype.forEach.call(d.querySelectorAll('[data-rearwin]'), function (s) { s.value = rear.value; }); });
+  })();
+  // moving an appointment: the free start times of the day chosen, one tap to take one
+  (function () {
+    var f = d.querySelector('form[data-move]');
+    if (!f) return;
+    var out = f.querySelector('[data-move-slots]'), date = f.elements.date, time = f.elements.heure;
+    function load() {
+      if (!date.value) return;
+      out.textContent = 'Créneaux libres…';
+      fetch('/atelier/creneaux?date=' + date.value + '&minutes=' + (f.getAttribute('data-minutes') || 120), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+        out.textContent = '';
+        var times = (j && j.times) || [];
+        if (!times.length) { out.textContent = (j && j.error) || 'Aucun créneau libre ce jour-là : tapez l’heure vous-même.'; return; }
+        times.forEach(function (t) {
+          var b = d.createElement('button');
+          b.type = 'button'; b.className = 'slot' + (t === time.value ? ' is-on' : ''); b.textContent = t.replace(':', ' h ');
+          b.addEventListener('click', function () { time.value = t; Array.prototype.forEach.call(out.querySelectorAll('.slot'), function (x) { x.classList.toggle('is-on', x === b); }); });
+          out.appendChild(b);
+        });
+      }).catch(function () { out.textContent = 'Agenda indisponible : tapez l’heure vous-même.'; });
+    }
+    date.addEventListener('change', load);
+    var fold = f.closest('details');
+    if (fold) fold.addEventListener('toggle', function () { if (fold.open && !out.childNodes.length) load(); });
+  })();
+  // the search: results as you type; « / » opens it from any page of a computer
+  (function () {
+    var q = d.querySelector('[data-search]'), out = d.querySelector('[data-search-out]'), t;
+    if (q && out) q.addEventListener('input', function () {
+      clearTimeout(t);
+      t = setTimeout(function () {
+        var v = q.value.trim();
+        if (v.length < 2) return;
+        fetch('/atelier/recherche?json=1&q=' + encodeURIComponent(v), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+          if (q.value.trim() !== v) return;
+          out.textContent = '';
+          if (!j.groups.length) { var p = d.createElement('p'); p.className = 'empty'; p.textContent = 'Rien trouvé pour « ' + v + ' ».'; out.appendChild(p); return; }
+          j.groups.forEach(function (g) {
+            var h = d.createElement('h3'); h.textContent = g[0]; out.appendChild(h);
+            var box = d.createElement('div'); box.className = 'hits';
+            g[1].forEach(function (it) {
+              var a = d.createElement('a'); a.className = 'hit'; a.href = it[0];
+              var b = d.createElement('b'); b.textContent = it[1]; a.appendChild(b);
+              var s = d.createElement('small'); s.textContent = it[2]; a.appendChild(s);
+              box.appendChild(a);
+            });
+            out.appendChild(box);
+          });
+          history.replaceState(null, '', '/atelier/recherche?q=' + encodeURIComponent(v));
+        }).catch(function () {});
+      }, 180);
+    });
+    d.addEventListener('keydown', function (e) {
+      var el = e.target;
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable) return;
+      e.preventDefault();
+      if (q) q.focus(); else location.href = '/atelier/recherche';
+    });
+  })();
   // « Ajouter une prestation » to an appointment: the preset fills the line, the price after discount shown
   (function () {
     var form = d.getElementById('ajout');

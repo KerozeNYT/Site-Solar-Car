@@ -331,6 +331,22 @@ export class Atelier {
     ])
       if (!bcols.has(col)) x(`ALTER TABLE bookings ADD COLUMN ${col} ${def}`);
     x('CREATE INDEX IF NOT EXISTS bookings_member ON bookings (member)');
+    // the day of an appointment at the workshop (« Ma journée », 21 November 2026): its stage
+    // (arrive, encours, pret, rendu), the check-in (km, points, notes, the client's signature),
+    // the tint certificate, cancelled, the Google review asked for
+    for (const [col, def] of [
+      ['stage', "TEXT NOT NULL DEFAULT ''"],
+      ['stage_at', 'INTEGER NOT NULL DEFAULT 0'],
+      ['checkin', "TEXT NOT NULL DEFAULT ''"],
+      ['cert', "TEXT NOT NULL DEFAULT ''"],
+      ['cancelled', 'INTEGER NOT NULL DEFAULT 0'],
+      ['cancel_note', "TEXT NOT NULL DEFAULT ''"],
+      ['review_at', 'INTEGER NOT NULL DEFAULT 0'],
+    ])
+      if (!bcols.has(col)) x(`ALTER TABLE bookings ADD COLUMN ${col} ${def}`);
+    // the photos of an appointment: before (the check-in) and after
+    x('CREATE TABLE IF NOT EXISTS rdv_files (id INTEGER PRIMARY KEY AUTOINCREMENT, session TEXT NOT NULL, kind TEXT NOT NULL DEFAULT \'avant\', name TEXT NOT NULL DEFAULT \'\', type TEXT NOT NULL DEFAULT \'\', size INTEGER NOT NULL DEFAULT 0, data BLOB, at INTEGER NOT NULL)');
+    x('CREATE INDEX IF NOT EXISTS rdv_files_session ON rdv_files (session)');
   }
 
   all(q, ...b) {
@@ -391,6 +407,10 @@ export class Atelier {
     if (r.used) return { ok: false, error: 'Ce code de parrainage a déjà été utilisé.' };
     if (r.expires < now) return { ok: false, error: 'Ce code de parrainage a expiré.' };
     return { ok: true, kind: 'parrainage', code: r.code, label: 'Parrainage', owner: r.owner, amount: R.referral.amount, expires: r.expires };
+  }
+  /** one appointment with its client */
+  bookingRow(session) {
+    return this.one('SELECT b.*, c.first, c.last, c.phone, c.email FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.session = ?', clip(session, 120));
   }
   /** the terms of the professionals (booking/pro-sheet.js PRO_TERMS, changed in the space) */
   proTerms() {
@@ -583,6 +603,11 @@ export class Atelier {
     // an e-mail to the discussion relay (booking/worker.js, email handler)
     if (path === 'mail/in') return Response.json(await this.mailIn(req));
     // a file of a discussion, as it is
+    // a photo of an appointment, as it is
+    if (path === 'rdv/file') {
+      const f = this.one('SELECT type, data FROM rdv_files WHERE id = ?', Number(new URL(req.url).searchParams.get('id')));
+      return f?.data ? new Response(f.data, { headers: { 'content-type': f.type || 'image/jpeg' } }) : new Response('not found', { status: 404 });
+    }
     // a professional's logo, as it is
     if (path === 'pro/logo') {
       const f = this.one('SELECT logo, logo_type FROM pros WHERE id = ? AND logo IS NOT NULL', Number(new URL(req.url).searchParams.get('id')));
@@ -1102,6 +1127,7 @@ export class Atelier {
           'INSERT INTO bookings (session, client_id, event, date, time, minutes, items, total, discount, code, code_kind, mode, paid, vehicle, live, created, gift, gift_amount, member) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           clip(b.session, 120), id, clip(b.event, 120), clip(b.date, 10), clip(b.time, 5), Number(b.minutes) || 0, JSON.stringify(b.items || []).slice(0, 2000), Number(b.total) || 0, Number(b.discount) || 0, referralCode(b.code), clip(b.codeKind, 20), clip(b.mode, 10), Number(b.paid) || 0, clip(b.customer?.vehicle, 80), b.live === false ? 0 : 1, Number(b.created) || now, b.gift ? referralCode(b.gift) : '', round2(b.giftAmount), member?.number || ''
         );
+        if (b.mode === 'tpe' && Number(b.paid) > 0) this.run('UPDATE bookings SET payments = ? WHERE session = ?', JSON.stringify([{ ref: 'tpe', amount: Math.round(Number(b.paid) * 100) / 100, at: now, how: 'tpe' }]), clip(b.session, 120));
         // (a member's appointment counts for the levels on its day: member/count, the morning job)
         // a link sent by the workshop, now paid: the quote it answered is « Validé »
         const link = this.one("SELECT * FROM links WHERE session = ? AND session <> ''", clip(b.session, 120));
@@ -1293,9 +1319,113 @@ export class Atelier {
         })();
         if (payments.some((p) => p.ref === b.ref)) return { ok: true, again: true, booking: row };
         const amount = Math.round((Number(b.amount) || 0) * 100) / 100;
-        payments.push({ ref: clip(b.ref, 120), amount, at: now });
+        payments.push({ ref: clip(b.ref, 120), amount, at: now, ...(b.how ? { how: clip(b.how, 12) } : {}) });
         this.run('UPDATE bookings SET paid = ?, payments = ? WHERE session = ?', Math.round((row.paid + amount) * 100) / 100, JSON.stringify(payments), row.session);
         return { ok: true, booking: this.one('SELECT b.*, c.first, c.last, c.phone, c.email FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.session = ?', row.session) };
+      }
+      // ------------------------------------------------ the day of an appointment (« Ma journée »)
+      case 'booking/stage': {
+        if (!['', 'arrive', 'encours', 'pret', 'rendu'].includes(b.stage)) return { ok: false, error: 'Étape inconnue.' };
+        this.run('UPDATE bookings SET stage = ?, stage_at = ? WHERE session = ?', b.stage, now, clip(b.session, 120));
+        return { ok: true, booking: this.bookingRow(b.session) };
+      }
+      case 'booking/move':
+        this.run('UPDATE bookings SET date = ?, time = ? WHERE session = ?', clip(b.date, 10), clip(b.time, 5), clip(b.session, 120));
+        this.run("UPDATE links SET date = ?, time = ? WHERE session = ? AND session <> ''", clip(b.date, 10), clip(b.time, 5), clip(b.session, 120));
+        return { ok: true, booking: this.bookingRow(b.session) };
+      case 'booking/cancel':
+        this.run('UPDATE bookings SET cancelled = ?, cancel_note = ? WHERE session = ?', now, clip(b.note, 300), clip(b.session, 120));
+        this.run("UPDATE links SET status = 'annule' WHERE session = ? AND session <> ''", clip(b.session, 120));
+        return { ok: true, booking: this.bookingRow(b.session) };
+      // the check-in (b.data) or the certificate (b.cert), kept as given (JSON)
+      case 'booking/checkin':
+        this.run('UPDATE bookings SET checkin = ? WHERE session = ?', JSON.stringify(b.data || {}).slice(0, 300000), clip(b.session, 120));
+        return { ok: true, booking: this.bookingRow(b.session) };
+      case 'booking/cert':
+        this.run('UPDATE bookings SET cert = ? WHERE session = ?', JSON.stringify(b.cert || {}).slice(0, 300000), clip(b.session, 120));
+        return { ok: true, booking: this.bookingRow(b.session) };
+      // a line added to the notes of a client's card (a deposit carried over…)
+      case 'client/note': {
+        const c = this.one('SELECT id, notes FROM clients WHERE id = ?', Number(b.id) || 0);
+        if (!c) return { ok: false };
+        const day = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: R.timeZone }).format(new Date(now));
+        this.run('UPDATE clients SET notes = ? WHERE id = ?', `${c.notes ? `${c.notes}\n` : ''}${day} : ${clip(b.text, 300)}`.slice(-4000), c.id);
+        return { ok: true };
+      }
+      case 'booking/review':
+        this.run('UPDATE bookings SET review_at = ? WHERE session = ?', now, clip(b.session, 120));
+        return { ok: true };
+      // photos: b.data in base64 (JPEG or PNG, 1.8 MB at most once compressed by the page)
+      case 'rdv/file/add': {
+        const type = /^image\/(jpeg|png|webp)$/.test(String(b.type)) ? String(b.type) : '';
+        let bytes = null;
+        try {
+          bytes = Uint8Array.from(atob(String(b.data || '')), (ch) => ch.charCodeAt(0));
+        } catch {}
+        if (!type || !bytes?.length) return { ok: false, error: 'Photo illisible.' };
+        if (bytes.length > 1.8 * 1024 * 1024) return { ok: false, error: 'Photo trop lourde (1,8 Mo au plus).' };
+        if (this.one('SELECT COUNT(*) AS n FROM rdv_files WHERE session = ?', clip(b.session, 120)).n >= 40) return { ok: false, error: '40 photos au plus par rendez-vous.' };
+        this.run('INSERT INTO rdv_files (session, kind, name, type, size, data, at) VALUES (?, ?, ?, ?, ?, ?, ?)', clip(b.session, 120), b.kind === 'apres' ? 'apres' : 'avant', clip(b.name, 120), type, bytes.length, blob(bytes), now);
+        return { ok: true, id: this.one('SELECT last_insert_rowid() AS id').id };
+      }
+      case 'rdv/files':
+        return { files: this.all('SELECT id, kind, name, type, size, at FROM rdv_files WHERE session = ? ORDER BY at, id', clip(b.session, 120)) };
+      case 'rdv/file/delete':
+        this.run('DELETE FROM rdv_files WHERE id = ? AND session = ?', Number(b.id) || 0, clip(b.session, 120));
+        return { ok: true };
+      // the money of a day (Paris): what was taken at the workshop, by means of payment
+      case 'day/cash': {
+        const from = Number(b.from) || 0;
+        const to = Number(b.to) || 0;
+        const out = {};
+        const lines = [];
+        for (const row of this.all("SELECT b.session, b.payments, c.first, c.last FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.payments <> '[]' AND b.payments <> ''")) {
+          let pays = [];
+          try {
+            pays = JSON.parse(row.payments || '[]');
+          } catch {}
+          for (const p of pays)
+            if (p.at >= from && p.at < to) {
+              const how = p.how || (String(p.ref).startsWith('cs_') ? 'stripe' : 'autre');
+              out[how] = Math.round(((out[how] || 0) + Number(p.amount || 0)) * 100) / 100;
+              lines.push({ session: row.session, who: [row.first, row.last].filter(Boolean).join(' '), how, amount: Number(p.amount || 0), at: p.at });
+            }
+        }
+        return { byHow: out, lines: lines.sort((x, y) => x.at - y.at) };
+      }
+      // the month: what is booked, what is paid, the quotes, the goal
+      case 'month/summary': {
+        const m = clip(b.month, 7);
+        const rows = this.all('SELECT total, paid, payments, created, cancelled FROM bookings WHERE substr(date, 1, 7) = ? AND live = 1', m);
+        const kept = rows.filter((r) => !r.cancelled);
+        const ca = Math.round(kept.reduce((a, r) => a + (Number(r.total) || 0), 0) * 100) / 100;
+        const paid = Math.round(kept.reduce((a, r) => a + (Number(r.paid) || 0), 0) * 100) / 100;
+        const start = zonedToUtc(`${m}-01`, '00:00', R.timeZone);
+        const end = zonedToUtc(addDays(`${m}-01`, 32).slice(0, 7) + '-01', '00:00', R.timeZone);
+        const asked = this.one('SELECT COUNT(*) AS n FROM requests WHERE at >= ? AND at < ?', start, end).n;
+        const won = this.one("SELECT COUNT(*) AS n FROM requests WHERE at >= ? AND at < ? AND status = 'valide'", start, end).n;
+        return { month: m, n: kept.length, cancelled: rows.length - kept.length, ca, paid, left: Math.max(0, Math.round((ca - paid) * 100) / 100), basket: kept.length ? Math.round((ca / kept.length) * 100) / 100 : 0, asked, won, goal: Number(this.setting('monthGoal', 0)) || 0 };
+      }
+      case 'month/goal':
+        this.set('monthGoal', Math.max(0, Math.min(1000000, Math.round(Number(String(b.goal ?? '').replace(/\s/g, '').replace(',', '.')) || 0))));
+        return { ok: true };
+      // the search of the space: a name, a plate, a phone, an e-mail, a code
+      case 'search': {
+        const raw = clip(b.q, 60).trim();
+        if (raw.length < 2) return { clients: [], bookings: [], quotes: [], pros: [] };
+        const q = `%${raw.toLowerCase()}%`;
+        const flat = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const f = flat.length >= 3 ? `%${flat}%` : '§';
+        const digits = raw.replace(/\D/g, '');
+        const d = digits.length >= 4 ? `%${digits.replace(/^0/, '')}%` : '§';
+        const plate = (col) => `replace(replace(upper(${col}), '-', ''), ' ', '')`;
+        const phone = (col) => `replace(replace(replace(${col}, ' ', ''), '.', ''), '-', '')`;
+        return {
+          clients: this.all(`SELECT id, first, last, email, phone, vehicles, plate FROM clients WHERE lower(first || ' ' || last || ' ' || last || ' ' || first || ' ' || email || ' ' || vehicles) LIKE ? OR ${plate('plate')} LIKE ? OR ${phone('phone')} LIKE ? ORDER BY last_seen DESC LIMIT 8`, q, f, d),
+          bookings: this.all(`SELECT b.session, b.date, b.time, b.vehicle, b.total, b.cancelled, c.first, c.last FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE lower(c.first || ' ' || c.last || ' ' || c.last || ' ' || c.first || ' ' || b.vehicle || ' ' || c.email) LIKE ? OR ${plate('c.plate')} LIKE ? OR ${phone('c.phone')} LIKE ? ORDER BY b.date DESC LIMIT 8`, q, f, d),
+          quotes: this.all(`SELECT r.id, r.at, r.status, r.vehicle, r.services, c.first, c.last FROM requests r LEFT JOIN clients c ON c.id = r.client_id WHERE lower(c.first || ' ' || c.last || ' ' || c.last || ' ' || c.first || ' ' || r.vehicle || ' ' || r.services || ' ' || c.email) LIKE ? OR ${phone('c.phone')} LIKE ? OR CAST(r.id AS TEXT) = ? ORDER BY r.at DESC LIMIT 8`, q, d, raw.replace(/^n°\s*/i, '')),
+          pros: this.all(`SELECT id, name, contact, code, siret FROM pros WHERE lower(name || ' ' || contact || ' ' || email) LIKE ? OR upper(code) LIKE ? OR siret LIKE ? ORDER BY name LIMIT 6`, q, f, d),
+        };
       }
       case 'bookings/list': {
         const where = b.from ? 'WHERE b.date BETWEEN ? AND ?' : '';

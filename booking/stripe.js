@@ -31,6 +31,8 @@ async function call(env, method, path, params) {
 export const createSession = (env, params) => call(env, 'POST', '/checkout/sessions', params);
 export const getSession = (env, id) => call(env, 'GET', `/checkout/sessions/${encodeURIComponent(id)}`);
 export const expireSession = (env, id) => call(env, 'POST', `/checkout/sessions/${encodeURIComponent(id)}/expire`, {});
+/** a payment given back (an appointment cancelled in time): { payment_intent, amount (cents) } */
+export const refund = (env, params) => call(env, 'POST', '/refunds', params);
 
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 
