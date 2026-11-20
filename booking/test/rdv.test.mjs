@@ -634,3 +634,17 @@ test('« Ma journée »: the stages (« prêt » e-mailed), the rest taken, the 
   assert.match(mails.find((m) => m.to[0] === 'hugo@example.com').html, /conservé : il sera déduit de votre prochain rendez-vous/);
   assert.match(await (await go(href)).text(), /Rendez-vous annulé le/);
 });
+
+test('a car dropped off: in the calendar as « Dépôt », free time, blocking no slot; make and model apart in « Nouveau RDV »', async () => {
+  const dd = addDays(day, 5);
+  const res = await go('/atelier/depot', { method: 'POST', form: { date: dd, heure: '18:00', client: 'Inès Morel', tel: '06 10 10 10 10', vehicule: 'Renault Clio', plaque: 'cd-456-ef', note: 'Clés dans la boîte' } });
+  assert.match(where(res).searchParams.get('ok'), /Dépôt noté .* ne bloque aucun créneau/);
+  const ev = cal[CAR].find((e) => /^Dépôt — Renault Clio · CD-456-EF — Inès Morel$/.test(e.summary));
+  assert.ok(ev);
+  assert.equal(ev.transparency, 'transparent');
+  assert.match(await (await go(`/atelier/journee?date=${dd}`)).text(), /Dépôt de véhicule/);
+  // « Nouveau RDV »: the make and the model, put together with the year
+  const made = await go('/atelier/rdv/nouveau', { method: 'POST', form: form({ vehicule: '', marque: 'Peugeot', modele: '3008', annee: '2022', mode: 'none', canal: 'telephone', date: dd, heure: '18:00', force: '1', prenom: 'Inès', nom: 'Morel', email: 'ines@example.com', tel: '06 10 10 10 10', x_preset: '' }) });
+  assert.equal(made.status, 303);
+  assert.equal(sql("SELECT vehicle FROM bookings ORDER BY created DESC LIMIT 1")[0].vehicle, 'Peugeot 3008 (2022)');
+});

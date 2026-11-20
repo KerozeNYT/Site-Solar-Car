@@ -31,10 +31,10 @@ import { business as B } from '../content/site.js';
 import { report, totalsOf } from './stats.js';
 import { db, referralFor, redeemReferral, checkCode, dayStart, atelierFetch, QUOTE_STATUS } from './store.js';
 import { gmailReady, gmailState, gmailSync, consentUrl, callback as gmailCallback, disconnect as gmailDisconnect } from './gmail.js';
-import { bookedEvents, listEvents } from './google.js';
+import { bookedEvents, listEvents, insertEvent } from './google.js';
 import { getSession } from './stripe.js';
 import { sendRdvDocuments, send, shell as mailShell, sendBookingUpdate, sendGiftBuyer, sendGiftRecipient, sendPremiumWelcome, sendMembersOffer } from './mail.js';
-import { utcToZoned, addDays } from './schedule.js';
+import { utcToZoned, addDays, zonedToUtc } from './schedule.js';
 import { siteThemes } from '../content/themes.js';
 import { CSS, JS, CSS_V, JS_V } from './atelier-look.js';
 import { notify, vapidKeys, SW } from './push.js';
@@ -122,6 +122,7 @@ const ICONS = {
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+  screen: '<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8.5 20h7M12 16.5V20"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/>',
   car: '<path d="M4 16v-3.5l2-5h12l2 5V16M4 16h16M4 16v2.5h3V16M17 16v2.5h3V16"/><circle cx="7.5" cy="13" r=".8"/><circle cx="16.5" cy="13" r=".8"/>',
   camera: '<path d="M4 8h3l2-2.5h6L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.6"/>',
@@ -144,6 +145,8 @@ const ico = (k) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${IC
 const TABS = [
   ['/atelier', 'Accueil', 'home', 'Accueil'],
   ['/atelier/journee', 'Ma journée', 'sun', 'Journée'],
+  ['/atelier/agenda', 'Agenda', 'cal', 'Agenda'],
+  ['/atelier/ecran', 'Écran du bureau', 'screen', 'Écran'],
   ['/atelier/devis', 'Devis', 'chat', 'Devis'],
   ['/atelier/rdv', 'Rendez-vous', 'cal', 'RDV'],
   ['/atelier/clients', 'Clients', 'users', 'Clients'],
@@ -156,12 +159,13 @@ const TABS = [
   ['/atelier/plus', 'Réglages', 'gear', 'Plus'],
 ];
 /** the dock of a phone: the four places of every day, and « Plus » for the rest */
-const DOCK = [...TABS.slice(0, 4), ['/atelier/plus', 'Plus', 'grid', 'Plus']];
+const DOCK = [...TABS.filter((t) => t && ['/atelier', '/atelier/journee', '/atelier/devis', '/atelier/rdv'].includes(t[0])), ['/atelier/plus', 'Plus', 'grid', 'Plus']];
 // (the dock: Accueil, Journée, Devis, RDV, Plus — the clients under « Plus » on a phone)
 const UNDER_PLUS = new Set(['/atelier/clients', '/atelier/pros', '/atelier/codes', '/atelier/premium', '/atelier/stats', '/atelier/fiche', '/atelier/plus', '/atelier/recherche']);
 /** « + Nouveau »: what is made most often */
 const NEW = [
   ['/atelier/rdv/nouveau', 'cal', 'Nouveau rendez-vous', 'Téléphone, e-mail ou atelier : créneau, acompte'],
+  ['/atelier/depot', 'car', 'Dépôt de véhicule', 'Noté dans l’agenda sans bloquer de créneau'],
   ['/atelier/clients/nouveau', 'user', 'Nouveau client', 'Venu par téléphone ou à l’atelier'],
   ['/atelier/pros/nouveau', 'briefcase', 'Nouveau pro', 'Garage, concession : SIRET, logo, dossier de partenariat'],
   ['/atelier/codes#promo', 'tag', 'Code promo', 'Remise en % ou en €, dates, prestations'],
@@ -197,7 +201,7 @@ function page(title, active, body, url, opts = {}) {
   const newMenu = (where) => `<details class="pop"><summary class="newbtn" aria-label="Nouveau">${ico('plus')}<span>Nouveau</span></summary><div class="pop__menu" role="menu">${NEW.map(([href, icon, label, hint]) => `<a href="${href}" role="menuitem">${ico(icon)}<span>${esc(label)}<small>${esc(hint)}</small></span></a>`).join('')}</div></details>`;
   const signed = !!active;
   return new Response(
-    `${HEAD(title, now)}<body${signed ? ' data-live' : ''}${opts.refresh ? ' data-refresh' : ''}>${BACKDROP}
+    `${HEAD(title, now)}<body${signed ? ' data-live' : ''}${opts.refresh ? ' data-refresh' : ''}${opts.screen ? ' data-screen' : ''}>${BACKDROP}
 <div class="shell">${
       signed
         ? `<aside class="rail"><a class="brand" href="/atelier" aria-label="Accueil de l’espace atelier"><img src="/atelier/logo.webp" alt="SOLAR CAR" width="400" height="154"><span class="brand__tag">Atelier</span></a>
@@ -354,6 +358,8 @@ export async function atelier(req, env, url, now) {
   if (dm && req.method === 'POST' && dm[2] === 'statut') {
     const f = await req.formData();
     const r = await db(env, 'quote/status', { now, id: Number(dm[1]), status: String(f.get('statut') || ''), amount: String(f.get('montant') ?? '') });
+    // slid from the list (a phone): back to the list
+    if (f.get('retour') === 'liste') return back('/atelier/devis', r.ok ? { ok: `Devis n°${dm[1]} : ${QUOTE_STATUS[String(f.get('statut'))] || 'statut changé'}.` } : { err: r.error });
     return back(`/atelier/devis/${dm[1]}`, r.ok ? { ok: 'Suivi enregistré.' } : { err: r.error });
   }
   const fm = path.match(/^\/atelier\/fichier\/(\d+)$/);
@@ -385,6 +391,9 @@ export async function atelier(req, env, url, now) {
   // one appointment: its page, a service added or taken off again
   // « Ma journée », the search, the month's goal
   if (path === '/atelier/journee' && req.method === 'GET') return dayPage(env, url, now);
+  if (path === '/atelier/depot') return depotPage(req, env, url, now);
+  if (path === '/atelier/ecran' && req.method === 'GET') return screenPage(env, url, now);
+  if (path === '/atelier/agenda' && req.method === 'GET') return agendaPage(env, url, now);
   if (path === '/atelier/recherche' && req.method === 'GET') return searchPage(env, url, now);
   if (path === '/atelier/objectif' && req.method === 'POST') {
     await db(env, 'month/goal', { goal: String((await req.formData()).get('objectif') ?? '') });
@@ -536,6 +545,11 @@ async function quotesPage(env, url, now) {
 <span><span class="q__who">${q.unread ? '<span class="dot" aria-label="Nouveau message"></span>' : ''}${esc(name(q))}</span><span class="q__what">${esc([q.vehicle, q.services].filter(Boolean).join(' · ') || 'Demande de devis')}</span></span>
 <span class="q__side">${statusTag(q.status)}${q.remind ? remindTag : ''}<small>${esc(when(Math.max(q.at, q.last_at || 0), now))}${q.amount ? ` · ${eur(q.amount)}` : ''}</small></span>
 ${q.last_text ? `<span class="q__last">${q.last_dir === 'out' ? 'Vous : ' : ''}${esc(snippet(q.last_text))}</span>` : ''}</a>`;
+  // on a phone, a card slid to the left shows three statuses, one tap each (the page's script)
+  const swipe = (q) => `<div class="qswipe" data-swipe><div class="qswipe__acts" aria-label="Changer le statut">${[['envoye', 'Envoyé', 'var(--blue)'], ['valide', 'Validé', 'var(--ok)'], ['sans_suite', 'Sans suite', 'var(--dim)']]
+    .filter(([k]) => k !== q.status)
+    .map(([k, l, c]) => `<form method="post" action="/atelier/devis/${q.id}/statut"><input type="hidden" name="statut" value="${k}"><input type="hidden" name="retour" value="liste"><button style="--c:${c}">${esc(l)}</button></form>`)
+    .join('')}</div>${card(q)}</div>`;
   const d = r.delays || { remind: 7, close: 14 };
   const body = `<h1>Demandes de <em>devis</em></h1>
 <p class="lead">Chaque demande du site ouvre une discussion. Répondez ici ou depuis Gmail : le statut suit tout seul. Devis envoyé à votre réponse, réponse reçue quand le client écrit, lien de paiement envoyé depuis « Nouveau RDV », validé quand il paie, accepte ou réserve en ligne${d.remind ? `, à relancer après ${d.remind} jours sans nouvelles` : ''}${d.close ? `, sans suite après ${d.close} jours (il revient si le client répond)` : ''}.</p>
@@ -543,7 +557,7 @@ ${q.last_text ? `<span class="q__last">${q.last_dir === 'out' ? 'Vous : ' : ''}$
     .map(([k, v]) => chip(k, v, r.counts[k] || 0))
     .join('')}${remindN || relancer ? chip('relancer', 'À relancer', remindN) : ''}</nav>
 ${gmailBox}
-${r.quotes.length ? `<div class="qlist">${r.quotes.map(card).join('')}</div>` : `<section class="card"><p class="empty">${st ? 'Aucune demande ici pour le moment.' : 'Les demandes de devis envoyées depuis le site arriveront ici.'}</p></section>`}`;
+${r.quotes.length ? `<div class="qlist">${r.quotes.map(swipe).join('')}</div>` : `<section class="card"><p class="empty">${st ? 'Aucune demande ici pour le moment.' : 'Les demandes de devis envoyées depuis le site arriveront ici.'}</p></section>`}`;
   return page('Devis', '/atelier/devis', body, url, { refresh: true, now });
 }
 
@@ -1047,7 +1061,8 @@ const EXTRA_ROWS = 3;
 /** the form as the booking server reads it (worker.js, atelierBooking) */
 function bookingOf(f) {
   const g = (k) => String(f.get(k) ?? '').trim();
-  const vehicle = [g('vehicule'), g('annee') ? `(${g('annee')})` : ''].filter(Boolean).join(' ');
+  // « Peugeot 308 (2021) »: the make, the model (or the old single field), the year
+  const vehicle = [g('marque'), g('modele') || g('vehicule'), /^(19|20)\d{2}$/.test(g('annee')) ? `(${g('annee')})` : ''].filter(Boolean).join(' ');
   const config = {};
   const extra = [];
   if (g('vt_formule')) config.tint = { vehicle: g('vt_vehicule'), formula: g('vt_formule'), ...(g('pb_film') ? { windshield: g('pb_film'), color: g('pb_couleur') } : {}) };
@@ -1160,7 +1175,10 @@ async function bookingForm(env, url, now, values = null, error = '') {
   }
   if (!values && url.searchParams.get('client')) {
     const c = (await db(env, 'client/get', { id: Number(url.searchParams.get('client')) })).client;
-    if (c) for (const [k, x] of [['prenom', c.first], ['nom', c.last], ['tel', c.phone], ['email', c.email], ['vehicule', (c.vehicles || '').split(' · ')[0]], ['plaque', c.plate]]) f.set(k, x || '');
+    if (c) {
+      const car = splitCar((c.vehicles || '').split(' · ')[0]);
+      for (const [k, x] of [['prenom', c.first], ['nom', c.last], ['tel', c.phone], ['email', c.email], ['marque', car.make], ['modele', car.model], ['annee', car.year], ['plaque', c.plate]]) f.set(k, x || '');
+    }
   }
   // from a quote: its number kept with the link (the quote follows: link sent, then validated)
   if (!values && /^\d+$/.test(url.searchParams.get('devis') || '')) f.set('devis', url.searchParams.get('devis'));
@@ -1186,7 +1204,8 @@ ${devis ? `<input type="hidden" name="devis" value="${esc(devis)}">` : ''}<div>
 <section class="card"><h2>${ico('user')} Client</h2>
 <div class="row">${field('prenom', 'Prénom', 'autocomplete="off" required')}${field('nom', 'Nom', 'autocomplete="off"')}</div>
 <div class="row">${field('tel', 'Téléphone', 'type="tel" inputmode="tel" autocomplete="off"')}${field('email', 'E-mail (pour le lien de paiement)', 'type="email" inputmode="email" autocomplete="off"')}</div>
-<div class="row3">${field('vehicule', 'Véhicule (marque et modèle)', 'placeholder="ex. Peugeot 3008" autocomplete="off"')}${field('annee', 'Année', 'inputmode="numeric" maxlength="4" placeholder="2021"')}${field('plaque', 'Immatriculation', 'autocomplete="off" style="text-transform:uppercase"')}</div></section>
+<div class="row">${field('marque', 'Marque', 'placeholder="ex. Peugeot" autocomplete="off"')}${field('modele', 'Modèle', 'placeholder="ex. 3008" autocomplete="off"', f.get('vehicule') || '')}</div>
+<div class="row">${field('annee', 'Année (facultatif)', 'inputmode="numeric" maxlength="4" placeholder="2021"')}${field('plaque', 'Immatriculation (facultatif)', 'autocomplete="off" style="text-transform:uppercase"')}</div></section>
 
 <section class="card"><h2>${ico('bolt')} Prestations</h2>
 <h3>Vitres teintées</h3>
@@ -1848,6 +1867,13 @@ const jsonOf = (t, d) => {
     return d;
   }
 };
+/** « Peugeot 308 SW (2021) » → { make: 'Peugeot', model: '308 SW', year: '2021' } */
+const splitCar = (t) => {
+  const m = String(t || '').trim().match(/^(.*?)(?:\s*\(((?:19|20)\d{2})\))?$/);
+  const [make, ...model] = (m?.[1] || '').split(/\s+/);
+  return { make: make || '', model: model.join(' '), year: m?.[2] || '' };
+};
+const zonedToUtcAt = (date, time) => zonedToUtc(date, time, R.timeZone);
 const tinted = (b) => itemsOf(b).some((i) => /vitres teint|pare-brise/i.test(`${i.label} ${i.detail || ''}`));
 const ymd = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
 
@@ -1888,7 +1914,7 @@ ${stageForm(b, `/atelier/journee?date=${date}`)}
   const list = (events || []).filter((x) => !x.b?.cancelled);
   const total = Object.values(cash.byHow || {}).reduce((a, n) => a + n, 0);
   const follow = (week.bookings || []).filter((b) => !b.cancelled);
-  const body = `<div class="dayhead"><a class="btn ghost small" href="/atelier/journee?date=${addDays(date, -1)}" aria-label="Jour précédent">‹</a><div><p class="dim" style="margin:0">${date === today ? 'Aujourd’hui' : date < today ? 'Journée passée' : 'Journée à venir'}</p><h1>${esc(cap(dayLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })))}</h1></div><a class="btn ghost small" href="/atelier/journee?date=${addDays(date, 1)}" aria-label="Jour suivant">›</a>${date !== today ? `<a class="btn small" href="/atelier/journee">Aujourd’hui</a>` : ''}</div>
+  const body = `<div class="dayhead"><a class="btn ghost small" href="/atelier/journee?date=${addDays(date, -1)}" aria-label="Jour précédent">‹</a><div><p class="dim" style="margin:0">${date === today ? 'Aujourd’hui' : date < today ? 'Journée passée' : 'Journée à venir'}</p><h1>${esc(cap(dayLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })))}</h1></div><a class="btn ghost small" href="/atelier/journee?date=${addDays(date, 1)}" aria-label="Jour suivant">›</a>${date !== today ? `<a class="btn small" href="/atelier/journee">Aujourd’hui</a>` : ''}<a class="btn ghost small dayhead__more" href="/atelier/agenda?date=${date}">${ico('cal')} Semaine</a><a class="btn ghost small" href="/atelier/depot?date=${date}">${ico('car')} Dépôt</a></div>
 ${events === null ? '<p class="msg msg--err">Agenda indisponible pour le moment : réessayez dans un instant.</p>' : list.length ? `<div class="daylist">${list.map(card).join('')}</div>` : '<section class="card"><p class="empty">Aucun rendez-vous ce jour-là.</p></section>'}
 <div class="grid"><section class="card"><h2>${ico('euro')} Caisse du ${esc(dayLabel(date, { day: 'numeric', month: 'long' }))}</h2>${
     total
@@ -1960,7 +1986,7 @@ async function rdvDay(req, env, url, session, what, now) {
   if (what === 'etape' && POST) {
     const stage = g('etape') === b.stage ? '' : g('etape');
     const r = await atelierStage(env, session, stage, { mail: true }, now);
-    const dest = /^\/atelier\/journee/.test(g('retour')) ? g('retour') : href;
+    const dest = /^\/atelier\/(journee|ecran)/.test(g('retour')) ? g('retour') : href;
     const q = new URLSearchParams(r.ok ? { ok: stage === 'pret' ? (r.mailed ? `Prêt : ${b.first || 'le client'} a reçu l’e-mail « votre véhicule est prêt ».` : 'Prêt (pas d’e-mail envoyé : pas d’adresse ou e-mails clients désactivés).') : stage ? `Étape : ${STAGE_LABEL[stage]}.` : 'Étape retirée.' } : { err: r.error });
     return redirect(`${dest}${dest.includes('?') ? '&' : '?'}${q}`);
   }
@@ -1980,7 +2006,7 @@ async function rdvDay(req, env, url, session, what, now) {
   }
   if (what === 'avis' && POST) {
     const r = await atelierReview(env, session, now);
-    const dest = /^\/atelier\/journee/.test(g('retour')) ? g('retour') : href;
+    const dest = /^\/atelier\/(journee|ecran)/.test(g('retour')) ? g('retour') : href;
     return redirect(`${dest}${dest.includes('?') ? '&' : '?'}${new URLSearchParams(r.ok ? { ok: `Demande d’avis Google envoyée à ${b.first || 'votre client'}.` } : { err: r.error })}`);
   }
   if (what === 'photos' && POST) {
@@ -2101,7 +2127,7 @@ async function certPage(env, url, b, now) {
   const body = `<a class="crumb" href="${href}">${ico('back')} ${esc(name(b))}</a>
 <h1>Certificat de <em>pose</em></h1><p class="lead">${esc(b.vehicle || 'Véhicule')} · teinte de chaque vitre, le film (${esc('nanocéramique, gamme Beluga')}), les garanties à vie : un PDF à remettre au client.</p>
 <form method="post" action="${href}/certificat" class="cert">
-<section class="card"><h2>${ico('car')} Le véhicule</h2><div class="row"><div><label for="t-plaque">Immatriculation</label><input id="t-plaque" name="plaque" value="${esc(cert.plate || jsonOf(b.checkin, {})?.plate || b.plate || '')}" style="text-transform:uppercase" autocomplete="off"></div><div><label for="t-annee">Année</label><input id="t-annee" name="annee" inputmode="numeric" maxlength="4" value="${esc(cert.year || '')}" placeholder="facultatif"></div></div></section>
+<section class="card"><h2>${ico('car')} Le véhicule</h2><div class="row"><div><label for="t-plaque">Immatriculation</label><input id="t-plaque" name="plaque" value="${esc(cert.plate || jsonOf(b.checkin, {})?.plate || b.plate || '')}" style="text-transform:uppercase" autocomplete="off"></div><div><label for="t-annee">Année</label><input id="t-annee" name="annee" inputmode="numeric" maxlength="4" value="${esc(cert.year || splitCar(b.vehicle).year)}" placeholder="facultatif"></div></div></section>
 <section class="card"><h2>${ico('star')} Les teintes posées</h2>
 <label for="t-rear">Tout l’arrière d’un coup (vitres, custodes, lunette)</label><select id="t-rear" data-rear><option value="">— choisir —</option>${['5', '15', '25', '35', '50', '70'].map((n) => `<option value="${n}">${n} %</option>`).join('')}</select>
 <div class="certgrid">${WINDOWS.map(([key, label]) => `<div><label for="v-${key}">${esc(label)}</label><select id="v-${key}" name="v_${key}"${key.startsWith('arriere') || key.startsWith('custode') || key === 'lunette' ? ' data-rearwin' : ''}>${opts(key)}</select></div>`).join('')}</div>
@@ -2128,4 +2154,173 @@ async function searchPage(env, url, now) {
   const body = `<h1>Rechercher</h1><form method="get" action="/atelier/recherche" class="searchbox" role="search"><input name="q" value="${esc(q)}" placeholder="Nom, plaque, téléphone, e-mail, code pro…" aria-label="Rechercher" autocomplete="off" autofocus data-search>${ico('search')}</form>
 <div data-search-out aria-live="polite">${q.length >= 2 ? results || `<p class="empty">Rien trouvé pour « ${esc(q)} ».</p>` : '<p class="dim">Tapez au moins deux lettres : un nom, une immatriculation (avec ou sans tirets), un numéro de téléphone, un e-mail, un code pro.</p>'}</div>`;
   return page('Rechercher', '/atelier/recherche', body, url, { now });
+}
+
+
+// ---------------------------------------------------------------- a car dropped off (21 November 2026)
+// Written in the calendar as « Dépôt — … », free time (transparent): it never blocks a slot
+// (worker.js busyFor, DROP_OFF), and « Ma journée » shows it apart.
+async function depotPage(req, env, url, now) {
+  const today = paris(now).date;
+  if (req.method === 'POST') {
+    const f = await req.formData();
+    const g = (k) => String(f.get(k) ?? '').trim();
+    const date = ymd(g('date')) ? g('date') : today;
+    const time = /^\d{2}:\d{2}$/.test(g('heure')) ? g('heure') : '08:00';
+    const who = g('client').slice(0, 80);
+    const car = [g('vehicule'), g('plaque').toUpperCase()].filter(Boolean).join(' · ').slice(0, 100);
+    if (!who && !car) return back('/atelier/depot', { err: 'Indiquez le client ou le véhicule.' });
+    const start = zonedToUtcAt(date, time);
+    await insertEvent(env, env.CALENDAR_WRITE, {
+      summary: `Dépôt — ${[car, who].filter(Boolean).join(' — ')}`,
+      description: [who && `Client : ${who}`, g('tel') && `Téléphone : ${g('tel')}`, car && `Véhicule : ${car}`, g('note') && `\n${g('note').slice(0, 800)}`, `\nNoté depuis l’espace atelier (ne bloque aucun créneau).`].filter(Boolean).join('\n'),
+      colorId: '8',
+      transparency: 'transparent',
+      start: { dateTime: new Date(start).toISOString(), timeZone: R.timeZone },
+      end: { dateTime: new Date(start + 30 * 60000).toISOString(), timeZone: R.timeZone },
+    });
+    return redirect(`/atelier/journee?${new URLSearchParams({ date, ok: `Dépôt noté le ${dayLabel(date, { weekday: 'long', day: 'numeric', month: 'long' })} à ${hour(time)} : il ne bloque aucun créneau.` })}`);
+  }
+  const date = ymd(url.searchParams.get('date')) ? url.searchParams.get('date') : today;
+  const body = `<a class="crumb" href="/atelier/journee?date=${date}">${ico('back')} Ma journée</a>
+<h1>Dépôt de <em>véhicule</em></h1><p class="lead">Un client dépose sa voiture la veille, ou tôt le matin : c’est noté dans l’agenda (« Dépôt ») sans bloquer de créneau.</p>
+<form class="card" method="post" action="/atelier/depot" style="max-width:640px">
+<div class="row"><div><label for="p-date">Date</label><input id="p-date" name="date" type="date" value="${date}" required></div><div><label for="p-heure">Heure</label><input id="p-heure" name="heure" type="time" step="900" value="18:00" required></div></div>
+<div class="row"><div><label for="p-client">Client</label><input id="p-client" name="client" autocomplete="off" placeholder="Prénom Nom"></div><div><label for="p-tel">Téléphone</label><input id="p-tel" name="tel" type="tel" inputmode="tel" autocomplete="off"></div></div>
+<div class="row"><div><label for="p-veh">Véhicule</label><input id="p-veh" name="vehicule" autocomplete="off" placeholder="ex. Peugeot 3008"></div><div><label for="p-plaque">Immatriculation</label><input id="p-plaque" name="plaque" autocomplete="off" style="text-transform:uppercase"></div></div>
+<label for="p-note">Note (facultatif)</label><textarea id="p-note" name="note" style="min-height:70px" placeholder="ex. clés dans la boîte aux lettres"></textarea>
+<button>${ico('car')} Noter le dépôt</button></form>`;
+  return page('Dépôt de véhicule', '/atelier/journee', body, url, { now });
+}
+
+
+// ---------------------------------------------------------------- the office screen (21 November 2026)
+// For the computer of the office, open all day: full screen, the clock, the day as a line of time
+// (the cars as blocks, coloured by their stage, the line of « now »), the car of the moment, the next
+// one with its countdown, what waits (quotes, answers), the till and the month. It redraws itself
+// when something changes (/atelier/live), with a soft chime once the sound is on.
+async function screenPage(env, url, now) {
+  const today = paris(now).date;
+  const [events, list, cash, ms] = await Promise.all([calendarBookings(env, today, today), db(env, 'quotes/list', { now }), db(env, 'day/cash', { from: dayStart(today), to: dayStart(addDays(today, 1)) }), db(env, 'month/summary', { month: today.slice(0, 7) })]);
+  const evs = (events || []).filter((x) => !x.b?.cancelled);
+  const ms0 = (x) => Date.parse(x.event.start.dateTime);
+  const ms1 = (x) => Date.parse(x.event.end.dateTime);
+  // 8 h to 19 h, widened to the day's first and last appointments
+  const h0 = Math.max(0, Math.min(8, ...evs.map((x) => Number(x.at.time.slice(0, 2)))));
+  const h1 = Math.min(24, Math.max(19, ...evs.map((x) => (x.end.date > today ? 24 : Number(x.end.time.slice(0, 2)) + (x.end.time.slice(3) > '00' ? 1 : 0)))));
+  const from = zonedToUtcAt(today, `${String(h0).padStart(2, '0')}:00`);
+  const to = h1 >= 24 ? zonedToUtcAt(addDays(today, 1), '00:00') : zonedToUtcAt(today, `${String(h1).padStart(2, '0')}:00`);
+  const pos = (t) => Math.max(0, Math.min(100, ((t - from) / (to - from)) * 100));
+  const cur = evs.find((x) => x.b && ms0(x) <= now && now < ms1(x));
+  const next = evs.find((x) => ms0(x) > now && !DROP_OFF.test(x.event.summary || ''));
+  const label = (x) => (x.b ? name(x.b) : x.event.summary || 'Rendez-vous');
+  const hours = Array.from({ length: h1 - h0 }, (_, i) => h0 + i);
+  const blocks = evs
+    .map((x) => {
+      const top = pos(ms0(x));
+      const h = Math.max(4, pos(ms1(x)) - top);
+      const depot = DROP_OFF.test(x.event.summary || '');
+      return `<a class="tl__b stage--${esc(x.b?.stage || (depot ? 'depot' : 'attendu'))}" href="${x.b ? bookingHref(x.b.session) : '/atelier/journee'}" style="top:${top.toFixed(2)}%;height:${h.toFixed(2)}%"><b>${esc(hour(x.at.time))} · ${esc(label(x))}</b><small>${esc(x.b ? [x.b.vehicle, STAGE_LABEL[x.b.stage] || 'attendu'].filter(Boolean).join(' · ') : depot ? 'Dépôt' : 'Agenda')}</small></a>`;
+    })
+    .join('');
+  const q = list.quotes;
+  const waiting = [
+    [q.filter((x) => x.status === 'nouveau').length, 'devis à répondre', '/atelier/devis?statut=nouveau', 'var(--blue)'],
+    [q.filter((x) => x.status === 'reponse' || x.unread).length, 'réponses de clients', '/atelier/devis?statut=reponse', 'var(--violet)'],
+    [q.filter((x) => x.remind).length, 'à relancer', '/atelier/devis?statut=relancer', 'var(--amber)'],
+  ];
+  const till = Object.values(cash.byHow || {}).reduce((a, n) => a + n, 0);
+  const pct = ms.goal ? Math.min(100, Math.round((ms.ca / ms.goal) * 100)) : 0;
+  const carCard = (x, kind) => {
+    const b = x.b;
+    const due = b ? Math.max(0, Math.round((b.total - b.paid) * 100) / 100) : 0;
+    return `<section class="card scr__car${kind === 'cur' ? ' is-cur' : ''}"><span class="now__k"><i></i>${kind === 'cur' ? 'En ce moment' : 'Prochain client'}</span>
+<p class="scr__who">${esc(label(x))}</p><p class="scr__veh">${esc(b?.vehicle || x.event.summary || '')}</p>
+<p class="dim">${esc(b ? itemsOf(b).map((i) => i.label).join(' + ') : '')}</p>
+<div class="scr__when"><span>${esc(hour(x.at.time))} – ${esc(hour(x.end.time))}</span>${kind === 'cur' ? `<span>fin <time data-until="${ms1(x)}">${esc(hour(x.end.time))}</time></span>` : `<b><time data-until="${ms0(x)}">bientôt</time></b>`}</div>
+${kind === 'cur' ? `<div class="bar"><i data-span="${ms0(x)}-${ms1(x)}" style="width:${Math.round(((now - ms0(x)) / (ms1(x) - ms0(x))) * 100)}%"></i></div>` : ''}
+${b ? `${kind === 'cur' ? stageForm(b, '/atelier/ecran') : ''}${due ? `<p class="scr__due">Reste à encaisser <b>${eur(due)}</b></p>` : ''}` : ''}</section>`;
+  };
+  const body = `<div class="scr">
+<header class="scr__head"><div><p class="scr__clock" data-clock>${esc(paris(now).time.replace(':', ' h '))}</p><p class="scr__date">${esc(cap(dayLabel(today, { weekday: 'long', day: 'numeric', month: 'long' })))}</p></div>
+<div class="btns"><button type="button" class="ghost small" data-son aria-pressed="false">Son</button><button type="button" class="ghost small" data-fullscreen>⛶ Plein écran</button><a class="btn ghost small" href="/atelier">Quitter</a></div></header>
+<div class="scr__grid"><div class="scr__main">
+${cur ? carCard(cur, 'cur') : ''}${next ? carCard(next, 'next') : ''}${!cur && !next ? `<section class="card scr__car"><span class="now__k"><i></i>Agenda</span><p class="scr__who">${events === null ? 'Agenda indisponible' : 'Plus de rendez-vous aujourd’hui'}</p></section>` : ''}
+<section class="card scr__tlcard"><h2>${ico('sun')} La journée</h2><div class="tl" data-day-from="${from}" data-day-to="${to}">${hours.map((h) => `<span class="tl__h" style="top:${pos(zonedToUtcAt(today, `${String(h).padStart(2, '0')}:00`)).toFixed(2)}%">${h} h</span>`).join('')}<i class="tl__now" style="top:${pos(now).toFixed(2)}%"${now < from || now > to ? ' hidden' : ''}></i>${blocks || '<p class="empty tl__empty">Aucun rendez-vous aujourd’hui.</p>'}</div></section>
+</div><aside class="scr__side">
+<section class="card"><h2>${ico('bolt')} À traiter</h2>${waiting.map(([n, l, href, c]) => `<a class="scr__wait" href="${href}" style="--c:${c}"><b>${n}</b><span>${esc(l)}</span></a>`).join('')}</section>
+<section class="card"><h2>${ico('euro')} Caisse du jour</h2><p class="scr__big">${eur(till)}</p><p class="dim">${Object.entries(cash.byHow || {}).map(([k, v]) => `${esc(HOW[k] || k)} ${eur(v)}`).join(' · ') || 'Rien d’encaissé pour l’instant.'}</p></section>
+<section class="card"><h2>${ico('chart')} Le mois</h2><p class="scr__big">${eur(ms.ca)}</p><p class="dim">réservés · ${ms.n} RDV · encaissé ${eur(ms.paid)}</p>${ms.goal ? `<div class="goal"><div class="goal__bar"><i style="width:${pct}%"></i></div><span>${pct} % de l’objectif</span></div>` : ''}</section>
+</aside></div></div>`;
+  return page('Écran du bureau', '/atelier/ecran', body, url, { now, refresh: true, screen: true });
+}
+
+
+// ---------------------------------------------------------------- the agenda, week and month (21 November 2026)
+// A block a car, coloured by what is done: window tint (gold), lights (red), headlights (blue), a
+// car dropped off (grey), anything else (violet), an event of the calendar alone (slate).
+const KINDS = { vitres: 'Vitres teintées', feux: 'Feux', phares: 'Phares', depot: 'Dépôt', autre: 'Autre prestation', agenda: 'Agenda' };
+const kindOf = (x) => {
+  if (!x.b) return DROP_OFF.test(x.event.summary || '') ? 'depot' : 'agenda';
+  const t = itemsOf(x.b).map((i) => i.label).join(' ').toLowerCase();
+  return /vitres|pare-brise/.test(t) ? 'vitres' : /feux/.test(t) ? 'feux' : /phares/.test(t) ? 'phares' : 'autre';
+};
+const mondayOf = (date) => addDays(date, -((new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7));
+
+async function agendaPage(env, url, now) {
+  const today = paris(now).date;
+  const date = ymd(url.searchParams.get('date')) ? url.searchParams.get('date') : today;
+  const month = url.searchParams.get('vue') === 'mois';
+  const legend = `<div class="legend">${Object.entries(KINDS).map(([k, l]) => `<span class="kind kind--${k}"><i></i>${esc(l)}</span>`).join('')}</div>`;
+  const href = (x) => (x.b ? bookingHref(x.b.session) : `/atelier/journee?date=${x.at.date}`);
+  const who = (x) => (x.b ? name(x.b) : String(x.event.summary || 'Rendez-vous').replace(/^Dépôt — /, ''));
+  if (month) {
+    const first = `${date.slice(0, 7)}-01`;
+    const start = mondayOf(first);
+    const last = addDays(`${addDays(first, 32).slice(0, 7)}-01`, -1);
+    const end = addDays(mondayOf(last), 6);
+    const evs = ((await calendarBookings(env, start, end)) || []).filter((x) => !x.b?.cancelled);
+    const days = [];
+    for (let d = start; d <= end; d = addDays(d, 1)) days.push(d);
+    const cells = days
+      .map((d) => {
+        const mine = evs.filter((x) => x.at.date === d);
+        return `<a class="mcell${d.slice(0, 7) !== first.slice(0, 7) ? ' is-out' : ''}${d === today ? ' is-today' : ''}" href="/atelier/journee?date=${d}"><b>${Number(d.slice(8))}</b>${mine
+          .slice(0, 4)
+          .map((x) => `<span class="chip kind--${kindOf(x)}"><i></i>${esc(hour(x.at.time))} ${esc(who(x))}</span>`)
+          .join('')}${mine.length > 4 ? `<small>+${mine.length - 4}</small>` : ''}</a>`;
+      })
+      .join('');
+    const prev = addDays(first, -1).slice(0, 7);
+    const next = addDays(first, 32).slice(0, 7);
+    const body = `<div class="dayhead"><a class="btn ghost small" href="/atelier/agenda?vue=mois&date=${prev}-01" aria-label="Mois précédent">‹</a><div><p class="dim" style="margin:0">Agenda · mois</p><h1>${esc(cap(new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${first}T12:00:00Z`))))}</h1></div><a class="btn ghost small" href="/atelier/agenda?vue=mois&date=${next}-01" aria-label="Mois suivant">›</a><a class="btn ghost small" href="/atelier/agenda?date=${date}">Semaine</a></div>
+${legend}<div class="mgrid">${['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'].map((d) => `<span class="mhead">${d}</span>`).join('')}${cells}</div>`;
+    return page('Agenda', '/atelier/agenda', body, url, { now, refresh: true });
+  }
+  const mon = mondayOf(date);
+  const sun = addDays(mon, 6);
+  const evs = ((await calendarBookings(env, mon, sun)) || []).filter((x) => !x.b?.cancelled);
+  const hs = evs.map((x) => Number(x.at.time.slice(0, 2)));
+  const he = evs.map((x) => (x.end.date > x.at.date ? 24 : Number(x.end.time.slice(0, 2)) + (x.end.time.slice(3) > '00' ? 1 : 0)));
+  const h0 = Math.max(0, Math.min(8, ...hs));
+  const h1 = Math.min(24, Math.max(19, ...he));
+  const span = (h1 - h0) * 60;
+  const mins = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+  const cols = Array.from({ length: 7 }, (_, i) => addDays(mon, i))
+    .map((d) => {
+      const mine = evs.filter((x) => x.at.date === d);
+      const blocks = mine
+        .map((x) => {
+          const a = mins(x.at.time) - h0 * 60;
+          const z = x.end.date > d ? span : mins(x.end.time) - h0 * 60;
+          return `<a class="wblock kind--${kindOf(x)}${x.b?.stage === 'rendu' ? ' is-done' : ''}" href="${href(x)}" style="top:${((a / span) * 100).toFixed(2)}%;height:${(Math.max(18, z - a) / span) * 100}%"><b>${esc(hour(x.at.time))} ${esc(who(x))}</b><small>${esc(x.b?.vehicle || KINDS[kindOf(x)])}</small></a>`;
+        })
+        .join('');
+      return `<div class="wcol${d === today ? ' is-today' : ''}"><a class="whead" href="/atelier/journee?date=${d}"><span>${esc(dayLabel(d, { weekday: 'short' }))}</span><b>${Number(d.slice(8))}</b></a><div class="wbody">${blocks}${d === today ? `<i class="wnow" style="top:${(((mins(paris(now).time) - h0 * 60) / span) * 100).toFixed(2)}%"></i>` : ''}</div></div>`;
+    })
+    .join('');
+  const hours = Array.from({ length: h1 - h0 }, (_, i) => `<span style="top:${((i * 60) / span) * 100}%">${h0 + i} h</span>`).join('');
+  const body = `<div class="dayhead"><a class="btn ghost small" href="/atelier/agenda?date=${addDays(mon, -7)}" aria-label="Semaine précédente">‹</a><div><p class="dim" style="margin:0">Agenda · semaine</p><h1>${esc(dayLabel(mon, { day: 'numeric', month: 'short' }))} – ${esc(dayLabel(sun, { day: 'numeric', month: 'short' }))}</h1></div><a class="btn ghost small" href="/atelier/agenda?date=${addDays(mon, 7)}" aria-label="Semaine suivante">›</a>${mon !== mondayOf(today) ? '<a class="btn small" href="/atelier/agenda">Cette semaine</a>' : ''}<a class="btn ghost small" href="/atelier/agenda?vue=mois&date=${date}">Mois</a></div>
+${legend}<div class="wscroll"><div class="week2"><div class="whours"><span class="whead"></span><div class="wbody">${hours}</div></div>${cols}</div></div>`;
+  return page('Agenda', '/atelier/agenda', body, url, { now, refresh: true });
 }

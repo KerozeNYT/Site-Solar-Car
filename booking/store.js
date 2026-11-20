@@ -410,7 +410,7 @@ export class Atelier {
   }
   /** one appointment with its client */
   bookingRow(session) {
-    return this.one('SELECT b.*, c.first, c.last, c.phone, c.email FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.session = ?', clip(session, 120));
+    return this.one('SELECT b.*, c.first, c.last, c.phone, c.email, c.plate FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.session = ?', clip(session, 120));
   }
   /** the terms of the professionals (booking/pro-sheet.js PRO_TERMS, changed in the space) */
   proTerms() {
@@ -1274,7 +1274,7 @@ export class Atelier {
       }
       // ------------------------------------------------ one appointment, changed in the space
       case 'booking/get':
-        return { booking: this.one('SELECT b.*, c.first, c.last, c.phone, c.email, c.vehicles AS client_vehicles FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.session = ?', clip(b.session, 120)) };
+        return { booking: this.one('SELECT b.*, c.first, c.last, c.phone, c.email, c.plate, c.vehicles AS client_vehicles FROM bookings b LEFT JOIN clients c ON c.id = b.client_id WHERE b.session = ?', clip(b.session, 120)) };
       // services added at the workshop (or taken off again): the total follows, what is paid stays
       case 'booking/lines': {
         const row = this.one('SELECT * FROM bookings WHERE session = ?', clip(b.session, 120));

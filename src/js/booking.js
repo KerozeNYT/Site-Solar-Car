@@ -485,7 +485,9 @@ export function startBooking(root) {
     if (!form.elements.terms.checked) return fail('Acceptez les conditions de réservation pour continuer.');
     if (form.elements.early.required && !form.elements.early.checked) return fail('Votre rendez-vous a lieu dans moins de 14 jours : cochez la demande de réalisation avant la fin du délai de rétractation.');
     const field = (n) => form.elements[n].value;
-    const customer = { firstName: field('firstName'), lastName: field('lastName'), email: field('email'), phone: field('phone'), vehicle: field('carModel'), plate: field('plate'), message: field('message') };
+    // « Peugeot 308 SW (2021) »: the make, the model and the year, as one line for the workshop
+    const year = /^(19|20)\d{2}$/.test(field('carYear')) ? ` (${field('carYear')})` : '';
+    const customer = { firstName: field('firstName'), lastName: field('lastName'), email: field('email'), phone: field('phone'), vehicle: `${[field('carMake'), field('carModel')].filter(Boolean).join(' ')}${year}`, plate: field('plate').toUpperCase(), message: field('message') };
     // « Comment nous avez-vous connus ? » (optional)
     customer.source = { channels: $$('input[name="connu"]:checked').map((i) => i.value), other: field('connu_autre') };
     store.set('booking-contact', customer);

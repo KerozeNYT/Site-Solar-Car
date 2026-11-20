@@ -1817,8 +1817,12 @@ export function reservationPage(ctx) {
             <div><label for="b-phone">Téléphone <span class="req" aria-hidden="true">*</span></label><input id="b-phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required></div>
           </div>
           <div class="form__row form__row--2">
-            <div><label for="b-vehicle">Marque et modèle <span class="req" aria-hidden="true">*</span></label><input id="b-vehicle" name="carModel" placeholder="ex. Peugeot 308 SW" required></div>
-            <div><label for="b-plate">Immatriculation <span class="optional">(facultatif)</span></label><input id="b-plate" name="plate" autocomplete="off" placeholder="AB-123-CD"></div>
+            <div><label for="b-make">Marque <span class="req" aria-hidden="true">*</span></label><input id="b-make" name="carMake" placeholder="ex. Peugeot" autocomplete="off" required></div>
+            <div><label for="b-vehicle">Modèle <span class="req" aria-hidden="true">*</span></label><input id="b-vehicle" name="carModel" placeholder="ex. 308 SW" autocomplete="off" required></div>
+          </div>
+          <div class="form__row form__row--2">
+            <div><label for="b-year">Année <span class="optional">(facultatif)</span></label><input id="b-year" name="carYear" inputmode="numeric" maxlength="4" pattern="(19|20)[0-9]{2}" placeholder="ex. 2021" autocomplete="off"></div>
+            <div><label for="b-plate">Immatriculation <span class="optional">(facultatif)</span></label><input id="b-plate" name="plate" autocomplete="off" placeholder="AB-123-CD" style="text-transform:uppercase"></div>
           </div>
           <div class="form__row"><label for="b-msg">Un message pour l’atelier <span class="optional">(facultatif)</span></label><textarea id="b-msg" name="message" rows="3"></textarea></div>
           ${howHeardField(ctx, 'b-connu-autre')}
