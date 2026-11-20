@@ -1460,7 +1460,7 @@ ${p.sign_pro_at && !p.sign_me_at ? `<form method="post" action="/atelier/pros/${
     : '';
   const head = id ? `<div class="qhead"><span class="avatar avatar--logo" aria-hidden="true">${p.has_logo ? `<img src="/atelier/pros/${id}/logo?v=${p.updated}" alt="">` : esc(initials({ first: p.name, last: '' }))}</span><div><h1>${esc(p.name)}</h1><span class="dim">${esc([p.activity, p.siret ? `SIRET ${p.siret}` : ''].filter(Boolean).join(' · '))}</span></div></div>` : '<h1>Nouveau <em>pro</em></h1>';
   const body = `<a class="crumb" href="/atelier/pros">${ico('back')} Pros</a>
-${head}${found}<div class="grid"><div>${form}</div><div>${dossier}</div></div>`;
+${head}${found}<div class="grid">${id ? `<div>${dossier}</div><div>${form}</div>` : `<div>${form}</div><div></div>`}</div>`;
   return page(id ? p.name : 'Nouveau pro', '/atelier/pros', body, url, { now });
 }
 
