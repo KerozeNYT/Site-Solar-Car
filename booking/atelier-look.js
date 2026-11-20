@@ -335,7 +335,7 @@ html.js #rdv:not(:has([name=mode][value=tpe]:checked)) .tpebox{display:none}
 .pro__logo img,.avatar--logo img{max-width:52px;max-height:52px;object-fit:contain}
 .remise.remise--btn{grid-template-columns:minmax(0,1fr) auto}.remise--btn button{white-space:nowrap;padding-left:16px;padding-right:18px;border-radius:14px}
 /* the companies found by name: one to choose */
-.hits{display:grid;gap:8px;margin-top:14px}.hit{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line-2);background:rgba(0,0,0,.28);color:inherit;text-decoration:none}
+.hits{display:grid;gap:8px;margin-top:14px}.hit{text-align:left;font:inherit;font-weight:400;width:100%;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line-2);background:rgba(0,0,0,.28);color:inherit;text-decoration:none}
 .hit:hover{border-color:rgba(var(--gold-rgb),.55)}.hit b{grid-column:1;color:var(--text)}.hit small{grid-column:1;color:var(--dim);font-size:12px}.hit__go{grid-column:2;grid-row:1/4;align-self:center;color:var(--gold-2);font-weight:700;font-size:13px}
 /* the partnership agreement and its signatures; the signature pad */
 .conv h3{font-size:14px;margin:16px 0 4px;color:var(--gold-2)}.conv p{margin:0;color:var(--text-2);font-size:14px}
@@ -830,6 +830,73 @@ export const JS = String.raw`(function () {
     loadSlots();
     loadDays();
   }
+  // « Trouver la société »: the public directory read from this browser (the server's shared
+  // addresses are rate-limited there); a SIRET fills the card, a name lists the companies; when the
+  // browser cannot reach it, the form goes to the server as before
+  (function () {
+    var f = d.querySelector('form[data-annuaire]');
+    if (!f || !window.fetch) return;
+    var LEGAL = JSON.parse(f.getAttribute('data-legal') || '{}'), NAF = JSON.parse(f.getAttribute('data-naf') || '{}');
+    var out = f.querySelector('[data-annuaire-msg]');
+    var API = 'https://recherche-entreprises.api.gouv.fr/search?';
+    function ask(params) {
+      params.page = '1';
+      return fetch(API + new URLSearchParams(params), { headers: { accept: 'application/json' } }).then(function (r) { if (!r.ok) throw new Error('annuaire ' + r.status); return r.json(); }).then(function (j) { return j.results || []; });
+    }
+    function company(r, id) {
+      var list = r.matching_etablissements || [], et = null, i;
+      for (i = 0; i < list.length; i++) if (id && list[i].siret === id) et = list[i];
+      if (!et && !id && list.length) et = list[0];
+      et = et || r.siege || {};
+      var naf = et.activite_principale || r.activite_principale || '';
+      var name = r.nom_raison_sociale || r.nom_complet || '';
+      var brand = ((et.liste_enseignes || (r.siege && r.siege.liste_enseignes) || [])[0]) || '';
+      return {
+        name: brand && name && brand.toUpperCase() !== name.toUpperCase() ? brand + ' (' + name + ')' : brand || name,
+        legal: LEGAL[r.nature_juridique] || '',
+        address: et.adresse || (r.siege && r.siege.adresse) || '',
+        activity: NAF[naf] ? NAF[naf] + ' (' + naf + ')' : naf,
+        siret: et.siret || (id && id.length === 14 ? id : (r.siege && r.siege.siret) || '')
+      };
+    }
+    function fill(c) {
+      var map = { name: c.name, legal: c.legal, address: c.address, activity: c.activity, siret: c.siret };
+      Object.keys(map).forEach(function (k) { var el = d.getElementById('p-' + k); if (el && map[k]) el.value = map[k]; });
+      out.textContent = '✓ ' + c.name + ' : fiche remplie. Complétez le contact et le logo, puis « Enregistrer ».';
+      var first = d.getElementById('p-contact');
+      if (first) first.focus();
+    }
+    function list(cs, q) {
+      var old = f.querySelector('.hits');
+      if (old) old.remove();
+      var box = d.createElement('div');
+      box.className = 'hits';
+      cs.forEach(function (c) {
+        var b = d.createElement('button');
+        b.type = 'button';
+        b.className = 'hit';
+        [['b', c.name], ['small', c.address], ['small', 'SIRET ' + c.siret + (c.activity ? ' · ' + c.activity : '')], ['span', 'Choisir']].forEach(function (x, i) { var e = d.createElement(x[0]); e.textContent = x[1]; if (i === 3) e.className = 'hit__go'; b.appendChild(e); });
+        b.addEventListener('click', function () { box.remove(); fill(c); });
+        box.appendChild(b);
+      });
+      f.appendChild(box);
+      out.textContent = cs.length + (cs.length > 1 ? ' sociétés' : ' société') + ' pour « ' + q + ' » : touchez la bonne.';
+    }
+    f.addEventListener('submit', function (e) {
+      var q = (f.elements.q.value || '').trim(), id = q.replace(/[\s.]/g, '');
+      var byNumber = /^\d{9}$|^\d{14}$/.test(id);
+      if (!byNumber && q.replace(/\d/g, '').trim().length < 2) return;
+      e.preventDefault();
+      out.textContent = 'Recherche dans l’annuaire…';
+      var go = byNumber
+        ? ask({ q: id, per_page: '1' }).then(function (rs) { return rs.map(function (r) { return company(r, id); }); })
+        : ask({ q: q, per_page: '8', departement: '37', etat_administratif: 'A' }).catch(function () { return []; }).then(function (rs) { return rs.length ? rs : ask({ q: q, per_page: '8', etat_administratif: 'A' }); }).then(function (rs) { return rs.map(function (r) { return company(r, ''); }); });
+      go.then(function (cs) {
+        if (!cs.length) { out.textContent = byNumber ? 'Aucune entreprise pour ce numéro : vérifiez le SIRET (14 chiffres) ou le SIREN (9).' : 'Aucune société trouvée pour « ' + q + ' » : essayez un autre mot du nom, ou le SIRET.'; return; }
+        if (byNumber) fill(cs[0]); else list(cs, q);
+      }).catch(function () { out.textContent = 'Recherche par le serveur…'; f.submit(); });
+    });
+  })();
   // the signature pad (a partnership agreement countersigned by the workshop)
   Array.prototype.forEach.call(d.querySelectorAll('canvas.pad'), function (cv) {
     var x = cv.getContext('2d'), r = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight, dirty = false, last = null;

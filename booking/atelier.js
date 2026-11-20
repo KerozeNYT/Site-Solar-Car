@@ -58,7 +58,7 @@ const HEADERS = {
   'referrer-policy': 'same-origin',
   'x-content-type-options': 'nosniff',
   // one script, from this server (booking/atelier-look.js): the garage, the live updates
-  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+  'content-security-policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://recherche-entreprises.api.gouv.fr; manifest-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
 };
 
 /** the looks of a band (src/styles/main.css, .promo-band--…) */
@@ -1368,10 +1368,17 @@ export async function companySearch(q, fetcher = fetch) {
   const id = text.replace(/[\s.]/g, '');
   const isId = /^\d{9}$|^\d{14}$/.test(id);
   if (!isId && text.replace(/\d/g, '').trim().length < 2) return [];
+  // the directory limits the shared addresses of Cloudflare (429): tried again twice, a little later
   const ask = async (params) => {
-    const res = await fetcher(`https://recherche-entreprises.api.gouv.fr/search?${new URLSearchParams({ page: '1', ...params })}`, { headers: { accept: 'application/json', 'user-agent': 'solarcar37-atelier' }, signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error(`annuaire ${res.status}`);
-    return (await res.json()).results || [];
+    for (let i = 0; ; i++) {
+      const res = await fetcher(`https://recherche-entreprises.api.gouv.fr/search?${new URLSearchParams({ page: '1', ...params })}`, { headers: { accept: 'application/json', 'user-agent': 'solarcar37-atelier' }, signal: AbortSignal.timeout(8000) });
+      if (res.status === 429 && i < 2) {
+        await new Promise((ok) => setTimeout(ok, i ? 1600 : 700));
+        continue;
+      }
+      if (!res.ok) throw new Error(`annuaire ${res.status}`);
+      return (await res.json()).results || [];
+    }
   };
   if (isId) {
     const r = (await ask({ q: id, per_page: '1' }))[0];
@@ -1452,9 +1459,9 @@ async function proCard(env, url, id, now) {
   }
   const v = (k) => esc(p[k] ?? '');
   const field = (k, label, attrs = '') => `<div><label for="p-${k}">${label}</label><input id="p-${k}" name="${k}" value="${v(k)}" ${attrs}></div>`;
-  const search = `<form class="card" method="get" action="${action}"><h2>${ico('search')} Trouver la société</h2>
+  const search = `<form class="card" method="get" action="${action}" data-annuaire data-legal="${esc(JSON.stringify(LEGAL_FORMS))}" data-naf="${esc(JSON.stringify(NAF))}"><h2>${ico('search')} Trouver la société</h2>
 <input type="hidden" name="chercher" value="1"><div class="remise remise--btn"><input id="p-q" name="q" value="${esc(asked)}" autocomplete="off" placeholder="SIRET, SIREN ou nom de la société" aria-label="SIRET, SIREN ou nom de la société" enterkeyhint="search"><button class="small">${ico('search')} Rechercher</button></div>
-<p class="hint" style="margin:8px 0 0">Le SIRET remplit la fiche tout de suite ; un nom affiche la liste des sociétés (Indre-et-Loire d’abord) : choisissez la bonne. Annuaire officiel des entreprises.</p>${hits}</form>`;
+<p class="hint" style="margin:8px 0 0">Le SIRET remplit la fiche tout de suite ; un nom affiche la liste des sociétés (Indre-et-Loire d’abord) : choisissez la bonne. Annuaire officiel des entreprises.</p><p class="hint" data-annuaire-msg aria-live="polite" style="margin:8px 0 0"></p>${hits}</form>`;
   const form = `${search}<form class="card" method="post" action="${action}" enctype="multipart/form-data"><h2>${ico('briefcase')} ${id ? 'La fiche' : 'Nouveau pro'}</h2>
 ${field('siret', 'SIRET', 'inputmode="numeric" autocomplete="off" placeholder="14 chiffres"')}
 ${field('name', 'Société', 'required')}
