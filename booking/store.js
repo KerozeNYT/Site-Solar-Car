@@ -241,6 +241,9 @@ export class Atelier {
     x('CREATE INDEX IF NOT EXISTS links_session ON links (session)');
     // how it was taken (added later): 'telephone' or 'atelier'
     if (!this.all("SELECT name FROM pragma_table_info('links')").some((c) => c.name === 'canal')) x("ALTER TABLE links ADD COLUMN canal TEXT NOT NULL DEFAULT ''");
+    // the professionals the workshop works with (garages, dealers…): their card, their logo (PNG or
+    // JPEG, for the partnership file, booking/pro-sheet.js), their discount
+    x(`CREATE TABLE IF NOT EXISTS pros (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL DEFAULT '', siret TEXT NOT NULL DEFAULT '', legal TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '', activity TEXT NOT NULL DEFAULT '', contact TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '', discount REAL NOT NULL DEFAULT 10, logo BLOB, logo_type TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL, updated INTEGER NOT NULL DEFAULT 0)`);
     x(`CREATE TABLE IF NOT EXISTS push_subs (endpoint TEXT PRIMARY KEY, p256dh TEXT NOT NULL, auth TEXT NOT NULL, label TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL)`);
   }
 
@@ -365,6 +368,11 @@ export class Atelier {
     // an e-mail to the discussion relay (booking/worker.js, email handler)
     if (path === 'mail/in') return Response.json(await this.mailIn(req));
     // a file of a discussion, as it is
+    // a professional's logo, as it is
+    if (path === 'pro/logo') {
+      const f = this.one('SELECT logo, logo_type FROM pros WHERE id = ? AND logo IS NOT NULL', Number(new URL(req.url).searchParams.get('id')));
+      return f?.logo ? new Response(f.logo, { headers: { 'content-type': f.logo_type || 'image/png' } }) : new Response('not found', { status: 404 });
+    }
     if (path === 'file/raw') {
       const f = this.one('SELECT name, type, data FROM files WHERE id = ?', Number(new URL(req.url).searchParams.get('id')));
       return f ? new Response(f.data, { headers: { 'content-type': f.type || 'application/octet-stream', 'x-name': encodeURIComponent(f.name) } }) : new Response('not found', { status: 404 });
@@ -1066,6 +1074,49 @@ export class Atelier {
         this.run('UPDATE links SET canal = ? WHERE id = ?', b.canal, Number(b.id) || 0);
         return { ok: true, link: this.one('SELECT * FROM links WHERE id = ?', Number(b.id) || 0) };
       }
+      // ------------------------------------------------ the professionals (partners)
+      case 'pros/list':
+        return { pros: this.all('SELECT id, name, siret, address, activity, contact, phone, email, discount, created, updated, (logo IS NOT NULL) AS has_logo FROM pros ORDER BY name COLLATE NOCASE') };
+      case 'pro/get':
+        return { pro: this.one('SELECT id, name, siret, legal, address, activity, contact, phone, email, notes, discount, logo_type, created, updated, (logo IS NOT NULL) AS has_logo FROM pros WHERE id = ?', Number(b.id) || 0) };
+      // with b.logo (base64, PNG or JPEG, 1.5 MB at most) or b.dropLogo
+      case 'pro/save': {
+        const name = clip(b.name, 120);
+        if (!name) return { ok: false, error: 'Indiquez le nom de la société.' };
+        const siret = String(b.siret || '').replace(/\D/g, '').slice(0, 14);
+        if (siret && siret.length !== 14 && siret.length !== 9) return { ok: false, error: 'Le SIRET a 14 chiffres (ou le SIREN 9).' };
+        const pct = Math.max(0, Math.min(50, Number(String(b.discount ?? 10).replace(',', '.')) || 0));
+        const twin = siret ? this.one('SELECT id FROM pros WHERE siret = ? AND id <> ?', siret, Number(b.id) || 0) : null;
+        if (twin) return { ok: false, error: 'Ce SIRET a déjà sa fiche.', id: twin.id };
+        const v = [name, siret, clip(b.legal, 120), clip(b.address, 200), clip(b.activity, 160), clip(b.contact, 120), clip(b.phone, 30), clip(String(b.email || '').toLowerCase(), 120), String(b.notes || '').slice(0, 2000), pct];
+        let id = Number(b.id) || 0;
+        if (id && this.one('SELECT id FROM pros WHERE id = ?', id)) this.run('UPDATE pros SET name = ?, siret = ?, legal = ?, address = ?, activity = ?, contact = ?, phone = ?, email = ?, notes = ?, discount = ?, updated = ? WHERE id = ?', ...v, now, id);
+        else {
+          this.run('INSERT INTO pros (name, siret, legal, address, activity, contact, phone, email, notes, discount, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', ...v, now, now);
+          id = this.one('SELECT last_insert_rowid() AS id').id;
+        }
+        if (b.dropLogo) this.run("UPDATE pros SET logo = NULL, logo_type = '' WHERE id = ?", id);
+        if (b.logo) {
+          const type = b.logoType === 'image/jpeg' ? 'image/jpeg' : b.logoType === 'image/png' ? 'image/png' : '';
+          let bytes;
+          try {
+            bytes = Uint8Array.from(atob(String(b.logo)), (ch) => ch.charCodeAt(0));
+          } catch {
+            bytes = null;
+          }
+          if (!type || !bytes?.length) return { ok: false, error: 'Logo illisible : PNG ou JPG.', id };
+          if (bytes.length > 1.5 * 1024 * 1024) return { ok: false, error: 'Logo trop lourd (1,5 Mo au plus).', id };
+          this.run('UPDATE pros SET logo = ?, logo_type = ? WHERE id = ?', blob(bytes), type, id);
+        }
+        return { ok: true, id };
+      }
+      case 'pro/delete':
+        this.run('DELETE FROM pros WHERE id = ?', Number(b.id) || 0);
+        return { ok: true };
+      // the professional terms (discount, volume, travel), the same for every partner
+      case 'pros/terms':
+        if (b.set) this.set('proTerms', b.set);
+        return { terms: this.setting('proTerms', null) };
       case 'link/get':
         return { link: this.one('SELECT l.*, c.first, c.last, c.email, c.phone FROM links l LEFT JOIN clients c ON c.id = l.client_id WHERE l.id = ?', Number(b.id) || 0) };
       case 'links/list': {

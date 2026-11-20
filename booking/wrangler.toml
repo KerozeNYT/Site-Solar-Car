@@ -67,7 +67,7 @@ crons = ["0 7 1 * *", "17 8 * * 2", "0 16 * * *"]
 # the fonts of the statistics page (booking/stats-fonts.js), uploaded as binary modules
 [[rules]]
 type = "Data"
-globs = ["**/*.woff2", "**/*.webp", "**/*.png"]
+globs = ["**/*.woff2", "**/*.webp", "**/*.png", "**/*.jpg"]
 fallthrough = true
 
 [vars]

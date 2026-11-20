@@ -7,6 +7,11 @@ import logo from './assets/logo-clair-400.webp';
 import logoPng from './assets/logo-clair-280.png';
 import icon512 from './assets/icone-512.png';
 import icon180 from './assets/icone-180.png';
+// the PDF files (booking/devis.js, booking/pro-sheet.js): the logo for a white page, the shades
+import logoDark from './assets/logo-sombre-800.png';
+import { SHADES } from './pdf-shades.js';
+
+export const PDF_ASSETS = { logo: logoDark, shades: SHADES };
 
 export const BRAND = {
   'logo.webp': [logo, 'image/webp'],

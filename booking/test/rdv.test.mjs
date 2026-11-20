@@ -348,3 +348,40 @@ test('a deposit paid by card at the workshop (its terminal): confirmed at once, 
   const page = await (await go(`/atelier/rdv/lien/${id}`)).text();
   assert.match(page, /Confirmé · acompte réglé au TPE/);
 });
+
+test('the professionals: a card with its logo, the terms, the partnership file as PDF', async () => {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries({ name: 'Garage du Centre', siret: '123 456 789 00034', contact: 'Julien Martin', phone: '02 47 00 00 00', email: 'Contact@garage.fr', discount: '10' })) fd.set(k, v);
+  const png = (await import('node:fs')).readFileSync(new URL('../assets/logo-sombre-800.png', import.meta.url));
+  fd.set('logo', new File([png], 'logo.png', { type: 'image/png' }));
+  const post = (path, body) => worker.fetch(new Request(`${SELF}${path}`, { method: 'POST', body, redirect: 'manual', headers: { origin: SELF, cookie } }), env);
+  const res = await post('/atelier/pros/nouveau', fd);
+  assert.equal(res.status, 303);
+  const to = where(res);
+  assert.match(to.pathname, /^\/atelier\/pros\/\d+$/);
+  const [p] = sql('SELECT * FROM pros');
+  assert.deepEqual([p.name, p.siret, p.email, p.logo_type], ['Garage du Centre', '12345678900034', 'contact@garage.fr', 'image/png']);
+  // the same SIRET twice: its card again
+  const twin = new FormData();
+  twin.set('name', 'Autre');
+  twin.set('siret', '12345678900034');
+  assert.match(where(await post('/atelier/pros/nouveau', twin)).searchParams.get('err'), /déjà sa fiche/);
+  // a logo in WebP: asked in PNG or JPG
+  const webp = new FormData();
+  webp.set('name', 'Garage du Centre');
+  webp.set('logo', new File([new Uint8Array([1, 2, 3])], 'logo.webp', { type: 'image/webp' }));
+  assert.match(where(await post(to.pathname, webp)).searchParams.get('err'), /PNG ou en JPG/);
+  const list = await (await go('/atelier/pros')).text();
+  assert.match(list, /Garage du Centre/);
+  assert.match(list, new RegExp(`/atelier/pros/${p.id}/logo`));
+  assert.equal((await go(`/atelier/pros/${p.id}/logo`)).headers.get('content-type'), 'image/png');
+  const card = await (await go(to.pathname)).text();
+  assert.match(card, /Préparer le dossier PDF/);
+  // the terms, then the file
+  await go('/atelier/pros', { method: 'POST', form: { discount: '10', volumeDiscount: '15', volumeFrom: '11', travelFrom: '2', kmRate: '0,60', film: 'Nanocéramique', filmSpecs: 'Rejet des UV : 99 %' } });
+  assert.equal((await (await import('../store.js')).db(env, 'pros/terms')).terms.kmRate, '0,60');
+  const pdf = await go(`/atelier/pros/${p.id}/dossier.pdf?s=vitres&s=phares`);
+  assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+  assert.match(pdf.headers.get('content-disposition'), /Partenariat%20SOLAR%20CAR%2037%20-%20Garage%20du%20Centre\.pdf/);
+  assert.equal(Buffer.from(new Uint8Array(await pdf.arrayBuffer()).slice(0, 5)).toString(), '%PDF-');
+});

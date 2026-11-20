@@ -34,6 +34,7 @@ import { utcToZoned, addDays } from './schedule.js';
 import { siteThemes } from '../content/themes.js';
 import { CSS, JS, CSS_V, JS_V } from './atelier-look.js';
 import { notify, vapidKeys, SW } from './push.js';
+import { proSheetPdf, PRO_TERMS, SHEETS } from './pro-sheet.js';
 
 const COOKIE = 'sc37_atelier';
 const SESSION_DAYS = 30;
@@ -98,6 +99,7 @@ const ICONS = {
   cal: '<rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.3 3.3 0 0 1 0 6.6M18 14.6c2 .7 3.2 2.5 3.5 5.4"/>',
   tag: '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>',
+  briefcase: '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18"/>',
   chart: '<path d="M4 20V11M10 20V5M16 20v-7M2 20h20"/>',
   pin: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
   out: '<path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/>',
@@ -110,6 +112,7 @@ const ICONS = {
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.4 4.2-6.5 8-6.5s7 2.1 8 6.5"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
   inbox: '<path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   check: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16.5 9"/>',
@@ -128,6 +131,7 @@ const TABS = [
   ['/atelier/devis', 'Devis', 'chat', 'Devis'],
   ['/atelier/rdv', 'Rendez-vous', 'cal', 'RDV'],
   ['/atelier/clients', 'Clients', 'users', 'Clients'],
+  ['/atelier/pros', 'Pros', 'briefcase', 'Pros'],
   '',
   ['/atelier/codes', 'Codes et promos', 'tag', 'Promos'],
   ['/atelier/stats', 'Statistiques', 'chart', 'Stats'],
@@ -136,11 +140,12 @@ const TABS = [
 ];
 /** the dock of a phone: the four places of every day, and « Plus » for the rest */
 const DOCK = [...TABS.slice(0, 4), ['/atelier/plus', 'Plus', 'grid', 'Plus']];
-const UNDER_PLUS = new Set(['/atelier/codes', '/atelier/stats', '/atelier/fiche', '/atelier/plus']);
+const UNDER_PLUS = new Set(['/atelier/pros', '/atelier/codes', '/atelier/stats', '/atelier/fiche', '/atelier/plus']);
 /** « + Nouveau »: what is made most often */
 const NEW = [
   ['/atelier/rdv/nouveau', 'cal', 'Nouveau rendez-vous', 'Téléphone, e-mail ou atelier : créneau, acompte'],
   ['/atelier/clients/nouveau', 'user', 'Nouveau client', 'Venu par téléphone ou à l’atelier'],
+  ['/atelier/pros/nouveau', 'briefcase', 'Nouveau pro', 'Garage, concession : SIRET, logo, dossier de partenariat'],
   ['/atelier/codes#promo', 'tag', 'Code promo', 'Remise en % ou en €, dates, prestations'],
   ['/atelier/codes#parrainage', 'gift', 'Code de parrainage', `${R.referral.amount} € à offrir à un client`],
   ['/atelier/clients.csv', 'download', 'Exporter les clients', 'Fichier pour Excel'],
@@ -371,6 +376,23 @@ export async function atelier(req, env, url, now) {
     if (!f.get('confirme')) return back(`/atelier/rdv/lien/${lm[1]}`, { err: 'Cochez la case pour confirmer.' });
     const r = await atelierCancel(env, Number(lm[1]));
     return back(`/atelier/rdv/lien/${lm[1]}`, r.ok ? { ok: 'Lien annulé, créneau libéré.' } : { err: r.error });
+  }
+  // the professionals (partners): their card, their logo, their partnership file
+  if (path === '/atelier/pros' && req.method === 'GET') return prosPage(env, url, now);
+  if (path === '/atelier/pros' && req.method === 'POST') return proTermsPost(req, env, now);
+  const pm = path.match(/^\/atelier\/pros\/(nouveau|\d+)(?:\/(logo|dossier\.pdf|supprimer))?$/);
+  if (pm && req.method === 'GET' && !pm[2]) return proCard(env, url, pm[1] === 'nouveau' ? 0 : Number(pm[1]), now);
+  if (pm && req.method === 'POST' && !pm[2]) return proSavePost(req, env, pm[1] === 'nouveau' ? 0 : Number(pm[1]), now);
+  if (pm && req.method === 'GET' && pm[2] === 'logo') {
+    const res = await atelierFetch(env, `pro/logo?id=${Number(pm[1]) || 0}`, { method: 'GET' });
+    return res.ok ? new Response(res.body, { headers: { 'content-type': res.headers.get('content-type') || 'image/png', 'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff' } }) : new Response('', { status: 404 });
+  }
+  if (pm && req.method === 'GET' && pm[2] === 'dossier.pdf') return proDossier(env, url, Number(pm[1]), now);
+  if (pm && req.method === 'POST' && pm[2] === 'supprimer') {
+    const f = await req.formData();
+    if (!f.get('confirme')) return back(`/atelier/pros/${pm[1]}`, { err: 'Cochez la case pour confirmer.' });
+    await db(env, 'pro/delete', { id: Number(pm[1]) });
+    return back('/atelier/pros', { ok: 'Fiche supprimée.' });
   }
   if (path === '/atelier/clients' && req.method === 'GET') return clients(env, url);
   if (path === '/atelier/clients.csv' && req.method === 'GET') return clientsCsv(env, now);
@@ -800,6 +822,7 @@ async function morePage(env, url, now) {
   const tile = (href, icon, title, text) => `<a class="tile" href="${href}">${ico(icon)}<span><b>${esc(title)}</b><span>${esc(text)}</span></span></a>`;
   const body = `<h1>Plus <em>d’outils</em></h1><p class="lead">Les autres espaces de l’atelier, et les réglages.</p>
 <div class="tiles">${[
+    tile('/atelier/pros', 'briefcase', 'Pros', 'Partenaires, logos, dossiers de partenariat'),
     tile('/atelier/codes', 'tag', 'Codes et promos', 'Bandeaux du site, codes promo, parrainage'),
     tile('/atelier/stats', 'chart', 'Statistiques', 'Visites, demandes, réservations'),
     tile('/atelier/fiche', 'pin', 'Fiche Google', 'La photo de la semaine, publiée le mardi'),
@@ -1292,3 +1315,157 @@ async function codesPost(req, env, now) {
   return back('/atelier/codes', { err: 'Action inconnue.' });
 }
 
+
+// ---------------------------------------------------------------- the professionals (partners)
+/** a company of the public directory (recherche-entreprises.api.gouv.fr: free, no key), by its
+ *  SIRET or SIREN: { name, legal, address, activity, siret } or null */
+const LEGAL_FORMS = { 1000: 'Entrepreneur individuel', 5498: 'EURL', 5499: 'SARL', 5710: 'SAS', 5720: 'SASU', 5599: 'SA', 5202: 'SNC', 6540: 'SCI', 9220: 'Association' };
+const NAF = { '45.11Z': 'Commerce de voitures et véhicules légers', '45.19Z': 'Commerce d’autres véhicules automobiles', '45.20A': 'Entretien et réparation de véhicules légers', '45.20B': 'Entretien et réparation d’autres véhicules', '45.31Z': 'Commerce de gros d’équipements automobiles', '45.32Z': 'Commerce de détail d’équipements automobiles', '77.11A': 'Location de courte durée de voitures', '77.11B': 'Location de longue durée de voitures', '49.32Z': 'Transports de voyageurs par taxis', '49.39B': 'Autres transports routiers de voyageurs' };
+export async function companyBySiret(q, fetcher = fetch) {
+  const id = String(q || '').replace(/\D/g, '');
+  if (id.length !== 14 && id.length !== 9) return null;
+  const res = await fetcher(`https://recherche-entreprises.api.gouv.fr/search?${new URLSearchParams({ q: id, per_page: '1', page: '1' })}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(7000) });
+  if (!res.ok) throw new Error(`annuaire ${res.status}`);
+  const r = (await res.json()).results?.[0];
+  if (!r) return null;
+  const et = (r.matching_etablissements || []).find((e) => e.siret === id) || r.siege || {};
+  const nafCode = et.activite_principale || r.activite_principale || '';
+  const name = r.nom_raison_sociale || r.nom_complet || '';
+  const brand = (et.liste_enseignes || r.siege?.liste_enseignes || [])[0] || '';
+  return {
+    name: brand && name && brand.toUpperCase() !== name.toUpperCase() ? `${brand} (${name})` : brand || name || r.nom_complet || '',
+    legal: LEGAL_FORMS[r.nature_juridique] || '',
+    address: et.adresse || r.siege?.adresse || '',
+    activity: NAF[nafCode] ? `${NAF[nafCode]} (${nafCode})` : nafCode,
+    siret: et.siret || (id.length === 14 ? id : r.siege?.siret || ''),
+  };
+}
+
+const proTerms = async (env) => ({ ...PRO_TERMS, ...((await db(env, 'pros/terms')).terms || {}) });
+
+async function prosPage(env, url, now) {
+  const [{ pros }, T] = await Promise.all([db(env, 'pros/list'), proTerms(env)]);
+  const card = (p) => `<a class="pro" href="/atelier/pros/${p.id}"><span class="pro__logo">${p.has_logo ? `<img src="/atelier/pros/${p.id}/logo?v=${p.updated}" alt="">` : `<b>${esc(initials({ first: p.name, last: '' }))}</b>`}</span><span><b>${esc(p.name)}</b><small>${esc([p.address.split(' ').slice(-1)[0], p.contact].filter(Boolean).join(' · '))}</small><small>Remise ${esc(String(p.discount).replace('.', ','))} %</small></span></a>`;
+  const n = (k, label, attrs = '') => `<div><label for="t-${k}">${label}</label><input id="t-${k}" name="${k}" value="${esc(T[k] ?? '')}" ${attrs}></div>`;
+  const body = `<h1>Les <em>pros</em></h1><p class="lead">Garages, concessions, loueurs : leur fiche (SIRET, logo, contact) et leur dossier de partenariat en PDF, prêt à remettre.</p>
+<div class="btns" style="margin:0 0 18px"><a class="btn" href="/atelier/pros/nouveau">${ico('plus')} Nouveau pro</a></div>
+${pros.length ? `<div class="prolist">${pros.map(card).join('')}</div>` : '<section class="card"><p class="empty">Aucun pro pour l’instant : « Nouveau pro », tapez son SIRET, et sa fiche se remplit toute seule.</p></section>'}
+<form class="card" method="post" action="/atelier/pros" style="margin-top:22px"><h2>${ico('gear')} Conditions des pros</h2>
+<p class="dim" style="margin:-6px 0 14px">Les mêmes pour tous les partenaires, reprises dans chaque dossier.</p>
+<div class="row3">${n('discount', 'Remise pro (%)', 'inputmode="decimal"')}${n('volumeDiscount', 'Remise volume (%)', 'inputmode="decimal"')}${n('volumeFrom', 'Volume dès le …e véhicule du mois', 'inputmode="numeric"')}</div>
+<div class="row3">${n('travelFrom', 'Déplacement offert dès … véhicules', 'inputmode="numeric"')}${n('kmRate', 'Frais km pour 1 véhicule (€/km)', 'inputmode="decimal" placeholder="ex. 0,60"')}<div></div></div>
+${n('film', 'Film des vitres teintées (marque, gamme)', 'placeholder="ex. nanocéramique …"')}
+<label for="t-filmSpecs">Fiche technique du film (une ligne par point : rejet UV, rejet de chaleur, garantie…)</label><textarea id="t-filmSpecs" name="filmSpecs" style="min-height:96px" placeholder="Rejet des UV : 99 %&#10;Garantie : …">${esc(T.filmSpecs || '')}</textarea>
+<button class="small">Enregistrer</button></form>`;
+  return page('Pros', '/atelier/pros', body, url, { now });
+}
+
+async function proTermsPost(req, env, now) {
+  const f = await req.formData();
+  const num = (k, d, max) => {
+    const v = Number(String(f.get(k) ?? '').replace(',', '.'));
+    return v >= 0 && v <= max ? v : d;
+  };
+  const set = {
+    discount: num('discount', PRO_TERMS.discount, 50),
+    volumeDiscount: num('volumeDiscount', PRO_TERMS.volumeDiscount, 60),
+    volumeFrom: Math.round(num('volumeFrom', PRO_TERMS.volumeFrom, 100)) || PRO_TERMS.volumeFrom,
+    travelFrom: Math.round(num('travelFrom', PRO_TERMS.travelFrom, 50)) || PRO_TERMS.travelFrom,
+    kmRate: String(f.get('kmRate') ?? '').trim().slice(0, 12),
+    film: String(f.get('film') ?? '').trim().slice(0, 120),
+    filmSpecs: String(f.get('filmSpecs') ?? '').replace(/\r\n?/g, '\n').trim().slice(0, 1500),
+  };
+  await db(env, 'pros/terms', { now, set });
+  return back('/atelier/pros', { ok: 'Conditions enregistrées : elles s’appliquent aux prochains dossiers.' });
+}
+
+async function proCard(env, url, id, now) {
+  let p = id ? (await db(env, 'pro/get', { id })).pro : { discount: 10 };
+  if (id && !p) return page('Pro', '/atelier/pros', '<h1>Fiche introuvable</h1><p><a href="/atelier/pros">Retour aux pros</a></p>', url);
+  const qs = url.searchParams;
+  let found = '';
+  // « Rechercher » (the form sent back here): what was typed, completed by the public directory
+  if (qs.get('chercher')) {
+    p = { ...p, ...Object.fromEntries(['name', 'siret', 'legal', 'address', 'activity', 'contact', 'phone', 'email', 'notes', 'discount'].map((k) => [k, qs.get(k) ?? p[k] ?? ''])) };
+    try {
+      const c = await companyBySiret(qs.get('siret'));
+      if (c) {
+        p = { ...p, name: c.name || p.name, legal: c.legal || p.legal, address: c.address || p.address, activity: c.activity || p.activity, siret: c.siret || p.siret };
+        found = `<p class="msg msg--ok" role="status">${ico('check')} Trouvé dans l’annuaire des entreprises : ${esc(c.name)}. Vérifiez, complétez le contact, puis enregistrez.</p>`;
+      } else found = '<p class="msg msg--err" role="alert">Aucune entreprise trouvée pour ce numéro : vérifiez le SIRET (14 chiffres) ou le SIREN (9).</p>';
+    } catch (err) {
+      console.error('[pros] annuaire', err.message);
+      found = '<p class="msg msg--err" role="alert">L’annuaire des entreprises ne répond pas : remplissez la fiche à la main, ou réessayez dans un instant.</p>';
+    }
+  }
+  const v = (k) => esc(p[k] ?? '');
+  const field = (k, label, attrs = '') => `<div><label for="p-${k}">${label}</label><input id="p-${k}" name="${k}" value="${v(k)}" ${attrs}></div>`;
+  const action = id ? `/atelier/pros/${id}` : '/atelier/pros/nouveau';
+  const form = `<form class="card" method="post" action="${action}" enctype="multipart/form-data"><h2>${ico('briefcase')} ${id ? 'La fiche' : 'Nouveau pro'}</h2>
+<label for="p-siret">SIRET (ou SIREN)</label><div class="remise remise--btn"><input id="p-siret" name="siret" value="${v('siret')}" inputmode="numeric" autocomplete="off" placeholder="14 chiffres"><button class="ghost small" formaction="${action}" formmethod="get" formenctype="application/x-www-form-urlencoded" name="chercher" value="1">${ico('search')} Rechercher</button></div>
+<p class="hint" style="margin:-4px 0 12px">Tapez le SIRET puis « Rechercher » : nom, adresse et activité se remplissent depuis l’annuaire officiel des entreprises.</p>
+${field('name', 'Société', 'required')}
+<div class="row">${field('legal', 'Forme juridique')}${field('activity', 'Activité')}</div>
+${field('address', 'Adresse')}
+<div class="row3">${field('contact', 'Contact (prénom nom)')}${field('phone', 'Téléphone', 'type="tel" inputmode="tel"')}${field('email', 'E-mail', 'type="email" inputmode="email"')}</div>
+<div class="row"><div><label for="p-logo">Logo de la société (PNG ou JPG)</label><input id="p-logo" name="logo" type="file" accept="image/png,image/jpeg"></div>${field('discount', 'Remise pro (%)', 'inputmode="decimal"')}</div>
+${p.has_logo ? `<div class="checks"><label><input type="checkbox" name="sans_logo" value="1"> Retirer le logo</label></div>` : ''}
+<label for="p-notes">Notes</label><textarea id="p-notes" name="notes" style="min-height:80px">${v('notes')}</textarea>
+<button>${ico('check')} Enregistrer</button></form>`;
+  const dossier = id
+    ? `<form class="card" method="get" action="/atelier/pros/${id}/dossier.pdf" target="_blank"><h2>${ico('download')} Dossier de partenariat</h2>
+<p class="dim" style="margin:-6px 0 14px">Un PDF à remettre : vos deux logos, le mot d’accueil, les conditions (remise, volume, déplacement), puis une page par prestation avec prix public, prix pro et prix volume.</p>
+<div class="checks">${Object.entries(SHEETS).map(([k, label]) => `<label><input type="checkbox" name="s" value="${k}" checked> ${esc(label)}</label>`).join('')}<label><input type="checkbox" disabled> Detailing (tarifs à venir)</label></div>
+<button>${ico('download')} Préparer le dossier PDF</button>
+<p class="hint">S’ouvre dans un nouvel onglet : enregistrez-le, imprimez-le ou partagez-le.</p></form>
+<form class="card" method="post" action="/atelier/pros/${id}/supprimer"><details><summary class="danger-link">${ico('trash')} Supprimer cette fiche</summary><div class="checks"><label><input type="checkbox" name="confirme" value="1" required> Je confirme</label></div><button class="danger small">Supprimer</button></details></form>`
+    : '';
+  const head = id ? `<div class="qhead"><span class="avatar avatar--logo" aria-hidden="true">${p.has_logo ? `<img src="/atelier/pros/${id}/logo?v=${p.updated}" alt="">` : esc(initials({ first: p.name, last: '' }))}</span><div><h1>${esc(p.name)}</h1><span class="dim">${esc([p.activity, p.siret ? `SIRET ${p.siret}` : ''].filter(Boolean).join(' · '))}</span></div></div>` : '<h1>Nouveau <em>pro</em></h1>';
+  const body = `<a class="crumb" href="/atelier/pros">${ico('back')} Pros</a>
+${head}${found}<div class="grid"><div>${form}</div><div>${dossier}</div></div>`;
+  return page(id ? p.name : 'Nouveau pro', '/atelier/pros', body, url, { now });
+}
+
+/** bytes to base64, in slices (a logo of 1.5 MB) */
+const b64 = (u8) => {
+  let s = '';
+  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+
+async function proSavePost(req, env, id, now) {
+  const f = await req.formData();
+  const g = (k) => String(f.get(k) ?? '').trim();
+  const file = f.get('logo');
+  let logo = null;
+  if (file && typeof file === 'object' && file.size > 0) {
+    if (!/^image\/(png|jpeg)$/.test(file.type)) return back(id ? `/atelier/pros/${id}` : '/atelier/pros/nouveau', { err: 'Le logo doit être en PNG ou en JPG (pas de WebP ni de SVG) : enregistrez-le en PNG et réessayez.' });
+    if (file.size > 1.5 * 1024 * 1024) return back(id ? `/atelier/pros/${id}` : '/atelier/pros/nouveau', { err: 'Logo trop lourd : 1,5 Mo au plus.' });
+    logo = { logo: b64(new Uint8Array(await file.arrayBuffer())), logoType: file.type };
+  }
+  const r = await db(env, 'pro/save', { now, id, name: g('name'), siret: g('siret'), legal: g('legal'), address: g('address'), activity: g('activity'), contact: g('contact'), phone: g('phone'), email: g('email'), notes: g('notes'), discount: g('discount') || '10', dropLogo: !!f.get('sans_logo'), ...(logo || {}) });
+  if (!r.ok) {
+    if (r.id && !id) return back(`/atelier/pros/${r.id}`, { err: r.error });
+    const q = new URLSearchParams({ err: r.error });
+    if (!id) for (const k of ['name', 'siret', 'legal', 'address', 'activity', 'contact', 'phone', 'email', 'notes', 'discount']) q.set(k, g(k));
+    return redirect(`${id ? `/atelier/pros/${id}` : '/atelier/pros/nouveau'}?${q}${id ? '' : '&chercher='}`);
+  }
+  return back(`/atelier/pros/${r.id}`, { ok: id ? 'Fiche enregistrée.' : 'Pro ajouté : préparez son dossier de partenariat ci-contre.' });
+}
+
+async function proDossier(env, url, id, now) {
+  const { pro } = await db(env, 'pro/get', { id });
+  if (!pro) return new Response('Fiche introuvable', { status: 404 });
+  let logo = null;
+  if (pro.has_logo) {
+    const res = await atelierFetch(env, `pro/logo?id=${id}`, { method: 'GET' });
+    if (res.ok) logo = new Uint8Array(await res.arrayBuffer());
+  }
+  // the images (booking/brand.js): only in the worker (Node, for the tests, cannot import them)
+  const assets = await import('./brand.js').then((m) => m.PDF_ASSETS).catch(() => ({ logo: null, shades: {} }));
+  const terms = { ...(await proTerms(env)), discount: Number(pro.discount) || PRO_TERMS.discount };
+  const sheets = url.searchParams.getAll('s');
+  const bytes = await proSheetPdf({ ...pro, logo, logoType: pro.logo_type }, { sheets, terms, now, logo: assets.logo ? new Uint8Array(assets.logo) : null, shades: Object.fromEntries(Object.entries(assets.shades || {}).map(([k, v]) => [k, new Uint8Array(v)])) });
+  const name = `Partenariat ${B.name} - ${pro.name}.pdf`.replace(/[\\/:*?"<>|]/g, '');
+  return new Response(bytes, { headers: { 'content-type': 'application/pdf', 'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(name)}`, 'cache-control': 'no-store' } });
+}

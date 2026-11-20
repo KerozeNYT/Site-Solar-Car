@@ -327,6 +327,13 @@ td small,.dim{color:var(--dim);font-size:12.5px}td small{display:block}
 /* the payment link's life, or the amount paid at the card terminal: after the payment chosen */
 html.js #rdv:has([name=mode][value=tpe]:checked) .linkbox,html.js #rdv:has([name=mode][value=none]:checked) .linkbox{display:none}
 html.js #rdv:not(:has([name=mode][value=tpe]:checked)) .tpebox{display:none}
+/* the professionals: their cards, their logo on white */
+.prolist{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:12px}
+.pro{display:flex;gap:14px;align-items:center;padding:14px;border-radius:18px;border:1px solid var(--line-2);background:rgba(0,0,0,.28);color:inherit;text-decoration:none;min-width:0}
+.pro:hover{border-color:rgba(var(--gold-rgb),.5)}.pro>span:last-child{min-width:0}.pro b{display:block;color:var(--text)}.pro small{display:block;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pro__logo,.avatar--logo{width:60px;height:60px;border-radius:14px;background:#fff;display:grid;place-items:center;overflow:hidden;flex:none;color:#111}
+.pro__logo img,.avatar--logo img{max-width:52px;max-height:52px;object-fit:contain}
+.remise--btn{grid-template-columns:minmax(0,1fr) auto}
 .canalfix{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}.canalfix .remise{grid-template-columns:minmax(0,1fr) auto}
 .push__state{font-weight:650;margin:0 0 14px}
 .remise{display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:8px}

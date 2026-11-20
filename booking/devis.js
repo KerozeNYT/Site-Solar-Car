@@ -20,13 +20,13 @@ const RULE = hex('#e6e1d8');
 
 // the standard fonts write WinAnsi only: the other characters made plain (« 1 234 € », « − 20 € »)
 const WIN = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ');
-const plain = (t) =>
+export const plain = (t) =>
   String(t ?? '')
     .replace(/[   ]/g, ' ')
     .replace(/−/g, '-')
     .replace(/[←-⇿]/g, '>')
     .replace(/[^\n -~ -ÿ]/g, (c) => (WIN.has(c) ? c : '?'));
-const money = (n) => plain(new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0));
+export const money = (n) => plain(new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0));
 const day = (ms) => new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: R.timeZone }).format(new Date(ms));
 /** the same day, `months` later (a quote valid one month) */
 export const plusMonths = (ms, months) => {
@@ -228,7 +228,7 @@ export async function devisPdf(d, opts = {}) {
   const conditions = [
     `Devis gratuit, valable ${B.quoteValidMonths || 1} mois (jusqu’au ${day(validUntil)}). Prix nets en euros.`,
     'Date d’exécution : le jour du rendez-vous, fixé ensemble à l’acceptation du devis. Réservation et acompte en ligne, par téléphone ou à l’atelier.',
-    d.items?.some((i) => /teint|pare-brise|film/i.test(`${i.label} ${i.detail || ''}`)) ? 'Films homologués ; la teinte se choisit avec vous à l’atelier, dans le respect de la réglementation (pare-brise et vitres avant : 70 % de transmission lumineuse au minimum).' : '',
+    d.items?.some((i) => /teint|pare-brise|film/i.test(`${i.label} ${i.detail || ''}`)) ? 'La teinte se choisit avec vous à l’atelier, dans le respect de la réglementation (pare-brise et vitres avant : 70 % de transmission lumineuse au minimum).' : '',
     d.note || '',
     `Acompte : remboursé ou reporté en cas d’annulation au moins ${R.cancelHours} h avant le rendez-vous, acquis à l’atelier en deçà (conditions de réservation sur ${String(B.siteUrl).replace(/^https?:\/\//, '')}).`,
     ins ? `Assurance responsabilité civile professionnelle : ${ins.name}, ${ins.where} — couverture : ${ins.area}.` : '',
