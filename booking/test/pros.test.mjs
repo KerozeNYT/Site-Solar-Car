@@ -30,3 +30,19 @@ test('the partnership file: both logos, the terms, one page per service', async 
   const one = await proSheetPdf({ name: 'Solo' }, { sheets: ['phares'] });
   assert.equal(await count(one), 3);
 });
+
+test('companies found by name: Indre-et-Loire first, else all of France', async () => {
+  const { companySearch } = await import('../atelier.js');
+  const asked = [];
+  const fetcher = async (u) => {
+    asked.push(new URL(u).searchParams);
+    const dept = new URL(u).searchParams.get('departement');
+    return Response.json({ results: dept ? [] : [{ nom_complet: 'GARAGE DU LAC', nature_juridique: '5710', siege: { siret: '11122233300015', adresse: '2 RUE DU LAC 41000 BLOIS', activite_principale: '45.20A' } }] });
+  };
+  const list = await companySearch('garage du lac', fetcher);
+  assert.equal(asked[0].get('departement'), '37');
+  assert.equal(asked[0].get('etat_administratif'), 'A');
+  assert.equal(asked[1].get('departement'), null);
+  assert.deepEqual(list, [{ name: 'GARAGE DU LAC', legal: 'SAS', address: '2 RUE DU LAC 41000 BLOIS', activity: 'Entretien et réparation de véhicules légers (45.20A)', siret: '11122233300015' }]);
+  assert.deepEqual(await companySearch('a', fetcher), []);
+});

@@ -1346,14 +1346,10 @@ async function codesPost(req, env, now) {
  *  SIRET or SIREN: { name, legal, address, activity, siret } or null */
 const LEGAL_FORMS = { 1000: 'Entrepreneur individuel', 5498: 'EURL', 5499: 'SARL', 5710: 'SAS', 5720: 'SASU', 5599: 'SA', 5202: 'SNC', 6540: 'SCI', 9220: 'Association' };
 const NAF = { '45.11Z': 'Commerce de voitures et véhicules légers', '45.19Z': 'Commerce d’autres véhicules automobiles', '45.20A': 'Entretien et réparation de véhicules légers', '45.20B': 'Entretien et réparation d’autres véhicules', '45.31Z': 'Commerce de gros d’équipements automobiles', '45.32Z': 'Commerce de détail d’équipements automobiles', '77.11A': 'Location de courte durée de voitures', '77.11B': 'Location de longue durée de voitures', '49.32Z': 'Transports de voyageurs par taxis', '49.39B': 'Autres transports routiers de voyageurs' };
-export async function companyBySiret(q, fetcher = fetch) {
-  const id = String(q || '').replace(/\D/g, '');
-  if (id.length !== 14 && id.length !== 9) return null;
-  const res = await fetcher(`https://recherche-entreprises.api.gouv.fr/search?${new URLSearchParams({ q: id, per_page: '1', page: '1' })}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(7000) });
-  if (!res.ok) throw new Error(`annuaire ${res.status}`);
-  const r = (await res.json()).results?.[0];
-  if (!r) return null;
-  const et = (r.matching_etablissements || []).find((e) => e.siret === id) || r.siege || {};
+/** one company of the directory, as the card wants it (the establishment of the SIRET, else the
+ *  first one found, else the head office) */
+const companyOf = (r, id = '') => {
+  const et = (id && (r.matching_etablissements || []).find((e) => e.siret === id)) || (!id && r.matching_etablissements?.[0]) || r.siege || {};
   const nafCode = et.activite_principale || r.activite_principale || '';
   const name = r.nom_raison_sociale || r.nom_complet || '';
   const brand = (et.liste_enseignes || r.siege?.liste_enseignes || [])[0] || '';
@@ -1364,7 +1360,30 @@ export async function companyBySiret(q, fetcher = fetch) {
     activity: NAF[nafCode] ? `${NAF[nafCode]} (${nafCode})` : nafCode,
     siret: et.siret || (id.length === 14 ? id : r.siege?.siret || ''),
   };
+};
+/** the public directory (recherche-entreprises.api.gouv.fr): by SIRET / SIREN (one company), or by
+ *  name (8 at most: those of Indre-et-Loire first, else all of France; closed ones left out) */
+export async function companySearch(q, fetcher = fetch) {
+  const text = String(q || '').trim();
+  const id = text.replace(/[\s.]/g, '');
+  const isId = /^\d{9}$|^\d{14}$/.test(id);
+  if (!isId && text.replace(/\d/g, '').trim().length < 2) return [];
+  const ask = async (params) => {
+    const res = await fetcher(`https://recherche-entreprises.api.gouv.fr/search?${new URLSearchParams({ page: '1', ...params })}`, { headers: { accept: 'application/json', 'user-agent': 'solarcar37-atelier' }, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`annuaire ${res.status}`);
+    return (await res.json()).results || [];
+  };
+  if (isId) {
+    const r = (await ask({ q: id, per_page: '1' }))[0];
+    console.log('[pros] annuaire SIRET', r ? 'trouvé' : 'rien');
+    return r ? [companyOf(r, id)] : [];
+  }
+  let rows = await ask({ q: text, per_page: '8', departement: '37', etat_administratif: 'A' }).catch((err) => (console.error('[pros] annuaire 37', err.message), []));
+  if (!rows.length) rows = await ask({ q: text, per_page: '8', etat_administratif: 'A' });
+  console.log('[pros] annuaire', rows.length, 'résultat(s)');
+  return rows.map((r) => companyOf(r));
 }
+export const companyBySiret = async (q, fetcher = fetch) => (/^\d{9}$|^\d{14}$/.test(String(q || '').replace(/[\s.]/g, '')) ? (await companySearch(q, fetcher))[0] || null : null);
 
 const proTerms = async (env) => ({ ...PRO_TERMS, ...((await db(env, 'pros/terms')).terms || {}) });
 
@@ -1409,15 +1428,23 @@ async function proCard(env, url, id, now) {
   if (id && !p) return page('Pro', '/atelier/pros', '<h1>Fiche introuvable</h1><p><a href="/atelier/pros">Retour aux pros</a></p>', url);
   const qs = url.searchParams;
   let found = '';
-  // « Rechercher » (the form sent back here): what was typed, completed by the public directory
+  let hits = '';
+  const action = id ? `/atelier/pros/${id}` : '/atelier/pros/nouveau';
+  const asked = String(qs.get('q') ?? qs.get('siret') ?? '').trim();
+  // « Trouver la société »: a SIRET / SIREN fills the card; a name lists the companies to choose from
   if (qs.get('chercher')) {
-    p = { ...p, ...Object.fromEntries(['name', 'siret', 'legal', 'address', 'activity', 'contact', 'phone', 'email', 'notes', 'discount'].map((k) => [k, qs.get(k) ?? p[k] ?? ''])) };
+    p = { ...p, ...Object.fromEntries(['name', 'siret', 'legal', 'address', 'activity', 'contact', 'phone', 'email', 'notes', 'discount'].filter((k) => qs.has(k)).map((k) => [k, qs.get(k)])) };
     try {
-      const c = await companyBySiret(qs.get('siret'));
-      if (c) {
+      const list = await companySearch(asked);
+      const byNumber = /^\d{9}$|^\d{14}$/.test(asked.replace(/[\s.]/g, ''));
+      if (list.length && byNumber) {
+        const c = list[0];
         p = { ...p, name: c.name || p.name, legal: c.legal || p.legal, address: c.address || p.address, activity: c.activity || p.activity, siret: c.siret || p.siret };
         found = `<p class="msg msg--ok" role="status">${ico('check')} Trouvé dans l’annuaire des entreprises : ${esc(c.name)}. Vérifiez, complétez le contact, puis enregistrez.</p>`;
-      } else found = '<p class="msg msg--err" role="alert">Aucune entreprise trouvée pour ce numéro : vérifiez le SIRET (14 chiffres) ou le SIREN (9).</p>';
+      } else if (list.length) {
+        hits = `<div class="hits">${list.map((c) => `<a class="hit" href="${action}?${new URLSearchParams({ chercher: '1', q: c.siret })}"><b>${esc(c.name)}</b><small>${esc(c.address)}</small><small>SIRET ${esc(c.siret)}${c.activity ? ` · ${esc(c.activity)}` : ''}</small><span class="hit__go">Choisir</span></a>`).join('')}</div>`;
+        found = `<p class="msg msg--ok" role="status">${ico('search')} ${list.length} société${list.length > 1 ? 's' : ''} pour « ${esc(asked)} » : touchez la bonne, la fiche se remplit.</p>`;
+      } else found = `<p class="msg msg--err" role="alert">${byNumber ? 'Aucune entreprise pour ce numéro : vérifiez le SIRET (14 chiffres) ou le SIREN (9).' : `Aucune société trouvée pour « ${esc(asked)} » : essayez un autre mot du nom, ou le SIRET.`}</p>`;
     } catch (err) {
       console.error('[pros] annuaire', err.message);
       found = '<p class="msg msg--err" role="alert">L’annuaire des entreprises ne répond pas : remplissez la fiche à la main, ou réessayez dans un instant.</p>';
@@ -1425,10 +1452,11 @@ async function proCard(env, url, id, now) {
   }
   const v = (k) => esc(p[k] ?? '');
   const field = (k, label, attrs = '') => `<div><label for="p-${k}">${label}</label><input id="p-${k}" name="${k}" value="${v(k)}" ${attrs}></div>`;
-  const action = id ? `/atelier/pros/${id}` : '/atelier/pros/nouveau';
-  const form = `<form class="card" method="post" action="${action}" enctype="multipart/form-data"><h2>${ico('briefcase')} ${id ? 'La fiche' : 'Nouveau pro'}</h2>
-<label for="p-siret">SIRET (ou SIREN)</label><div class="remise remise--btn"><input id="p-siret" name="siret" value="${v('siret')}" inputmode="numeric" autocomplete="off" placeholder="14 chiffres"><button class="ghost small" formaction="${action}" formmethod="get" formenctype="application/x-www-form-urlencoded" name="chercher" value="1">${ico('search')} Rechercher</button></div>
-<p class="hint" style="margin:-4px 0 12px">Tapez le SIRET puis « Rechercher » : nom, adresse et activité se remplissent depuis l’annuaire officiel des entreprises.</p>
+  const search = `<form class="card" method="get" action="${action}"><h2>${ico('search')} Trouver la société</h2>
+<input type="hidden" name="chercher" value="1"><div class="remise remise--btn"><input id="p-q" name="q" value="${esc(asked)}" autocomplete="off" placeholder="SIRET, SIREN ou nom de la société" aria-label="SIRET, SIREN ou nom de la société" enterkeyhint="search"><button class="small">${ico('search')} Rechercher</button></div>
+<p class="hint" style="margin:8px 0 0">Le SIRET remplit la fiche tout de suite ; un nom affiche la liste des sociétés (Indre-et-Loire d’abord) : choisissez la bonne. Annuaire officiel des entreprises.</p>${hits}</form>`;
+  const form = `${search}<form class="card" method="post" action="${action}" enctype="multipart/form-data"><h2>${ico('briefcase')} ${id ? 'La fiche' : 'Nouveau pro'}</h2>
+${field('siret', 'SIRET', 'inputmode="numeric" autocomplete="off" placeholder="14 chiffres"')}
 ${field('name', 'Société', 'required')}
 <div class="row">${field('legal', 'Forme juridique')}${field('activity', 'Activité')}</div>
 ${field('address', 'Adresse')}

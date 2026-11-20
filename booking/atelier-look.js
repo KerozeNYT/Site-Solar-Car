@@ -334,6 +334,9 @@ html.js #rdv:not(:has([name=mode][value=tpe]:checked)) .tpebox{display:none}
 .pro__logo,.avatar--logo{width:60px;height:60px;border-radius:14px;background:#fff;display:grid;place-items:center;overflow:hidden;flex:none;color:#111}
 .pro__logo img,.avatar--logo img{max-width:52px;max-height:52px;object-fit:contain}
 .remise--btn{grid-template-columns:minmax(0,1fr) auto}
+/* the companies found by name: one to choose */
+.hits{display:grid;gap:8px;margin-top:14px}.hit{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;padding:12px 14px;border-radius:14px;border:1px solid var(--line-2);background:rgba(0,0,0,.28);color:inherit;text-decoration:none}
+.hit:hover{border-color:rgba(var(--gold-rgb),.55)}.hit b{grid-column:1;color:var(--text)}.hit small{grid-column:1;color:var(--dim);font-size:12px}.hit__go{grid-column:2;grid-row:1/4;align-self:center;color:var(--gold-2);font-weight:700;font-size:13px}
 /* the partnership agreement and its signatures; the signature pad */
 .conv h3{font-size:14px;margin:16px 0 4px;color:var(--gold-2)}.conv p{margin:0;color:var(--text-2);font-size:14px}
 .sigs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.sigs>div{background:#fff;color:#111;border-radius:14px;padding:12px;min-height:110px}.sigs img{display:block;width:100%;height:70px;object-fit:contain}.sigs small{display:block;color:#555;font-size:11px}
