@@ -9,6 +9,8 @@
  *   /atelier/clients         the client file: search, card of each client, add, edit, delete,
  *                            export for Excel (/atelier/clients.csv)
  *   /atelier/codes           the band of the site, the promotion codes, the referral codes
+ *   /atelier/premium         the gift cards (sold, spent, sent) and SOLAR CAR Premium: members,
+ *                            levels and gifts to hand over, an offer e-mailed to the members
  *   /atelier/plus            the other places, and the settings (delays of the quotes)
  *   /atelier/live            JSON for the page open on a screen (badges, what just happened)
  *   /atelier/stats           → the statistics page; /atelier/fiche → the Google profile robot
@@ -22,14 +24,15 @@
 import { bookingRules as R, codeServices, formatEuros, formatDuration, quote, withDiscount, withExtra, discountFor, manualDiscount, bookableVehicles, tintFormulas, lightsBooking, atelierExtras, windshieldMinutes, CANALS, canalLead, tpeAmount } from '../content/booking.js';
 import { tint, tintOnQuote } from '../content/pricing.js';
 // the appointments taken by the workshop (used at request time only: worker.js imports this module)
-import { atelierBooking, atelierSlots, atelierCancel, atelierBookingChange, atelierBookingNotify, atelierLinkCanal, DROP_OFF } from './worker.js';
+import { atelierBooking, atelierSlots, atelierCancel, atelierBookingChange, atelierBookingNotify, atelierLinkCanal, DROP_OFF, refreshEvent } from './worker.js';
+import { giftCard as G, premium as P, offerEuros } from '../content/offers.js';
 import { business as B } from '../content/site.js';
 import { report, totalsOf } from './stats.js';
 import { db, referralFor, redeemReferral, checkCode, dayStart, atelierFetch, QUOTE_STATUS } from './store.js';
 import { gmailReady, gmailState, gmailSync, consentUrl, callback as gmailCallback, disconnect as gmailDisconnect } from './gmail.js';
 import { bookedEvents, listEvents } from './google.js';
 import { getSession } from './stripe.js';
-import { send, shell as mailShell, sendBookingUpdate } from './mail.js';
+import { send, shell as mailShell, sendBookingUpdate, sendGiftBuyer, sendGiftRecipient, sendPremiumWelcome, sendMembersOffer } from './mail.js';
 import { utcToZoned, addDays } from './schedule.js';
 import { siteThemes } from '../content/themes.js';
 import { CSS, JS, CSS_V, JS_V } from './atelier-look.js';
@@ -90,7 +93,11 @@ async function sessionCookie(env, now) {
   return `${COOKIE}=${exp}.${await hmac(env.ATELIER_SECRET, `session:${exp}`)}; Path=/; Max-Age=${SESSION_DAYS * 86400}; HttpOnly; Secure; SameSite=Strict`;
 }
 const redirect = (to, extra = {}) => new Response(null, { status: 303, headers: { location: to, 'cache-control': 'no-store', ...extra } });
-const back = (path, q) => redirect(`${path}${q ? `?${new URLSearchParams(q)}` : ''}`);
+/** back to a page with its message (?ok=, ?err=), before its anchor (#cadeaux) */
+const back = (path, q) => {
+  const [where, anchor] = String(path).split('#');
+  return redirect(`${where}${q ? `?${new URLSearchParams(q)}` : ''}${anchor ? `#${anchor}` : ''}`);
+};
 
 // ---------------------------------------------------------------- the page around
 /** stroke icons (24 × 24), drawn like the site's */
@@ -135,13 +142,14 @@ const TABS = [
   ['/atelier/pros', 'Pros', 'briefcase', 'Pros'],
   '',
   ['/atelier/codes', 'Codes et promos', 'tag', 'Promos'],
+  ['/atelier/premium', 'Cartes & Premium', 'gift', 'Premium'],
   ['/atelier/stats', 'Statistiques', 'chart', 'Stats'],
   ['/atelier/fiche', 'Fiche Google', 'pin', 'Fiche'],
   ['/atelier/plus', 'Réglages', 'gear', 'Plus'],
 ];
 /** the dock of a phone: the four places of every day, and « Plus » for the rest */
 const DOCK = [...TABS.slice(0, 4), ['/atelier/plus', 'Plus', 'grid', 'Plus']];
-const UNDER_PLUS = new Set(['/atelier/pros', '/atelier/codes', '/atelier/stats', '/atelier/fiche', '/atelier/plus']);
+const UNDER_PLUS = new Set(['/atelier/pros', '/atelier/codes', '/atelier/premium', '/atelier/stats', '/atelier/fiche', '/atelier/plus']);
 /** « + Nouveau »: what is made most often */
 const NEW = [
   ['/atelier/rdv/nouveau', 'cal', 'Nouveau rendez-vous', 'Téléphone, e-mail ou atelier : créneau, acompte'],
@@ -149,6 +157,9 @@ const NEW = [
   ['/atelier/pros/nouveau', 'briefcase', 'Nouveau pro', 'Garage, concession : SIRET, logo, dossier de partenariat'],
   ['/atelier/codes#promo', 'tag', 'Code promo', 'Remise en % ou en €, dates, prestations'],
   ['/atelier/codes#parrainage', 'gift', 'Code de parrainage', `${R.referral.amount} € à offrir à un client`],
+  ['/atelier/premium#nouvelle-carte', 'gift', 'Carte cadeau', 'Vendue à l’atelier ou offerte'],
+  ['/atelier/premium#nouveau-membre', 'card', 'Membre Premium', `Adhésion payée à l’atelier (${offerEuros(P.price)})`],
+  ['/atelier/premium#ecrire', 'mail', 'Écrire aux membres', 'Une offre réservée aux membres Premium'],
   ['/atelier/clients.csv', 'download', 'Exporter les clients', 'Fichier pour Excel'],
 ];
 /** the site's seasonal look of the day (content/themes.js): the garage's tubes take its colours */
@@ -362,7 +373,7 @@ export async function atelier(req, env, url, now) {
     return new Response(JSON.stringify(r), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
   }
   // one appointment: its page, a service added or taken off again
-  const rm = path.match(/^\/atelier\/rdv\/r\/([A-Za-z0-9_-]{6,120})(?:\/(ajout|retirer|maj))?$/);
+  const rm = path.match(/^\/atelier\/rdv\/r\/([A-Za-z0-9_-]{6,120})(?:\/(ajout|retirer|maj|cadeau))?$/);
   if (rm && req.method === 'GET' && !rm[2]) return bookingPage(env, url, rm[1], now);
   if (rm && req.method === 'POST' && rm[2]) return bookingChangePost(req, env, rm[1], rm[2], now);
   const lm = path.match(/^\/atelier\/rdv\/lien\/(\d+)(\/annuler|\/canal)?$/);
@@ -429,6 +440,8 @@ export async function atelier(req, env, url, now) {
     const r = await referralFor(env, { owner: c.first || c.last, email: c.email, origin: `client-${c.id}`, clientId: c.id }, now);
     return back(`/atelier/clients/${c.id}`, { ok: `Code de parrainage de ${name(c)} : ${r.code}` });
   }
+  if (path === '/atelier/premium' && req.method === 'GET') return premiumPage(env, url, now);
+  if (path === '/atelier/premium' && req.method === 'POST') return premiumPost(req, env, now);
   if (path === '/atelier/codes' && req.method === 'GET') return codes(env, url, now);
   if (path === '/atelier/codes' && req.method === 'POST') return codesPost(req, env, now);
   if (path === '/atelier/stats') return redirect(`/stats?cle=${encodeURIComponent(env.STATS_KEY || '')}`);
@@ -439,9 +452,9 @@ export async function atelier(req, env, url, now) {
 }
 
 // ---------------------------------------------------------------- Devis (the quote discussions)
-const STATUS_TAG = { nouveau: 'tag--new', envoye: 'tag--gold', reponse: 'tag--reply', valide: 'tag--ok', sans_suite: 'tag--off' };
+const STATUS_TAG = { nouveau: 'tag--new', envoye: 'tag--gold', reponse: 'tag--reply', lien: 'tag--link', valide: 'tag--ok', sans_suite: 'tag--off' };
 /** the colour of each status (booking/atelier-look.js) */
-const STATUS_C = { nouveau: 'var(--blue)', envoye: 'var(--gold)', reponse: 'var(--violet)', valide: 'var(--ok)', sans_suite: 'var(--dim)', relancer: 'var(--amber)' };
+const STATUS_C = { nouveau: 'var(--blue)', envoye: 'var(--gold)', reponse: 'var(--violet)', lien: 'var(--teal)', valide: 'var(--ok)', sans_suite: 'var(--dim)', relancer: 'var(--amber)' };
 const statusTag = (s) => `<span class="tag ${STATUS_TAG[s] || 'tag--off'}">${esc(QUOTE_STATUS[s] || s)}</span>`;
 const remindTag = '<span class="tag tag--warn">à relancer</span>';
 /** « il y a 5 min » (kept up to date by the page's script) */
@@ -496,7 +509,7 @@ async function quotesPage(env, url, now) {
 ${q.last_text ? `<span class="q__last">${q.last_dir === 'out' ? 'Vous : ' : ''}${esc(snippet(q.last_text))}</span>` : ''}</a>`;
   const d = r.delays || { remind: 7, close: 14 };
   const body = `<h1>Demandes de <em>devis</em></h1>
-<p class="lead">Chaque demande du site ouvre une discussion. Répondez ici ou depuis Gmail : le statut suit tout seul. Devis envoyé à votre réponse, réponse reçue quand le client écrit, validé quand il accepte ou réserve en ligne${d.remind ? `, à relancer après ${d.remind} jours sans nouvelles` : ''}${d.close ? `, sans suite après ${d.close} jours (il revient si le client répond)` : ''}.</p>
+<p class="lead">Chaque demande du site ouvre une discussion. Répondez ici ou depuis Gmail : le statut suit tout seul. Devis envoyé à votre réponse, réponse reçue quand le client écrit, lien de paiement envoyé depuis « Nouveau RDV », validé quand il paie, accepte ou réserve en ligne${d.remind ? `, à relancer après ${d.remind} jours sans nouvelles` : ''}${d.close ? `, sans suite après ${d.close} jours (il revient si le client répond)` : ''}.</p>
 <nav class="chips" aria-label="Filtrer par statut">${chip('', 'Toutes', total)}${Object.entries(QUOTE_STATUS)
     .map(([k, v]) => chip(k, v, r.counts[k] || 0))
     .join('')}${remindN || relancer ? chip('relancer', 'À relancer', remindN) : ''}</nav>
@@ -505,7 +518,7 @@ ${r.quotes.length ? `<div class="qlist">${r.quotes.map(card).join('')}</div>` : 
   return page('Devis', '/atelier/devis', body, url, { refresh: true, now });
 }
 
-const VIA = { site: 'formulaire du site', mail: 'e-mail', gmail: 'depuis Gmail', atelier: 'depuis l’atelier' };
+const VIA = { site: 'formulaire du site', mail: 'e-mail', gmail: 'depuis Gmail', atelier: 'depuis l’atelier', lien: 'Nouveau RDV' };
 function filesHtml(files) {
   if (!files?.length) return '';
   return `<span class="files">${files
@@ -520,7 +533,7 @@ function filesHtml(files) {
 }
 
 async function quotePage(env, url, id, now) {
-  const { quote: r, messages } = await db(env, 'quote/get', { id });
+  const { quote: r, messages, link } = await db(env, 'quote/get', { id });
   if (!r) return page('Devis', '/atelier/devis', '<h1>Demande introuvable</h1><p><a href="/atelier/devis">Retour aux devis</a></p>', url);
   const who = name(r);
   const bubble = (m) => {
@@ -558,6 +571,13 @@ async function quotePage(env, url, id, now) {
 <form class="card" method="post" action="/atelier/devis/${r.id}/supprimer"><details><summary class="danger-link">${ico('trash')} Supprimer cette demande</summary>
 <p class="hint">La demande, ses messages et ses photos sont effacés ; la fiche du client reste.</p>
 <div class="checks"><label><input type="checkbox" name="confirme" value="1" required> Je confirme</label></div><button class="danger small">Supprimer définitivement</button></details></form>`;
+  // the payment link sent for it, else the button to send one (« Nouveau RDV », the client filled in)
+  const linkWhen = link?.date ? `${cap(dayLabel(link.date, { weekday: 'long', day: 'numeric', month: 'long' }))} à ${hour(link.time)}` : '';
+  const payCard = link
+    ? `<section class="card"><h2>${ico('send')} Rendez-vous</h2><p style="margin:0 0 10px">${linkTag(link.status)}</p><p class="dim" style="margin:0 0 12px">${esc(linkWhen)}${link.mode !== 'none' ? ` · ${link.mode === 'full' ? 'règlement' : 'acompte'} ${eur(link.due)} sur ${eur(link.total)}` : ` · ${eur(link.total)} sur place`}</p><div class="btns"><a class="btn ghost small" href="/atelier/rdv/lien/${link.id}">Voir le lien</a>${link.status === 'expire' || link.status === 'annule' ? `<a class="btn small" href="/atelier/rdv/nouveau?client=${r.client_id}&amp;devis=${r.id}">${ico('send')} Nouveau lien</a>` : ''}</div></section>`
+    : r.status !== 'valide'
+      ? `<section class="card"><h2>${ico('cal')} Le client est d’accord ?</h2><p class="dim" style="margin:0 0 12px">Fixez le rendez-vous : il reçoit le lien de paiement de l’acompte, le devis passe en « ${esc(QUOTE_STATUS.lien)} », puis en « ${esc(QUOTE_STATUS.valide)} » dès qu’il a payé.</p><a class="btn small" href="/atelier/rdv/nouveau?client=${r.client_id}&amp;devis=${r.id}">${ico('send')} Envoyer un lien de paiement</a></section>`
+      : '';
   const facts = [
     ['Demandée', when(r.at, now)],
     ['Véhicule', r.vehicle],
@@ -571,7 +591,7 @@ async function quotePage(env, url, id, now) {
 ${remindBox}<div class="dgrid"><div><section class="thread" aria-label="Discussion">${messages.map(bubble).join('')}</section>${composer}</div>
 <aside><section class="card"><h2>${ico('user')} ${esc(who)}</h2><div class="btns" style="margin:0 0 14px">${r.phone ? `<a class="btn small" href="tel:${esc(tel(r.phone))}">${ico('phone')} ${esc(r.phone)}</a>` : ''}${r.email ? `<a class="btn ghost small" href="mailto:${esc(r.email)}">${ico('mail')} E-mail</a>` : ''}</div>
 <dl class="facts">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
-<p style="margin:14px 0 0"><a href="/atelier/clients/${r.client_id}">Fiche client</a></p></section>${status}</aside></div>`;
+<p style="margin:14px 0 0"><a href="/atelier/clients/${r.client_id}">Fiche client</a></p></section>${payCard}${status}</aside></div>`;
   return page(`Devis n°${r.id}`, '/atelier/devis', body, url, { now });
 }
 
@@ -652,7 +672,7 @@ const what = (x) => (x.b ? itemsOf(x.b).map((i) => i.label).join(' + ') : (x.eve
 
 function apptRow(x, { withDate = true } = {}) {
   const b = x.b;
-  const who = b ? `<a href="/atelier/clients/${b.client_id}">${esc(name(b))}</a>${b.phone ? `<small><a href="tel:${esc(tel(b.phone))}">${esc(b.phone)}</a></small>` : ''}` : esc((x.event.summary || '').split(' — ').pop());
+  const who = b ? `<a href="/atelier/clients/${b.client_id}">${esc(name(b))}</a>${b.member ? ` ${PREMIUM_TAG}` : ''}${b.phone ? `<small><a href="tel:${esc(tel(b.phone))}">${esc(b.phone)}</a></small>` : ''}` : esc((x.event.summary || '').split(' — ').pop());
   const money = b ? `${eur(b.total)}<small>payé ${eur(b.paid)}${b.total - b.paid > 0 ? ` · reste ${eur(b.total - b.paid)}` : ''}</small>` : '<span class="dim">voir l’agenda</span>';
   const day = `<b>${esc(dayLabel(x.at.date))}</b><small>${esc(hour(x.at.time))} – ${esc(hour(x.end.time))}</small>`;
   return `<tr>${withDate ? `<td>${b ? `<a href="${bookingHref(b.session)}">${day}</a>` : day}</td>` : ''}<td>${who}</td><td class="hide-s">${esc(what(x))}${b?.code ? `<small>code <span class="code">${esc(b.code)}</span> −${eur(b.discount)}</small>` : ''}</td><td class="n">${money}</td></tr>`;
@@ -716,7 +736,7 @@ const FEED = {
 async function home(env, url, now) {
   const today = paris(now).date;
   const from = `${today.slice(0, 8)}01`;
-  const [sum, events, band, visits, list, act] = await Promise.all([
+  const [sum, events, band, visits, list, act, gifts] = await Promise.all([
     db(env, 'summary', { from, to: today, now }),
     agenda(env, today, addDays(today, 6)),
     db(env, 'banner/get'),
@@ -727,6 +747,7 @@ async function home(env, url, now) {
       : null,
     db(env, 'quotes/list', { now }),
     db(env, 'activity', { limit: 9, now }),
+    db(env, 'members/pending').catch(() => ({ n: 0 })),
   ]);
   const month = new Intl.DateTimeFormat('fr-FR', { month: 'long', timeZone: 'UTC' }).format(new Date(`${from}T12:00:00Z`));
   const qf = sum.quotes;
@@ -741,6 +762,7 @@ async function home(env, url, now) {
     qf.reply && ['var(--violet)', `${qf.reply} réponse${qf.reply > 1 ? 's' : ''} reçue${qf.reply > 1 ? 's' : ''}`, '/atelier/devis?statut=reponse'],
     remind.length && ['var(--amber)', `${remind.length} à relancer`, '/atelier/devis?statut=relancer'],
     todayN && ['var(--ok)', `${todayN} RDV aujourd’hui`, '/atelier/rdv'],
+    gifts.n && ['#e9cd82', `${gifts.n} cadeau${gifts.n > 1 ? 'x' : ''} Premium à remettre`, '/atelier/premium#a-remettre'],
   ].filter(Boolean);
   const hello = `<div class="hello"><h1>Bonjour <em>${esc((B.owner || '').split(' ')[0] || '')}</em></h1>
 <p class="hello__date">${esc(cap(dayLabel(today, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })))} · ${sum.totalClients} client${sum.totalClients > 1 ? 's' : ''} dans le fichier</p>
@@ -761,7 +783,7 @@ async function home(env, url, now) {
   const pipe = `<div class="pipe">${[
     st('new', 'inbox', 'À répondre', qf.open, '/atelier/devis?statut=nouveau', 'nouvelles demandes', true),
     st('reply', 'chat', 'Réponse reçue', qf.reply, '/atelier/devis?statut=reponse', 'le client a écrit', true),
-    st('sent', 'send', 'En attente', qf.sent, '/atelier/devis?statut=envoye', 'devis envoyés, au client de jouer', false),
+    st('sent', 'send', 'En attente', qf.sent + (qf.link || 0), qf.link && !qf.sent ? '/atelier/devis?statut=lien' : '/atelier/devis?statut=envoye', qf.link ? `dont ${qf.link} lien${qf.link > 1 ? 's' : ''} de paiement` : 'devis envoyés, au client de jouer', false),
     st('remind', 'clock', 'À relancer', remind.length, '/atelier/devis?statut=relancer', dl.remind ? `sans nouvelles depuis ${dl.remind} jours` : 'relance désactivée', true),
     st('won', 'check', 'Validés', qf.won.n, '/atelier/devis?statut=valide', `en ${esc(month)}${qf.won.amount ? ` · ${eur(qf.won.amount)}` : ''}`, false),
   ].join('')}</div>`;
@@ -865,6 +887,10 @@ const bookingHref = (session) => `/atelier/rdv/r/${encodeURIComponent(session)}`
 async function bookingPage(env, url, session, now) {
   const { booking: b } = await db(env, 'booking/get', { session });
   if (!b) return page('Rendez-vous', '/atelier/rdv', '<h1>Rendez-vous introuvable</h1><p><a href="/atelier/rdv">Retour aux rendez-vous</a></p>', url);
+  // a member: the badge, the level, the gifts to hand over at this appointment
+  const mem = (await db(env, 'member/of', { email: b.email, clientId: b.client_id, now })).member;
+  // the level this appointment will open, counted on its day: its gift to have ready
+  const coming = b.member && !b.counted ? (await db(env, 'member/next-level', { session: b.session })).tier : null;
   const items = itemsOf(b);
   const due = Math.max(0, Math.round((b.total - b.paid) * 100) / 100);
   const who = name(b);
@@ -879,13 +905,17 @@ async function bookingPage(env, url, session, now) {
     )
     .join('');
   const body = `<a class="crumb" href="/atelier/rdv">${ico('back')} Rendez-vous</a>
-<div class="qhead"><span class="avatar" aria-hidden="true">${esc(initials(b))}</span><div><h1>${esc(who)}</h1><span class="dim">${esc([b.vehicle, when].filter(Boolean).join(' · '))}</span></div>${b.live ? '' : '<span class="right tag tag--off">test</span>'}</div>
+<div class="qhead"><span class="avatar" aria-hidden="true">${esc(initials(b))}</span><div><h1>${esc(who)}</h1><span class="dim">${esc([b.vehicle, when].filter(Boolean).join(' · '))}</span></div>${mem?.active ? `${PREMIUM_TAG} ${lvl(mem.tier.id)}` : ''}${b.live ? '' : '<span class="right tag tag--off">test</span>'}</div>
+${mem ? giftsDue(mem, `/atelier/rdv/r/${encodeURIComponent(b.session)}`) : ''}
+${coming ? `<div class="giftdue" style="--c:${esc(tierById(coming.id).color)}"><div><b>${ico('gift')} Cadeau à prévoir pour ce RDV · ${lvl(coming.id)}</b><small>${esc(coming.gift)} · sa ${ordinal(coming.visits)} prestation en tant que membre : le niveau s’ouvre le jour du RDV.</small></div></div>` : ''}
+${b.member && b.counted < 0 ? '<p class="dim">Ce RDV n’a pas compté pour les niveaux Premium (retiré de l’agenda avant son jour, ou sous le montant minimum).</p>' : ''}
 <div class="grid"><section class="card"><h2>${ico('cal')} ${esc(when)}</h2>
 <ul class="recap recap--edit">${lines}</ul>
 ${b.discount ? `<div class="recap__due"><span>Remises</span><b>−${eur(b.discount)}</b></div>` : ''}
 <div class="recap__tot"><span>Total</span><b>${eur(b.total)}</b></div>
-<div class="recap__due"><span>Déjà réglé${b.mode === 'none' ? '' : b.mode === 'tpe' ? ' (acompte au TPE)' : ' en ligne'}</span><b>${eur(b.paid)}</b></div>
+<div class="recap__due"><span>Déjà réglé${b.mode === 'none' ? '' : b.mode === 'tpe' ? ' (acompte au TPE)' : ' en ligne'}${b.gift ? ` <small>dont carte cadeau <span class="code">${esc(b.gift)}</span> ${eur(b.gift_amount)}</small>` : ''}</span><b>${eur(b.paid)}</b></div>
 <div class="recap__tot recap__left"><span>Reste à régler à l’atelier</span><b>${eur(due)}</b></div>
+${due > 0 ? `<form method="post" action="${bookingHref(b.session)}/cadeau" class="row" style="margin-top:14px;align-items:end"><div><label for="g-code">Régler avec une carte cadeau</label><input id="g-code" name="code" required autocomplete="off" placeholder="CADEAU-XXXX-XXXX" style="text-transform:uppercase"></div><div><label for="g-montant">Montant (€)</label><input id="g-montant" name="montant" inputmode="decimal" placeholder="${esc(String(due).replace('.', ','))}"></div><div><button class="small">${ico('gift')} Déduire</button></div></form>` : ''}
 <div class="btns" style="margin-top:16px">${b.phone ? `<a class="btn small" href="tel:${esc(tel(b.phone))}">${ico('phone')} ${esc(b.phone)}</a>` : ''}${b.client_id ? `<a class="btn ghost small" href="/atelier/clients/${b.client_id}">Fiche client</a>` : ''}</div></section>
 <form class="card" method="post" action="${bookingHref(b.session)}/ajout" id="ajout" data-presets="${esc(JSON.stringify(Object.fromEntries(atelierExtras.map((x) => [x.id, { label: x.label, price: x.price, minutes: x.minutes }]))))}"><h2>${ico('plus')} Ajouter une prestation</h2>
 <p class="dim" style="margin:-6px 0 14px">Une prestation demandée en plus : elle s’ajoute au total, et le reste à régler à l’atelier suit.</p>
@@ -912,6 +942,22 @@ async function bookingChangePost(req, env, session, action, now) {
     const net = Math.round(price * (1 - Math.max(0, Math.min(100, pct)) / 100) * 100) / 100;
     change = { add: { label: g('label'), detail: pct > 0 ? `${eur(price)} − ${String(pct).replace('.', ',')} %` : '', price: net, minutes: Number(g('minutes')) || 0 }, lengthen: !!f.get('allonger') };
   } else if (action === 'retirer') change = { remove: Number(g('ligne')) };
+  // a gift card given at the workshop: taken off what is left to pay
+  if (action === 'cadeau') {
+    const { booking: bk } = await db(env, 'booking/get', { session });
+    if (!bk) return back('/atelier/rdv', { err: 'Rendez-vous introuvable.' });
+    const left = Math.max(0, Math.round((bk.total - bk.paid) * 100) / 100);
+    const r = await checkCode(env, g('code'), now);
+    if (!r.ok || r.kind !== 'cadeau') return back(bookingHref(session), { err: r.ok ? 'Ce code n’est pas une carte cadeau.' : r.error });
+    const typed = Number(g('montant').replace(/\s/g, '').replace(',', '.')) || left;
+    const amount = Math.round(Math.min(typed, left, r.balance) * 100) / 100;
+    if (!(amount > 0)) return back(bookingHref(session), { err: 'Rien à déduire.' });
+    const used = await db(env, 'gift/use', { code: r.code, amount, ref: `rdv:${session}:${now}`, by: name(bk), where: 'à l’atelier', now });
+    if (!used.ok) return back(bookingHref(session), { err: used.error });
+    const paidNow = await db(env, 'booking/payment', { session, amount: used.used, ref: `cadeau:${r.code}:${now}`, now });
+    if (paidNow.ok) await refreshEvent(env, paidNow.booking);
+    return back(bookingHref(session), { ok: `${eur(used.used)} réglés avec la carte ${r.code} : il reste ${eur(used.balance)} dessus.` });
+  }
   // « Prévenir le client »: the new recap, with a deposit for the services added when asked; or
   // « M'envoyer un aperçu »: that e-mail to the workshop only, no payment page made
   if (action === 'maj') {
@@ -942,7 +988,7 @@ function notifyCard(b, items, due) {
   })();
   return `<form class="card" method="post" action="${bookingHref(b.session)}/maj" id="prevenir"><h2>${ico('send')} Prévenir le client</h2>
 <p class="dim" style="margin:-6px 0 14px">Le récapitulatif à jour (prestations, total, déjà réglé, reste à régler) par e-mail${b.email ? ` à ${esc(b.email)}` : ' : <b>ce client n’a pas d’e-mail</b>, prévenez-le par téléphone'}.${added.length ? ` Ajouts : ${eur(addedTotal)}.` : ''}</p>
-${payments.length ? `<p class="dim" style="margin:-6px 0 14px">Acomptes reçus depuis : ${payments.map((p) => `${eur(p.amount)} le ${esc(dateOf(p.at))}`).join(', ')}.</p>` : ''}
+${payments.length ? `<p class="dim" style="margin:-6px 0 14px">${payments.some((p) => /^cadeau:/.test(p.ref)) ? 'Réglé depuis' : 'Acomptes reçus depuis'} : ${payments.map((p) => `${eur(p.amount)} le ${esc(dateOf(p.at))}${/^cadeau:/.test(p.ref) ? ` (carte cadeau ${esc(p.ref.split(':')[1])})` : ''}`).join(', ')}.</p>` : ''}
 <div class="checks"><label><input type="checkbox" name="acompte" value="1"> Demander un acompte en ligne (facultatif, à vous de voir)</label></div>
 <div class="row"><div><label for="m-montant">Montant de l’acompte (€)</label><input id="m-montant" name="montant" inputmode="decimal" value="${suggest ? esc(String(suggest).replace('.', ',')) : ''}" placeholder="${suggest ? '' : 'ex. 20'}"></div><div><label for="m-duree">Lien valable</label><select id="m-duree" name="duree"><option value="24">24 heures</option><option value="6">6 heures</option><option value="2">2 heures</option></select></div></div>
 <label for="m-note">Mot pour le client (facultatif, en tête de l’e-mail)</label><textarea id="m-note" name="note" style="min-height:90px" placeholder="Bonjour ${esc(b.first || '')}, comme vu ensemble, j’ai ajouté…"></textarea>
@@ -999,6 +1045,8 @@ function bookingOf(f) {
     remise: { type: g('remise_type') === 'amount' ? 'amount' : 'percent', value: g('remise') },
     note: g('note'),
     hours: g('duree'),
+    // the quote it answers (« Envoyer un lien de paiement » on the quote)
+    request: Number(g('devis')) || 0,
   };
 }
 
@@ -1008,10 +1056,12 @@ async function bookingPrice(env, b, now) {
   if (q.error) return { error: q.error === 'Prestation à choisir' ? '' : q.error };
   let codeNote = '';
   let off = 0;
-  if (b.code) {
-    const r = await checkCode(env, b.code, now).catch(() => ({ ok: false, error: 'Code à vérifier' }));
-    off = r.ok ? discountFor(q, r) : 0;
-    codeNote = r.ok ? (off ? `Code ${r.code} : −${eur(off)}` : `Le code ${r.code} ne s’applique pas à ces prestations`) : r.error;
+  // a member of SOLAR CAR Premium, no code typed: the card applies by itself (as when it is created)
+  const auto = !b.code && b.customer?.email ? (await db(env, 'member/of', { email: b.customer.email, now }).catch(() => ({}))).member : null;
+  if (b.code || auto?.active) {
+    const r = await checkCode(env, b.code || auto.number, now).catch(() => ({ ok: false, error: 'Code à vérifier' }));
+    off = r.ok && r.kind !== 'cadeau' ? discountFor(q, r) : 0;
+    codeNote = r.ok ? (r.kind === 'cadeau' ? 'Carte cadeau : elle se déduit sur la page du RDV, une fois créé' : r.kind === 'premium' ? `Membre Premium${auto ? ` (${r.code})` : ''} : −${eur(off)}` : off ? `Code ${r.code} : −${eur(off)}` : `Le code ${r.code} ne s’applique pas à ces prestations`) : r.error;
   }
   // the workshop's own discount, on what the code leaves (worker.js, atelierBooking: the same sums)
   const remise = manualDiscount(q.total - off, b.remise?.type, b.remise?.value);
@@ -1071,6 +1121,9 @@ async function bookingForm(env, url, now, values = null, error = '') {
     const c = (await db(env, 'client/get', { id: Number(url.searchParams.get('client')) })).client;
     if (c) for (const [k, x] of [['prenom', c.first], ['nom', c.last], ['tel', c.phone], ['email', c.email], ['vehicule', (c.vehicles || '').split(' · ')[0]], ['plaque', c.plate]]) f.set(k, x || '');
   }
+  // from a quote: its number kept with the link (the quote follows: link sent, then validated)
+  if (!values && /^\d+$/.test(url.searchParams.get('devis') || '')) f.set('devis', url.searchParams.get('devis'));
+  const devis = /^\d+$/.test(f.get('devis') || '') ? f.get('devis') : '';
   const opt = (list, cur, empty) => `${empty ? `<option value="">${esc(empty)}</option>` : ''}${list.map(([id, label]) => `<option value="${esc(id)}"${String(cur) === String(id) ? ' selected' : ''}>${esc(label)}</option>`).join('')}`;
   const cat = f.get('vt_vehicule') || 'citadine';
   const vehicleCat = bookableVehicles.find((x) => x.id === cat)?.cat || 'citadine';
@@ -1084,9 +1137,9 @@ async function bookingForm(env, url, now, values = null, error = '') {
   const today = paris(now).date;
   const body = `<a class="crumb" href="/atelier/rdv">${ico('back')} Rendez-vous</a>
 <h1>Nouveau <em>rendez-vous</em></h1><p class="lead">Un client au téléphone, par e-mail ou à l’atelier : sa fiche, ses prestations, le créneau. Il reçoit tout de suite un e-mail avec le récapitulatif et le lien de paiement de l’acompte ; dès qu’il a payé, le RDV est confirmé dans l’agenda et vous recevez l’e-mail « Nouveau RDV ».</p>
-${error ? `<p class="msg msg--err" role="alert">${esc(error)}</p>` : ''}
+${devis ? `<p class="msg msg--link">${ico('send')} Pour le <a href="/atelier/devis/${esc(devis)}">devis n°${esc(devis)}</a> : il passera en « ${esc(QUOTE_STATUS.lien)} », puis en « ${esc(QUOTE_STATUS.valide)} » quand le client aura payé.</p>` : ''}${error ? `<p class="msg msg--err" role="alert">${esc(error)}</p>` : ''}
 <form method="post" action="/atelier/rdv/nouveau" id="rdv" class="rdvgrid" novalidate data-presets="${esc(JSON.stringify(Object.fromEntries(atelierExtras.map((x) => [x.id, { label: x.label, price: x.price, minutes: x.minutes }]))))}" data-prices="${esc(JSON.stringify(Object.fromEntries(bookableVehicles.map((x) => [x.id, Object.fromEntries(tintFormulas.map((t) => [t.id, t.price(x.cat)]))]))))}" data-minutes="${price?.minutes || 0}">
-<div>
+${devis ? `<input type="hidden" name="devis" value="${esc(devis)}">` : ''}<div>
 <p class="seg__q">Rendez-vous pris…</p>
 <div class="seg seg--3" role="radiogroup" aria-label="Rendez-vous pris">${[['telephone', 'Téléphone', 'le client a appelé', 'phone'], ['mail', 'E-mail', 'le client a écrit', 'mail'], ['atelier', 'Atelier', 'le client est passé', 'home']].map(([id, label, hint, icon]) => `<label><input type="radio" name="canal" value="${id}" required${f.get('canal') === id ? ' checked' : ''}><span><b>${ico(icon)} ${label}</b><small>${hint}</small></span></label>`).join('')}</div>
 <section class="card"><h2>${ico('user')} Client</h2>
@@ -1149,7 +1202,7 @@ async function linkPage(env, url, id, now) {
 <div class="qhead"><span class="avatar" aria-hidden="true">${esc(initials(l))}</span><div><h1>${esc(who)}</h1><span class="dim">${esc([l.vehicle, takenLow(l.canal)].filter(Boolean).join(' · '))}</span></div><span class="right">${linkTag(l.status, l.mode)}</span></div>
 <div class="grid"><section class="card"><h2>${ico('cal')} ${esc(when)}</h2><ul class="recap">${items.map((i) => `<li><span>${esc(i.label)}${i.detail ? `<small>${esc(i.detail)}</small>` : ''}</span><b>${eur(i.price)}</b></li>`).join('')}</ul>
 <div class="recap__tot"><span>Total · ${esc(formatDuration(l.minutes))}</span><b>${eur(l.total)}</b></div>${l.mode !== 'none' ? `<div class="recap__due"><span>${l.mode === 'full' ? 'Totalité en ligne' : l.mode === 'tpe' ? 'Acompte réglé au TPE' : 'Acompte en ligne'}</span><b>${eur(l.due)}</b></div>` : ''}
-<div class="btns" style="margin-top:16px">${l.phone ? `<a class="btn small" href="tel:${esc(tel(l.phone))}">${ico('phone')} ${esc(l.phone)}</a>` : ''}<a class="btn ghost small" href="/atelier/clients/${l.client_id}">Fiche client</a></div>
+<div class="btns" style="margin-top:16px">${l.phone ? `<a class="btn small" href="tel:${esc(tel(l.phone))}">${ico('phone')} ${esc(l.phone)}</a>` : ''}<a class="btn ghost small" href="/atelier/clients/${l.client_id}">Fiche client</a>${l.request ? `<a class="btn ghost small" href="/atelier/devis/${l.request}">Devis n°${l.request}</a>` : ''}</div>
 <form method="post" action="/atelier/rdv/lien/${l.id}/canal" class="canalfix"><label for="k-canal">Rendez-vous pris</label><div class="remise"><select id="k-canal" name="canal">${Object.entries(CANALS).map(([id, t]) => `<option value="${id}"${l.canal === id ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><button class="ghost small">Corriger</button></div></form></section>
 ${share ? `<div>${share}</div>` : `<section class="card"><h2>${ico('check')} ${esc(LINK_STATUS[l.status]?.[1] || '')}</h2><p class="dim">${l.status === 'paye' ? 'Le client a payé : le rendez-vous est confirmé dans l’agenda, et il a reçu sa confirmation.' : l.status === 'confirme' ? 'Le rendez-vous est dans l’agenda ; le client a reçu sa confirmation par e-mail.' : l.status === 'expire' ? 'Le client n’a pas payé à temps : le créneau a été libéré. Refaites un rendez-vous pour lui envoyer un nouveau lien.' : 'Le lien a été annulé et le créneau libéré.'}</p>${['expire', 'annule'].includes(l.status) ? `<a class="btn small" href="/atelier/rdv/nouveau?client=${l.client_id}">${ico('plus')} Nouveau RDV pour ${esc(l.first || 'ce client')}</a>` : ''}${['paye', 'confirme'].includes(l.status) && l.session ? `<a class="btn small" href="${bookingHref(l.session)}">${ico('cal')} Ouvrir le RDV (ajouter une prestation)</a>` : ''}</section>`}</div>`;
   return page(`RDV ${who}`, '/atelier/rdv', body, url, { refresh: true, now });
@@ -1164,7 +1217,7 @@ async function appointments(env, url, now) {
   const shown = new Set((next || []).map((x) => x.b?.session).filter(Boolean));
   const gone = next ? (await db(env, 'bookings/list', { from: today, to: addDays(today, 90), limit: 200 })).bookings.filter((b) => !shown.has(b.session)) : [];
   const nextHtml = next === null ? '<p class="empty">Agenda indisponible pour le moment.</p>' : next.length ? `<table><thead><tr><th>Quand</th><th>Client</th><th class="hide-s">Prestations</th><th class="n">Montant</th></tr></thead><tbody>${next.map((x) => apptRow(x)).join('')}</tbody></table>` : '<p class="empty">Aucun RDV en ligne à venir.</p>';
-  const pastRow = (b) => `<tr><td><a href="${bookingHref(b.session)}"><b>${esc(dayLabel(b.date, { day: 'numeric', month: 'short', year: '2-digit' }))}</b><small>${esc(hour(b.time))}</small></a></td><td><a href="/atelier/clients/${b.client_id}">${esc(name(b))}</a>${b.live ? '' : ' <span class="tag tag--off">test</span>'}</td><td class="hide-s">${esc(itemsOf(b).map((i) => i.label).join(' + '))}${b.code ? `<small>code <span class="code">${esc(b.code)}</span></small>` : ''}</td><td class="n">${eur(b.total)}<small>payé ${eur(b.paid)}</small></td></tr>`;
+  const pastRow = (b) => `<tr><td><a href="${bookingHref(b.session)}"><b>${esc(dayLabel(b.date, { day: 'numeric', month: 'short', year: '2-digit' }))}</b><small>${esc(hour(b.time))}</small></a></td><td><a href="/atelier/clients/${b.client_id}">${esc(name(b))}</a>${b.member ? ` ${PREMIUM_TAG}` : ''}${b.live ? '' : ' <span class="tag tag--off">test</span>'}</td><td class="hide-s">${esc(itemsOf(b).map((i) => i.label).join(' + '))}${b.code ? `<small>code <span class="code">${esc(b.code)}</span></small>` : ''}</td><td class="n">${eur(b.total)}<small>payé ${eur(b.paid)}</small></td></tr>`;
   // the links sent lately: waiting first, then the last ones settled (two weeks)
   const shownLinks = links.links.filter((l) => l.status === 'attente' || now - l.created < 14 * DAY);
   const linkRow = (l) => `<tr><td><a href="/atelier/rdv/lien/${l.id}"><b>${esc(name(l))}</b></a><small>${esc([l.vehicle, takenLow(l.canal)].filter(Boolean).join(' · '))}</small></td><td class="hide-s">${l.date ? `<b>${esc(dayLabel(l.date))}</b><small>${esc(hour(l.time))}</small>` : ''}</td><td>${linkTag(l.status === 'attente' && l.expires < now ? 'expire' : l.status, l.mode)}${l.status === 'attente' ? `<small>expire <time data-until="${l.expires}">bientôt</time></small>` : ''}</td><td class="n">${eur(l.total)}${l.mode !== 'none' ? `<small>${l.mode === 'full' ? 'totalité' : l.mode === 'tpe' ? 'acompte TPE' : 'acompte'} ${eur(l.due)}</small>` : '<small>sur place</small>'}</td></tr>`;
@@ -1178,15 +1231,20 @@ ${gone.length ? `<section class="card"><h2>Retirés de l’agenda</h2><p class="
 }
 
 // ---------------------------------------------------------------- Clients
+/** « Client confirmé » from the first appointment or quote validated (booking/store.js), else « Prospect » */
+const clientTag = (c) => (c.confirmed ? '<span class="tag tag--ok">Client confirmé</span>' : '<span class="tag tag--gold">Prospect</span>');
 async function clients(env, url) {
   const q = url.searchParams.get('q') || '';
-  const r = await db(env, 'clients/list', { q });
-  const row = (c) => `<tr><td><a href="/atelier/clients/${c.id}"><b>${esc(name(c))}</b></a><small>${esc(c.vehicles || '')}</small></td><td>${c.phone ? `<a href="tel:${esc(tel(c.phone))}">${esc(c.phone)}</a>` : ''}<small class="hide-s">${esc(c.email)}</small></td><td class="n hide-s">${c.n_bookings ? `${c.n_bookings} RDV<small>${eur(c.paid)}</small>` : c.n_requests ? `<span class="tag tag--gold">devis</span>` : ''}</td><td class="n hide-s">${esc(dateOf(c.last_seen))}</td></tr>`;
+  const kind = ['confirme', 'prospect'].includes(url.searchParams.get('statut')) ? url.searchParams.get('statut') : '';
+  const r = await db(env, 'clients/list', { q, kind });
+  const chip = (k, label, n, c) => `<a href="/atelier/clients${k || q ? `?${new URLSearchParams({ ...(k ? { statut: k } : {}), ...(q ? { q } : {}) })}` : ''}"${k === kind ? ' aria-current="page"' : ''} style="--c:${c}">${k ? '<i></i>' : ''}${esc(label)} <b>${n}</b></a>`;
+  const row = (c) => `<tr><td><a href="/atelier/clients/${c.id}"><b>${esc(name(c))}</b></a> ${clientTag(c)}${c.premium && c.premium_until >= Date.now() ? ` ${PREMIUM_TAG}` : ''}<small>${esc(c.vehicles || '')}</small></td><td>${c.phone ? `<a href="tel:${esc(tel(c.phone))}">${esc(c.phone)}</a>` : ''}<small class="hide-s">${esc(c.email)}</small></td><td class="n hide-s">${c.n_bookings ? `${c.n_bookings} RDV<small>${eur(c.paid)}</small>` : c.n_requests ? `<span class="tag tag--gold">devis</span>` : ''}</td><td class="n hide-s">${esc(dateOf(c.last_seen))}</td></tr>`;
   const body = `<h1>Fichier clients <span class="dim">${r.total}</span></h1>
-<p class="lead">Chaque réservation en ligne et chaque demande de devis s’y ajoutent toutes seules ; un même client est reconnu à son e-mail ou à son téléphone.</p>
+<p class="lead">Chaque réservation en ligne et chaque demande de devis s’y ajoutent toutes seules ; un même client est reconnu à son e-mail ou à son téléphone. Il passe de prospect à client confirmé tout seul, à son premier rendez-vous ou devis validé.</p>
 <div class="btns" style="margin:0 0 12px"><a class="btn small" href="/atelier/clients/nouveau">Ajouter un client</a><a class="btn ghost small" href="/atelier/clients.csv">Télécharger pour Excel</a></div>
-<form class="search card" method="get" action="/atelier/clients"><input name="q" value="${esc(q)}" placeholder="Nom, téléphone, e-mail, véhicule, immatriculation…" aria-label="Rechercher"><button>Rechercher</button></form>
-<section class="card">${r.clients.length ? `<table><thead><tr><th>Client</th><th>Contact</th><th class="n hide-s">Historique</th><th class="n hide-s">Dernier contact</th></tr></thead><tbody>${r.clients.map(row).join('')}</tbody></table>` : `<p class="empty">${q ? 'Aucun client ne correspond.' : 'Le fichier se remplit avec les prochaines réservations et demandes de devis.'}</p>`}</section>`;
+<nav class="chips" aria-label="Filtrer les clients">${chip('', 'Tous', r.total, 'var(--dim)')}${chip('confirme', 'Clients confirmés', r.confirmed, 'var(--ok)')}${chip('prospect', 'Prospects', r.prospects, 'var(--gold)')}</nav>
+<form class="search card" method="get" action="/atelier/clients">${kind ? `<input type="hidden" name="statut" value="${kind}">` : ''}<input name="q" value="${esc(q)}" placeholder="Nom, téléphone, e-mail, véhicule, immatriculation…" aria-label="Rechercher"><button>Rechercher</button></form>
+<section class="card">${r.clients.length ? `<table><thead><tr><th>Client</th><th>Contact</th><th class="n hide-s">Historique</th><th class="n hide-s">Dernier contact</th></tr></thead><tbody>${r.clients.map(row).join('')}</tbody></table>` : `<p class="empty">${q || kind ? 'Aucun client ne correspond.' : 'Le fichier se remplit avec les prochaines réservations et demandes de devis.'}</p>`}</section>`;
   return page('Clients', '/atelier/clients', body, url);
 }
 
@@ -1203,16 +1261,19 @@ ${field('source', 'Nous a connus', v.source, 'placeholder="Instagram, bouche-à-
 <div><label for="f-notes">Notes</label><textarea id="f-notes" name="notes" placeholder="Teinte posée, remarques, préférences…">${esc(v.notes)}</textarea></div>
 <div class="btns"><button>Enregistrer</button><a class="btn ghost" href="/atelier/clients">Annuler</a></div></form>`;
   if (!c) return page('Nouveau client', '/atelier/clients', `<h1>Ajouter un client</h1>${form}`, url);
-  const bookings = c.bookings.length ? `<table><tbody>${c.bookings.map((b) => `<tr><td><a href="${bookingHref(b.session)}"><b>${esc(dayLabel(b.date, { day: 'numeric', month: 'short', year: '2-digit' }))}</b><small>${esc(hour(b.time))}</small></a></td><td>${esc(itemsOf(b).map((i) => i.label).join(' + '))}${b.code ? `<small>code <span class="code">${esc(b.code)}</span> −${eur(b.discount)}</small>` : ''}</td><td class="n">${eur(b.total)}<small>payé ${eur(b.paid)}</small></td></tr>`).join('')}</tbody></table>` : '<p class="empty">Aucun RDV réservé en ligne.</p>';
+  const bookings = c.bookings.length ? `<table><tbody>${c.bookings.map((b) => `<tr><td><a href="${bookingHref(b.session)}"><b>${esc(dayLabel(b.date, { day: 'numeric', month: 'short', year: '2-digit' }))}</b><small>${esc(hour(b.time))}</small></a></td><td>${esc(itemsOf(b).map((i) => i.label).join(' + '))}${b.code ? `<small>code <span class="code">${esc(b.code)}</span> −${eur(b.discount)}</small>` : ''}</td><td class="n">${eur(b.total)}<small>payé ${eur(b.paid)}</small></td></tr>`).join('')}</tbody></table>` : '<p class="empty">Aucun rendez-vous pour le moment.</p>';
   const requests = c.requests.length ? `<ul class="list">${c.requests.map((r) => `<li><a href="/atelier/devis/${r.id}"><b>n°${r.id} · ${esc(dateOf(r.at))}</b> · ${esc(r.services || 'devis')}${r.vehicle ? ` · ${esc(r.vehicle)}` : ''}${r.message ? `<br><span class="dim">${esc(snippet(r.message, 160))}</span>` : ''}</a>${statusTag(r.status || 'nouveau')}</li>`).join('')}</ul>` : '<p class="empty">Aucune demande de devis.</p>';
   const codes = c.codes.length
     ? `<ul class="list">${c.codes.map((k) => `<li><span class="code">${esc(k.code)}</span><span>${k.used ? `<span class="tag tag--gold">utilisé le ${esc(dateOf(k.used))}</span>` : k.expires < Date.now() ? '<span class="tag tag--off">expiré</span>' : `<span class="tag tag--ok">valable jusqu’au ${esc(dateOf(k.expires))}</span>`}</span></li>`).join('')}</ul>`
     : `<form method="post" action="/atelier/clients/${c.id}/code"><p class="dim">Pas encore de code de parrainage.</p><button class="small">Créer son code (${R.referral.amount} € à offrir)</button></form>`;
-  const body = `<h1>${esc(name(c))}</h1><p class="lead">Client depuis le ${esc(dateOf(c.created))} · ${esc(c.origin || '')}</p>
+  const body = `<h1>${esc(name(c))} ${clientTag(c)}${c.member?.active ? ` ${PREMIUM_TAG} ${lvl(c.member.tier.id)}` : ''}</h1><p class="lead">${c.confirmed ? `Client confirmé depuis le ${esc(dateOf(c.confirmed))} · premier contact le ${esc(dateOf(c.created))}` : `Prospect · premier contact le ${esc(dateOf(c.created))}`}${c.origin ? ` · ${esc(c.origin)}` : ''}</p>
+${c.member ? giftsDue(c.member, `/atelier/clients/${c.id}`) : ''}
 <div class="btns" style="margin:0 0 14px">${c.phone ? `<a class="btn small" href="tel:${esc(tel(c.phone))}">${ico('phone')} Appeler</a>` : ''}<a class="btn small" href="/atelier/rdv/nouveau?client=${c.id}">${ico('cal')} Nouveau RDV</a>${c.email ? `<a class="btn ghost small" href="mailto:${esc(c.email)}">Écrire</a>` : ''}</div>
 ${form}
-<div class="grid"><section class="card"><h2>Rendez-vous en ligne</h2>${bookings}</section><section class="card"><h2>Demandes de devis</h2>${requests}</section></div>
+<div class="grid"><section class="card"><h2>Rendez-vous</h2>${bookings}</section><section class="card"><h2>Demandes de devis</h2>${requests}</section></div>
 <section class="card" id="parrainage"><h2>Parrainage</h2>${codes}</section>
+${memberCard(c)}
+${c.gifts?.length ? `<section class="card"><h2>${ico('gift')} Cartes cadeaux achetées</h2><ul class="list">${c.gifts.map((x) => `<li><span><span class="code">${esc(x.code)}</span> · ${eur(x.amount)}${x.to_name ? ` pour ${esc(x.to_name)}` : ''}<br><span class="dim">${esc(dateOf(x.created))} · reste ${eur(x.balance)}</span></span>${giftTag(x, Date.now())}</li>`).join('')}</ul></section>` : ''}
 <form class="card" method="post" action="/atelier/clients/${c.id}/supprimer"><h2>Supprimer ce client</h2><p class="dim">Sa fiche et ses demandes sont effacées (droit à l’effacement). Les RDV payés restent, sans son nom, pour la comptabilité.</p><div class="checks"><label><input type="checkbox" name="confirme" value="1" required> Je confirme</label></div><button class="danger small">Supprimer définitivement</button></form>`;
   return page(name(c), '/atelier/clients', body, url);
 }
@@ -1234,9 +1295,9 @@ async function clientsCsv(env, now) {
     if (/^[=+\-@\t]/.test(s)) s = `'${s}`;
     return /[;"]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const head = ['Prénom', 'Nom', 'E-mail', 'Téléphone', 'Véhicule(s)', 'Immatriculation', 'Nous a connus', 'RDV en ligne', 'Payé en ligne (€)', 'Demandes de devis', 'Code de parrainage', 'Origine', 'Premier contact', 'Dernier contact', 'Notes'];
+  const head = ['Prénom', 'Nom', 'E-mail', 'Téléphone', 'Statut', 'Client confirmé le', 'Véhicule(s)', 'Immatriculation', 'Nous a connus', 'RDV', 'Payé en ligne (€)', 'Demandes de devis', 'Code de parrainage', 'Origine', 'Premier contact', 'Dernier contact', 'Notes'];
   const day = (ms) => (ms ? paris(ms).date.split('-').reverse().join('/') : '');
-  const lines = r.clients.map((c) => [c.first, c.last, c.email, c.phone, c.vehicles, c.plate, c.source, c.n_bookings, String(c.paid || 0).replace('.', ','), c.n_requests, c.referral || '', c.origin, day(c.created), day(c.last_seen), c.notes].map(cell).join(';'));
+  const lines = r.clients.map((c) => [c.first, c.last, c.email, c.phone, c.confirmed ? 'Client confirmé' : 'Prospect', day(c.confirmed), c.vehicles, c.plate, c.source, c.n_bookings, String(c.paid || 0).replace('.', ','), c.n_requests, c.referral || '', c.origin, day(c.created), day(c.last_seen), c.notes].map(cell).join(';'));
   return new Response('﻿' + [head.join(';'), ...lines].join('\r\n') + '\r\n', { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="clients-solar-car-37-${paris(now).date}.csv"`, 'cache-control': 'no-store' } });
 }
 
@@ -1253,7 +1314,7 @@ async function codes(env, url, now) {
   const promoRows = list.promos.length
     ? `<table><thead><tr><th>Code</th><th>Remise</th><th class="hide-s">Période</th><th class="n">Utilisé</th></tr></thead><tbody>${list.promos
         .map(
-          (x) => `<tr><td><span class="code">${esc(x.code)}</span><small>${esc(x.label)}</small></td><td>${x.percent ? `−${esc(x.percent)} %` : `−${eur(x.amount)}`}<small>${esc(x.services ? x.services.split(',').map((s) => codeServices.find((c) => c.id === s)?.label.split(' (')[0] || s).join(', ') : 'toutes les prestations')}</small></td><td class="hide-s">${esc(dateOf(x.starts))} → ${esc(dateOf(x.expires))}</td><td class="n">${x.uses}${x.max_uses ? ` / ${x.max_uses}` : ''}<small>${promoState(x)}</small></td></tr><tr class="acts"><td colspan="4"><form method="post" action="/atelier/codes" class="btns"><input type="hidden" name="code" value="${esc(x.code)}"><input type="hidden" name="active" value="${x.active ? '' : '1'}"><button class="ghost small" name="action" value="promo-active">${x.active ? 'Mettre en pause' : 'Activer'}</button><a class="btn ghost small" href="/atelier/codes?modifier=${encodeURIComponent(x.code)}#promo">Modifier</a></form></td></tr>`
+          (x) => `<tr><td><span class="code">${esc(x.code)}</span>${x.members ? ' <span class="tag tag--premium">membres</span>' : ''}<small>${esc(x.label)}</small></td><td>${x.percent ? `−${esc(x.percent)} %` : `−${eur(x.amount)}`}<small>${esc(x.services ? x.services.split(',').map((s) => codeServices.find((c) => c.id === s)?.label.split(' (')[0] || s).join(', ') : 'toutes les prestations')}</small></td><td class="hide-s">${esc(dateOf(x.starts))} → ${esc(dateOf(x.expires))}</td><td class="n">${x.uses}${x.max_uses ? ` / ${x.max_uses}` : ''}<small>${promoState(x)}</small></td></tr><tr class="acts"><td colspan="4"><form method="post" action="/atelier/codes" class="btns"><input type="hidden" name="code" value="${esc(x.code)}"><input type="hidden" name="active" value="${x.active ? '' : '1'}"><button class="ghost small" name="action" value="promo-active">${x.active ? 'Mettre en pause' : 'Activer'}</button><a class="btn ghost small" href="/atelier/codes?modifier=${encodeURIComponent(x.code)}#promo">Modifier</a></form></td></tr>`
         )
         .join('')}</tbody></table>`
     : '<p class="empty">Aucun code promo.</p>';
@@ -1285,6 +1346,7 @@ ${bands.banners.length ? `<table><thead><tr><th>Bandeau</th><th class="hide-s">P
 <div class="row3"><div><label for="p-type">Remise</label><select id="p-type" name="type"><option value="percent"${!p.amount ? ' selected' : ''}>en %</option><option value="amount"${p.amount ? ' selected' : ''}>en €</option></select></div><div><label for="p-value">Valeur</label><input id="p-value" name="value" type="number" min="1" max="1000" step="0.5" value="${esc(p.percent || p.amount || '')}" required></div><div><label for="p-max">Utilisations (vide = illimité)</label><input id="p-max" name="maxUses" type="number" min="1" step="1" value="${esc(p.max_uses || '')}"></div></div>
 <div class="row"><div><label for="p-from">Du</label><input id="p-from" name="starts" type="date" value="${esc(day(p.starts))}" required></div><div><label for="p-to">Au (inclus)</label><input id="p-to" name="ends" type="date" value="${esc(day(p.expires))}" required></div></div>
 <label>Prestations concernées</label><div class="checks">${codeServices.map((s) => `<label><input type="checkbox" name="services" value="${s.id}"${services.includes(s.id) ? ' checked' : ''}> ${esc(s.label)}</label>`).join('')}</div>
+<div class="checks"><label><input type="checkbox" name="members" value="1"${p.members ? ' checked' : ''}> Réservé aux membres SOLAR CAR Premium (vérifié avec l’e-mail de leur carte) — à envoyer depuis « Cartes &amp; Premium »</label></div>
 <div class="btns"><button name="action" value="promo-save">${editing ? 'Enregistrer' : 'Créer le code'}</button>${editing ? '<a class="btn ghost" href="/atelier/codes#promo">Annuler</a>' : ''}</div></form>
 <p class="dim">Un code promo se tape dans le même champ que le parrainage, à l’étape du paiement ; un seul code par réservation. Pour une prestation faite sur devis, appliquez la remise vous-même.</p></section>
 
@@ -1314,7 +1376,7 @@ async function codesPost(req, env, now) {
   }
   if (action === 'promo-save') {
     const value = Number(g('value'));
-    const r = await db(env, 'promo/save', { now, code: g('code'), label: g('label'), percent: g('type') === 'percent' ? value : 0, amount: g('type') === 'amount' ? value : 0, maxUses: g('maxUses'), starts: g('starts'), ends: g('ends'), services: f.getAll('services').map(String), update: !!f.get('update') });
+    const r = await db(env, 'promo/save', { now, code: g('code'), label: g('label'), percent: g('type') === 'percent' ? value : 0, amount: g('type') === 'amount' ? value : 0, maxUses: g('maxUses'), starts: g('starts'), ends: g('ends'), services: f.getAll('services').map(String), update: !!f.get('update'), members: !!f.get('members') });
     return r.ok ? back('/atelier/codes', { ok: `Code ${r.code} enregistré.` }) : back('/atelier/codes', { err: r.error });
   }
   if (action === 'promo-active') {
@@ -1541,4 +1603,187 @@ async function proDossier(env, url, id, now) {
   const bytes = await proSheetPdf({ ...pro, logo, logoType: pro.logo_type }, { sheets, terms, now, logo: assets.logo ? new Uint8Array(assets.logo) : null, shades: Object.fromEntries(Object.entries(assets.shades || {}).map(([k, v]) => [k, new Uint8Array(v)])) });
   const name = `Partenariat ${B.name} - ${pro.name}.pdf`.replace(/[\\/:*?"<>|]/g, '');
   return new Response(bytes, { headers: { 'content-type': 'application/pdf', 'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(name)}`, 'cache-control': 'no-store' } });
+}
+
+// ---------------------------------------------------------------- Cartes & Premium (content/offers.js)
+const PREMIUM_TAG = '<span class="tag tag--premium">Premium</span>';
+const tierById = (id) => P.tiers.find((t) => t.id === id) || P.tiers[0];
+/** a level as a small neon pill (its colour from content/offers.js) */
+const lvl = (id) => {
+  const t = tierById(id);
+  return `<span class="lvl" style="--c:${esc(t.color)}">${esc(t.label)}</span>`;
+};
+/** the levels as a lit track (one segment a level after « Membre ») */
+const track = (visits) => `<div class="track" aria-hidden="true">${P.tiers
+  .slice(1)
+  .map((t) => `<i class="${visits >= t.visits ? 'on' : ''}" style="--c:${esc(t.color)}"></i>`)
+  .join('')}</div>`;
+const ordinal = (n) => (n === 1 ? '1re' : `${n}e`);
+const giftTag = (g, now) => (g.expires < now ? '<span class="tag tag--off">expirée</span>' : g.balance < 0.01 ? '<span class="tag tag--off">utilisée</span>' : '<span class="tag tag--ok">active</span>');
+const LOOKS = Object.fromEntries(G.looks.map((l) => [l.id, l.label]));
+
+/** the gifts a member is owed (one a level reached), with « Remis »; `named`: the member's name
+ *  in the title (the list of every member's gifts) */
+function giftsDue(m, retour, named = false) {
+  const pending = (m.pending || []).filter((g) => !g.given);
+  return pending
+    .map((g) => {
+      const t = tierById(g.tier);
+      return `<div class="giftdue" style="--c:${esc(t.color)}"><div><b>${ico('gift')} ${named ? `${m.client_id ? `<a href="/atelier/clients/${m.client_id}">${esc(name(m))}</a>` : esc(name(m))}` : 'Cadeau Premium à remettre'} · ${lvl(t.id)}</b><small>${esc(t.gift)} · débloqué le ${esc(dateOf(g.reached))}</small></div><form method="post" action="/atelier/premium" class="inline"><input type="hidden" name="action" value="gift-given"><input type="hidden" name="number" value="${esc(m.number)}"><input type="hidden" name="tier" value="${esc(t.id)}"><input type="hidden" name="retour" value="${esc(retour)}"><button class="small">${ico('check')} Remis</button></form></div>`;
+    })
+    .join('');
+}
+
+/** the client's card: SOLAR CAR Premium (level, appointments, renewal) or « Passer Premium » */
+function memberCard(c) {
+  const m = c.member;
+  const hidden = `<input type="hidden" name="action" value="member-add"><input type="hidden" name="retour" value="/atelier/clients/${c.id}"><input type="hidden" name="firstName" value="${esc(c.first)}"><input type="hidden" name="lastName" value="${esc(c.last)}"><input type="hidden" name="email" value="${esc(c.email)}"><input type="hidden" name="phone" value="${esc(c.phone)}">`;
+  const pay = `<div class="row" style="align-items:end"><div><label for="pm-amount">Encaissé à l’atelier (€)</label><input id="pm-amount" name="amount" inputmode="decimal" value="${esc(String(P.price).replace('.', ','))}"></div><div class="checks" style="padding-bottom:12px"><label><input type="checkbox" name="welcome" value="1"${c.email ? ' checked' : ' disabled'}> Envoyer l’e-mail de bienvenue${c.email ? '' : ' (pas d’e-mail)'}</label></div></div>`;
+  if (!m)
+    return `<form class="card" method="post" action="/atelier/premium" id="premium"><h2>${ico('card')} SOLAR CAR Premium</h2><p class="dim">Pas encore membre. −${P.percent} % sur tout pendant ${P.months} mois, un niveau et un cadeau à chaque prestation.</p>${hidden}${pay}<button>${ico('card')} Passer Premium</button></form>`;
+  return `<section class="card" id="premium"><h2>${ico('card')} SOLAR CAR Premium ${m.active ? PREMIUM_TAG : '<span class="tag tag--off">expirée</span>'}</h2>
+<p style="margin:0 0 6px"><span class="code">${esc(m.number)}</span> · ${lvl(m.tier.id)} · ${m.visits} prestation${m.visits > 1 ? 's' : ''} en tant que membre</p>
+${track(m.visits)}
+<p class="dim">${m.active ? 'Valable' : 'Expirée'} jusqu’au ${esc(dateOf(m.expires))} · membre depuis le ${esc(dateOf(m.since))} · ${m.news ? 'reçoit les offres membres' : 'ne reçoit pas les offres'}${m.next ? `<br>Prochain niveau : ${lvl(m.next.id)} à la ${ordinal(m.next.visits)} prestation — ${esc(m.next.gift)}` : ''}</p>
+${(m.gifts || []).filter((g) => g.given).length ? `<p class="dim">Cadeaux remis : ${m.gifts.filter((g) => g.given).map((g) => `${esc(tierById(g.tier).label)} le ${esc(dateOf(g.given))}`).join(', ')}.</p>` : ''}
+<form method="post" action="/atelier/premium"><h3>Renouveler (payé à l’atelier)</h3><p class="dim" style="margin-top:-4px">Un an de plus à partir du ${esc(dateOf(Math.max(Date.now(), m.expires)))} ; son niveau est gardé.</p>${hidden}${pay}<button class="small">Renouveler</button></form></section>`;
+}
+
+async function premiumPage(env, url, now) {
+  const [gl, ml, cl, mailing] = await Promise.all([db(env, 'gifts/list', { now }), db(env, 'members/list', { now }), db(env, 'codes/list'), db(env, 'members/mailing', { now })]);
+  const offers = cl.promos.filter((p) => p.members && p.active && p.expires >= now);
+  const pending = ml.members.flatMap((m) => (m.pending || []).map((g) => ({ m, g })));
+  const pendingHtml = pending.length ? pending.map(({ m, g }) => giftsDue({ ...m, pending: [g] }, '/atelier/premium', true)).join('') : '<p class="empty">Aucun cadeau à remettre pour l’instant.</p>';
+  const memberRows = ml.members.length
+    ? `<table><thead><tr><th>Membre</th><th>Niveau</th><th class="hide-s">Carte</th></tr></thead><tbody>${ml.members
+        .map(
+          (m) => `<tr><td>${m.client_id ? `<a href="/atelier/clients/${m.client_id}"><b>${esc(name(m))}</b></a>` : `<b>${esc(name(m))}</b>`}<small><span class="code">${esc(m.number)}</span>${m.live ? '' : ' · test'}</small></td><td>${lvl(m.tier.id)}<small>${m.visits} prestation${m.visits > 1 ? 's' : ''}${m.pending?.length ? ' · cadeau à remettre' : ''}</small></td><td class="hide-s">${m.active ? `<span class="tag tag--ok">jusqu’au ${esc(dateOf(m.expires))}</span>` : `<span class="tag tag--off">expirée le ${esc(dateOf(m.expires))}</span>`}<small>${m.news ? 'reçoit les offres' : 'sans les offres'} · <form method="post" action="/atelier/premium" class="inline"><input type="hidden" name="action" value="member-news"><input type="hidden" name="number" value="${esc(m.number)}"><input type="hidden" name="on" value="${m.news ? '' : '1'}"><button class="ghost small" style="padding:2px 8px">${m.news ? 'couper' : 'remettre'}</button></form></small></td></tr>`
+        )
+        .join('')}</tbody></table>`
+    : '<p class="empty">Pas encore de membre : la page SOLAR CAR Premium du site les accueille, ou ajoutez-en un ci-dessous.</p>';
+  const delivery = (g) => (g.delivery === 'destinataire' ? (g.sent ? `envoyée à ${esc(g.to_email)} le ${esc(dateOf(g.sent))}` : `envoi prévu le ${esc(g.send_on.split('-').reverse().join('/'))} à ${esc(g.to_email)}`) : 'remise à l’acheteur');
+  const giftRows = gl.gifts.length
+    ? `<table><thead><tr><th>Carte</th><th>Solde</th><th class="hide-s">De → pour</th></tr></thead><tbody>${gl.gifts
+        .map(
+          (g) => `<tr><td><span class="code">${esc(g.code)}</span><small>${esc(LOOKS[g.look] || g.look)} · ${esc(dateOf(g.created))}${g.source === 'site' ? ' · site' : ' · atelier'}${g.live ? '' : ' · test'}</small></td><td><b>${eur(g.available)}</b> / ${eur(g.amount)}<small>${giftTag(g, now)} jusqu’au ${esc(dateOf(g.expires))}</small></td><td class="hide-s">${g.client_id ? `<a href="/atelier/clients/${g.client_id}">${esc([g.buyer_first, g.buyer_last].filter(Boolean).join(' ') || 'acheteur')}</a>` : esc([g.buyer_first, g.buyer_last].filter(Boolean).join(' ') || '—')}${g.to_name ? ` → ${esc(g.to_name)}` : ''}<small>${delivery(g)}${g.note ? ` · ${esc(g.note)}` : ''}</small></td></tr>
+<tr class="acts"><td colspan="3"><form method="post" action="/atelier/premium" class="inline"><input type="hidden" name="action" value="gift-debit"><input type="hidden" name="code" value="${esc(g.code)}"><input name="amount" inputmode="decimal" placeholder="montant €" aria-label="Montant à débiter" style="width:110px"><input name="note" placeholder="prestation" aria-label="Pour quelle prestation" style="width:150px"><button class="small"${g.status === 'active' ? '' : ' disabled'}>Débiter</button></form>${g.buyer_email ? ` <form method="post" action="/atelier/premium" class="inline"><input type="hidden" name="action" value="gift-resend"><input type="hidden" name="code" value="${esc(g.code)}"><input type="hidden" name="to" value="acheteur"><button class="ghost small">Renvoyer à l’acheteur</button></form>` : ''}${g.to_email ? ` <form method="post" action="/atelier/premium" class="inline"><input type="hidden" name="action" value="gift-resend"><input type="hidden" name="code" value="${esc(g.code)}"><input type="hidden" name="to" value="destinataire"><button class="ghost small">${g.sent ? 'Renvoyer' : 'Envoyer maintenant'} au destinataire</button></form>` : ''}${(() => {
+            const uses = (() => {
+              try {
+                return JSON.parse(g.uses || '[]');
+              } catch {
+                return [];
+              }
+            })();
+            return uses.length ? `<small style="display:block;margin-top:6px">Utilisée : ${uses.map((u) => `${eur(u.amount)} le ${esc(dateOf(u.at))}${u.where ? ` (${esc(u.where)}${u.by ? `, ${esc(u.by)}` : ''})` : ''}`).join(' · ')}</small>` : '';
+          })()}</td></tr>`
+        )
+        .join('')}</tbody></table>`
+    : '<p class="empty">Aucune carte cadeau pour l’instant : elles s’achètent sur la page « Carte cadeau » du site, ou se créent ci-dessous.</p>';
+  const body = `<h1>Cartes &amp; <em>Premium</em></h1>
+<p class="lead">Les cartes cadeaux vendues et ce qu’il reste à dépenser dessus, les membres SOLAR CAR Premium, leurs niveaux et les cadeaux à leur remettre.</p>
+<div class="figs"><a class="fig" href="#membres"><b>${ml.active}</b><span>membres Premium actifs</span></a><div class="fig"><b>${eur(ml.payments.amount)}</b><span>${ml.payments.n} adhésion${ml.payments.n > 1 ? 's' : ''} encaissée${ml.payments.n > 1 ? 's' : ''}</span></div><a class="fig" href="#cadeaux"><b>${eur(gl.sold.paid)}</b><span>${gl.sold.n} carte${gl.sold.n > 1 ? 's' : ''} cadeau vendue${gl.sold.n > 1 ? 's' : ''}</span></a><div class="fig"><b>${eur(gl.outstanding)}</b><span>encore à dépenser à l’atelier</span></div></div>
+<section class="card" id="a-remettre"><h2>${ico('gift')} Cadeaux à remettre</h2><p class="dim" style="margin-top:-6px">Un niveau par prestation : le cadeau se remet le jour du rendez-vous qui l’a débloqué. « Remis » le range.</p>${pendingHtml}</section>
+<section class="card" id="membres"><h2>${ico('card')} Membres Premium</h2>${memberRows}
+<form method="post" action="/atelier/premium" id="nouveau-membre"><h3>Ajouter un membre (adhésion payée à l’atelier)</h3><input type="hidden" name="action" value="member-add">
+<div class="row"><div><label for="nm-first">Prénom</label><input id="nm-first" name="firstName" required autocomplete="off"></div><div><label for="nm-last">Nom</label><input id="nm-last" name="lastName" required autocomplete="off"></div></div>
+<div class="row"><div><label for="nm-email">E-mail</label><input id="nm-email" name="email" type="email" autocomplete="off" placeholder="pour sa carte numérique"></div><div><label for="nm-tel">Téléphone</label><input id="nm-tel" name="phone" type="tel" autocomplete="off"></div></div>
+<div class="row" style="align-items:end"><div><label for="nm-amount">Encaissé (€)</label><input id="nm-amount" name="amount" inputmode="decimal" value="${esc(String(P.price).replace('.', ','))}"></div><div class="checks" style="padding-bottom:12px"><label><input type="checkbox" name="welcome" value="1" checked> Envoyer l’e-mail de bienvenue</label></div></div>
+<button>${ico('card')} Créer sa carte Premium</button><p class="hint">Même e-mail qu’une carte existante : elle est prolongée d’un an.</p></form></section>
+<form class="card" method="post" action="/atelier/premium" id="ecrire"><h2>${ico('mail')} Écrire aux membres</h2><input type="hidden" name="action" value="offer-send">
+<p class="dim" style="margin-top:-6px">Une offre, une avant-première, une nouveauté : un e-mail à chaque membre actif qui accepte les offres (<b>${mailing.members.length}</b> aujourd’hui), « Bonjour Prénom », avec son lien pour ne plus les recevoir. Pour une remise, créez d’abord un code « Réservé aux membres Premium » dans <a href="/atelier/codes#promo">Codes et promos</a>.</p>
+<label for="o-subject">Objet de l’e-mail</label><input id="o-subject" name="subject" required maxlength="120" placeholder="Avant-première membres : −20 % sur le ciel étoilé">
+<label for="o-title">Titre</label><input id="o-title" name="title" maxlength="80" placeholder="Rien que pour vous">
+<label for="o-text">Message</label><textarea id="o-text" name="text" required style="min-height:140px" placeholder="Avant tout le monde, les membres Premium profitent de…"></textarea>
+<label for="o-code">Code à mettre en avant</label><select id="o-code" name="code"><option value="">Aucun (simple nouvelle)</option>${offers.map((p) => `<option value="${esc(p.code)}">${esc(p.code)} · ${p.percent ? `−${p.percent} %` : `−${eur(p.amount)}`} · jusqu’au ${esc(dateOf(p.expires))}</option>`).join('')}</select>
+<div class="checks"><label><input type="checkbox" name="confirme" value="1"> Je confirme l’envoi à ${mailing.members.length} membre${mailing.members.length > 1 ? 's' : ''}</label></div>
+<div class="btns"><button class="ghost" name="envoi" value="apercu">${ico('mail')} M’envoyer un aperçu</button><button name="envoi" value="membres"${mailing.members.length ? '' : ' disabled'}>${ico('send')} Envoyer aux membres</button></div></form>
+<section class="card" id="cadeaux"><h2>${ico('gift')} Cartes cadeaux</h2><p class="dim" style="margin-top:-6px">Un client règle avec sa carte : débitez-la ici, ou depuis la page de son RDV (« Régler avec une carte cadeau »). En ligne, elle se déduit toute seule.</p>${giftRows}
+<form method="post" action="/atelier/premium" id="nouvelle-carte"><h3>Créer une carte (vendue à l’atelier ou offerte)</h3><input type="hidden" name="action" value="gift-create">
+<div class="row3"><div><label for="nc-amount">Montant (€)</label><input id="nc-amount" name="amount" inputmode="decimal" required placeholder="100"></div><div><label for="nc-paid">Encaissé (€)</label><input id="nc-paid" name="paid" inputmode="decimal" placeholder="0 si offerte"></div><div><label for="nc-look">Finition</label><select id="nc-look" name="look">${G.looks.map((l) => `<option value="${esc(l.id)}">${esc(l.label)}</option>`).join('')}</select></div></div>
+<div class="row"><div><label for="nc-to">Pour</label><input id="nc-to" name="toName" autocomplete="off" placeholder="Prénom du destinataire"></div><div><label for="nc-from">De la part de</label><input id="nc-from" name="sender" autocomplete="off"></div></div>
+<label for="nc-msg">Message (facultatif)</label><textarea id="nc-msg" name="message" maxlength="${G.messageMax}" style="min-height:70px"></textarea>
+<div class="row"><div><label for="nc-bfirst">Acheteur : prénom</label><input id="nc-bfirst" name="buyerFirst" autocomplete="off"></div><div><label for="nc-blast">nom</label><input id="nc-blast" name="buyerLast" autocomplete="off"></div></div>
+<div class="row"><div><label for="nc-bmail">E-mail de l’acheteur (il reçoit la carte)</label><input id="nc-bmail" name="buyerEmail" type="email" autocomplete="off"></div><div><label for="nc-tmail">E-mail du destinataire (facultatif : envoyée aujourd’hui)</label><input id="nc-tmail" name="toEmail" type="email" autocomplete="off"></div></div>
+<input name="note" placeholder="Note pour vous (ex. payée en espèces, jeu concours…)" aria-label="Note" style="margin-top:8px">
+<button style="margin-top:12px">${ico('gift')} Créer la carte</button></form></section>`;
+  return page('Cartes & Premium', '/atelier/premium', body, url, { now });
+}
+
+async function premiumPost(req, env, now) {
+  const f = await req.formData();
+  const g = (k) => String(f.get(k) ?? '').trim();
+  const action = g('action');
+  const money = (k) => Math.round((Number(g(k).replace(/\s/g, '').replace(',', '.')) || 0) * 100) / 100;
+  const retour = /^\/atelier(\/[\w/-]*)?$/.test(g('retour')) ? g('retour') : '/atelier/premium';
+  // made at the counter: real, whatever the mode of the online payments
+  const live = true;
+  if (action === 'gift-given') {
+    const r = await db(env, 'member/gift', { number: g('number'), tier: g('tier'), given: true, now });
+    return back(retour, r.ok ? { ok: `Cadeau ${tierById(g('tier')).label} noté comme remis.` } : { err: r.error });
+  }
+  if (action === 'member-news') {
+    const r = await db(env, 'member/news', { number: g('number'), on: g('on') === '1', workshop: true, now });
+    return back('/atelier/premium#membres', r.ok ? { ok: g('on') === '1' ? 'Ce membre recevra de nouveau les offres.' : 'Ce membre ne recevra plus les offres.' } : { err: r.error });
+  }
+  if (action === 'member-add') {
+    const r = await db(env, 'member/join', { now, ref: '', amount: money('amount'), firstName: g('firstName'), lastName: g('lastName'), email: g('email'), phone: g('phone'), source: 'atelier', live });
+    if (!r.ok) return back(retour, { err: r.error });
+    let mailed = false;
+    if (f.get('welcome') && r.member.email && env.RESEND_API_KEY) {
+      const pub = await db(env, 'member/public', { number: r.member.number, t: r.member.token, now });
+      mailed = pub.ok && (await sendPremiumWelcome(env, pub.member, { to: r.member.email, renewed: r.renewed }).then(() => true).catch((err) => (console.error('[mail] premium welcome', err.message), false)));
+    }
+    return back(retour, { ok: `${r.renewed ? 'Carte prolongée' : 'Carte Premium créée'} : ${r.member.number} pour ${name(r.member)}, jusqu’au ${dateOf(r.member.expires)}${mailed ? ', e-mail de bienvenue envoyé' : ''}.` });
+  }
+  if (action === 'offer-send') {
+    const o = { subject: g('subject'), title: g('title'), text: String(f.get('text') || '').replace(/\r\n?/g, '\n').trim().slice(0, 4000), code: g('code') };
+    if (!o.subject || !o.text) return back('/atelier/premium#ecrire', { err: 'Écrivez l’objet et le message.' });
+    if (o.code) {
+      const p = (await db(env, 'codes/list')).promos.find((x) => x.code === o.code);
+      if (!p) return back('/atelier/premium#ecrire', { err: 'Code introuvable.' });
+      o.until = p.expires;
+    }
+    if (g('envoi') === 'apercu') {
+      const to = String(env.ATELIER_EMAILS || env.NOTIFY_TO || '').split(',').map((x) => x.trim()).filter(Boolean);
+      await sendMembersOffer(env, o, [], to);
+      return back('/atelier/premium#ecrire', { ok: `Aperçu envoyé à ${to.join(', ')} : rien n’est parti aux membres.` });
+    }
+    if (!f.get('confirme')) return back('/atelier/premium#ecrire', { err: 'Cochez la case pour confirmer l’envoi aux membres.' });
+    const { members } = await db(env, 'members/mailing', { now });
+    const n = await sendMembersOffer(env, o, members).catch((err) => ({ error: err.message }));
+    return back('/atelier/premium', n?.error ? { err: `Envoi interrompu : ${n.error}` } : { ok: `Offre envoyée à ${n} membre${n > 1 ? 's' : ''}.` });
+  }
+  if (action === 'gift-debit') {
+    const amount = money('amount');
+    if (!(amount > 0)) return back('/atelier/premium#cadeaux', { err: 'Indiquez le montant à débiter.' });
+    const r = await db(env, 'gift/use', { code: g('code'), amount, ref: `atelier-${now}`, by: g('note'), where: 'à l’atelier', now });
+    return back('/atelier/premium#cadeaux', r.ok ? { ok: `${eur(r.used)} débités de ${g('code')} : il reste ${eur(r.balance)}.` } : { err: r.error });
+  }
+  if (action === 'gift-resend') {
+    const { gift } = await db(env, 'gift/get', { code: g('code'), now });
+    if (!gift) return back('/atelier/premium#cadeaux', { err: 'Carte introuvable.' });
+    const toRecipient = g('to') === 'destinataire';
+    const r = await (toRecipient ? sendGiftRecipient(env, gift, gift.card) : sendGiftBuyer(env, { ...gift, sent: gift.sent || (toRecipient ? now : 0) }, gift.card))
+      .then(() => ({ ok: true }))
+      .catch((err) => ({ error: err.message }));
+    if (r.ok && toRecipient && !gift.sent) await db(env, 'gift/sent', { code: gift.code, now });
+    return back('/atelier/premium#cadeaux', r.ok ? { ok: `Carte ${gift.code} envoyée à ${toRecipient ? gift.to_email : gift.buyer_email}.` } : { err: `L’e-mail n’est pas parti : ${r.error}` });
+  }
+  if (action === 'gift-create') {
+    const amount = money('amount');
+    if (!(amount >= 1 && amount <= 5000)) return back('/atelier/premium#nouvelle-carte', { err: 'Indiquez le montant de la carte.' });
+    const toEmail = g('toEmail').toLowerCase();
+    const r = await db(env, 'gift/create', { now, amount, paid: money('paid'), look: g('look'), toName: g('toName'), sender: g('sender'), message: String(f.get('message') || '').slice(0, G.messageMax), delivery: toEmail ? 'destinataire' : 'moi', toEmail, sendOn: paris(now).date, buyer: { firstName: g('buyerFirst'), lastName: g('buyerLast'), email: g('buyerEmail') }, source: 'atelier', note: g('note'), live });
+    if (!r.ok) return back('/atelier/premium#nouvelle-carte', { err: r.error });
+    const sent = [];
+    if (env.RESEND_API_KEY) {
+      if (r.row.delivery === 'destinataire' && (await sendGiftRecipient(env, r.row, r.card).then(() => true).catch(() => false))) {
+        await db(env, 'gift/sent', { code: r.row.code, now });
+        sent.push(r.row.to_email);
+      }
+      if (r.row.buyer_email && (await sendGiftBuyer(env, { ...r.row, sent: sent.length ? now : 0 }, r.card).then(() => true).catch(() => false))) sent.push(r.row.buyer_email);
+    }
+    return back('/atelier/premium#cadeaux', { ok: `Carte ${r.row.code} créée (${eur(amount)})${sent.length ? `, envoyée à ${sent.join(' et ')}` : ' : donnez le code au client'}.` });
+  }
+  return back('/atelier/premium', { err: 'Action inconnue.' });
 }

@@ -12,7 +12,7 @@
     "posters": "node scripts/render-sim-posters.mjs",
     "model": "node scripts/prepare-model.mjs",
     "check": "node scripts/check.mjs",
-    "test:booking": "node --test booking/test/schedule.test.mjs booking/test/worker.test.mjs booking/test/stats.test.mjs booking/test/fiche.test.mjs booking/test/referral.test.mjs booking/test/atelier.test.mjs booking/test/quote.test.mjs booking/test/mime.test.mjs booking/test/discussion.test.mjs booking/test/gmail.test.mjs booking/test/rdv.test.mjs booking/test/push.test.mjs booking/test/devis.test.mjs booking/test/pros.test.mjs",
+    "test:booking": "node --test booking/test/schedule.test.mjs booking/test/worker.test.mjs booking/test/stats.test.mjs booking/test/fiche.test.mjs booking/test/referral.test.mjs booking/test/atelier.test.mjs booking/test/quote.test.mjs booking/test/mime.test.mjs booking/test/discussion.test.mjs booking/test/gmail.test.mjs booking/test/rdv.test.mjs booking/test/push.test.mjs booking/test/devis.test.mjs booking/test/pros.test.mjs booking/test/offers.test.mjs",
     "booking:dev": "node booking/dev-server.mjs"
   },
   "engines": {

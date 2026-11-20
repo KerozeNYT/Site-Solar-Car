@@ -10,6 +10,7 @@
 import { business as B } from '../content/site.js';
 import { bookingRules as R, formatDuration, discountLines, CANALS, canalLead } from '../content/booking.js';
 import { vatNote } from '../content/pricing.js';
+import { premium as P } from '../content/offers.js';
 
 const euros = (n) => `${n.toFixed(2).replace('.', ',').replace(',00', '')} €`;
 const esc = (s = '') => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -45,6 +46,7 @@ function ics({ id, start, end, title, text }) {
 const discountRows = (q, b, forWorkshop) =>
   discountLines(q.discount, b).map(([label, off]) => {
     if (label === 'Remise') return ['Remise', `−${euros(off)}`];
+    if (label === 'Carte Premium') return ['Carte Premium', forWorkshop ? `−${euros(off)} (n° ${esc(b.code || '')})` : `−${euros(off)} (−${P.percent} %)`];
     const promo = label.startsWith('Code promo');
     if (forWorkshop) return [promo ? 'Code promo' : 'Parrainage', `−${euros(off)} (code ${esc(b.code || '')})`];
     return [promo ? `Code ${esc(b.code || '')}` : 'Parrainage', `−${euros(off)}`];
@@ -158,9 +160,9 @@ export async function sendBookingMails(env, b) {
         reply_to: c.email,
         subject: `Nouveau RDV — ${c.firstName} ${c.lastName} — ${dayLabel(date).replace(/ \d{4}$/, '')} à ${hour(time)}`,
         html: shell(
-          // « réservé en ligne » (the site), « pris par e-mail · acompte payé en ligne », « pris à
-          // l’atelier · acompte réglé au TPE » (the space)
-          CANALS[b.canal] ? `Nouveau rendez-vous pris ${CANALS[b.canal]}${b.mode === 'none' ? '' : b.mode === 'tpe' ? ' · acompte réglé au TPE' : ` · ${b.mode === 'full' ? 'payé' : 'acompte payé'} en ligne`}` : 'Nouveau rendez-vous réservé en ligne',
+          // « réservé en ligne » (the site, a gift card, a Premium member), « pris par e-mail · acompte
+          // payé en ligne », « pris à l’atelier · acompte réglé au TPE » (the space)
+          CANALS[b.canal] ? `Nouveau rendez-vous pris ${CANALS[b.canal]}${b.mode === 'none' ? '' : b.mode === 'tpe' ? ' · acompte réglé au TPE' : ` · ${b.mode === 'full' ? 'payé' : 'acompte payé'} en ligne`}` : `Nouveau rendez-vous réservé en ligne${b.gift?.amount ? ' · carte cadeau' : ''}${b.member ? ' · membre Premium' : ''}`,
           `<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px">${rows([
             ['Quand', whenHtml(date, time, end)],
             ['Client', esc(`${c.firstName} ${c.lastName}`)],
@@ -170,7 +172,8 @@ export async function sendBookingMails(env, b) {
             ['Prestations', items],
             ...discountRows(q, b, true),
             ['Total', euros(q.total)],
-            [b.mode === 'tpe' ? 'Réglé au TPE' : 'Payé en ligne', b.mode === 'none' ? '' : gold(`${euros(paid)} (${b.mode === 'tpe' ? 'acompte en CB à l’atelier' : b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`)],
+            ['Carte cadeau', b.gift?.amount ? `${euros(b.gift.amount)} (carte ${esc(b.gift.code)})` : ''],
+            [b.mode === 'tpe' ? 'Réglé au TPE' : 'Payé en ligne', b.mode === 'none' || !(paid - (b.gift?.amount || 0) > 0) ? '' : gold(`${euros(paid - (b.gift?.amount || 0))} (${b.mode === 'tpe' ? 'acompte en CB à l’atelier' : b.mode === 'full' ? 'totalité' : 'acompte 30 %'})`)],
             ['Reste à régler', due ? euros(due) : 'rien'],
             ['Nous a connus', c.source ? esc(c.source) : ''],
             ['Message', c.message ? esc(c.message) : ''],
@@ -194,7 +197,7 @@ export async function sendBookingMails(env, b) {
           { badge: ['Rendez-vous confirmé', 'ok'], kicker: 'Votre rendez-vous', ...bandWhen(date, time, end) },
           `${intro(b.note ? esc(b.note) : `Bonjour ${esc(c.firstName)},\n${confirmWords(b, paid)}`)}
 ${services(q.items)}
-${moneyBox([...discountRows(q, b, false), ['Total', euros(q.total)], [paidLabel(b.mode), b.mode === 'none' ? '' : gold(euros(paid))], ['À régler à l’atelier', goldStrong(due ? euros(due) : 'rien'), true]], vatNote)}
+${moneyBox([...discountRows(q, b, false), ['Total', euros(q.total)], ['Carte cadeau', b.gift?.amount ? gold(euros(b.gift.amount)) : ''], [paidLabel(b.mode), b.mode === 'none' || !(paid - (b.gift?.amount || 0) > 0) ? '' : gold(euros(paid - (b.gift?.amount || 0)))], ['À régler à l’atelier', goldStrong(due ? euros(due) : 'rien'), true]], vatNote)}
 ${practical(c)}
 ${small('La teinte se choisit avec vous à l’atelier, le jour du rendez-vous. Prévoyez de déposer le véhicule à l’heure indiquée.')}
 ${small(b.mode === 'none' ? `Un empêchement ? Prévenez-nous au plus vite au ${tel()}.` : `Un empêchement ? Prévenez-nous au moins ${R.cancelHours} h avant au ${tel()} : l’acompte vous est remboursé ou reporté. En dessous de ${R.cancelHours} h, il reste acquis à l’atelier (<a href="${esc(env.SITE_URL || B.siteUrl)}/conditions-reservation/" style="color:#9a7a2c">conditions de réservation</a>).`)}
@@ -203,7 +206,7 @@ ${small('Le rendez-vous est joint à cet e-mail : ouvrez le fichier pour l’ajo
         attachments: [
           {
             filename: 'rendez-vous-solar-car-37.ics',
-            content: btoa(unescape(encodeURIComponent(ics({ id: b.sessionId, start, end, title, text: `${b.mode === 'none' ? '' : `${paidLabel(b.mode)} : ${euros(paid)}. `}Reste à régler : ${euros(due)}. ${B.phone}` })))),
+            content: btoa(unescape(encodeURIComponent(ics({ id: b.sessionId, start, end, title, text: `${b.gift?.amount ? `Carte cadeau : ${euros(b.gift.amount)}. ` : ''}${b.mode === 'none' || !(paid - (b.gift?.amount || 0) > 0) ? '' : `${paidLabel(b.mode)} : ${euros(paid - (b.gift?.amount || 0))}. `}Reste à régler : ${euros(due)}. ${B.phone}` })))),
           },
         ],
       });
@@ -549,4 +552,256 @@ export async function notifyWorkshop(env, r, kind, x = {}) {
     text: `${who}, devis n°${r.id} :\n\n${x.text}\n\n${files.length ? `${filesLine(files)}\n\n` : ''}Répondre à cet e-mail répond au client. Discussion : ${open}\n`,
     attachments: files.map((f) => ({ filename: f.filename, content: f.content })),
   });
+}
+
+// ---------------------------------------------------------------- gift cards and SOLAR CAR Premium
+// (content/offers.js, docs/CARTES.md): dark, gold, warm. The card is drawn in HTML over its face
+// (public/img/cartes/<face>.jpg on the site), so that its text stays sharp and readable without images.
+const site = (env) => String(env.SITE_URL || B.siteUrl).replace(/\/$/, '');
+const GOLD = '#e9cd82';
+const INK = '#f1ede4';
+const MUTED = '#a9a396';
+const longDay = (date) => new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`));
+const fullDate = (ms) => new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: R.timeZone }).format(new Date(ms));
+const lp = (html, extra = '') => `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:${INK};${extra}">${html}</p>`;
+const goldButton = (href, label) => `<a href="${esc(href)}" style="display:inline-block;background:${GOLD};color:#0b0c0f;text-decoration:none;font-weight:800;font-size:15px;padding:14px 24px;border-radius:999px">${esc(label)}</a>`;
+const ghostButton = (href, label) => `<a href="${esc(href)}" style="display:inline-block;border:1px solid #4a4130;color:${GOLD};text-decoration:none;font-weight:700;font-size:14px;padding:12px 20px;border-radius:999px">${esc(label)}</a>`;
+
+/** the dark envelope of the cards' e-mails: a hidden preview line, the logo, a gold title */
+export const luxShell = (title, body, { preheader = '', kicker = '', foot = '' } = {}) => `<!doctype html><html lang="fr"><head><meta name="color-scheme" content="dark light"><meta name="supported-color-schemes" content="dark light"></head><body style="margin:0;background:#050608;font-family:Arial,Helvetica,sans-serif">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#050608">${esc(preheader)}&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#050608" style="background:#050608;padding:28px 12px"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d0e11" style="max-width:580px;background:#0d0e11;border:1px solid #2a2519;border-radius:20px;overflow:hidden">
+<tr><td align="center" style="padding:26px 24px 6px"><img src="${String(R.api || '').replace(/\/$/, '')}/atelier/logo.png" width="150" height="58" alt="SOLAR CAR 37" style="display:block;border:0;width:150px;height:auto;color:${GOLD};font-size:18px;font-weight:800;letter-spacing:.08em"></td></tr>
+<tr><td align="center" style="padding:0 24px"><div style="height:1px;width:64px;background:${GOLD};opacity:.6;margin:12px auto 0;line-height:1px;font-size:1px">&nbsp;</div></td></tr>
+${kicker ? `<tr><td align="center" style="padding:18px 24px 0;color:${GOLD};font-size:11px;font-weight:700;letter-spacing:.28em;text-transform:uppercase">${esc(kicker)}</td></tr>` : ''}
+<tr><td align="center" style="padding:${kicker ? 8 : 18}px 28px 0"><h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:400;font-size:30px;line-height:1.2;color:${INK}">${esc(title)}</h1></td></tr>
+<tr><td style="padding:24px 28px 8px">${body}</td></tr>
+<tr><td style="padding:18px 28px 26px;border-top:1px solid #1f1c15;color:#7d786c;font-size:12px;line-height:1.6">${foot ? `${foot}<br>` : ''}${esc(B.name)} · ${esc(address)} · <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:#9c927c">${esc(B.phone)}</a></td></tr>
+</table></td></tr></table></body></html>`;
+
+/** a gift card drawn in an e-mail: its face as the background, the amount, the names, the code */
+function giftCardHtml(env, g) {
+  const face = `${site(env)}/img/cartes/cadeau-${esc(g.look || 'or')}.jpg`;
+  const who = [g.to_name ? `Pour ${esc(g.to_name)}` : '', g.sender ? `de la part de ${esc(g.sender)}` : ''].filter(Boolean).join(' · ');
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" background="${face}" bgcolor="#101114" style="background-color:#101114;background-image:url('${face}');background-size:cover;background-position:center;border:1px solid #4a4130;border-radius:18px">
+<tr><td style="padding:22px 24px 0;color:${GOLD};font-size:11px;font-weight:700;letter-spacing:.26em">CARTE CADEAU <span style="color:${MUTED};font-weight:400">· SOLAR CAR 37</span></td></tr>
+<tr><td style="padding:30px 24px 0;color:#ffffff;font-size:48px;font-weight:800;line-height:1">${euros(g.amount)}</td></tr>
+<tr><td style="padding:10px 22% 0 24px;color:#e6e1d6;font-size:15px;line-height:1.4">${who || '&nbsp;'}</td></tr>
+<tr><td style="padding:24px 24px 22px"><span style="display:inline-block;background:rgba(5,6,8,.72);border:1px solid #6b5a33;border-radius:10px;padding:10px 14px;font-family:'Courier New',Courier,monospace;font-size:19px;font-weight:700;letter-spacing:.14em;color:${GOLD}">${esc(g.code)}</span></td></tr>
+</table>`;
+}
+
+/** what a gift card is for, its validity, how to use it */
+const giftHow = (env, g) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 6px;font-size:14px;line-height:1.55;color:${INK}">
+<tr><td style="padding:0 0 10px;color:${GOLD};font-weight:700">Comment en profiter</td></tr>
+<tr><td style="padding:0 0 8px">• <b>En ligne</b> : vitres teintées et feux teintés se réservent sur le site, la carte se saisit à l’étape du paiement.</td></tr>
+<tr><td style="padding:0 0 8px">• <b>À l’atelier</b> : detailing, ciel étoilé, covering, rénovation de phares… donnez simplement le code au moment de régler.</td></tr>
+<tr><td style="padding:0 0 8px">• En une ou plusieurs fois, jusqu’au <b>${esc(fullDate(g.expires))}</b>.</td></tr>
+</table>`;
+
+/**
+ * A gift card just paid: the buyer gets it at once (to print or forward), and learns when it goes
+ * to its recipient when they chose that. g: the gifts row; card: its public form (viewUrl).
+ */
+export async function sendGiftBuyer(env, g, card) {
+  const later = g.delivery === 'destinataire' && !g.sent;
+  const to = g.to_name || 'votre destinataire';
+  await send(env, {
+    to: [g.buyer_email],
+    reply_to: B.email,
+    subject: later ? `Votre carte cadeau pour ${to} est prête` : g.delivery === 'destinataire' ? `Votre carte cadeau est partie chez ${to}` : `Votre carte cadeau SOLAR CAR 37 de ${euros(g.amount)}`,
+    html: luxShell(
+      later ? 'Votre cadeau est prêt' : 'Merci pour ce beau cadeau',
+      `${lp(`Bonjour ${esc(g.buyer_first)},`)}
+${lp(later ? `merci d’avoir choisi ${esc(B.name)} pour faire plaisir. Votre carte cadeau partira par e-mail à <b>${esc(to)}</b> (${esc(maskAddress(g.to_email))}) le <b>${esc(longDay(g.send_on))}</b>, vers 8 h. Vous recevrez un petit mot dès qu’elle sera arrivée.` : g.delivery === 'destinataire' ? `merci d’avoir choisi ${esc(B.name)} pour faire plaisir. Votre carte cadeau vient de partir par e-mail à <b>${esc(to)}</b> (${esc(maskAddress(g.to_email))}). La voici aussi pour vous, si vous voulez l’imprimer.` : `merci d’avoir choisi ${esc(B.name)} pour faire plaisir. Voici votre carte : imprimez-la, glissez-la dans une enveloppe ou transférez cet e-mail, elle est prête à offrir.`)}
+${giftCardHtml(env, g)}
+${g.message ? `<p style="margin:18px 0 0;padding:14px 16px;border-left:2px solid ${GOLD};background:#141519;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:16px;line-height:1.55;color:${INK};white-space:pre-wrap">« ${esc(g.message)} »</p>` : ''}
+<p style="margin:22px 0 0">${goldButton(card.viewUrl, 'Voir la carte en 3D et l’imprimer')}</p>
+${giftHow(env, g)}
+${lp(`Une question, une envie particulière pour ${esc(to)} ? Répondez simplement à cet e-mail, ou appelez-nous au <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:${GOLD}">${esc(B.phone)}</a>.`, 'margin-top:8px;font-size:14px;color:#cfc9bc')}
+${lp(`À très bientôt,<br><b>${esc((B.owner || '').split(' ')[0] || B.name)}</b> — ${esc(B.name)}`)}`,
+      { preheader: later ? `Elle partira le ${longDay(g.send_on)} : vous pouvez déjà la voir.` : `${euros(g.amount)} à offrir, valable jusqu’au ${fullDate(g.expires)}.`, kicker: 'Carte cadeau', foot: `Carte n° ${esc(g.code)} · ${euros(g.amount)} · valable jusqu’au ${esc(fullDate(g.expires))} · non remboursable, ni échangeable contre de l’argent.` }
+    ),
+  });
+}
+const maskAddress = (e) => String(e || '').replace(/^(.)[^@]*(@.*)$/, '$1***$2');
+
+/** the card in its recipient's inbox, on the day chosen by the buyer */
+export async function sendGiftRecipient(env, g, card) {
+  const from = g.sender || [g.buyer_first, g.buyer_last].filter(Boolean).join(' ') || 'Un proche';
+  await send(env, {
+    to: [g.to_email],
+    reply_to: B.email,
+    subject: `${from} vous offre une carte cadeau ${B.name}`,
+    html: luxShell(
+      'Un cadeau pour vous',
+      `${lp(`Bonjour${g.to_name ? ` ${esc(g.to_name)}` : ''},`)}
+${lp(`<b>${esc(from)}</b> a pensé à vous et vous offre <b>${euros(g.amount)}</b> chez ${esc(B.name)}, l’atelier de personnalisation automobile de Vouvray, près de Tours : vitres teintées, feux teintés, detailing, ciel étoilé, covering… de quoi faire de votre voiture la vôtre.`)}
+${g.message ? `<p style="margin:4px 0 20px;padding:14px 16px;border-left:2px solid ${GOLD};background:#141519;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:16px;line-height:1.55;color:${INK};white-space:pre-wrap">« ${esc(g.message)} »<br><span style="font-family:Arial,Helvetica,sans-serif;font-style:normal;font-size:13px;color:${MUTED}">— ${esc(from)}</span></p>` : ''}
+${giftCardHtml(env, g)}
+<p style="margin:22px 0 0">${goldButton(`${site(env)}/reservation/?cadeau=${encodeURIComponent(g.code)}`, 'Réserver avec ma carte')}&nbsp; ${ghostButton(card.viewUrl, 'Voir ma carte')}</p>
+${giftHow(env, g)}
+${lp(`Vous hésitez entre plusieurs envies ? Écrivez-nous ou appelez le <a href="tel:${esc(B.phone.replace(/[^\d+]/g, ''))}" style="color:${GOLD}">${esc(B.phone)}</a> : nous vous conseillons avec plaisir, et la carte se dépense en plusieurs fois.`, 'font-size:14px;color:#cfc9bc')}
+${lp(`Au plaisir de vous accueillir à l’atelier,<br><b>${esc((B.owner || '').split(' ')[0] || B.name)}</b> — ${esc(B.name)}`)}`,
+      { preheader: `${from} vous offre ${euros(g.amount)} chez ${B.name}.`, kicker: 'Vous avez reçu un cadeau', foot: `Carte n° ${esc(g.code)} · valable jusqu’au ${esc(fullDate(g.expires))} · ${esc(address)}.` }
+    ),
+  });
+}
+
+/** to the buyer: the card has reached its recipient */
+export async function sendGiftDelivered(env, g) {
+  await send(env, {
+    to: [g.buyer_email],
+    reply_to: B.email,
+    subject: `Votre carte cadeau est bien arrivée chez ${g.to_name || 'son destinataire'}`,
+    html: luxShell(
+      'C’est livré',
+      `${lp(`Bonjour ${esc(g.buyer_first)},`)}${lp(`votre carte cadeau de <b>${euros(g.amount)}</b> vient d’être envoyée à <b>${esc(g.to_name || 'son destinataire')}</b> (${esc(maskAddress(g.to_email))}). Il ne reste plus qu’à attendre son appel !`)}${lp(`Merci encore pour votre confiance,<br><b>${esc(B.name)}</b>`)}`,
+      { preheader: `Envoyée ce matin à ${g.to_name || 'son destinataire'}.`, kicker: 'Carte cadeau' }
+    ),
+  });
+}
+
+/** the member's card drawn in an e-mail: black metal, name, number, validity, level */
+function premiumCardHtml(env, m, tier) {
+  const face = `${site(env)}/img/cartes/premium.jpg`;
+  const color = tier?.color || GOLD;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" background="${face}" bgcolor="#0a0a0c" style="background-color:#0a0a0c;background-image:url('${face}');background-size:cover;background-position:center;border:1px solid #3a3a40;border-radius:18px">
+<tr><td style="padding:22px 24px 0;color:${INK};font-size:12px;font-weight:700;letter-spacing:.3em">SOLAR CAR <span style="color:${GOLD}">PREMIUM</span></td><td align="right" style="padding:22px 24px 0"><span style="display:inline-block;border:1px solid ${color};color:${color};border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase">${esc(tier?.label || 'Membre')}</span></td></tr>
+<tr><td colspan="2" style="padding:44px 24px 0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">${esc([m.firstName ?? m.first, m.lastName ?? m.last].filter(Boolean).join(' '))}</td></tr>
+<tr><td style="padding:10px 24px 22px;font-family:'Courier New',Courier,monospace;font-size:16px;font-weight:700;letter-spacing:.14em;color:${GOLD}">${esc(m.number)}</td><td align="right" style="padding:10px 24px 22px;color:${MUTED};font-size:12px;line-height:1.4">valable jusqu’au<br><b style="color:${INK}">${esc(fullDate(m.expires))}</b></td></tr>
+</table>`;
+}
+
+/** the levels, one a service: the member's lit, the next shown with its gift */
+function levelsHtml(m) {
+  const visits = Number(m.visits) || 0;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 0;font-size:13px;line-height:1.45">${P.tiers
+    .map((t) => {
+      const on = visits >= t.visits;
+      return `<tr><td width="18" valign="top" style="padding:7px 0"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${on ? t.color : '#2a2b30'};border:1px solid ${t.color}"></span></td><td valign="top" style="padding:5px 0 5px 8px;color:${on ? INK : MUTED}"><b style="color:${on ? t.color : MUTED};letter-spacing:.08em;text-transform:uppercase;font-size:12px">${esc(t.label)}</b>${t.visits ? ` · ${t.visits === 1 ? '1re' : `${t.visits}e`} prestation` : ' · dès aujourd’hui'}<br><span style="color:${on ? '#cfc9bc' : '#8a8578'}">${esc(t.gift || `−${P.percent} % sur tout, toute l’année`)}</span></td></tr>`;
+    })
+    .join('')}</table>`;
+}
+
+/**
+ * Welcome to SOLAR CAR Premium (or the renewal): the card, how to use it, the levels, the
+ * referral code for the relatives, the link to « Mon espace Premium ». m: the public member
+ * (booking/store.js publicMember) with `email` the real address in `to`.
+ */
+export async function sendPremiumWelcome(env, m, { to, renewed = false } = {}) {
+  const tier = P.tiers.find((t) => t.id === m.tier?.id) || P.tiers[0];
+  const optOut = `${String(R.api || '').replace(/\/$/, '')}/api/premium/offres?n=${encodeURIComponent(m.number)}&t=${m.token}&off=1`;
+  await send(env, {
+    to: [to],
+    reply_to: B.email,
+    subject: renewed ? `Votre carte SOLAR CAR Premium est renouvelée jusqu’au ${fullDate(m.expires)}` : `Bienvenue dans SOLAR CAR Premium, ${m.firstName}`,
+    html: luxShell(
+      renewed ? 'Une année de plus ensemble' : `Bienvenue, ${m.firstName}`,
+      `${lp(renewed ? `Merci de rester des nôtres ! Votre carte est prolongée jusqu’au <b>${esc(fullDate(m.expires))}</b>, et vous gardez votre niveau <b style="color:${tier.color}">${esc(tier.label)}</b> : vos prestations continuent de compter.` : `Merci de nous rejoindre. À partir d’aujourd’hui, vous profitez de <b>−${P.percent} % sur toutes les prestations de l’atelier</b>, toute l’année, et chaque rendez-vous vous fait monter d’un niveau, avec un cadeau à la clé.`)}
+${premiumCardHtml(env, m, tier)}
+<p style="margin:22px 0 0">${goldButton(m.cardUrl, 'Ouvrir mon espace Premium')}</p>
+${lp('Votre carte, vos rendez-vous et vos cadeaux, au même endroit. Sur votre téléphone, ajoutez-le à l’écran d’accueil : il s’ouvre comme une application.', 'margin-top:10px;font-size:13px;color:#a9a396')}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 0;font-size:14px;line-height:1.55;color:${INK}">
+<tr><td style="padding:0 0 10px;color:${GOLD};font-weight:700">Comment l’utiliser</td></tr>
+<tr><td style="padding:0 0 8px">• <b>En ligne</b> : saisissez votre numéro <span style="font-family:'Courier New',monospace;color:${GOLD}">${esc(m.number)}</span> dans le champ « Code » de la réservation, avec cette adresse e-mail.</td></tr>
+<tr><td style="padding:0 0 8px">• <b>À l’atelier et sur devis</b> : donnez simplement votre nom, la remise est appliquée.</td></tr>
+</table>
+<p style="margin:20px 0 6px;color:${GOLD};font-weight:700;font-size:14px">Vos niveaux : un par prestation${P.countFrom ? ` (dès ${P.countFrom} €)` : ''}</p>
+${levelsHtml(m)}
+${m.referral ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;background:#141519;border:1px dashed #6b5a33;border-radius:14px"><tr><td style="padding:16px 18px;font-size:14px;line-height:1.55;color:${INK}"><b style="color:${GOLD}">Pour vos proches</b><br>Offrez-leur ${euros(m.referral.amount)} sur leur première prestation avec votre code personnel <span style="font-family:'Courier New',monospace;font-weight:700;color:${GOLD};letter-spacing:.1em">${esc(m.referral.code)}</span>.</td></tr></table>` : ''}
+${lp(`À très vite à l’atelier,<br><b>${esc((B.owner || '').split(' ')[0] || B.name)}</b> — ${esc(B.name)}`, 'margin-top:22px')}`,
+      { preheader: renewed ? `Prolongée jusqu’au ${fullDate(m.expires)}.` : `−${P.percent} % toute l’année, et un cadeau à chaque prestation.`, kicker: 'SOLAR CAR Premium', foot: `Carte nominative · valable jusqu’au ${esc(fullDate(m.expires))} · sans renouvellement automatique. Vous recevrez de temps en temps nos offres réservées aux membres : <a href="${esc(optOut)}" style="color:#9c927c">ne plus les recevoir</a>.` }
+    ),
+  });
+}
+
+/** « Espace membre »: the sign-in code (to type on the site, on any device) and the link that opens
+ *  the space at once on this one */
+export async function sendPremiumLink(env, m) {
+  await send(env, {
+    to: [m.email],
+    reply_to: B.email,
+    subject: m.code ? `Votre code de connexion SOLAR CAR Premium : ${m.code}` : 'Votre accès SOLAR CAR Premium',
+    html: luxShell(
+      'Votre espace membre',
+      `${lp(`Bonjour ${esc(m.first)},`)}${m.code ? `${lp('voici votre code de connexion, valable 10 minutes :')}<p style="margin:6px 0 18px;text-align:center"><span style="display:inline-block;background:#141519;border:1px solid #6b5a33;border-radius:12px;padding:12px 22px;font-family:'Courier New',Courier,monospace;font-size:32px;font-weight:700;letter-spacing:.3em;color:${GOLD}">${esc(m.code)}</span></p>${lp('Ou, sur cet appareil, ouvrez directement votre espace :', 'font-size:14px;color:#cfc9bc')}` : lp('voici le lien de votre espace : votre carte, vos rendez-vous, vos cadeaux et vos offres.')}<p style="margin:12px 0 6px">${goldButton(m.cardUrl, 'Ouvrir mon espace Premium')}</p>${lp('Ce lien et ce code vous sont réservés : gardez-les pour vous. Vous n’avez rien demandé ? Ignorez simplement cet e-mail.', 'margin-top:16px;font-size:13px;color:#a9a396')}`,
+      { preheader: m.code ? `Code : ${m.code} (valable 10 minutes).` : 'Votre carte, vos rendez-vous, vos cadeaux.', kicker: 'SOLAR CAR Premium' }
+    ),
+  });
+}
+
+/** a level reached with an appointment: its gift waits at the workshop */
+export async function sendLevelUp(env, m, reached) {
+  const t = P.tiers.find((x) => x.id === reached.id) || reached;
+  const next = P.tiers.find((x) => x.visits === t.visits + 1);
+  await send(env, {
+    to: [m.email],
+    reply_to: B.email,
+    subject: reached.card ? `Niveau ${t.label} débloqué : votre carte cadeau de ${euros(reached.card.row.amount)}` : `Niveau ${t.label} débloqué : un cadeau vous attend`,
+    html: luxShell(
+      `Niveau ${t.label}`,
+      `<p style="margin:0 0 18px;text-align:center"><span style="display:inline-block;border:1px solid ${t.color};color:${t.color};border-radius:999px;padding:8px 18px;font-size:13px;font-weight:800;letter-spacing:.24em;text-transform:uppercase">${esc(t.label)} · niveau ${P.tiers.indexOf(t)}</span></p>
+${lp(`Bonjour ${esc(m.first)},`)}
+${lp(`avec votre ${t.visits === 1 ? 'première' : `${t.visits}e`} prestation en tant que membre, vous passez au niveau <b style="color:${t.color}">${esc(t.label)}</b>. Votre cadeau :`)}
+${reached.card ? `${giftCardHtml(env, reached.card.row)}<p style="margin:14px 0 18px;font-size:14px;line-height:1.55;color:#cfc9bc">Votre carte cadeau de <b>${euros(reached.card.row.amount)}</b> est là, valable jusqu’au ${esc(fullDate(reached.card.row.expires))} : gardez-la pour vous, ou transférez cet e-mail à un proche. Elle se dépense en ligne ou à l’atelier, en une ou plusieurs fois.</p><p style="margin:0 0 18px">${ghostButton(reached.card.card.viewUrl, 'Voir la carte et l’imprimer')}</p>` : `<p style="margin:0 0 18px;padding:16px 18px;border:1px solid ${t.color};border-radius:14px;background:#141519;font-size:16px;line-height:1.5;color:${INK}"><b>${esc(t.gift)}</b><br><span style="font-size:13px;color:${MUTED}">remis à l’atelier, aujourd’hui ou lors de votre prochain passage.</span></p>`}
+${m.extended ? lp(`Et votre année SOLAR CAR Premium suivante est offerte : votre carte est prolongée jusqu’au <b>${esc(fullDate(m.extended))}</b>.`, 'font-size:15px') : ''}
+${next ? lp(`Prochain niveau : <b style="color:${next.color}">${esc(next.label)}</b>, à votre prochaine prestation — ${esc(next.gift.charAt(0).toLowerCase() + next.gift.slice(1))}.`, 'font-size:14px;color:#cfc9bc') : lp('Vous avez atteint le plus haut niveau. Merci, sincèrement, pour votre fidélité.', 'font-size:14px;color:#cfc9bc')}
+<p style="margin:18px 0 6px">${goldButton(m.cardUrl, 'Voir mon espace Premium')}</p>`,
+      { preheader: reached.card ? `${t.gift} : la voici.` : `${t.gift} : remis à l’atelier.`, kicker: 'SOLAR CAR Premium' }
+    ),
+  });
+}
+
+/** a fortnight before the end: what the year brought, and how to go on (no automatic renewal) */
+export async function sendPremiumReminder(env, m) {
+  const tier = P.tiers.find((t) => t.id === m.tier?.id) || P.tiers[0];
+  await send(env, {
+    to: [m.email],
+    reply_to: B.email,
+    subject: `Votre carte SOLAR CAR Premium se termine le ${fullDate(m.expires)}`,
+    html: luxShell(
+      'On continue ensemble ?',
+      `${lp(`Bonjour ${esc(m.first)},`)}
+${lp(`votre carte Premium arrive à échéance le <b>${esc(fullDate(m.expires))}</b>. Elle ne se renouvelle pas toute seule : rien ne sera prélevé sans vous.`)}
+${lp(`Cette année : ${m.visits ? `<b>${m.visits} prestation${m.visits > 1 ? 's' : ''}</b> avec −${P.percent} %, ` : ''}niveau <b style="color:${tier.color}">${esc(tier.label)}</b>. En renouvelant, vous gardez votre niveau et vos prestations continuent de compter pour les suivants.`)}
+<p style="margin:18px 0 6px">${goldButton(`${site(env)}/premium/?renouveler=1`, `Renouveler pour ${String(P.price).replace('.', ',')} €`)}</p>
+${lp('Même adresse e-mail, même carte, une année de plus.', 'margin-top:10px;font-size:13px;color:#a9a396')}`,
+      { preheader: `Gardez votre niveau ${tier.label} et vos −${P.percent} %.`, kicker: 'SOLAR CAR Premium' }
+    ),
+  });
+}
+
+/**
+ * An offer for the members, written in the workshop's space: one e-mail each (Resend's batch, 100 a
+ * request), « Bonjour Prénom », the code in a gold box, the link to stop these e-mails.
+ * o: { subject, title, text, code (a promotion, optional), until (ms) }; members: [{ number, token,
+ * first, email }]; preview: the workshop's addresses (one e-mail, nothing to the members).
+ */
+export async function sendMembersOffer(env, o, members, preview = null) {
+  const api = String(R.api || '').replace(/\/$/, '');
+  const mailFor = (m) => ({
+    from: env.MAIL_FROM || `${B.name} <onboarding@resend.dev>`,
+    to: [m.email],
+    reply_to: B.email,
+    subject: `${preview ? '[Aperçu] ' : ''}${o.subject}`,
+    headers: m.token ? { 'List-Unsubscribe': `<${api}/api/premium/offres?n=${encodeURIComponent(m.number)}&t=${m.token}&off=1>` } : undefined,
+    html: luxShell(
+      o.title || o.subject,
+      `${lp(`Bonjour ${esc(m.first || '')},`)}${paragraphs(o.text).replace(/color:#111/g, `color:${INK}`)}
+${o.code ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 18px;background:#141519;border:1px solid #6b5a33;border-radius:14px"><tr><td align="center" style="padding:18px"><span style="color:${MUTED};font-size:11px;letter-spacing:.24em">VOTRE CODE MEMBRE</span><br><span style="display:inline-block;margin-top:8px;font-family:'Courier New',monospace;font-size:24px;font-weight:700;letter-spacing:.16em;color:${GOLD}">${esc(o.code)}</span>${o.until ? `<br><span style="color:${MUTED};font-size:12px">jusqu’au ${esc(fullDate(o.until))}</span>` : ''}</td></tr></table>
+<p style="margin:0 0 8px;text-align:center">${goldButton(`${site(env)}/reservation/?code=${encodeURIComponent(o.code)}`, 'J’en profite')}</p>` : `<p style="margin:8px 0 8px;text-align:center">${goldButton(`${site(env)}/reservation/`, 'Réserver')}</p>`}`,
+      { preheader: o.subject, kicker: 'Réservé aux membres Premium', foot: m.token ? `Vous recevez cet e-mail en tant que membre SOLAR CAR Premium. <a href="${esc(`${api}/api/premium/offres?n=${encodeURIComponent(m.number)}&t=${m.token}&off=1`)}" style="color:#9c927c">Ne plus recevoir les offres</a>.` : 'Aperçu pour l’atelier : les membres reçoivent leur lien de désinscription ici.' }
+    ),
+  });
+  if (preview?.length) return send(env, { ...mailFor({ first: 'Prénom', email: preview[0], number: '', token: '' }), to: preview });
+  let sent = 0;
+  for (let i = 0; i < members.length; i += 100) {
+    const batch = members.slice(i, i + 100).map(mailFor);
+    const res = await fetch('https://api.resend.com/emails/batch', { method: 'POST', headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify(batch) });
+    if (!res.ok) throw new Error(`resend batch ${res.status} ${(await res.text()).slice(0, 200)}${sent ? ` (${sent} déjà envoyés)` : ''}`);
+    sent += batch.length;
+  }
+  return sent;
 }

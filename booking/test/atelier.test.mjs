@@ -188,8 +188,15 @@ test('the client file: bookings and quote requests come in by themselves, one ca
   assert.deepEqual([...new Uint8Array(await res.clone().arrayBuffer()).slice(0, 3)], [0xef, 0xbb, 0xbf]);
   const csv = await res.text();
   assert.ok(csv.startsWith('Prénom;Nom;E-mail;Téléphone'));
-  assert.match(csv, /Léa;Petit;lea@example\.com;06 11 11 11 11;Peugeot 208;AB-123-CD;Bouche-à-oreille;0;0;2;LEA-[A-Z0-9]{5};demande de devis/);
-  assert.match(csv, /Camille;Roux;camille@example\.com;06 22 33 44 55;Audi A3;;;1;104,85;0;/);
+  // a quote request only: a prospect; an appointment booked: a client confirmed, from that day
+  assert.match(csv, /Léa;Petit;lea@example\.com;06 11 11 11 11;Prospect;;Peugeot 208;AB-123-CD;Bouche-à-oreille;0;0;2;LEA-[A-Z0-9]{5};demande de devis/);
+  assert.match(csv, /Camille;Roux;camille@example\.com;06 22 33 44 55;Client confirmé;\d{2}\/\d{2}\/\d{4};Audi A3;;;1;104,85;0;/);
+  // the same in the space: a tag on each client, the two lists apart
+  assert.match(await (await go(`/atelier/clients/${lea.id}`)).text(), /<h1>Léa Petit <span class="tag tag--gold">Prospect<\/span>/);
+  const confirmed = await (await go('/atelier/clients?statut=confirme')).text();
+  assert.match(confirmed, /Camille Roux<\/b><\/a> <span class="tag tag--ok">Client confirmé<\/span>/);
+  assert.doesNotMatch(confirmed, /Léa Petit/);
+  assert.match(await (await go('/atelier/clients?statut=prospect')).text(), /Léa Petit/);
   // a cell that would be read as a formula is neutralised
   await go('/atelier/clients', { method: 'POST', form: { firstName: '=HYPERLINK("x")', lastName: 'Test' } });
   assert.match(await (await go('/atelier/clients.csv')).text(), /"'=HYPERLINK\(""x""\)";Test/);

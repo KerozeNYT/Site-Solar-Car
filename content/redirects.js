@@ -22,6 +22,9 @@ export const redirects = [
   // « feux teintés » page
   { from: '/politique-de-confidentialite', to: '/mentions-legales/' },
   { from: '/nettoyage-automobile', to: '/detailing-carrosserie/' },
+  // an older address of the cleaning page, still known to Google (Search Console, 404 seen on 10
+  // August 2026): cleaning is no longer offered, the closest service is the detailing
+  { from: '/nettoyage-auto', to: '/detailing-carrosserie/' },
   { from: '/covering-et-dechromage', to: '/covering-dechromage/' },
   // same pages, now with a trailing slash
   { from: '/vitres-teintees', to: '/vitres-teintees/' },

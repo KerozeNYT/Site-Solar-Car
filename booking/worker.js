@@ -19,6 +19,11 @@
  *                                                    workshop (photos attached) and to the client, in the client file
  *   GET  /api/devis?n=&t=, POST /api/devis/accepter  the client accepts a quote (www.solarcar37.fr/devis/)
  *   email handler                                    the replies of a quote discussion (QUOTE_REPLY, booking/store.js)
+ *   POST /api/cadeau/checkout, GET /api/cadeau        a gift card bought (Stripe), then shown (merci, voir)
+ *   POST /api/premium/checkout, GET /api/premium      SOLAR CAR Premium joined (Stripe), then the member's card
+ *   POST /api/premium/lien, GET /api/premium/offres   « Retrouver ma carte », the members' offers on / off
+ *   cron, every day at 7:00 UTC                      gift cards sent to their recipient, Premium reminders
+ *                                                    (and the 1st of the month, the statistics e-mail)
  *   GET  /atelier…                                   the workshop's space (booking/atelier.js, docs/ATELIER.md)
  *   GET  /fiche-google?cle=…, /fiche-google/connexion, /fiche-google/retour, POST /fiche-google/envoyer
  *        and a cron every Tuesday                    one photo a week on the Google Business Profile
@@ -50,7 +55,8 @@ import { bookingRules as R, quote, amountDue, formatDuration, howHeardText, howH
 import { freeStarts, jobSpan, zonedToUtc, utcToZoned, addDays } from './schedule.js';
 import { busyIntervals, insertEvent, patchEvent, deleteEvent, getEvent, heldEvents, bookedEvents, listEvents } from './google.js';
 import { createSession, getSession, expireSession, verifyWebhook } from './stripe.js';
-import { sendBookingMails, sendReminderMail, sendFollowUpMail, sendPaymentLink, sendBookingUpdate } from './mail.js';
+import { sendBookingMails, sendReminderMail, sendFollowUpMail, sendPaymentLink, sendBookingUpdate, sendGiftBuyer, sendGiftRecipient, sendGiftDelivered, sendPremiumWelcome, sendPremiumLink, sendLevelUp, sendPremiumReminder } from './mail.js';
+import { giftCard as G, premium as P, giftAmount } from '../content/offers.js';
 import { record, hitFromPage, heardRows } from './stats.js';
 import { statsPage } from './stats-page.js';
 import { sendMonthly, monthRoute } from './stats-report.js';
@@ -71,6 +77,9 @@ export { Atelier } from './store.js';
 const DAY = 86400000;
 const list = (s) => (s || '').split(',').map((x) => x.trim()).filter(Boolean);
 const euros = (n) => `${n.toFixed(2).replace('.', ',').replace(',00', '')} €`;
+const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+const hexId = (n) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(16).padStart(2, '0')).join('');
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const longDate = (date, time) =>
   new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`)) + ` à ${time.replace(/^0/, '').replace(':', ' h ')}`;
 
@@ -170,7 +179,7 @@ function customerJson(c) {
 }
 
 /** the text of the appointment in the calendar */
-function eventText(q, c, { date, time, mode, paid, sessionId, code, codeKind, remise = 0, canal = '' }) {
+function eventText(q, c, { date, time, mode, paid, sessionId, code, codeKind, remise = 0, canal = '', gift = null }) {
   const lines = [
     `Client : ${c.firstName} ${c.lastName}`,
     `Téléphone : ${c.phone}`,
@@ -181,16 +190,17 @@ function eventText(q, c, { date, time, mode, paid, sessionId, code, codeKind, re
     ...q.items.map((i) => `• ${i.label}${i.detail ? ` — ${i.detail}` : ''} : ${euros(i.price)}`),
     '',
     // « Code promo NOEL : −40 € », « Parrainage : −20 € (code MARIE-7K2QX) », « Remise : −30 € »
-    q.discount ? discountLines(q.discount, { code, codeKind, remise }).map(([label, off]) => (label.startsWith('Parrainage (') ? `Parrainage : −${euros(off)} ${label.slice(11)}` : `${label} : −${euros(off)}`)).join('\n') : null,
+    q.discount ? discountLines(q.discount, { code, codeKind, remise }).map(([label, off]) => (label.startsWith('Parrainage (') ? `Parrainage : −${euros(off)} ${label.slice(11)}` : label === 'Carte Premium' ? `Carte Premium ${code} : −${euros(off)}` : `${label} : −${euros(off)}`)).join('\n') : null,
     `Total : ${euros(q.total)} — durée ${formatDuration(q.minutes)}`,
-    // paid online (Stripe), paid by card at the workshop (its terminal), or all at the workshop
+    gift?.amount ? `Carte cadeau ${gift.code} : ${euros(gift.amount)}` : null,
+    // paid online (Stripe, less a gift card), paid by card at the workshop (its terminal), or all at the workshop
     mode === 'none'
       ? `À régler sur place : ${euros(q.total)}`
       : mode === 'tpe'
         ? `Acompte réglé au TPE (CB à l’atelier) : ${euros(paid)} — reste à régler : ${euros(Math.max(0, q.total - paid))}`
         : paid != null
-          ? `Payé en ligne : ${euros(paid)} (${mode === 'full' ? 'totalité' : 'acompte 30 %'}) — reste à régler : ${euros(Math.max(0, q.total - paid))}`
-          : `Paiement en cours (${mode === 'full' ? 'totalité' : 'acompte 30 %'} : ${euros(amountDue(q, mode))})`,
+          ? `${!gift?.amount || paid - gift.amount > 0 ? `Payé en ligne : ${euros(paid - (gift?.amount || 0))} (${mode === 'full' ? 'totalité' : 'acompte 30 %'}) — ` : ''}reste à régler : ${euros(Math.max(0, q.total - paid))}`
+          : `Paiement en cours (${mode === 'full' ? 'totalité' : 'acompte 30 %'} : ${euros(Math.max(0, amountDue(q, mode) - (gift?.amount || 0)))})`,
     c.message ? `\nMessage : ${c.message}` : '',
     '',
     `${takenText(canal)} le ${new Date().toLocaleDateString('fr-FR', { timeZone: R.timeZone })} pour le ${longDate(date, time)}.`,
@@ -206,10 +216,13 @@ async function confirm(env, session) {
   const q = priced(m);
   const c = JSON.parse(m.customer || '{}');
   if (q.error) throw new Error('confirm: ' + q.error);
-  const paid = (session.amount_total || 0) / 100;
+  // the part paid with a gift card (set aside while the client paid the rest)
+  const gift = m.gift ? { code: m.gift, amount: round2(m.giftAmount) } : null;
+  const online = (session.amount_total || 0) / 100;
+  const paid = round2(online + (gift?.amount || 0));
   const body = {
     summary: `RDV ${titleOf(q, c)}`,
-    description: eventText(q, c, { date: m.date, time: m.time, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind, remise: Number(m.remise) || 0, canal: m.canal }),
+    description: eventText(q, c, { date: m.date, time: m.time, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind, remise: Number(m.remise) || 0, canal: m.canal, gift }),
     colorId: '9',
     extendedProperties: { private: { solarcarHold: '0', session: session.id, paid: String(paid) } },
   };
@@ -234,19 +247,22 @@ async function confirm(env, session) {
   const heard = howHeardParse(c.source);
   // an appointment taken by the workshop on the phone is counted apart from the site's bookings
   const from = m.origin === 'atelier' ? '/atelier/rdv/' : '/reservation/';
-  await record(env, [{ site, kind: 'rdv', page: from, detail: q.items.map((i) => i.label).join(' + ').slice(0, 120), value: paid }, ...heardRows({ site, page: from }, heard.channels, heard.other)]).catch((err) => console.error('[stats]', err));
+  await record(env, [{ site, kind: 'rdv', page: from, detail: q.items.map((i) => i.label).join(' + ').slice(0, 120), value: online }, ...heardRows({ site, page: from }, heard.channels, heard.other)]).catch((err) => console.error('[stats]', err));
+  let member = null;
   if (env.ATELIER) {
     // the code is counted now that the booking is paid (checked when the payment opened): a
-    // referral code is used up, a promotion counts one more use
-    if (m.code) {
-      const r = await (m.codeKind === 'promo' ? db(env, 'promo/use', { code: m.code }) : redeemReferral(env, m.code, { by: `${c.firstName} ${c.lastName}`, ref: session.id, where: 'réservation en ligne' })).catch((err) => ({ ok: false, error: err.message }));
-      if (!r.ok) console.error('[code]', m.code, r.error);
+    // referral code is used up, a promotion counts one more use (a Premium card: nothing to count)
+    if (m.code) await useCode(env, m.code, m.codeKind, { by: `${c.firstName} ${c.lastName}`, ref: session.id, where: 'réservation en ligne' });
+    // the gift card: its part set aside becomes spent (once, even if Stripe notifies twice)
+    if (gift) {
+      const r = await db(env, 'gift/use', { code: gift.code, amount: gift.amount, ref: m.event || session.id, held: true, by: `${c.firstName} ${c.lastName}`, where: 'réservation en ligne' }).catch((err) => ({ ok: false, error: err.message }));
+      if (!r.ok) console.error('[cadeau]', gift.code, r.error);
     }
     // the client file and the list of bookings of the workshop's space
-    await db(env, 'booking/add', { session: session.id, event: out?.id || m.event, date: m.date, time: m.time, minutes: q.minutes, items: q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price })), total: q.total, discount: q.discount || 0, code: m.code || '', codeKind: m.code ? m.codeKind || 'parrainage' : '', mode: m.mode, paid, customer: c, live: session.livemode !== false }).catch((err) => console.error('[atelier] booking', err.message));
+    member = (await db(env, 'booking/add', { session: session.id, event: out?.id || m.event, date: m.date, time: m.time, minutes: q.minutes, items: q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price })), total: q.total, discount: q.discount || 0, code: m.code || '', codeKind: m.code ? m.codeKind || 'parrainage' : '', mode: m.mode, paid, customer: c, live: session.livemode !== false, gift: gift?.code, giftAmount: gift?.amount }).catch((err) => (console.error('[atelier] booking', err.message), {}))).member;
   }
   // « Nouveau RDV » to the workshop, the confirmation to the client (never fails the booking)
-  await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind, remise: Number(m.remise) || 0, canal: m.canal }).catch((err) => console.error('[mail]', err));
+  await sendBookingMails(env, { q, c, date: m.date, time: m.time, start: span.start, end: span.end, mode: m.mode, paid, sessionId: session.id, code: m.code, codeKind: m.codeKind, remise: Number(m.remise) || 0, canal: m.canal, gift, member: member?.number }).catch((err) => console.error('[mail]', err));
   await notify(env, { title: m.origin === 'atelier' ? 'Acompte payé : RDV confirmé' : 'Nouveau RDV réservé et payé', body: `${c.firstName} ${c.lastName} — ${longDate(m.date, m.time)} · ${euros(paid)} payés`, url: '/atelier/rdv', tag: `rdv-${session.id}` });
   return out;
 }
@@ -284,6 +300,10 @@ async function checkout(req, env, now) {
     if (!env.ATELIER) return json({ error: 'Les codes ne sont pas encore acceptés en ligne.', code: true }, 400, h);
     const r = await checkCode(env, b.code, now);
     if (!r.ok) return json({ error: r.error, code: true }, 400, h);
+    if (r.kind === 'cadeau') return json({ error: 'C’est une carte cadeau : saisissez-la dans « Carte cadeau ».', code: true }, 400, h);
+    // a Premium card, or a promotion kept for the members: the booking's e-mail must be the card's
+    const refused = await membersOnly(env, r, c.email, now);
+    if (refused) return json({ error: refused, code: true }, 400, h);
     const off = discountFor(q, r);
     if (!off) return json({ error: `Le code ${r.code} ne s’applique pas à ces prestations.`, code: true }, 400, h);
     code = r.code;
@@ -291,6 +311,15 @@ async function checkout(req, env, now) {
     q = withDiscount(q, off);
   }
   const mode = b.mode === 'full' ? 'full' : 'deposit';
+  // a gift card: a means of payment, on what is due now first (content/offers.js; the booking
+  // page applies the same rule)
+  let gift = null;
+  if (b.gift) {
+    if (!env.ATELIER) return json({ error: 'Les cartes cadeaux ne sont pas encore acceptées en ligne.', gift: true }, 400, h);
+    const r = await checkCode(env, b.gift, now);
+    if (!r.ok || r.kind !== 'cadeau') return json({ error: r.ok ? 'Ce code n’est pas une carte cadeau.' : r.error, gift: true }, 400, h);
+    gift = { code: r.code, amount: round2(Math.min(r.balance, q.total)) };
+  }
   const { date, time } = b;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '') || !/^\d{2}:\d{2}$/.test(time || '')) return json({ error: 'Créneau à choisir' }, 400, h);
   if (!b.consent?.terms) return json({ error: 'Conditions de réservation à accepter' }, 400, h);
@@ -311,16 +340,29 @@ async function checkout(req, env, now) {
   const free = await slotsFor(env, date, 1, q.minutes, now);
   if (!span || !free[0]?.times.includes(time)) return json({ error: 'Ce créneau vient d’être pris : choisissez-en un autre.', taken: true }, 409, h);
 
+  // the gift card covers what is due now: the appointment is confirmed at once, no payment page
+  if (gift && giftDue(q, mode, gift) === 0) {
+    const r = await giftBooking(env, { q, c, date, time, mode, span, code, codeKind, gift, back, now });
+    return json(r, r.error ? 400 : 200, h);
+  }
   const holdUntil = now + R.holdMinutes * 60000 + 120000;
   const hold = await insertEvent(env, env.CALENDAR_WRITE, {
     summary: `⏳ Paiement en cours — ${titleOf(q, c)}`,
-    description: eventText(q, c, { date, time, mode, code, codeKind }),
+    description: eventText(q, c, { date, time, mode, code, codeKind, gift }),
     colorId: '8',
     start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone },
     end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
     extendedProperties: { private: { solarcarHold: '1', holdUntil: String(holdUntil) } },
   });
-  const due = amountDue(q, mode);
+  // the gift card's part set aside while the client pays the rest
+  if (gift) {
+    const r = await db(env, 'gift/hold', { code: gift.code, amount: gift.amount, ref: hold.id, expires: holdUntil, now });
+    if (!r.ok) {
+      await deleteEvent(env, env.CALENDAR_WRITE, hold.id).catch(() => {});
+      return json({ error: r.error, gift: true }, 400, h);
+    }
+  }
+  const due = gift ? giftDue(q, mode, gift) : amountDue(q, mode);
   const what = q.items.map((i) => i.label).join(' + ');
   const when = longDate(date, time);
   let session;
@@ -337,7 +379,7 @@ async function checkout(req, env, now) {
             unit_amount: Math.round(due * 100),
             product_data: {
               name: `${mode === 'full' ? 'Règlement' : 'Acompte 30 %'} — ${what}`,
-              description: `RDV le ${when} à l’atelier SOLAR CAR 37, Vouvray. Total ${euros(q.total)}${q.discount ? ` (${codeKind === 'promo' ? `code ${code}` : 'parrainage'} −${euros(q.discount)} déduit)` : ''}${mode === 'full' ? '' : `, reste ${euros(q.total - due)} à régler à l’atelier`}.`,
+              description: `RDV le ${when} à l’atelier SOLAR CAR 37, Vouvray. Total ${euros(q.total)}${q.discount ? ` (${codeKind === 'promo' ? `code ${code}` : codeKind === 'premium' ? `carte Premium −${P.percent} %` : 'parrainage'} −${euros(q.discount)} déduit)` : ''}${gift ? `, carte cadeau ${euros(gift.amount)} déduite` : ''}${q.total - due - (gift?.amount || 0) > 0.001 ? `, reste ${euros(q.total - due - (gift?.amount || 0))} à régler à l’atelier` : ''}.`,
             },
           },
         },
@@ -354,10 +396,12 @@ async function checkout(req, env, now) {
         config: JSON.stringify(b.config).slice(0, 500),
         customer: customerJson(c),
         ...(code ? { code, codeKind, discount: String(q.discount) } : {}),
+        ...(gift ? { gift: gift.code, giftAmount: String(gift.amount) } : {}),
       },
     });
   } catch (err) {
     await deleteEvent(env, env.CALENDAR_WRITE, hold.id).catch(() => {});
+    if (gift) await db(env, 'gift/release', { ref: hold.id }).catch(() => {});
     throw err;
   }
   await patchEvent(env, env.CALENDAR_WRITE, hold.id, { extendedProperties: { private: { solarcarHold: '1', holdUntil: String(holdUntil), session: session.id } } });
@@ -369,7 +413,11 @@ async function webhook(req, env) {
   const event = await verifyWebhook(payload, req.headers.get('stripe-signature'), env.STRIPE_WEBHOOK_SECRET);
   if (!event) return json({ error: 'signature' }, 400);
   const s = event.data?.object;
-  if (s?.metadata?.kind === 'supplement') {
+  const paidNow = (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && s?.payment_status === 'paid';
+  // a gift card or a Premium membership bought on the site
+  if (s?.metadata?.kind === 'cadeau' || s?.metadata?.kind === 'premium') {
+    if (paidNow && env.ATELIER) await (s.metadata.kind === 'cadeau' ? giftPaid(env, s) : premiumPaid(env, s));
+  } else if (s?.metadata?.kind === 'supplement') {
     if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && s.payment_status === 'paid' && env.ATELIER) await supplementPaid(env, s);
   } else if ((event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') && s?.payment_status === 'paid') {
     await confirm(env, s);
@@ -377,6 +425,8 @@ async function webhook(req, env) {
     const id = s?.metadata?.event;
     const ev = id ? await getEvent(env, env.CALENDAR_WRITE, id).catch(() => null) : null;
     if (ev && ev.extendedProperties?.private?.solarcarHold === '1') await deleteEvent(env, env.CALENDAR_WRITE, id).catch(() => {});
+    // the gift card's part set aside comes back on the card
+    if (s?.metadata?.gift && id && env.ATELIER) await db(env, 'gift/release', { ref: id }).catch(() => {});
     // a link sent by the workshop: no longer waiting
     if (s?.metadata?.origin === 'atelier' && env.ATELIER) await db(env, 'link/status', { session: s.id, status: 'expire' }).catch(() => {});
   }
@@ -434,9 +484,12 @@ export async function atelierBooking(env, b, now) {
   let code = '';
   let codeKind = '';
   let byCode = 0;
-  if (b.code) {
-    const r = await checkCode(env, b.code, now);
+  // a member of SOLAR CAR Premium, no code typed: the card is applied by itself
+  const autoPremium = !b.code && c.email && env.ATELIER ? (await db(env, 'member/of', { email: c.email, now }).catch(() => ({}))).member : null;
+  if (b.code || autoPremium?.active) {
+    const r = await checkCode(env, b.code || autoPremium.number, now);
     if (!r.ok) return { error: r.error };
+    if (r.kind === 'cadeau') return { error: 'C’est une carte cadeau : elle se déduit sur la page du rendez-vous, une fois créé (« Régler avec une carte cadeau »).' };
     byCode = discountFor(q, r);
     if (!byCode) return { error: `Le code ${r.code} ne s’applique pas à ces prestations.` };
     code = r.code;
@@ -477,9 +530,9 @@ export async function atelierBooking(env, b, now) {
       end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
       extendedProperties: { private: { solarcarHold: '0', session: id, atelier: '1' } },
     });
-    if (code) await (codeKind === 'promo' ? db(env, 'promo/use', { code }) : redeemReferral(env, code, { by: `${c.firstName} ${c.lastName}`, ref: id, where: 'à l’atelier' })).catch(() => {});
-    await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: how, paid, customer: c });
-    const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: paid, mode: how, status: 'confirme', canal, customer: c });
+    if (code) await useCode(env, code, codeKind, { by: `${c.firstName} ${c.lastName}`, ref: id, where: 'à l’atelier' });
+    await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, discount: q.discount || 0, code, codeKind, mode: how, paid, customer: c, atelier: true });
+    const link = await db(env, 'link/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items, total: q.total, due: paid, mode: how, status: 'confirme', canal, customer: c, request: b.request });
     await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode: how, paid, sessionId: id, code, codeKind, remise, note, canal, clientMail: !!c.email }).catch((err) => console.error('[mail] atelier booking', err.message));
     return { ok: true, id: link.id, confirmed: true };
   }
@@ -517,7 +570,8 @@ export async function atelierBooking(env, b, now) {
     return { error: 'Stripe n’a pas pu créer le lien de paiement : réessayez dans un instant.' };
   }
   await patchEvent(env, env.CALENDAR_WRITE, hold.id, { extendedProperties: { private: { solarcarHold: '1', holdUntil: String(expires + 120000), session: session.id, atelier: '1' } } });
-  const link = await db(env, 'link/add', { now, session: session.id, event: hold.id, date, time, minutes: q.minutes, items, total: q.total, due, mode, url: session.url, expires, canal, customer: c });
+  // b.request: the quote it answers (« Envoyer un lien de paiement » on the quote), else found by the client
+  const link = await db(env, 'link/add', { now, session: session.id, event: hold.id, date, time, minutes: q.minutes, items, total: q.total, due, mode, url: session.url, expires, canal, customer: c, request: b.request });
   const mailed = await sendPaymentLink(env, { q, c, date, time, start: span.start, end: span.end, due, mode, url: session.url, expires, note, code, codeKind, remise, canal })
     .then(() => true)
     .catch((err) => (console.error('[mail] payment link', err.message), false));
@@ -576,7 +630,7 @@ const itemsOfBooking = (bk) => {
 
 /** the appointment's calendar event after a change: the block « Ajouts à l’atelier » under its
  *  description (services added, new total, paid, left), its end moved by `shift` minutes */
-async function refreshEvent(env, bk, shift = 0) {
+export async function refreshEvent(env, bk, shift = 0) {
   const ev = bk.event ? await getEvent(env, env.CALENDAR_WRITE, bk.event).catch(() => null) : null;
   if (!ev || ev.status === 'cancelled') return;
   const added = itemsOfBooking(bk).filter((i) => i.added);
@@ -655,15 +709,30 @@ export async function atelierCancel(env, id) {
 
 async function booking(req, env, url) {
   const id = url.searchParams.get('session') || '';
+  // an appointment paid with a gift card alone (no payment page): read from the workshop's database
+  if (/^cadeau-[0-9a-f]{24}$/.test(id) && env.ATELIER) {
+    const { booking: bk } = await db(env, 'booking/get', { session: id });
+    if (!bk) return json({ error: 'Réservation inconnue' }, 404, cors(req, env));
+    const items = (() => {
+      try {
+        return JSON.parse(bk.items || '[]');
+      } catch {
+        return [];
+      }
+    })();
+    return json({ status: 'complete', paid: true, amount: 0, mode: bk.mode, date: bk.date, time: bk.time, minutes: bk.minutes, total: bk.total, discount: bk.discount, code: bk.code, codeKind: bk.code_kind, remise: 0, remaining: Math.max(0, round2(bk.total - bk.paid)), gift: bk.gift ? { code: bk.gift, amount: bk.gift_amount } : null, items: items.map((i) => ({ label: i.label, detail: i.detail, price: i.price })) }, 200, cors(req, env));
+  }
   if (!/^cs_[A-Za-z0-9_]+$/.test(id)) return json({ error: 'Réservation inconnue' }, 400, cors(req, env));
   const s = await getSession(env, id).catch(() => null);
   if (!s) return json({ error: 'Réservation inconnue' }, 404, cors(req, env));
   const m = s.metadata || {};
   const q = priced(m);
   const paid = s.payment_status === 'paid' ? (s.amount_total || 0) / 100 : 0;
+  const gift = m.gift && s.payment_status === 'paid' ? { code: m.gift, amount: round2(m.giftAmount) } : null;
   return json(
     {
       status: s.status,
+      gift,
       paid: s.payment_status === 'paid',
       amount: paid,
       mode: m.mode,
@@ -676,7 +745,7 @@ async function booking(req, env, url) {
       codeKind: m.code ? m.codeKind || 'parrainage' : '',
       // the workshop's own discount (an appointment taken in its space)
       remise: Number(m.remise) || 0,
-      remaining: Math.max(0, q.total - paid),
+      remaining: Math.max(0, round2(q.total - paid - (gift?.amount || 0))),
       items: (q.items || []).map((i) => ({ label: i.label, detail: i.detail, price: i.price })),
     },
     200,
@@ -791,7 +860,7 @@ async function codeCheck(req, env, url, now) {
   if (!env.ATELIER) return json({ ok: false, error: 'Les codes ne sont pas encore acceptés en ligne.' }, 200, h);
   const r = await checkCode(env, url.searchParams.get('code') || '', now);
   if (!r.ok) return json({ ok: false, error: r.error }, 200, h);
-  return json({ ok: true, kind: r.kind, code: r.code, label: r.label, owner: r.owner, amount: r.amount, percent: r.percent, services: r.services, expires: r.expires }, 200, h);
+  return json({ ok: true, kind: r.kind, code: r.code, label: r.label, owner: r.owner, amount: r.amount, percent: r.percent, services: r.services, expires: r.expires, balance: r.balance, members: !!r.members }, 200, h);
 }
 
 /** GET /api/promo: the promotion band of the site (cached a few minutes by the browser);
@@ -871,6 +940,380 @@ async function quoteMail(message, env) {
   return out;
 }
 
+// ---------------------------------------------------------------- gift cards and SOLAR CAR Premium
+// (content/offers.js, docs/CARTES.md)
+
+/** a code counted once the booking is made: a promotion one use more, a referral code used up (a
+ *  Premium card: nothing to count) */
+async function useCode(env, code, kind, { by, ref, where }) {
+  if (kind === 'premium') return;
+  const r = await (kind === 'promo' ? db(env, 'promo/use', { code }) : redeemReferral(env, code, { by, ref, where })).catch((err) => ({ ok: false, error: err.message }));
+  if (!r.ok) console.error('[code]', code, r.error);
+}
+
+/** a Premium card, or a promotion kept for the members: '' when the booking's e-mail is the
+ *  card's (an active member), else why it is refused */
+async function membersOnly(env, r, email, now) {
+  if (r.kind !== 'premium' && !r.members) return '';
+  const m = (await db(env, 'member/of', { email, now })).member;
+  const mine = 'Votre carte Premium est à votre nom : réservez avec l’adresse e-mail de la carte.';
+  if (r.kind === 'premium') return m?.active && m.number === r.code ? '' : mine;
+  return m?.active ? '' : `Le code ${r.code} est réservé aux membres SOLAR CAR Premium : réservez avec l’adresse e-mail de votre carte.`;
+}
+
+/** what is left to pay online once the gift card covers its part (below 0,50 €, Stripe's minimum,
+ *  nothing: the rest is settled at the workshop) */
+export function giftDue(q, mode, gift) {
+  const d = round2(Math.max(0, amountDue(q, mode) - (gift?.amount || 0)));
+  return d < 0.5 ? 0 : d;
+}
+
+/** the site's address the visitor came from (an allowed origin), without the page's own path:
+ *  the return addresses of a payment are built on it */
+function backOf(env, raw, page) {
+  try {
+    const u = new URL(raw);
+    return list(env.ALLOWED_ORIGINS).includes(u.origin) ? u.origin + u.pathname.replace(page, '') : null;
+  } catch {
+    return null;
+  }
+}
+const siteOf = (env) => String(env.SITE_URL || B.siteUrl).replace(/\/$/, '');
+const cardUrlOf = (env, m) => `${siteOf(env)}/premium/carte/?n=${encodeURIComponent(m.number)}&t=${m.token}`;
+/** the payments in test mode count apart (the preview's figures) */
+const liveKey = (env) => String(env.STRIPE_SECRET_KEY || '').startsWith('sk_live');
+
+/** an online booking that the gift card pays alone (deposit or total): written at once, no payment page */
+async function giftBooking(env, { q, c, date, time, mode, span, code, codeKind, gift, back, now }) {
+  const id = `cadeau-${hexId(12)}`;
+  const by = `${c.firstName} ${c.lastName}`;
+  const ev = await insertEvent(env, env.CALENDAR_WRITE, {
+    summary: `RDV ${titleOf(q, c)}`,
+    description: eventText(q, c, { date, time, mode, paid: gift.amount, sessionId: id, code, codeKind, gift }).replace(/\nPaiement Stripe : .*$/, ''),
+    colorId: '9',
+    start: { dateTime: new Date(span.start).toISOString(), timeZone: R.timeZone },
+    end: { dateTime: new Date(span.end).toISOString(), timeZone: R.timeZone },
+    extendedProperties: { private: { solarcarHold: '0', session: id, paid: String(gift.amount) } },
+  });
+  const used = await db(env, 'gift/use', { code: gift.code, amount: gift.amount, ref: id, by, where: 'réservation en ligne', now });
+  if (!used.ok) {
+    await deleteEvent(env, env.CALENDAR_WRITE, ev.id).catch(() => {});
+    return { error: used.error, gift: true };
+  }
+  const g = { code: gift.code, amount: used.used };
+  if (used.used !== gift.amount) await patchEvent(env, env.CALENDAR_WRITE, ev.id, { description: eventText(q, c, { date, time, mode, paid: g.amount, code, codeKind, gift: g }) }).catch(() => {});
+  if (code) await useCode(env, code, codeKind, { by, ref: id, where: 'réservation en ligne' });
+  const site = liveKey(env) ? 'site' : 'apercu';
+  const heard = howHeardParse(c.source);
+  await record(env, [{ site, kind: 'rdv', page: '/reservation/', detail: q.items.map((i) => i.label).join(' + ').slice(0, 120), value: 0 }, ...heardRows({ site, page: '/reservation/' }, heard.channels, heard.other)]).catch((err) => console.error('[stats]', err));
+  const added = await db(env, 'booking/add', { now, session: id, event: ev.id, date, time, minutes: q.minutes, items: q.items.map((i) => ({ label: i.label, detail: i.detail, price: i.price })), total: q.total, discount: q.discount || 0, code, codeKind, mode, paid: g.amount, customer: c, live: liveKey(env), gift: g.code, giftAmount: g.amount }).catch((err) => (console.error('[atelier] booking', err.message), {}));
+  await sendBookingMails(env, { q, c, date, time, start: span.start, end: span.end, mode, paid: g.amount, sessionId: id, code, codeKind, gift: g, member: added.member?.number }).catch((err) => console.error('[mail]', err));
+  await notify(env, { title: 'Nouveau RDV réservé (carte cadeau)', body: `${by} — ${longDate(date, time)} · carte cadeau ${euros(g.amount)}`, url: '/atelier/rdv', tag: `rdv-${id}` });
+  return { url: `${back}/reservation/confirmee/?session=${id}`, confirmed: true };
+}
+
+/** a member's appointment opened a new level (counted on its day): its gift waits at the
+ *  workshop; the member is told, the workshop's devices too */
+async function levelUp(env, member) {
+  if (!member?.reached?.length) return;
+  for (const t of member.reached) {
+    await notify(env, { title: t.card ? `Niveau ${t.label} : carte cadeau envoyée` : `Cadeau Premium à remettre · ${t.label}`, body: t.card ? `${member.first || 'Un membre'} passe au niveau ${t.label} : sa carte cadeau de ${euros(t.card.row.amount)} (${t.card.row.code}) vient de lui être envoyée.` : `${member.first || 'Un membre'} passe au niveau ${t.label} : ${t.gift}`, url: '/atelier/premium', tag: `niveau-${member.number}-${t.id}` });
+    if (env.MAIL_CLIENTS === '1' && env.RESEND_API_KEY && member.email) await sendLevelUp(env, { first: member.first, email: member.email, cardUrl: cardUrlOf(env, member), extended: member.extended }, t).catch((err) => console.error('[mail] level', err.message));
+  }
+}
+
+/**
+ * The levels, on the day of each member's appointment: still in the calendar (not cancelled), it
+ * counts (member/count) and may open a level; gone, it never counts. An appointment whose calendar
+ * cannot be read is left for the next morning.
+ */
+export async function countLevels(env, now = Date.now()) {
+  const out = { counted: 0, cancelled: 0, levels: 0 };
+  if (!env.ATELIER) return out;
+  for (const bk of (await db(env, 'members/due', { date: today(now), now })).bookings) {
+    let ev;
+    try {
+      ev = bk.event ? await getEvent(env, env.CALENDAR_WRITE, bk.event) : null;
+    } catch (err) {
+      if (!/404|410|Not Found/i.test(err.message)) {
+        console.error('[niveaux]', bk.session, err.message);
+        continue;
+      }
+      ev = null;
+    }
+    const ok = !!ev && ev.status !== 'cancelled' && ev.extendedProperties?.private?.solarcarHold !== '1';
+    const r = await db(env, 'member/count', { session: bk.session, ok, now });
+    if (!r.ok || r.again) continue;
+    if (r.counted) out.counted++;
+    else out.cancelled++;
+    if (r.member?.reached?.length) {
+      out.levels += r.member.reached.length;
+      await levelUp(env, r.member);
+    }
+  }
+  return out;
+}
+
+const clean = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+
+/** POST /api/cadeau/checkout: a gift card bought on the site → its Stripe payment page */
+async function giftCheckout(req, env, now) {
+  const h = cors(req, env);
+  if (!h['access-control-allow-origin']) return json({ error: 'Origine refusée' }, 403, h);
+  if (!env.ATELIER) return json({ error: 'Les cartes cadeaux ne sont pas encore en vente en ligne : appelez l’atelier.' }, 503, h);
+  const b = await req.json().catch(() => null);
+  if (!b) return json({ error: 'Demande illisible' }, 400, h);
+  const amount = giftAmount(b.amount);
+  if (!amount) return json({ error: `Choisissez un montant entre ${G.min} et ${G.max} €.`, field: 'amount' }, 400, h);
+  const look = G.looks.some((l) => l.id === b.look) ? b.look : G.looks[0].id;
+  const from = { firstName: clean(b.from?.firstName, 60), lastName: clean(b.from?.lastName, 60), email: clean(b.from?.email, 120).toLowerCase(), phone: clean(b.from?.phone, 30) };
+  if (!from.firstName || !from.lastName) return json({ error: 'Indiquez votre prénom et votre nom.', field: 'from' }, 400, h);
+  if (!EMAIL.test(from.email)) return json({ error: 'Votre adresse e-mail est à vérifier : la carte vous y est envoyée.', field: 'email' }, 400, h);
+  if (from.phone && from.phone.replace(/\D/g, '').length < 9) return json({ error: 'Numéro de téléphone à vérifier.', field: 'phone' }, 400, h);
+  const toName = clean(b.to?.name, 60);
+  const sender = clean(b.sender, 80) || from.firstName;
+  const message = String(b.message ?? '').replace(/\r\n?/g, '\n').trim().slice(0, G.messageMax);
+  const delivery = b.delivery === 'destinataire' ? 'destinataire' : 'moi';
+  let toEmail = '';
+  let sendOn = '';
+  if (delivery === 'destinataire') {
+    toEmail = clean(b.to?.email, 120).toLowerCase();
+    if (!EMAIL.test(toEmail)) return json({ error: 'L’adresse e-mail du destinataire est à vérifier.', field: 'toEmail' }, 400, h);
+    const t = today(now);
+    sendOn = String(b.sendOn || t);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sendOn) || sendOn < t || sendOn > addDays(t, G.sendDays)) return json({ error: 'Choisissez le jour d’envoi : aujourd’hui ou plus tard, dans l’année.', field: 'sendOn' }, 400, h);
+  }
+  if (!b.consent?.terms) return json({ error: 'Acceptez les conditions des cartes cadeaux pour continuer.', field: 'terms' }, 400, h);
+  const back = backOf(env, b.back, /\/carte-cadeau(\/.*)?$/);
+  if (back === null) return json({ error: 'Adresse de retour refusée' }, 400, h);
+  const session = await createSession(env, {
+    mode: 'payment',
+    locale: 'fr',
+    customer_email: from.email,
+    line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(amount * 100), product_data: { name: `Carte cadeau ${B.name} — ${euros(amount)}`, description: `${toName ? `Pour ${toName}. ` : ''}Valable ${G.months} mois sur toutes les prestations de l’atelier, en une ou plusieurs fois. ${delivery === 'destinataire' ? `Envoyée par e-mail le ${sendOn.split('-').reverse().join('/')}.` : 'Envoyée à votre adresse, à imprimer ou transférer.'}`.slice(0, 500) } } }],
+    payment_intent_data: { description: `${B.name} — carte cadeau ${euros(amount)}`, receipt_email: from.email },
+    success_url: `${back}/carte-cadeau/merci/?session={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${back}/carte-cadeau/?annule=1`,
+    metadata: { kind: 'cadeau', amount: String(amount), look, toName, toEmail, sender, message, delivery, sendOn, buyer: JSON.stringify(from) },
+  });
+  return json({ url: session.url }, 200, h);
+}
+
+/** a gift card paid (the webhook, or the thank-you page if it comes first): written once, e-mailed */
+async function giftPaid(env, s, now = Date.now()) {
+  const m = s.metadata || {};
+  let buyer = {};
+  try {
+    buyer = JSON.parse(m.buyer || '{}');
+  } catch {}
+  const paid = (s.amount_total || 0) / 100;
+  const r = await db(env, 'gift/create', { now, session: s.id, amount: round2(m.amount) || paid, paid, look: m.look, toName: m.toName, toEmail: m.toEmail, sender: m.sender, message: m.message, delivery: m.delivery, sendOn: m.sendOn, buyer, source: 'site', live: s.livemode !== false });
+  if (!r.ok || r.again) return r;
+  const g = { ...r.row };
+  if (env.MAIL_CLIENTS === '1' && env.RESEND_API_KEY) {
+    // to its recipient today when that is the day chosen
+    if (g.delivery === 'destinataire' && g.send_on <= today(now)) {
+      const ok = await sendGiftRecipient(env, g, r.card)
+        .then(() => true)
+        .catch((err) => (console.error('[mail] gift recipient', err.message), false));
+      if (ok) {
+        await db(env, 'gift/sent', { code: g.code, now });
+        g.sent = now;
+      }
+    }
+    if (g.buyer_email) await sendGiftBuyer(env, g, r.card).catch((err) => console.error('[mail] gift buyer', err.message));
+  }
+  await notify(env, { title: `Carte cadeau vendue · ${euros(g.amount)}`, body: `${[g.buyer_first, g.buyer_last].filter(Boolean).join(' ')}${g.to_name ? ` pour ${g.to_name}` : ''}${g.delivery === 'destinataire' ? ` · envoi le ${g.send_on.split('-').reverse().join('/')}` : ''}`, url: '/atelier/premium#cadeaux', tag: `cadeau-${g.code}` });
+  return r;
+}
+
+/** GET /api/cadeau?session=cs_… (the thank-you page) or ?c=CADEAU-…&t=… (the card's own page) */
+async function giftGet(req, env, url, now) {
+  const h = cors(req, env);
+  if (!env.ATELIER) return json({ ok: false, error: 'Indisponible.' }, 503, h);
+  const session = url.searchParams.get('session');
+  if (session) {
+    if (!/^cs_[A-Za-z0-9_]+$/.test(session)) return json({ ok: false, error: 'Commande inconnue.' }, 400, h);
+    const s = await getSession(env, session).catch(() => null);
+    if (!s || s.metadata?.kind !== 'cadeau') return json({ ok: false, error: 'Commande inconnue.' }, 404, h);
+    if (s.payment_status !== 'paid') return json({ ok: true, paid: false }, 200, h);
+    let r = await db(env, 'gift/public', { session, now });
+    // the webhook may come after the visitor: the card is made from the payment itself
+    if (!r.ok) {
+      await giftPaid(env, s, now).catch((err) => console.error('[cadeau] paid', err.message));
+      r = await db(env, 'gift/public', { session, now });
+    }
+    return json(r.ok ? { ok: true, paid: true, card: r.card } : { ok: true, paid: true, pending: true }, 200, h);
+  }
+  const r = await db(env, 'gift/public', { code: url.searchParams.get('c') || '', t: url.searchParams.get('t') || '', now });
+  return json(r, r.ok ? 200 : 404, h);
+}
+
+/** POST /api/premium/checkout: SOLAR CAR Premium joined (or renewed: the same e-mail) → Stripe */
+async function premiumCheckout(req, env, now) {
+  const h = cors(req, env);
+  if (!h['access-control-allow-origin']) return json({ error: 'Origine refusée' }, 403, h);
+  if (!env.ATELIER) return json({ error: 'L’adhésion en ligne ouvre très bientôt : appelez l’atelier.' }, 503, h);
+  const b = await req.json().catch(() => null);
+  if (!b) return json({ error: 'Demande illisible' }, 400, h);
+  const c = { firstName: clean(b.customer?.firstName, 60), lastName: clean(b.customer?.lastName, 60), email: clean(b.customer?.email, 120).toLowerCase(), phone: clean(b.customer?.phone, 30) };
+  if (!c.firstName || !c.lastName) return json({ error: 'Indiquez votre prénom et votre nom : ils sont gravés sur votre carte.', field: 'name' }, 400, h);
+  if (!EMAIL.test(c.email)) return json({ error: 'Votre adresse e-mail est à vérifier.', field: 'email' }, 400, h);
+  if (c.phone && c.phone.replace(/\D/g, '').length < 9) return json({ error: 'Numéro de téléphone à vérifier.', field: 'phone' }, 400, h);
+  if (!b.consent?.terms) return json({ error: 'Acceptez les conditions de SOLAR CAR Premium pour continuer.', field: 'terms' }, 400, h);
+  const back = backOf(env, b.back, /\/premium(\/.*)?$/);
+  if (back === null) return json({ error: 'Adresse de retour refusée' }, 400, h);
+  const known = (await db(env, 'member/of', { email: c.email, now })).member;
+  const session = await createSession(env, {
+    mode: 'payment',
+    locale: 'fr',
+    customer_email: c.email,
+    line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(P.price * 100), product_data: { name: `${P.name} — ${P.months} mois${known ? ' (renouvellement)' : ''}`, description: `−${P.percent} % sur toutes les prestations pendant ${P.months} mois, offres réservées aux membres, un niveau et un cadeau à chaque prestation. Carte nominative, sans renouvellement automatique.` } } }],
+    payment_intent_data: { description: `${B.name} — ${P.name}`, receipt_email: c.email },
+    success_url: `${back}/premium/bienvenue/?session={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${back}/premium/?annule=1`,
+    metadata: { kind: 'premium', customer: JSON.stringify(c), news: b.news === false ? '0' : '1' },
+  });
+  return json({ url: session.url }, 200, h);
+}
+
+/** a membership paid: the member written (or extended), welcomed by e-mail, the workshop told */
+async function premiumPaid(env, s, now = Date.now()) {
+  const m = s.metadata || {};
+  let c = {};
+  try {
+    c = JSON.parse(m.customer || '{}');
+  } catch {}
+  const paid = (s.amount_total || 0) / 100;
+  const r = await db(env, 'member/join', { now, ref: s.id, amount: paid, ...c, news: m.news !== '0', source: 'site', live: s.livemode !== false });
+  if (!r.ok || r.again) return r;
+  const pub = await db(env, 'member/public', { number: r.member.number, t: r.member.token, now, today: today(now) });
+  if (env.MAIL_CLIENTS === '1' && env.RESEND_API_KEY && r.member.email && pub.ok) await sendPremiumWelcome(env, pub.member, { to: r.member.email, renewed: r.renewed }).catch((err) => console.error('[mail] premium welcome', err.message));
+  await notify(env, { title: r.renewed ? 'Carte Premium renouvelée' : 'Nouveau membre Premium', body: `${[r.member.first, r.member.last].filter(Boolean).join(' ')} · ${euros(paid)}`, url: '/atelier/premium', tag: `premium-${r.member.number}` });
+  return r;
+}
+
+/** GET /api/premium?session=cs_… (the welcome page) or ?n=PREMIUM-…&t=… (the member's space) */
+async function premiumGet(req, env, url, now) {
+  const h = cors(req, env);
+  if (!env.ATELIER) return json({ ok: false, error: 'Indisponible.' }, 503, h);
+  const session = url.searchParams.get('session');
+  if (session) {
+    if (!/^cs_[A-Za-z0-9_]+$/.test(session)) return json({ ok: false, error: 'Adhésion inconnue.' }, 400, h);
+    const s = await getSession(env, session).catch(() => null);
+    if (!s || s.metadata?.kind !== 'premium') return json({ ok: false, error: 'Adhésion inconnue.' }, 404, h);
+    if (s.payment_status !== 'paid') return json({ ok: true, paid: false }, 200, h);
+    let r = await db(env, 'member/public', { session, now, today: today(now) });
+    if (!r.ok) {
+      await premiumPaid(env, s, now).catch((err) => console.error('[premium] paid', err.message));
+      r = await db(env, 'member/public', { session, now, today: today(now) });
+    }
+    return json(r.ok ? { ok: true, paid: true, member: r.member } : { ok: true, paid: true, pending: true }, 200, h);
+  }
+  const r = await db(env, 'member/public', { number: url.searchParams.get('n') || '', t: url.searchParams.get('t') || '', now, today: today(now) });
+  return json(r, r.ok ? 200 : 404, h);
+}
+
+/** the HMAC of a member's sign-in code (the database keeps only that) */
+async function loginHash(env, email, code) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(String(env.ATELIER_SECRET || env.STRIPE_WEBHOOK_SECRET || 'solarcar37')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`premium:${String(email).toLowerCase()}:${code}`));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** POST /api/premium/connexion { email, code }: the 6-digit code typed in « Espace membre » →
+ *  { ok, n, t } (the member's key, kept by the page on that device) or { ok: false, error } */
+async function premiumSignIn(req, env, now) {
+  const h = cors(req, env);
+  if (!h['access-control-allow-origin']) return json({ ok: false, error: 'Origine refusée' }, 403, h);
+  if (!env.ATELIER) return json({ ok: false, error: 'Indisponible.' }, 503, h);
+  let b = {};
+  try {
+    b = JSON.parse((await req.text()).slice(0, 1000));
+  } catch {}
+  const email = clean(b.email, 120).toLowerCase();
+  const code = String(b.code || '').replace(/\D/g, '');
+  if (!EMAIL.test(email) || code.length !== 6) return json({ ok: false, error: 'Indiquez votre e-mail et les 6 chiffres du code.' }, 400, h);
+  const r = await db(env, 'member/login-check', { email, hash: await loginHash(env, email, code), now });
+  return json(r, r.ok ? 200 : 400, h);
+}
+
+/** POST /api/premium/lien { email }: a sign-in code and the member's link e-mailed to that address
+ *  (always « ok »: the page never tells whether an address is a member's); once every 2 minutes */
+async function premiumLink(req, env, now) {
+  const h = cors(req, env);
+  if (!h['access-control-allow-origin']) return json({ ok: false, error: 'Origine refusée' }, 403, h);
+  if (!env.ATELIER) return json({ ok: false, error: 'Indisponible.' }, 503, h);
+  let b = {};
+  try {
+    b = JSON.parse((await req.text()).slice(0, 1000));
+  } catch {}
+  const email = clean(b.email, 120).toLowerCase();
+  if (!EMAIL.test(email)) return json({ ok: false, error: 'Adresse e-mail à vérifier.' }, 400, h);
+  const m = (await db(env, 'member/find', { email, now })).member;
+  if (m && env.RESEND_API_KEY) {
+    const key = `lien:${m.number}`;
+    const last = Number((await db(env, 'setting/get', { key })).value) || 0;
+    if (now - last > 2 * 60000) {
+      const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+      const r = await db(env, 'member/login-new', { email, hash: await loginHash(env, email, code), now });
+      if (!r.ok) return json(r, 429, h);
+      await db(env, 'setting/set', { key, value: now });
+      await sendPremiumLink(env, { ...m, code, cardUrl: cardUrlOf(env, m) }).catch((err) => console.error('[mail] premium link', err.message));
+    }
+  }
+  return json({ ok: true }, 200, h);
+}
+
+/** GET (or POST, one-click unsubscribe) /api/premium/offres?n=&t=&off=1|on=1: the members' offers by
+ *  e-mail, off or back on; a short page in the site's look */
+async function premiumNews(req, env, url, now) {
+  const on = url.searchParams.get('on') === '1';
+  const r = env.ATELIER ? await db(env, 'member/news', { number: url.searchParams.get('n') || '', t: url.searchParams.get('t') || '', on, now }) : { ok: false, error: 'Indisponible.' };
+  if (req.method === 'POST') return new Response(null, { status: r.ok ? 200 : 400 });
+  const again = `${url.pathname}?${new URLSearchParams({ n: url.searchParams.get('n') || '', t: url.searchParams.get('t') || '', [on ? 'off' : 'on']: '1' })}`;
+  const text = !r.ok ? r.error : on ? 'C’est noté : vous recevrez de nouveau nos offres réservées aux membres.' : 'C’est noté : vous ne recevrez plus nos offres réservées aux membres. Votre carte et ses avantages restent bien sûr valables.';
+  return new Response(
+    `<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>SOLAR CAR Premium</title><body style="margin:0;background:#07080a;color:#f3f0ea;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;display:grid;place-items:center;min-height:100vh;padding:24px"><main style="max-width:480px;text-align:center"><p style="margin:0;color:#e3c27a;font-size:12px;letter-spacing:.28em;font-weight:700">SOLAR CAR PREMIUM</p><h1 style="font-size:24px;margin:12px 0">${r.ok ? (on ? 'Offres réactivées' : 'Désinscription faite') : 'Lien non valable'}</h1><p style="color:#c7c3ba;line-height:1.55;margin:0 0 22px">${text.replace(/[<>&"]/g, '')}</p>${r.ok ? `<p style="margin:0 0 18px"><a href="${again.replace(/&/g, '&amp;')}" style="color:#e3c27a">${on ? 'Finalement, ne plus les recevoir' : 'Finalement, je veux les recevoir'}</a></p>` : ''}<a href="${siteOf(env)}" style="display:inline-block;background:#e3c27a;color:#0a0a0b;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:999px">Retour au site</a></main></body></html>`,
+    { status: r.ok ? 200 : 400, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } }
+  );
+}
+
+/**
+ * Every morning (cron of booking/wrangler.toml): the members' appointments of the day count for
+ * their levels (countLevels), the gift cards whose day has come go to their recipient (and the
+ * buyer is told), the Premium cards ending within a fortnight get their reminder. Nothing is sent until the client e-mails are switched on (MAIL_CLIENTS "1").
+ */
+export async function morningMails(env, now = Date.now()) {
+  const out = { gifts: 0, reminders: 0 };
+  if (!env.ATELIER) return out;
+  // the members' appointments of the day: their levels (the e-mail only when switched on)
+  out.levels = await countLevels(env, now).catch((err) => (console.error('[niveaux]', err.message), null));
+  if (env.MAIL_CLIENTS !== '1' || !env.RESEND_API_KEY) return { ...out, off: true };
+  for (const g of (await db(env, 'gifts/due', { date: today(now), now })).gifts) {
+    try {
+      const card = (await db(env, 'gift/public', { code: g.code, t: g.token, now })).card;
+      await sendGiftRecipient(env, g, card);
+      await db(env, 'gift/sent', { code: g.code, now });
+      out.gifts++;
+      if (g.buyer_email) await sendGiftDelivered(env, g).catch((err) => console.error('[mail] gift delivered', err.message));
+    } catch (err) {
+      console.error('[mail] gift', g.code, err.message);
+    }
+  }
+  for (const m of (await db(env, 'members/expiring', { now, days: P.remindDays })).members) {
+    try {
+      const pub = (await db(env, 'member/public', { number: m.number, t: m.token, now, today: today(now) })).member;
+      await sendPremiumReminder(env, { ...pub, first: m.first, email: m.email });
+      await db(env, 'member/reminded', { number: m.number, now });
+      out.reminders++;
+    } catch (err) {
+      console.error('[mail] premium reminder', m.number, err.message);
+    }
+  }
+  return out;
+}
+
 export default {
   /** the replies to the quote discussions (docs/RESERVATION.md, « Discussions ») */
   async email(message, env) {
@@ -897,7 +1340,10 @@ export default {
       );
       return;
     }
-    ctx.waitUntil(sendMonthly(env, controller.scheduledTime).then((r) => console.log('[stats] monthly', JSON.stringify(r))).catch((err) => console.error('[stats] monthly', err)));
+    // every morning at 7:00 UTC: the gift cards of the day and the Premium reminders; the 1st of
+    // the month, the statistics e-mail too (one cron for both: booking/wrangler.toml)
+    if (controller.cron === '0 7 * * *') ctx.waitUntil(morningMails(env, controller.scheduledTime).then((r) => console.log('[mail] morning', JSON.stringify(r))).catch((err) => console.error('[mail] morning', err)));
+    if (controller.cron !== '0 7 * * *' || new Date(controller.scheduledTime).getUTCDate() === 1) ctx.waitUntil(sendMonthly(env, controller.scheduledTime).then((r) => console.log('[stats] monthly', JSON.stringify(r))).catch((err) => console.error('[stats] monthly', err)));
   },
 
   async fetch(req, env, ctx) {
@@ -912,6 +1358,14 @@ export default {
       if (req.method === 'GET' && (url.pathname === '/api/code' || url.pathname === '/api/referral')) return await codeCheck(req, env, url, now);
       if (req.method === 'GET' && url.pathname === '/api/promo') return await promoBand(req, env, url, now);
       if (req.method === 'POST' && url.pathname === '/api/demande') return await quoteRequest(req, env, now);
+      // the gift card and SOLAR CAR Premium (content/offers.js, docs/CARTES.md)
+      if (req.method === 'POST' && url.pathname === '/api/cadeau/checkout') return await giftCheckout(req, env, now);
+      if (req.method === 'GET' && url.pathname === '/api/cadeau') return await giftGet(req, env, url, now);
+      if (req.method === 'POST' && url.pathname === '/api/premium/checkout') return await premiumCheckout(req, env, now);
+      if (req.method === 'GET' && url.pathname === '/api/premium') return await premiumGet(req, env, url, now);
+      if (req.method === 'POST' && url.pathname === '/api/premium/lien') return await premiumLink(req, env, now);
+      if (req.method === 'POST' && url.pathname === '/api/premium/connexion') return await premiumSignIn(req, env, now);
+      if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/api/premium/offres') return await premiumNews(req, env, url, now);
       // the client accepts a quote (www.solarcar37.fr/devis/): what it is, then « J'accepte »
       if (url.pathname === '/api/devis' && req.method === 'GET') return await quotePublic(req, env, url);
       if (url.pathname === '/api/paiement/merci' && req.method === 'GET')

@@ -14,6 +14,22 @@
   design — bandeau noir, état du RDV, date en grand, prestations avec prix, encadré doré (déjà réglé
   en doré, reste à régler en doré et en gras), bouton en haut ; 600 px au plus, net sur PC et téléphone.
 
+## Carte cadeau et SOLAR CAR Premium (18 novembre 2026)
+
+- **Carte cadeau** en ligne (`/carte-cadeau/`) : 50, 100, 150, 250 € ou montant libre, 3 finitions en
+  3D, envoi au destinataire le jour choisi, valable 12 mois, dépensée en ligne (seule ou avec un
+  paiement Stripe, la part de la carte mise de côté pendant le paiement) ou à l'atelier, en
+  plusieurs fois.
+- **SOLAR CAR Premium** (`/premium/`) : 19,99 € par an sans renouvellement automatique, −10 % sur tout,
+  un niveau et un cadeau par prestation de 80 € ou plus, comptée le jour du RDV s'il n'est pas
+  annulé (Ignition → Infini, 9 niveaux ; Hyper envoie une carte cadeau de 50 € toute seule), offres
+  réservées aux membres par
+  e-mail, « Mon espace Premium » installable sur le téléphone, code de parrainage pour les proches.
+- Espace atelier : onglet **Cartes & Premium**, badge Premium et niveau (clients, RDV), « Régler avec
+  une carte cadeau », codes promo réservés aux membres, −10 % automatique au « Nouveau RDV ».
+- Tâche du matin (7 h UTC) : cartes programmées et rappels Premium ; le bilan mensuel y passe le 1er.
+  Détails : `docs/CARTES.md`.
+
 ## Espace atelier : modifier un RDV confirmé (prestations ajoutées) (18 novembre 2026)
 
 - Chaque RDV a sa page (Rendez-vous → la date) : prestations, remises, déjà réglé, **reste à régler à

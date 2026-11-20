@@ -24,6 +24,7 @@ lui-même, aucune page indexée.
 | **Rendez-vous** | **Nouveau RDV** (un client au téléphone, voir plus bas), les liens de paiement envoyés, les RDV réservés : à venir (lus dans l'agenda, à l'heure où ils y sont), retirés de l'agenda (penser au remboursement Stripe), passés |
 | **Clients** | Le fichier clients : recherche (nom, téléphone, e-mail, véhicule, immatriculation), fiche de chaque client (coordonnées, véhicules, notes, RDV, demandes de devis, code de parrainage), ajout à la main, suppression, **export pour Excel** |
 | **Codes et promos** | Le **bandeau** du site, les **codes promo**, le **parrainage** |
+| **Cartes & Premium** | Les **cartes cadeaux** (solde, envoi, débiter, créer), les **membres SOLAR CAR Premium** (niveaux, cadeaux à remettre, ajouter), **écrire aux membres** (docs/CARTES.md) |
 | **Statistiques** | La page de statistiques détaillée (docs/STATISTIQUES.md) |
 | **Fiche Google** | Le robot qui publie une photo chaque mardi (docs/FICHE-GOOGLE-AUTO.md) |
 | **Réglages** (« Plus » sur téléphone) | Les autres espaces, et les délais du suivi des devis (« à relancer », « sans suite ») |
@@ -154,7 +155,8 @@ Code : `booking/worker.js` (`atelierBooking`, `atelierSlots`, `atelierCancel`, `
 Onglet **Devis** (pastille = demandes nouvelles ou avec un message non lu) :
 
 - Chaque demande de devis du site ouvre une **discussion** numérotée (n°12), avec les photos du
-  client affichées. Filtres par statut : **Nouveau**, **Devis envoyé**, **Validé**, **Sans suite**.
+  client affichées. Filtres par statut : **Nouveau**, **Devis envoyé**, **Réponse reçue**,
+  **Lien de paiement envoyé**, **Validé**, **Sans suite**.
 - **Répondre** depuis la discussion : message, montant du devis (facultatif), pièces jointes (devis
   PDF, photos), case « bouton J'accepte ce devis » (cochée tant que le devis n'est pas validé).
   L'e-mail part de contact@solarcar37.fr, mis en page aux couleurs de l'atelier, avec un rappel de
@@ -168,8 +170,17 @@ Onglet **Devis** (pastille = demandes nouvelles ou avec un message non lu) :
   - **Devis envoyé** : dès votre réponse (atelier ou Gmail) ; c'est au client de répondre.
   - **Réponse reçue** : le client a écrit après votre devis ; à lire et à répondre (votre
     réponse le repasse en « Devis envoyé »).
-  - **Validé** : le client clique « J'accepte ce devis » (vous recevez « Devis n°… accepté » avec
-    son téléphone) ou réserve et paie en ligne la même prestation (vitres, feux).
+  - **Lien de paiement envoyé** : vous avez fixé le RDV avec **Nouveau RDV** (bouton « Envoyer un
+    lien de paiement » de la discussion, ou Nouveau RDV pour ce client : son devis ouvert est
+    retrouvé). La discussion le dit (« Lien de paiement envoyé : acompte de … pour le RDV du … »),
+    le dernier message du client compte comme répondu, le montant du devis prend le prix convenu.
+    Le lien expire ou est annulé : retour en « Devis envoyé » (note, bouton « Nouveau lien »).
+  - **Validé** : le client paie le lien (note « Acompte de … payé en ligne : rendez-vous
+    confirmé »), le RDV est fixé « sur place » depuis Nouveau RDV, il clique « J'accepte ce devis »
+    (vous recevez « Devis n°… accepté » avec son téléphone) ou réserve et paie en ligne la même
+    prestation (vitres, feux).
+  - Un message du client lu dans Gmail mais écrit **avant** votre dernière réponse (ou avant le
+    lien) ne remet pas la discussion en « à lire ».
   - **À relancer** (repère, pas un statut) : « Devis envoyé » sans nouvelles depuis **7 jours** ;
     la discussion affiche un message de relance prêt à envoyer.
   - **Sans suite** : sans nouvelles depuis **14 jours**, tout seul (une note le dit dans la
@@ -177,8 +188,8 @@ Onglet **Devis** (pastille = demandes nouvelles ou avec un message non lu) :
     « Réponse reçue ». Gmail continue d'être lu 30 jours pour ces demandes.
   - Délais réglables : **Réglages** (« Plus » sur téléphone) ; 0 = jamais « Sans suite ».
   - Corrections : à la main, encadré « Suivi » de la discussion.
-- L'accueil montre le suivi en 5 cases (à répondre, réponse reçue, en attente, à relancer,
-  validés du mois avec leur montant) et « À traiter » : les clients qui ont écrit d'abord, puis les
+- L'accueil montre le suivi en 5 cases (à répondre, réponse reçue, en attente — devis et liens de
+  paiement envoyés —, à relancer, validés du mois avec leur montant) et « À traiter » : les clients qui ont écrit d'abord, puis les
   nouvelles demandes, puis les relances.
 - Les réponses par Gmail passent par l'adresse `devis@reponse.solarcar37.fr` (réglage
   `QUOTE_REPLY`, docs/RESERVATION.md) ; tant qu'elle n'est pas en service, répondre depuis Gmail
@@ -214,12 +225,17 @@ de confirmation) ; la demande, ses messages et ses photos sont effacés, la fich
 ## Le fichier clients
 
 - Sa fiche liste ses demandes de devis (avec leur statut, un clic ouvre la discussion).
+- **Prospect** ou **Client confirmé** : un client devient « Client confirmé » tout seul à son
+  premier rendez-vous (payé en ligne, par lien, ou fixé sur place) ou à son premier devis validé ;
+  avant, c'est un « Prospect ». Le badge est sur la liste et sur la fiche (« Client confirmé depuis
+  le … »), avec les filtres **Clients confirmés** / **Prospects**, et dans l'export Excel (colonnes
+  « Statut » et « Client confirmé le »).
 - Il se remplit **tout seul** : chaque réservation payée en ligne et chaque demande de devis envoyée
   depuis le site y ajoute le client (ou complète sa fiche : un même client est reconnu à son e-mail,
   sinon à son téléphone ; un nouveau véhicule s'ajoute à sa liste).
 - Les clients venus par téléphone ou à l'atelier : « Ajouter un client ».
 - **Télécharger pour Excel** : un fichier `.csv` (séparateur « ; », accents conservés) avec
-  coordonnées, véhicules, source, nombre de RDV, montant payé en ligne, demandes, code de parrainage,
+  coordonnées, statut (prospect ou client confirmé), véhicules, source, nombre de RDV, montant payé en ligne, demandes, code de parrainage,
   dates de premier et dernier contact, notes. À importer aussi dans le logiciel de facturation.
 - RGPD : une fiche sans contact depuis **3 ans** est effacée automatiquement (chaque nuit) ; un
   client qui le demande est supprimé depuis sa fiche (les RDV payés restent, sans son nom, pour la

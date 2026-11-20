@@ -1,7 +1,7 @@
 {
  "/": {
-  "hash": "46ab32c8e0cf035c",
-  "date": "2026-11-18"
+  "hash": "644fc18db690f462",
+  "date": "2026-11-20"
  },
  "/404.html": {
   "hash": "faae89d5f8097654",
@@ -11,17 +11,29 @@
   "hash": "aab52e1aa085c082",
   "date": "2026-11-17"
  },
+ "/carte-cadeau/": {
+  "hash": "47023a28eaa8fe7d",
+  "date": "2026-11-20"
+ },
+ "/carte-cadeau/merci/": {
+  "hash": "28ad91ea6d6bd558",
+  "date": "2026-11-20"
+ },
+ "/carte-cadeau/voir/": {
+  "hash": "12653b0d9ac9af7d",
+  "date": "2026-11-20"
+ },
  "/ciel-etoile/": {
   "hash": "e4529e482e5791d1",
   "date": "2026-11-17"
  },
  "/conditions-reservation/": {
-  "hash": "d60ca97abd6cd143",
-  "date": "2026-11-17"
+  "hash": "851d39ab55f0eb1d",
+  "date": "2026-11-18"
  },
  "/contact/": {
-  "hash": "f8589da15e2f8226",
-  "date": "2026-11-17"
+  "hash": "835823d253b036cb",
+  "date": "2026-11-19"
  },
  "/contact/merci/": {
   "hash": "2f49fcb7239e0a4a",
@@ -49,7 +61,7 @@
  },
  "/devis/": {
   "hash": "0d9a35849f97dd58",
-  "date": "2026-11-17"
+  "date": "2026-11-19"
  },
  "/feux-arriere-teintes/": {
   "hash": "10936ab136ca05b8",
@@ -95,6 +107,18 @@
   "hash": "26c893dfeb4601af",
   "date": "2026-11-17"
  },
+ "/premium/": {
+  "hash": "f80285d4f30023cb",
+  "date": "2026-11-20"
+ },
+ "/premium/bienvenue/": {
+  "hash": "52a787a1b2f5197c",
+  "date": "2026-11-19"
+ },
+ "/premium/carte/": {
+  "hash": "adc5e7b435081bcc",
+  "date": "2026-11-19"
+ },
  "/realisations/": {
   "hash": "b26691d9af70fe67",
   "date": "2026-11-14"
@@ -104,12 +128,12 @@
   "date": "2026-11-17"
  },
  "/reservation/": {
-  "hash": "5f47770164effc47",
-  "date": "2026-11-17"
+  "hash": "4eca4387aebf9aa5",
+  "date": "2026-11-19"
  },
  "/reservation/confirmee/": {
   "hash": "84c09403b4909125",
-  "date": "2026-11-17"
+  "date": "2026-11-19"
  },
  "/vitres-teintees-amboise/": {
   "hash": "969adaeea619ae21",

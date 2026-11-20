@@ -76,6 +76,13 @@ export async function renderSite(out, assets) {
     ['reservation/confirmee/index.html', T.reservationDonePage(ctx)],
     ['devis/index.html', T.quoteAcceptPage(ctx)],
     ['conditions-reservation/index.html', T.bookingTermsPage(ctx)],
+    // the gift card and SOLAR CAR Premium (content/offers.js; sold through the booking server)
+    ['carte-cadeau/index.html', T.giftPage(ctx)],
+    ['carte-cadeau/merci/index.html', T.giftDonePage(ctx)],
+    ['carte-cadeau/voir/index.html', T.giftViewPage(ctx)],
+    ['premium/index.html', T.premiumPage(ctx)],
+    ['premium/bienvenue/index.html', T.premiumDonePage(ctx)],
+    ['premium/carte/index.html', T.premiumCardPage(ctx)],
     ['404.html', T.notFoundPage(ctx)],
     ['design/style-tile/index.html', styleTile.styleTilePage(ctx)],
     ['design/visite-3d/index.html', T.tourDemoPage(ctx)],
@@ -121,7 +128,7 @@ export async function renderSite(out, assets) {
     ['/atelier-vouvray/', '0.8', 'final'],
     ['/contact/', '0.8', null],
     // online booking, once its server is deployed (content/booking.js `api`)
-    ...(booking.bookingRules.api ? [['/reservation/', '0.8', null], ['/conditions-reservation/', '0.2', null]] : []),
+    ...(booking.bookingRules.api ? [['/reservation/', '0.8', null], ['/conditions-reservation/', '0.2', null], ['/carte-cadeau/', '0.7', null], ['/premium/', '0.7', null]] : []),
     ...(realisations.length ? [['/realisations/', '0.7', null]] : []),
     ['/guides/', '0.6', null],
     ...guides.map((g) => [`/guides/${g.slug}/`, '0.6', g.still, g.updated]),
@@ -170,6 +177,34 @@ export async function renderSite(out, assets) {
         icons: [
           { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+        ],
+      },
+      null,
+      2
+    )
+  );
+  // « Mon espace Premium », installable on a member's phone (src/templates/pages.js, premiumCardPage)
+  fs.mkdirSync(path.join(out, 'premium'), { recursive: true });
+  fs.writeFileSync(
+    path.join(out, 'premium', 'manifest.webmanifest'),
+    JSON.stringify(
+      {
+        name: 'SOLAR CAR Premium',
+        short_name: 'Premium',
+        description: 'Votre carte SOLAR CAR Premium, vos rendez-vous, vos niveaux et vos offres.',
+        lang: 'fr',
+        // relative to this file (/premium/): right on the domain and in the preview's sub-folder
+        id: './carte/',
+        start_url: './carte/',
+        scope: './',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: '#050506',
+        theme_color: '#050506',
+        icons: [
+          { src: '../img/cartes/premium-icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '../img/cartes/premium-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '../img/cartes/premium-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       null,

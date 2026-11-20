@@ -63,9 +63,15 @@ export function installFakes(calendars, { checkoutUrl = () => 'https://checkout.
         resend.fail--;
         return ok({ message: 'Internal error' }, 500);
       }
-      const refused = resend.refuse?.(JSON.parse(body));
+      const parsed = JSON.parse(body);
+      const refused = resend.refuse?.(parsed);
       if (refused) return ok({ message: 'Refused' }, refused);
-      mails.push(JSON.parse(body));
+      // /emails/batch: an array of e-mails, one id each
+      if (Array.isArray(parsed)) {
+        for (const m of parsed) mails.push(m);
+        return ok({ data: parsed.map((_, i) => ({ id: `mail${mails.length - parsed.length + i + 1}` })) });
+      }
+      mails.push(parsed);
       return ok({ id: `mail${mails.length}` });
     }
     if (url.host === 'api.stripe.com') {

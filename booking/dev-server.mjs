@@ -170,5 +170,29 @@ async function fillDemo() {
   await book('cs_demo_now', quarter - 45 * 60000, 150, [{ label: 'Vitres teintées — Complet', price: 320 }], { firstName: 'Nathan', lastName: 'Girard', email: 'nathan@example.com', phone: '06 98 76 54 32', vehicle: 'Peugeot 3008' });
   await book('cs_demo_next', zonedToUtc(addDays(day, 1), '09:00', TZ), 120, [{ label: 'Vitres teintées — 3/4 arrière', price: 270 }, { label: 'Feux teintés — Feux arrière', price: 120 }], { firstName: 'Emma', lastName: 'Fontaine', email: 'emma@example.com', phone: '06 55 44 33 22', vehicle: 'BMW Série 3' });
   cal[CAR].push({ id: 'hold_demo', status: 'confirmed', summary: '⏳ Paiement en cours — Feux teintés Avant et arrière — Paul Martin', ...slot(zonedToUtc(addDays(day, 2), '14:00', TZ), 120), extendedProperties: { private: { solarcarHold: '1' } } });
-  console.log('demo: quotes, an appointment now, the next ones');
+  // SOLAR CAR Premium and gift cards (docs/CARTES.md): members at several levels, a gift waiting,
+  // cards sold on the site and at the counter
+  const members = [
+    ['Emma', 'Fontaine', 'emma@example.com', 3],
+    ['Nathan', 'Girard', 'nathan@example.com', 1],
+    ['Sarah', 'Benali', 'sarah@example.com', 0],
+    ['Thomas', 'Leroy', 'thomas@example.com', 5],
+  ];
+  for (const [i, [first, last, email, visits]] of members.entries()) {
+    await db(env, 'member/join', { now: now - (60 - i * 10) * D, ref: `cs_demo_premium_${i}`, amount: 19.99, firstName: first, lastName: last, email, phone: `06 20 30 40 ${50 + i}`, source: i % 2 ? 'atelier' : 'site' });
+    for (let v = 0; v < visits; v++) {
+      const z = utcToZoned(now - (40 - v * 7) * D + i * H, TZ);
+      await db(env, 'booking/add', { now: now - (45 - v * 7) * D, session: `cs_demo_m${i}_${v}`, date: z.date, time: '10:00', minutes: 120, items: [{ label: v % 2 ? 'Feux teintés — Feux arrière' : 'Vitres teintées — 3/4 arrière', price: v % 2 ? 108 : 243 }], total: v % 2 ? 108 : 243, discount: v % 2 ? 12 : 27, code: 'PREMIUM', codeKind: 'premium', paid: 72.9, mode: 'deposit', customer: { firstName: first, lastName: last, email } });
+      // its day has come: it counts for the levels (the morning job, in real life)
+      await db(env, 'member/count', { session: `cs_demo_m${i}_${v}`, ok: true, now: Date.parse(`${z.date}T07:00:00Z`) });
+    }
+  }
+  // the gifts of the lower levels already handed over (the last one waits)
+  for (const m of (await db(env, 'members/list', { now })).members) for (const g of m.pending.slice(0, -1)) await db(env, 'member/gift', { number: m.number, tier: g.tier, given: true, now });
+  await db(env, 'gift/create', { now: now - 3 * D, session: 'cs_demo_gift_1', amount: 150, look: 'noel', toName: 'Chloé', sender: 'Papa et Maman', message: 'Pour ta première voiture ! Joyeux Noël.', delivery: 'destinataire', toEmail: 'chloe@example.com', sendOn: addDays(day, 37), buyer: { firstName: 'Philippe', lastName: 'Durand', email: 'philippe@example.com' } });
+  await db(env, 'gift/create', { now: now - 9 * D, session: 'cs_demo_gift_2', amount: 100, look: 'or', toName: 'Julien', sender: 'Les collègues', delivery: 'moi', buyer: { firstName: 'Anaïs', lastName: 'Morel', email: 'anais@example.com' } });
+  const sold = await db(env, 'gift/create', { now: now - 20 * D, amount: 250, paid: 250, look: 'carbone', toName: 'Karim', sender: 'Sofia', delivery: 'moi', buyer: { firstName: 'Sofia', lastName: 'Haddad', email: 'sofia@example.com' }, source: 'atelier', note: 'payée par carte au comptoir' });
+  await db(env, 'gift/use', { now: now - 6 * D, code: sold.row.code, amount: 120, ref: 'demo-use', by: 'Karim', where: 'à l’atelier' });
+  await db(env, 'promo/save', { now, code: 'VIP-HIVER', label: 'Offre membres hiver', percent: 20, starts: day, ends: addDays(day, 20), members: true });
+  console.log('demo: quotes, an appointment now, the next ones, Premium members, gift cards');
 }
