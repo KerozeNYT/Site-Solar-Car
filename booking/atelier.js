@@ -368,6 +368,25 @@ export async function atelier(req, env, url, now) {
   if (path === '/atelier/plus' && req.method === 'GET') return morePage(env, url, now);
   if (path === '/atelier/rdv' && req.method === 'GET') return appointments(env, url, now);
   if (path === '/atelier/rdv/nouveau' && req.method === 'GET') return bookingForm(env, url, now);
+  // « Client existant » of the form: the clients found, each with its cars ready to fill the form
+  if (path === '/atelier/rdv/clients' && req.method === 'GET') {
+    const q = String(url.searchParams.get('q') || '').trim().slice(0, 60);
+    const r = q.length >= 2 ? await db(env, 'search', { q }) : { clients: [], pros: [] };
+    const cars = (c) =>
+      String(c.vehicles || '')
+        .split(' · ')
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .map((x) => {
+          const [car, plate] = x.split(' — ');
+          return { label: x, ...splitCar(car), plate: (plate || '').trim() };
+        });
+    const out = {
+      clients: r.clients.map((c) => ({ id: c.id, first: c.first, last: c.last, phone: c.phone, email: c.email, plate: c.plate, cars: cars(c) })),
+      pros: r.pros.map((p) => ({ id: p.id, name: p.name, contact: p.contact, code: p.code })),
+    };
+    return new Response(JSON.stringify(out), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
+  }
   if (path === '/atelier/rdv/nouveau' && req.method === 'POST') {
     const f = await req.formData();
     const kept = new URLSearchParams([...f].filter(([, x]) => typeof x === 'string'));
@@ -1210,6 +1229,7 @@ ${devis ? `<input type="hidden" name="devis" value="${esc(devis)}">` : ''}<div>
 <p class="seg__q">Rendez-vous pris…</p>
 <div class="seg seg--3" role="radiogroup" aria-label="Rendez-vous pris">${[['telephone', 'Téléphone', 'le client a appelé', 'phone'], ['mail', 'E-mail', 'le client a écrit', 'mail'], ['atelier', 'Atelier', 'le client est passé', 'home']].map(([id, label, hint, icon]) => `<label><input type="radio" name="canal" value="${id}" required${f.get('canal') === id ? ' checked' : ''}><span><b>${ico(icon)} ${label}</b><small>${hint}</small></span></label>`).join('')}</div>
 <section class="card"><h2>${ico('user')} Client</h2>
+<div class="clientpick" data-clientpick-box><label for="r-find">Client existant</label><div class="pickbox"><input id="r-find" data-clientpick placeholder="Nom, téléphone, e-mail ou plaque…" autocomplete="off" enterkeyhint="search">${ico('search')}</div><div class="pickres" data-pickres></div><p class="hint" style="margin:6px 0 14px">Tapez deux lettres : touchez le client, sa fiche se remplit (et ses véhicules). Sinon, remplissez un nouveau client ci-dessous. <a href="/atelier/clients">Fichier clients</a></p></div>
 <div class="row">${field('prenom', 'Prénom', 'autocomplete="off" required')}${field('nom', 'Nom', 'autocomplete="off"')}</div>
 <div class="row">${field('tel', 'Téléphone', 'type="tel" inputmode="tel" autocomplete="off"')}${field('email', 'E-mail (pour le lien de paiement)', 'type="email" inputmode="email" autocomplete="off"')}</div>
 <div class="row">${field('marque', 'Marque', 'placeholder="ex. Peugeot" autocomplete="off"')}${field('modele', 'Modèle', 'placeholder="ex. 3008" autocomplete="off"', f.get('vehicule') || '')}</div>

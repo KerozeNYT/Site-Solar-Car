@@ -700,3 +700,14 @@ test('a partner books two cars from its space: the free slots for both, one afte
   assert.ok(mails.some((m) => /^Réservation pro — Auto Plus — 2 véhicules/.test(m.subject)));
   assert.match(await (await go(`/atelier/journee?date=${d0}`)).text(), /Renault Clio/);
 });
+
+test('« Nouveau RDV »: an existing client found by name, phone or plate, with its cars ready to fill the form; a pro too', async () => {
+  assert.match(await (await go('/atelier/rdv/nouveau')).text(), /data-clientpick/);
+  const r = await (await go('/atelier/rdv/clients?q=morel')).json();
+  const ines = r.clients.find((c) => c.email === 'ines@example.com');
+  assert.ok(ines);
+  assert.deepEqual(ines.cars[0], { label: 'Renault Clio (2019) — CD-456-EF', make: 'Renault', model: 'Clio', year: '2019', plate: 'CD-456-EF' });
+  assert.ok((await (await go('/atelier/rdv/clients?q=0610101010')).json()).clients.some((c) => c.email === 'ines@example.com'));
+  assert.ok((await (await go('/atelier/rdv/clients?q=auto%20plus')).json()).pros.some((p) => p.name === 'Auto Plus'));
+  assert.deepEqual(await (await go('/atelier/rdv/clients?q=a')).json(), { clients: [], pros: [] });
+});

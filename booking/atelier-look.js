@@ -369,6 +369,10 @@ html.js #rdv:not(:has([name=mode][value=tpe]:checked)) .tpebox{display:none}
 .certgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 14px;margin-top:8px}
 .slot.is-on{background:rgba(var(--gold-rgb),.18);border-color:rgba(var(--gold-rgb),.7)}
 .now__day{align-self:flex-start;margin-top:12px}
+/* « Client existant » of « Nouveau RDV » */
+.pickbox{position:relative}.pickbox input{padding-left:42px}.pickbox .ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--gold-2)}
+.pickres{display:grid;gap:6px;margin-top:8px}.pickres:empty{display:none}.pickres .hit{grid-template-columns:minmax(0,1fr)}
+.picked-client{padding:12px 14px;border-radius:14px;background:rgba(127,212,155,.1);border:1px solid rgba(127,212,155,.35)}.picked-client b{color:var(--ok)}.picked-client small{display:block;margin:8px 0 6px;color:var(--dim)}.carchips{display:flex;flex-wrap:wrap;gap:6px}
 /* the client file: the selection (type, silence, sorting), the pro tag */
 .filters__row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.filters .checks{margin:10px 0}.tag--pro{background:rgba(110,160,255,.14);color:#9cc0ff;border-color:rgba(110,160,255,.4)}
 @media (max-width:640px){.filters__row{grid-template-columns:minmax(0,1fr)}}
@@ -1103,6 +1107,64 @@ export const JS = String.raw`(function () {
       });
     })();
   }
+  // « Nouveau RDV »: an existing client picked, the form filled (and the price redrawn); a pro
+  // opens the form filled with its card and its code
+  (function () {
+    var q = d.querySelector('[data-clientpick]'), out = d.querySelector('[data-pickres]'), t;
+    if (!q || !out) return;
+    function set(id, v) { var el = d.getElementById(id); if (el && v != null) el.value = v; }
+    function fillCar(c) { set('r-marque', c.make || ''); set('r-modele', c.model || ''); set('r-annee', c.year || ''); if (c.plate) set('r-plaque', c.plate); }
+    function chosen(c) {
+      set('r-prenom', c.first || ''); set('r-nom', c.last || ''); set('r-tel', c.phone || ''); set('r-email', c.email || '');
+      set('r-plaque', c.plate || '');
+      if (c.cars.length) fillCar(c.cars[0]);
+      out.textContent = '';
+      var p = d.createElement('div'); p.className = 'picked-client';
+      var b = d.createElement('b'); b.textContent = '✓ ' + [c.first, c.last].filter(Boolean).join(' '); p.appendChild(b);
+      if (c.cars.length > 1) {
+        var s = d.createElement('small'); s.textContent = 'Quel véhicule ?'; p.appendChild(s);
+        var row = d.createElement('div'); row.className = 'carchips';
+        c.cars.forEach(function (car, i) {
+          var k = d.createElement('button'); k.type = 'button'; k.className = 'slot' + (i ? '' : ' is-on'); k.textContent = car.label;
+          k.addEventListener('click', function () { fillCar(car); Array.prototype.forEach.call(row.children, function (x) { x.classList.toggle('is-on', x === k); }); var m = d.getElementById('r-prenom'); if (m) m.dispatchEvent(new Event('input', { bubbles: true })); });
+          row.appendChild(k);
+        });
+        p.appendChild(row);
+      }
+      out.appendChild(p);
+      q.value = '';
+      var m = d.getElementById('r-prenom');
+      if (m) m.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    q.addEventListener('input', function (e) {
+      e.stopPropagation();
+      clearTimeout(t);
+      var v = q.value.trim();
+      if (v.length < 2) { out.textContent = ''; return; }
+      t = setTimeout(function () {
+        fetch('/atelier/rdv/clients?q=' + encodeURIComponent(v), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+          if (q.value.trim() !== v) return;
+          out.textContent = '';
+          if (!j.clients.length && !j.pros.length) { var e0 = d.createElement('p'); e0.className = 'dim'; e0.textContent = 'Aucun client trouvé : remplissez un nouveau client ci-dessous.'; out.appendChild(e0); return; }
+          j.clients.forEach(function (c) {
+            var a = d.createElement('button'); a.type = 'button'; a.className = 'hit';
+            var b = d.createElement('b'); b.textContent = [c.first, c.last].filter(Boolean).join(' ') || c.email; a.appendChild(b);
+            var sm = d.createElement('small'); sm.textContent = [c.phone, c.email].filter(Boolean).join(' · '); a.appendChild(sm);
+            if (c.cars.length) { var s2 = d.createElement('small'); s2.textContent = c.cars.map(function (x) { return x.label; }).join(' · '); a.appendChild(s2); }
+            a.addEventListener('click', function () { chosen(c); });
+            out.appendChild(a);
+          });
+          j.pros.forEach(function (p) {
+            var a = d.createElement('a'); a.className = 'hit'; a.href = '/atelier/rdv/nouveau?pro=' + p.id;
+            var b = d.createElement('b'); b.textContent = p.name + ' (pro)'; a.appendChild(b);
+            var sm = d.createElement('small'); sm.textContent = [p.contact, p.code ? 'code ' + p.code : ''].filter(Boolean).join(' · '); a.appendChild(sm);
+            out.appendChild(a);
+          });
+        }).catch(function () {});
+      }, 200);
+    });
+    q.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var first = out.querySelector('.hit'); if (first) first.click(); } });
+  })();
   // the certificate: the whole rear in one go
   (function () {
     var rear = d.querySelector('[data-rear]');
