@@ -1,0 +1,151 @@
+{
+ "photos": [
+  {
+   "id": "mclaren-720s-covering-noir-satine-avant",
+   "file": "mclaren-720s-covering-noir-satine-avant.jpg",
+   "service": "covering-dechromage",
+   "category": "ADDITIONAL",
+   "description": "Face avant de la McLaren 720S noir satiné, phares effilés et jantes noires"
+  },
+  {
+   "id": "porsche-panamera-vitres-teintees-arriere",
+   "file": "porsche-panamera-vitres-teintees-arriere.jpg",
+   "service": "vitres-teintees",
+   "category": "ADDITIONAL",
+   "description": "Arrière de la Porsche Panamera 4 noire, lunette teintée et bandeau de feux"
+  },
+  {
+   "id": "bmw-serie-2-ciel-etoile-habitacle",
+   "file": "bmw-serie-2-ciel-etoile-habitacle.jpg",
+   "service": "ciel-etoile",
+   "category": "ADDITIONAL",
+   "description": "Habitacle de la BMW Série 2 de nuit : ciel étoilé au-dessus des sièges avant"
+  },
+  {
+   "id": "bmw-m2-detailing-lustrage-avant",
+   "file": "bmw-m2-detailing-lustrage-avant.jpg",
+   "service": "detailing-carrosserie",
+   "category": "EXTERIOR",
+   "description": "BMW M2 noire devant l’atelier, reflets nets sur le capot et les ailes"
+  },
+  {
+   "id": "audi-s1-ciel-etoile-violet",
+   "file": "audi-s1-ciel-etoile-violet.jpg",
+   "service": "ciel-etoile",
+   "category": "ADDITIONAL",
+   "description": "Ciel étoilé de l’Audi S1 en lumière violette, sièges S1 au premier plan"
+  },
+  {
+   "id": "porsche-cayenne-coupe-vitres-teintees",
+   "file": "porsche-cayenne-coupe-vitres-teintees.jpg",
+   "service": "vitres-teintees",
+   "category": "ADDITIONAL",
+   "description": "Porsche Cayenne Coupé gris foncé, vitres arrière et lunette teintées, vue de trois quarts arrière"
+  },
+  {
+   "id": "bmw-m2-covering-violet-34",
+   "file": "bmw-m2-covering-violet-34.jpg",
+   "service": "covering-dechromage",
+   "category": "ADDITIONAL",
+   "description": "BMW M2 violette de trois quarts avant, jantes bronze"
+  },
+  {
+   "id": "audi-a7-sportback-vitres-teintees-profil",
+   "file": "audi-a7-sportback-vitres-teintees-profil.jpg",
+   "service": "vitres-teintees",
+   "category": "ADDITIONAL",
+   "description": "Audi A7 Sportback grise de profil, vitres arrière sombres"
+  },
+  {
+   "id": "porsche-911-detailing",
+   "file": "porsche-911-detailing.jpg",
+   "service": "detailing-carrosserie",
+   "category": "EXTERIOR",
+   "description": "Porsche 911 orange après detailing devant l’atelier SOLAR CAR de Vouvray"
+  },
+  {
+   "id": "mercedes-c63-break-vitres-teintees",
+   "file": "mercedes-c63-break-vitres-teintees.jpg",
+   "service": "vitres-teintees",
+   "category": "ADDITIONAL",
+   "description": "Mercedes-AMG C 63 Break blanche, vitres arrière et lunette teintées noires"
+  },
+  {
+   "id": "audi-a6-allroad-covering-kaki",
+   "file": "audi-a6-allroad-covering-kaki.jpg",
+   "service": "covering-dechromage",
+   "category": "ADDITIONAL",
+   "description": "Audi A6 Allroad en covering vert kaki mat, jantes bronze, vue de trois quarts avant"
+  },
+  {
+   "id": "mercedes-a45-vitres-teintees",
+   "file": "mercedes-a45-vitres-teintees.jpg",
+   "service": "vitres-teintees",
+   "category": "ADDITIONAL",
+   "description": "Mercedes-AMG A 45 blanche de profil, vitres arrière teintées"
+  },
+  {
+   "id": "mercedes-classe-a-covering",
+   "file": "mercedes-classe-a-covering.jpg",
+   "service": "covering-dechromage",
+   "category": "EXTERIOR",
+   "description": "Mercedes Classe A grise aux accents orange devant l’atelier ouvert"
+  },
+  {
+   "id": "mazda-3-detailing-profil",
+   "file": "mazda-3-detailing-profil.jpg",
+   "service": "detailing-carrosserie",
+   "category": "EXTERIOR",
+   "description": "Mazda 3 gris clair de profil devant la porte de l’atelier"
+  },
+  {
+   "id": "peugeot-206-feux-arriere-fonces",
+   "file": "peugeot-206-feux-arriere-fonces.jpg",
+   "service": "feux-arriere-teintes",
+   "category": "ADDITIONAL",
+   "description": "Peugeot 206 blanche aux feux arrière foncés, vue de trois quarts arrière"
+  },
+  {
+   "id": "mclaren-720s-covering-noir-satine-34",
+   "file": "mclaren-720s-covering-noir-satine-34.jpg",
+   "service": "covering-dechromage",
+   "category": "ADDITIONAL",
+   "description": "McLaren 720S noir satiné de trois quarts avant, reflets doux du film sous l’éclairage"
+  },
+  {
+   "id": "bmw-m2-detailing-lustrage-arriere",
+   "file": "bmw-m2-detailing-lustrage-arriere.jpg",
+   "service": "detailing-carrosserie",
+   "category": "ADDITIONAL",
+   "description": "Arrière de la BMW M2 noire, peinture lustrée et feux arrière"
+  },
+  {
+   "id": "bmw-m2-covering-violet-profil",
+   "file": "bmw-m2-covering-violet-profil.jpg",
+   "service": "covering-dechromage",
+   "category": "ADDITIONAL",
+   "description": "BMW M2 violette vue de près, reflets du film sur l’aile et le capot"
+  },
+  {
+   "id": "porsche-911-detailing-arriere",
+   "file": "porsche-911-detailing-arriere.jpg",
+   "service": "detailing-carrosserie",
+   "category": "ADDITIONAL",
+   "description": "Arrière de la Porsche 911 orange, peinture brillante sous le ciel bleu"
+  },
+  {
+   "id": "audi-a6-allroad-covering-kaki-arriere",
+   "file": "audi-a6-allroad-covering-kaki-arriere.jpg",
+   "service": "covering-dechromage",
+   "category": "ADDITIONAL",
+   "description": "Audi A6 Allroad vert kaki mat de trois quarts arrière"
+  },
+  {
+   "id": "mercedes-classe-a-covering-34",
+   "file": "mercedes-classe-a-covering-34.jpg",
+   "service": "covering-dechromage",
+   "category": "ADDITIONAL",
+   "description": "Mercedes Classe A grise de trois quarts avant, filets orange sur le bouclier"
+  }
+ ]
+}
